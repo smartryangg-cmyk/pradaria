@@ -1,0 +1,13 @@
+# Worker só com a sala multijogador (Durable Object). O site (Pages) fala com ela pelo binding SALA.
+name = "pradaria-sala"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+workers_dev = false
+
+[[durable_objects.bindings]]
+name = "SALA"
+class_name = "Sala"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Sala"]

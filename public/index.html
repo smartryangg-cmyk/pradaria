@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#5bb0e8">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Pradaria</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icone.svg" type="image/svg+xml">
+<link rel="stylesheet" href="estilo.css?v=1">
+</head>
+<body>
+<canvas id="tela"></canvas>
+
+<!-- HUD do jogo -->
+<div id="hud" hidden>
+  <div id="mira"></div>
+  <div id="topo">
+    <button id="bt-menu" class="redondo" aria-label="Menu">☰</button>
+    <div id="status"></div>
+    <div id="emotes">
+      <button data-emote="👋" aria-label="Acenar">👋</button>
+      <button data-emote="❤️" aria-label="Coração">❤️</button>
+      <button data-emote="😄" aria-label="Sorriso">😄</button>
+      <button data-emote="⭐" aria-label="Estrela">⭐</button>
+    </div>
+  </div>
+  <div id="aviso"></div>
+  <div id="barra"></div>
+  <div id="botoes-toque">
+    <button id="bt-voar" class="redondo" aria-label="Voar">🕊️</button>
+    <button id="bt-descer" class="redondo" aria-label="Descer" hidden>⬇</button>
+    <button id="bt-pular" class="redondo grande" aria-label="Pular">⬆</button>
+  </div>
+  <div id="dica-toque">Toque: colocar bloco ou fazer carinho · Segure: quebrar</div>
+  <div id="joy"><div id="joy-pino"></div></div>
+</div>
+
+<!-- inventário -->
+<div id="inventario" class="janela" hidden>
+  <div class="caixa">
+    <h2>Blocos</h2>
+    <p class="sub">Escolha um bloco para a mão</p>
+    <div id="grade"></div>
+    <button class="bt" data-fechar>Fechar</button>
+  </div>
+</div>
+
+<!-- pausa / ajustes -->
+<div id="pausa" class="janela" hidden>
+  <div class="caixa">
+    <h2>Pausa</h2>
+    <p id="pausa-mundo" class="sub"></p>
+    <label class="campo">Distância de visão
+      <input id="aj-dist" type="range" min="2" max="6" step="1">
+    </label>
+    <label class="campo">Qualidade da imagem
+      <input id="aj-qual" type="range" min="0.5" max="1.5" step="0.1">
+    </label>
+    <label class="campo">Sensibilidade do toque
+      <input id="aj-sens" type="range" min="0.002" max="0.01" step="0.0005">
+    </label>
+    <label class="campo linha"><input id="aj-som" type="checkbox"> Sons</label>
+    <label class="campo linha"><input id="aj-fps" type="checkbox"> Mostrar FPS</label>
+    <button class="bt verde" data-fechar>Voltar a jogar</button>
+    <button class="bt" id="bt-sair-mundo">Sair do mundo</button>
+  </div>
+</div>
+
+<!-- menus -->
+<div id="menu" class="janela fundo">
+  <div class="caixa" id="m-inicio">
+    <div class="logo">Pradaria</div>
+    <p class="sub">Construa, explore e faça carinho nos bichinhos 🐑🐷🐔</p>
+    <button class="bt verde grande" id="bt-entrar">Entrar</button>
+    <button class="bt" id="bt-criar-conta">Criar conta</button>
+    <button class="bt" id="bt-sozinho">Jogar sem conta</button>
+  </div>
+
+  <form class="caixa" id="m-conta" hidden>
+    <h2 id="conta-titulo">Entrar</h2>
+    <label class="campo">Nome de jogador<input id="c-nome" autocomplete="username" maxlength="16" required></label>
+    <label class="campo">Senha<input id="c-senha" type="password" autocomplete="current-password" minlength="4" required></label>
+    <div id="c-cores" class="cores" hidden></div>
+    <p id="c-erro" class="erro"></p>
+    <button class="bt verde grande" type="submit" id="c-ok">Entrar</button>
+    <button class="bt" type="button" data-voltar>Voltar</button>
+  </form>
+
+  <div class="caixa" id="m-mundos" hidden>
+    <h2>Olá, <span id="m-nome"></span>!</h2>
+    <p class="sub">Escolha um mundo</p>
+    <div id="lista-mundos"></div>
+    <div class="linha-bts">
+      <button class="bt verde" id="bt-novo-mundo">+ Novo mundo</button>
+      <button class="bt" id="bt-codigo">Entrar com código</button>
+    </div>
+    <button class="bt" id="bt-sozinho2">Jogar sem internet</button>
+    <button class="bt fraco" id="bt-sair-conta">Sair da conta</button>
+  </div>
+
+  <form class="caixa" id="m-novo" hidden>
+    <h2 id="novo-titulo">Novo mundo</h2>
+    <label class="campo" id="novo-rotulo">Nome do mundo<input id="n-nome" maxlength="24" required></label>
+    <p id="n-erro" class="erro"></p>
+    <button class="bt verde grande" type="submit">Criar</button>
+    <button class="bt" type="button" data-voltar-mundos>Voltar</button>
+  </form>
+
+  <div class="caixa" id="m-carregando" hidden>
+    <div class="logo pequeno">Pradaria</div>
+    <p class="sub" id="carregando-txt">Preparando o mundo…</p>
+    <div class="girando"></div>
+  </div>
+</div>
+
+<div id="fps" hidden></div>
+<script type="module" src="js/main.js?v=1"></script>
+</body>
+</html>

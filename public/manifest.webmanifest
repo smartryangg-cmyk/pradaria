@@ -1,0 +1,3 @@
+{ "name": "Pradaria", "short_name": "Pradaria", "start_url": "/", "display": "fullscreen", "orientation": "landscape",
+  "background_color": "#8fd3ff", "theme_color": "#5bb0e8",
+  "icons": [{ "src": "icone.svg", "sizes": "any", "type": "image/svg+xml" }] }

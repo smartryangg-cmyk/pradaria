@@ -1,0 +1,14 @@
+{
+  "name": "pradaria",
+  "version": "1.0.0",
+  "description": "Jogo pacífico de construir, no navegador",
+  "scripts": {
+    "dev:sala": "cd sala-worker && wrangler dev --port 8790 --persist-to ../.estado",
+    "dev": "wrangler pages dev --port 8788 --persist-to .estado",
+    "deploy": "cd sala-worker && wrangler deploy && cd .. && wrangler pages deploy --branch main"
+  },
+  "devDependencies": {
+    "wrangler": "^4.158.0"
+  },
+  "private": true
+}

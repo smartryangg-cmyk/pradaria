@@ -1,0 +1,14 @@
+# Site do jogo (Cloudflare Pages + Functions). O deploy pelo GitHub Actions preenche o database_id.
+name = "pradaria"
+pages_build_output_dir = "./public"
+compatibility_date = "2026-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pradaria-db"
+database_id = "COLOCAR_ID_DO_D1"
+
+[[durable_objects.bindings]]
+name = "SALA"
+class_name = "Sala"
+script_name = "pradaria-sala"

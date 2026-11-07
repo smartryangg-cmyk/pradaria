@@ -1,0 +1,27 @@
+import { createRequire } from 'module'; const { chromium } = createRequire(import.meta.url)('playwright');
+const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const ctx = await b.newContext({ viewport: { width: 1024, height: 640 }, hasTouch: process.argv[2] === 'toque', isMobile: process.argv[2] === 'toque' });
+const p = await ctx.newPage();
+const erros = [];
+p.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') erros.push(m.type() + ': ' + m.text()); });
+p.on('pageerror', (e) => erros.push('PAGEERROR ' + e.message));
+await p.goto('http://localhost:8765/#teste');
+await p.waitForTimeout(800);
+await p.screenshot({ path: '' + (process.env.SAIDA || '/tmp') + '/menu.png' });
+await p.click('#bt-sozinho');
+await p.waitForTimeout(6000);
+await p.screenshot({ path: '' + (process.env.SAIDA || '/tmp') + '/jogo1.png' });
+const info = await p.evaluate(() => { const j = window.__jogo.jog; return { pos: j.pos, chunks: window.__jogo.mundo.chunks.size, bichos: window.__jogo.bichos.lista.map(b => b.especie) }; });
+console.log(JSON.stringify(info));
+// olhar um pouco para baixo e colocar/quebrar
+await p.evaluate(() => { const j = window.__jogo.jog; j.pitch = -0.6; });
+await p.waitForTimeout(300);
+await p.evaluate(() => { window.__jogo.quebrar(null); window.__jogo.usar(null); window.__jogo.usar(null); });
+await p.waitForTimeout(500);
+await p.evaluate(() => { const j = window.__jogo.jog; j.pitch = -0.15; j.yaw = 1.2; });
+await p.waitForTimeout(8000);
+await p.screenshot({ path: '' + (process.env.SAIDA || '/tmp') + '/jogo2.png' });
+const fps = await p.evaluate(() => new Promise(r => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 2000) requestAnimationFrame(f); else r(n / 2); }; requestAnimationFrame(f); }));
+console.log('fps', fps, 'bichos', await p.evaluate(() => window.__jogo.bichos.lista.length));
+console.log(erros.slice(0, 15).join('\n'));
+await b.close();
