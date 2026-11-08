@@ -140,6 +140,8 @@ const disparar = async (p, vezes = 1, espera = 360) => { for (let i = 0; i < vez
   await p.click('#bt-sozinho');
   await p.waitForSelector('#m-novo:not([hidden]) #n-opcoes:not([hidden])');
   await p.click('[data-opcao=armas]');
+  // modo criativo (blocos à vontade) para testar colocar bloco de mãos livres
+  if (await p.getAttribute('[data-opcao=sobrevivencia]', 'aria-pressed') === 'true') await p.click('[data-opcao=sobrevivencia]');
   await p.click('#m-novo button[type=submit]');
   await p.waitForFunction(() => window.__jogo && window.__jogo.jog && !window.__jogo.pausado);
   await esperar(p, 2500);
