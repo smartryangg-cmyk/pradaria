@@ -1,6 +1,7 @@
 // Pradaria: jogo de construir e explorar, pacífico, para o navegador.
 import * as THREE from '../vendor/three.module.min.js';
-import { criarAtlas, iconeBloco, INVENTARIO, B, AR, BLOCOS, SOLIDO, AGUA } from './blocos.js';
+import { criarAtlas, iconeBloco, INVENTARIO, INVENTARIO_MAQUINAS, B, E, AR, BLOCOS, SOLIDO, AGUA, PRECISA_CHAO } from './blocos.js';
+import { BASE, PRECISA_ENERGIA, ELETRICO } from './energia.js';
 import { Mundo, ALT, NIVEL_AGUA } from './mundo.js';
 import { Jogador, OLHOS } from './jogador.js';
 import { Controles } from './controles.js';
@@ -132,11 +133,18 @@ function desenharBarra() {
   el.appendChild(mais);
 }
 
+let abaInv = 'blocos';
+const maquinasLigadas = () => opcoesMundo.maquinas !== false;
 function abrirInventario() {
   if (!jogando) return;
   const g = $('#grade');
-  if (!g.childElementCount) {
-    for (const id of INVENTARIO) {
+  if (!maquinasLigadas()) abaInv = 'blocos';
+  $('#abas-inv').hidden = !maquinasLigadas();
+  document.querySelectorAll('[data-aba]').forEach((b) => b.classList.toggle('sel', b.dataset.aba === abaInv));
+  $('#dica-maquinas').hidden = abaInv !== 'maquinas';
+  g.innerHTML = '';
+  {
+    for (const id of abaInv === 'maquinas' ? INVENTARIO_MAQUINAS : INVENTARIO) {
       const b = document.createElement('button');
       b.title = BLOCOS[id].nome;
       b.appendChild(iconeBloco(atlasCanvas, id, 48));
@@ -150,6 +158,7 @@ function abrirInventario() {
   }
   if (document.pointerLockElement) document.exitPointerLock();
   $('#inventario').hidden = false;
+  $('#inv-titulo').textContent = abaInv === 'maquinas' ? 'Engenharia' : 'Blocos';
   pausado = true;
 }
 
@@ -167,6 +176,7 @@ function fecharJanelas() {
   if (cmd) cmd.fechar();
   pausado = false;
 }
+document.querySelectorAll('[data-aba]').forEach((b) => b.addEventListener('click', () => { abaInv = b.dataset.aba; som.clique(); abrirInventario(); }));
 document.querySelectorAll('[data-fechar]').forEach((b) => b.addEventListener('click', fecharJanelas));
 $('#bt-menu').addEventListener('click', abrirPausa);
 // ---------- tela cheia ----------
@@ -327,16 +337,83 @@ function usar(ponto) {
   if (m.aldeao) { aldeoes.conversar(m.aldeao, jog, Math.sin(tempoDia * Math.PI * 2) < -0.15); return; }
   const h = m.bloco;
   if (!h) return;
+  // tocar na alavanca liga/desliga; no botão, aperta
+  if (BASE[h.b] === E.ALAVANCA) {
+    mundo.definir(h.x, h.y, h.z, h.b === E.ALAVANCA ? E.ALAVANCA_LIGADA : E.ALAVANCA);
+    som.alavanca();
+    return;
+  }
+  if (BASE[h.b] === E.BOTAO) { apertarBotao(h.x, h.y, h.z); return; }
   const x = h.x + h.n[0], y = h.y + h.n[1], z = h.z + h.n[2];
-  const novo = barra[slotSel];
+  let novo = barra[slotSel];
   if (y < 1 || y >= ALT) return;
   const atual = mundo.bloco(x, y, z);
   if (atual !== AR && !AGUA[atual] && !BLOCOS[atual].planta) return;
   if (novo === B.AGUA && atual === B.AGUA) return;
   if (SOLIDO[novo] && jog.ocupa(x, y, z)) return;
-  if (BLOCOS[novo].planta && !SOLIDO[mundo.bloco(x, y - 1, z)]) return;
+  if (PRECISA_CHAO[novo] && !SOLIDO[mundo.bloco(x, y - 1, z)]) return;
+  // esteira: anda para onde o jogador está olhando
+  if (novo === E.ESTEIRA) {
+    const fx = -Math.sin(jog.yaw), fz = -Math.cos(jog.yaw);
+    novo = E.ESTEIRA + (Math.abs(fx) > Math.abs(fz) ? (fx > 0 ? 0 : 2) : (fz > 0 ? 1 : 3));
+  }
   mundo.definir(x, y, z, novo);
   som.colocar();
+  dicaEnergia(novo, x, y, z);
+}
+
+// ---------- engenharia ----------
+function apertarBotao(x, y, z) {
+  if (mundo.bloco(x, y, z) !== E.BOTAO) return;
+  mundo.definir(x, y, z, E.BOTAO_LIGADO);
+  som.alavanca();
+  const m = mundo;
+  setTimeout(() => { if (mundo === m && m.bloco(x, y, z) === E.BOTAO_LIGADO) m.definir(x, y, z, E.BOTAO); }, 1500);
+}
+// dicas para quem está começando (uma vez cada)
+const dicasDadas = new Set();
+function dicaEnergia(novo, x, y, z) {
+  if (!PRECISA_ENERGIA.has(BASE[novo]) || dicasDadas.has('energia')) return;
+  setTimeout(() => {
+    if (!mundo || dicasDadas.has('energia')) return;
+    if (mundo.bloco(x, y, z) === novo) { // continua desligado
+      dicasDadas.add('energia');
+      aviso('⚡ Essa máquina precisa de energia! Coloque uma Alavanca encostada (ou ligue com Fio) e toque nela.', 5000);
+    }
+  }, 400);
+}
+// placa de pisar: quem pisa liga; quando sai (e ninguém mais está nela), desliga
+let minhaPlaca = null;
+function vigiarPlaca() {
+  const x = Math.floor(jog.pos.x), y = Math.floor(jog.pos.y + 0.05), z = Math.floor(jog.pos.z);
+  const b = mundo.bloco(x, y, z);
+  const aqui = BASE[b] === E.PLACA && !jog.voando ? [x, y, z] : null;
+  if (aqui && b === E.PLACA) { mundo.definir(x, y, z, E.PLACA_LIGADA); som.clique(); }
+  if (minhaPlaca && (!aqui || aqui.join() !== minhaPlaca.join())) {
+    const [px, py, pz] = minhaPlaca;
+    let alguem = false;
+    for (const o of outros.values()) if (Math.floor(o.alvo.x) === px && Math.floor(o.alvo.y + 0.05) === py && Math.floor(o.alvo.z) === pz) alguem = true;
+    if (!alguem && mundo.bloco(px, py, pz) === E.PLACA_LIGADA) mundo.definir(px, py, pz, E.PLACA);
+  }
+  minhaPlaca = aqui;
+}
+// confete: chuva de papeizinhos coloridos
+const CORES_CONFETE = [0xe8433f, 0xf2c72e, 0x3f6fd9, 0x5cb83a, 0xf29ac2, 0xffffff, 0x9c5bd9];
+const matsConfete = CORES_CONFETE.map((c) => new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide }));
+const geoConfete = new THREE.PlaneGeometry(0.14, 0.09);
+function soltarConfete(x, y, z) {
+  for (let i = 0; i < 26; i++) {
+    const m = new THREE.Mesh(geoConfete, matsConfete[i % matsConfete.length]);
+    m.position.set(x + 0.5, y + 1.05, z + 0.5);
+    m.rotation.set(Math.random() * 6, Math.random() * 6, 0);
+    cena.add(m);
+    partQ.push({ m, v: [(Math.random() - 0.5) * 4, 7 + Math.random() * 5, (Math.random() - 0.5) * 4], vida: 2 + Math.random(), confete: true, giro: (Math.random() - 0.5) * 12, dono: 'confete' });
+  }
+}
+function eventoEnergia(tipo, x, y, z) {
+  if (!jog || (jog.pos.x - x) ** 2 + (jog.pos.y - y) ** 2 + (jog.pos.z - z) ** 2 > 40 * 40) return;
+  if (tipo === E.SINO) { som.sino(y); bichos && bichos.emoji('🎵', x + 0.5, y + 1.6, z + 0.5, 1.2, 0.5); }
+  else if (tipo === E.CONFETE) { som.confete(); soltarConfete(x, y, z); }
 }
 
 function quebrar(ponto) {
@@ -460,6 +537,8 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
     edicoesPendentes = true;
     if (sala) sala.enviar({ t: 'bloco', x, y, z, b });
   };
+  mundo.energia.aoEvento = eventoEnergia;
+  minhaPlaca = null;
   jog = new Jogador(mundo);
   let avisoBorda = 0;
   jog.aoBorda = () => { if (tempoTotal - avisoBorda > 6) { avisoBorda = tempoTotal; aviso('Aqui é o fim do mundo! Só mar daqui pra frente', 2200, 'gota'); } };
@@ -735,7 +814,10 @@ function laco(agora) {
   camera.position.set(jog.pos.x, jog.pos.y + OLHOS, jog.pos.z);
   camera.rotation.set(jog.pitch, jog.yaw, 0, 'YXZ');
 
+  mundo.energia.noite = graf.U.uNoite.value > 0.5;
   mundo.atualizar(jog.pos.x, jog.pos.z, ehToque ? 5 : 8);
+  if (!pausado) vigiarPlaca();
+  if (jog.quicou) { jog.quicou = false; som.boing(); }
   bichos.atualizar(dt, jog, tempoTotal);
   aldeoes.atualizar(dt, jog, Math.sin(tempoDia * Math.PI * 2));
   monstros.atualizar(pausado ? 0 : dt, jog, tempoDia);
@@ -750,7 +832,9 @@ function laco(agora) {
   // partículas de quebra
   for (let i = partQ.length - 1; i >= 0; i--) {
     const q = partQ[i];
-    q.vida -= dt; q.v[1] -= 15 * dt;
+    q.vida -= dt;
+    if (q.confete) { q.v[1] = Math.max(q.v[1] - 14 * dt, -1.6); q.v[0] *= 1 - dt * 1.5; q.v[2] *= 1 - dt * 1.5; q.m.rotation.x += q.giro * dt; q.m.rotation.y += q.giro * 0.7 * dt; }
+    else q.v[1] -= 15 * dt;
     q.m.position.x += q.v[0] * dt; q.m.position.y += q.v[1] * dt; q.m.position.z += q.v[2] * dt;
     if (q.vida <= 0) { cena.remove(q.m); partQ.splice(i, 1); }
   }
@@ -830,4 +914,4 @@ camera.position.set(0, 40, 0);
 if (conta.token) abrirMundos(); else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, graf, renderer, ajustes, jogarLocal, usar, quebrar, cmd }; }
+if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, camera, graf, renderer, ajustes, jogarLocal, usar, quebrar, cmd }; }

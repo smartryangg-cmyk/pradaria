@@ -56,6 +56,18 @@ export class Som {
   }
   passo() { this.ruido(0.05, { vol: 0.12, freq: 500 }); }
   clique() { this.tom(880, 0.05, { tipo: 'sine', vol: 0.25 }); }
+  // sino: a nota depende da altura do bloco (escala pentatônica: sempre soa bonito)
+  sino(altura = 0) {
+    const escala = [0, 2, 4, 7, 9];
+    const n = ((altura % 10) + 10) % 10;
+    const f = 523.25 * Math.pow(2, (escala[n % 5] + 12 * Math.floor(n / 5)) / 12);
+    this.tom(f, 1.2, { tipo: 'sine', vol: 0.4 });
+    this.tom(f * 2.01, 0.6, { tipo: 'sine', vol: 0.12 });
+    this.tom(f * 3.2, 0.25, { tipo: 'triangle', vol: 0.05 });
+  }
+  confete() { this.ruido(0.18, { vol: 0.35, freq: 2500 }); for (let i = 0; i < 4; i++) this.tom(1200 + i * 260, 0.08, { tipo: 'triangle', vol: 0.12, atraso: 0.05 + i * 0.05 }); }
+  alavanca() { this.tom(300, 0.05, { tipo: 'square', vol: 0.15, ate: 200 }); this.ruido(0.04, { vol: 0.2, freq: 3000 }); }
+  boing() { this.tom(180, 0.3, { tipo: 'sine', vol: 0.35, ate: 520 }); }
   oi() { this.tom(660, 0.12, { tipo: 'sine', vol: 0.3 }); this.tom(990, 0.18, { tipo: 'sine', vol: 0.3, atraso: 0.1 }); }
 
   bicho(tipo) {

@@ -1,9 +1,10 @@
 // Mundo em pedaços (chunks) de 16x16x64: geração do terreno, edições e montagem das malhas.
 import * as THREE from '../vendor/three.module.min.js';
 import { criarRuido, hash3 } from './ruido.js';
-import { AR, B, SOLIDO, OPACO, PLANTA, BLOCOS, AGUA, NIVEL, AGUA_CORRENTE, AGUA_CAINDO, uvTile } from './blocos.js';
+import { AR, B, E, SOLIDO, OPACO, PLANTA, BLOCOS, AGUA, NIVEL, AGUA_CORRENTE, AGUA_CAINDO, BRILHO, PRECISA_CHAO, uvTile } from './blocos.js';
 import { Vilas } from './vilas.js';
 import { opcoesMundo, limiteMundo } from './opcoes-mundo.js';
+import { Energia, desenharForma } from './energia.js';
 
 export const CX = 16, CZ = 16, ALT = 64;
 export const NIVEL_AGUA = 20;
@@ -54,6 +55,7 @@ export class Mundo {
     this.ultimoPassoAgua = 0;
     this.vilas = new Vilas(this);
     this.ocultos = new Map(); // "x,y,z" -> [x,y,z]: blocos sendo escavados (desenhados à parte)
+    this.energia = new Energia(this); // fios e máquinas
   }
 
   // esconde/mostra um bloco da malha do pedaço (o bloco continua existindo para colisão e mira)
@@ -156,7 +158,12 @@ export class Mundo {
       this.chunks.set(k, c);
       // a água corrente não é salva: perto de cada edição ela é recalculada
       const ed = this.edicoes.get(k);
-      if (ed) for (const i of ed.keys()) this.agendarAgua(cx * CX + i % CX, Math.floor(i / (CX * CZ)), cz * CZ + Math.floor(i / CX) % CZ);
+      // (e as máquinas também recalculam a energia)
+      if (ed) for (const [i, b] of ed) {
+        const x = cx * CX + i % CX, y = Math.floor(i / (CX * CZ)), z = cz * CZ + Math.floor(i / CX) % CZ;
+        this.agendarAgua(x, y, z);
+        if (b >= 100) this.energia.agendar(x, y, z, true);
+      }
     }
     return c;
   }
@@ -192,9 +199,10 @@ export class Mundo {
     if (lx === CX - 1) this.marcarSujo(cx + 1, cz);
     if (lz === 0) this.marcarSujo(cx, cz - 1);
     if (lz === CZ - 1) this.marcarSujo(cx, cz + 1);
-    // planta sem chão some
-    if (!SOLIDO[b] && PLANTA[this.bloco(x, y + 1, z)]) this.definir(x, y + 1, z, AR, daRede);
+    // planta (ou fio, botão...) sem chão some
+    if (!SOLIDO[b] && PRECISA_CHAO[this.bloco(x, y + 1, z)]) this.definir(x, y + 1, z, AR, daRede);
     this.agendarAgua(x, y, z);
+    this.energia.agendar(x, y, z);
     if (!daRede && this.aoMudarBloco) this.aoMudarBloco(x, y, z, b);
     return true;
   }
@@ -307,7 +315,7 @@ export class Mundo {
       if (!this.edicoes.has(k)) this.edicoes.set(k, new Map());
       this.edicoes.get(k).set(idx(x - cx * CX, y, z - cz * CZ), b);
       const c = this.chunks.get(k);
-      if (c) { c.dados[idx(x - cx * CX, y, z - cz * CZ)] = b; c.sujo = true; this.agendarAgua(x, y, z); }
+      if (c) { c.dados[idx(x - cx * CX, y, z - cz * CZ)] = b; c.sujo = true; this.agendarAgua(x, y, z); this.energia.agendar(x, y, z, true); }
     }
   }
 
@@ -374,6 +382,7 @@ export class Mundo {
       return n ? soma / n : 0.88;
     };
     const HC = [[0, 0], [0, 0]];
+    const FORMA_A = { P, U, C, I, N, O, L }; // peças de engenharia (fio, alavanca...)
 
     let topo = 0;
     for (let i = d.length - 1; i >= 0; i--) if (d[i]) { topo = Math.floor(i / (CX * CZ)); break; }
@@ -382,7 +391,8 @@ export class Mundo {
       const b = d[idx(x, y, z)];
       if (b === AR) continue;
       const def = BLOCOS[b];
-      if (b === B.LAMPIAO) luzes.push([ox + x + 0.5, y + 0.5, oz + z + 0.5]);
+      if (b === B.LAMPIAO || b === E.LAMPADA_LIGADA) luzes.push([ox + x + 0.5, y + 0.5, oz + z + 0.5]);
+      if (def.forma) { desenharForma(FORMA_A, get, x, y, z, b); continue; }
       if (def.planta) {
         const [u0, v0, u1, v1] = uvTile(def.tiles[0]);
         const base = P.length / 3;
@@ -441,7 +451,7 @@ export class Mundo {
           CC.push(v, v, v);
           N.push(f.n[0], f.n[1], f.n[2]);
           O.push(b === B.FOLHAS ? 0.6 : 0);
-          L.push(b === B.LAMPIAO ? 1 : 0);
+          L.push(BRILHO[b]);
         }
         UU.push(u0, v0, u1, v0, u1, v1, u0, v1);
         // vira a diagonal para o AO ficar suave
@@ -488,6 +498,7 @@ export class Mundo {
     const R = this.raio;
     const ini = performance.now();
     if (opcoesMundo.aguaCorre && ini - this.ultimoPassoAgua >= TICK_AGUA) { this.ultimoPassoAgua = ini; this.passoAgua(); }
+    if (opcoesMundo.maquinas !== false) this.energia.atualizar(ini);
     // primeiro os pedaços editados (resposta imediata ao colocar/quebrar)
     for (const c of this.chunks.values()) {
       if (c.prioridade && c.temMalha) this.construir(c);
