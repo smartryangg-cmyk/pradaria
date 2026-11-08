@@ -97,6 +97,12 @@ const ICONES = {
     { d: circ(5.2, 10.6, 2) + circ(9.2, 6.6, 2.1) + circ(14.8, 6.6, 2.1) + circ(18.8, 10.6, 2), f: '#b5835a', s: T, w: 1.4 },
   ],
   // tela cheia / sair da tela cheia / instalar / celular / água / vila / sono
+  bussola: [
+    { d: circ(12, 12, 9), f: '#fff6e4', s: T, w: 1.6 },
+    { d: 'M12 5.2l2.4 6.8h-4.8z', f: '#e8574a', s: T, w: 1.2 },
+    { d: 'M12 18.8l-2.4-6.8h4.8z', f: '#6cc0f0', s: T, w: 1.2 },
+    { d: circ(12, 12, 1.2), f: T },
+  ],
   telacheia: [{ d: 'M4.5 9V4.5H9M15 4.5h4.5V9M19.5 15v4.5H15M9 19.5H4.5V15', s: 'c', w: 2.8 }],
   sairtela: [{ d: 'M9 4.5V9H4.5M19.5 9H15V4.5M15 19.5V15h4.5M4.5 15H9v4.5', s: 'c', w: 2.8 }],
   baixar: [{ d: 'M12 4v11M7 10.5l5 5 5-5M5 19.5h14', s: 'c', w: 2.6 }],

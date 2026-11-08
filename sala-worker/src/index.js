@@ -8,6 +8,25 @@ const EMOTES = new Set(['acenar', 'coracao', 'sorriso', 'estrela', '👋', '❤�
 const MAX_EDICOES = 200000; // por mundo
 const LONGE = 100000; // ninguém precisa ir mais longe que isso
 const MSG_POR_SEG = 20;
+const MAX_LUGARES = 8;
+const ICONES_LUGAR = new Set(['⭐', '🌳', '🏰', '🌊', '⛰️', '🌸', '🐑', '🍎', '💎', '🌻']);
+const TP_ESPERA = 30000; // um pedido de teleporte vale por 30 s
+const TP_INTERVALO = 4000; // e cada um pode pedir de 4 em 4 s
+
+// posição [x, y, z] (e giro opcional) dentro dos limites do mundo
+function posOk(p) {
+  return Array.isArray(p) && p.length >= 3 && p.length <= 4 && p.every(Number.isFinite)
+    && Math.abs(p[0]) <= LONGE && Math.abs(p[2]) <= LONGE && p[1] >= -64 && p[1] <= 512;
+}
+const arred = (p) => p.map((v) => Math.round(v * 100) / 100);
+function limparLugares(l) {
+  const casa = l && posOk(l.casa) ? arred(l.casa) : null;
+  const lista = [];
+  for (const x of (l && Array.isArray(l.lista) ? l.lista : []).slice(0, MAX_LUGARES)) {
+    if (x && ICONES_LUGAR.has(x.ic) && posOk(x.p)) lista.push({ ic: x.ic, p: arred(x.p) });
+  }
+  return { casa, lista };
+}
 
 export class Sala extends DurableObject {
   constructor(ctx, env) {
@@ -68,20 +87,62 @@ export class Sala extends DurableObject {
     }
     const id = u.id + '-' + Math.random().toString(36).slice(2, 7);
     const pos = (await this.ctx.storage.get('p:' + u.id)) || null;
-    const eu = { id, uid: u.id, nome: u.nome, cor: u.cor, p: pos || [0, 60, 0], r: [0, 0], cota: 0, janela: 0 };
+    const eu = { id, uid: u.id, nome: u.nome, cor: u.cor, dono: !!u.dono, p: pos || [0, 60, 0], r: [0, 0], cota: 0, janela: 0 };
     this.ctx.acceptWebSocket(servidor);
     servidor.serializeAttachment(eu);
 
     const ed = await this.carregarEdicoes();
     const edicoes = [];
     for (const [k, b] of ed) { const [x, y, z] = k.split(',').map(Number); edicoes.push([x, y, z, b]); }
-    const dia = (((Date.now() - this.info.inicio) / 600000) + 0.3) % 1;
+    const dia = this.diaAgora();
+    const lugares = (await this.ctx.storage.get('l:' + u.id)) || { casa: null, lista: [] };
     servidor.send(JSON.stringify({
-      t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia,
+      t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia, dono: eu.dono, lugares,
       jogadores: this.jogadores().filter((j) => j.id !== id).map(({ id, nome, cor, p, r }) => ({ id, nome, cor, p, r })),
     }));
     this.enviarTodos({ t: 'entrou', j: { id, nome: u.nome, cor: u.cor, p: eu.p, r: eu.r } }, servidor);
     return new Response(null, { status: 101, webSocket: cliente });
+  }
+
+  diaAgora() { return ((((Date.now() - this.info.inicio) / 600000) + 0.3) % 1 + 1) % 1; }
+
+  conexaoDe(id) {
+    for (const ws of this.ctx.getWebSockets()) { const j = ws.deserializeAttachment(); if (j && j.id === id) return [ws, j]; }
+    return [null, null];
+  }
+
+  // teleporte até um amigo (ou chamar um amigo): só acontece se o amigo deixar
+  pedirTeleporte(ws, eu, m) {
+    const agora = Date.now();
+    if (m.tipo !== 'ir' && m.tipo !== 'chamar') return;
+    if (eu.tpEm && agora - eu.tpEm < TP_INTERVALO) {
+      ws.send(JSON.stringify({ t: 'tp-erro', msg: 'Espere um pouquinho antes de pedir de novo.' }));
+      return;
+    }
+    const [alvoWs, alvo] = this.conexaoDe(m.para);
+    if (!alvoWs || alvo.id === eu.id) { ws.send(JSON.stringify({ t: 'tp-erro', msg: 'Esse amigo não está mais no mundo.' })); return; }
+    eu.tpEm = agora; ws.serializeAttachment(eu);
+    if (!this.pedidos) this.pedidos = new Map();
+    for (const [k, p] of this.pedidos) if (agora > p.ate || p.de === eu.id) this.pedidos.delete(k);
+    const pid = Math.random().toString(36).slice(2, 10);
+    this.pedidos.set(pid, { de: eu.id, para: alvo.id, tipo: m.tipo, ate: agora + TP_ESPERA });
+    alvoWs.send(JSON.stringify({ t: 'tp-pedido', pid, de: eu.id, nome: eu.nome, tipo: m.tipo }));
+  }
+
+  responderTeleporte(ws, eu, m) {
+    const p = this.pedidos && this.pedidos.get(m.pid);
+    if (!p || p.para !== eu.id) return;
+    this.pedidos.delete(m.pid);
+    const [deWs, de] = this.conexaoDe(p.de);
+    if (!deWs) return;
+    const ok = m.ok === true && Date.now() <= p.ate;
+    deWs.send(JSON.stringify({ t: 'tp-resp', ok, nome: eu.nome, tipo: p.tipo }));
+    if (!ok) return;
+    // quem vai e para onde: um passinho ao lado de quem fica
+    const [vaiWs, fica] = p.tipo === 'ir' ? [deWs, eu] : [ws, de];
+    const a = Math.random() * Math.PI * 2;
+    const destino = [fica.p[0] + Math.cos(a) * 1.5, fica.p[1] + 0.2, fica.p[2] + Math.sin(a) * 1.5];
+    vaiWs.send(JSON.stringify({ t: 'tp-ir', p: arred(destino), nome: fica.nome }));
   }
 
   async webSocketMessage(ws, dados) {
@@ -122,6 +183,23 @@ export class Sala extends DurableObject {
       this.enviarTodos({ t: 'bloco', x, y, z, b }, ws);
     } else if (m.t === 'emote' && EMOTES.has(m.e)) {
       this.enviarTodos({ t: 'emote', id: eu.id, e: m.e }, ws);
+    } else if (m.t === 'tp-pedir' && typeof m.para === 'string') {
+      this.pedirTeleporte(ws, eu, m);
+    } else if (m.t === 'tp-resp' && typeof m.pid === 'string') {
+      this.responderTeleporte(ws, eu, m);
+    } else if (m.t === 'lugares') {
+      // casa e lugares salvos de cada jogador neste mundo
+      const agora = Date.now();
+      if (eu.lugEm && agora - eu.lugEm < 500) return;
+      eu.lugEm = agora; ws.serializeAttachment(eu);
+      await this.ctx.storage.put('l:' + eu.uid, limparLugares(m));
+    } else if (m.t === 'dia' && Number.isFinite(m.v)) {
+      // só o dono do mundo muda a hora (vale para todo mundo)
+      if (!eu.dono) { ws.send(JSON.stringify({ t: 'tp-erro', msg: 'Só o dono do mundo pode mudar a hora.' })); return; }
+      const v = ((m.v % 1) + 1) % 1;
+      this.info.inicio = Date.now() - (v - 0.3) * 600000;
+      await this.ctx.storage.put('info', this.info);
+      this.enviarTodos({ t: 'dia', v, nome: eu.nome });
     }
   }
 

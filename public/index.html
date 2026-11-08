@@ -12,7 +12,7 @@
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icone-apple.png">
 <meta name="apple-mobile-web-app-title" content="Pradaria">
-<link rel="stylesheet" href="estilo.css?v=7">
+<link rel="stylesheet" href="estilo.css?v=8">
 </head>
 <body>
 <canvas id="tela"></canvas>
@@ -24,6 +24,7 @@
   <div id="topo">
     <button id="bt-menu" class="redondo" aria-label="Menu"><span data-icone="menu"></span></button>
     <button id="bt-tela" class="redondo" aria-label="Tela cheia"><span data-icone="telacheia"></span></button>
+    <button id="bt-comandos" class="redondo" aria-label="Comandos: teleportar, casa, amigos e hora"><span data-icone="bussola"></span></button>
     <div id="status-linha"><div id="status"></div></div>
     <div id="emotes">
       <button data-emote="acenar" aria-label="Acenar"><span data-icone="acenar"></span></button>
@@ -33,6 +34,14 @@
     </div>
   </div>
   <div id="aviso"></div>
+  <div id="pedido-tp" hidden>
+    <span id="pedido-ic"></span>
+    <span id="pedido-txt"></span>
+    <div class="linha-bts">
+      <button class="bt verde" id="pedido-sim">Pode!</button>
+      <button class="bt" id="pedido-nao">Agora não</button>
+    </div>
+  </div>
   <div id="barra"></div>
   <div id="botoes-toque">
     <button id="bt-voar" class="redondo" aria-label="Voar"><span data-icone="voar"></span></button>
@@ -52,6 +61,26 @@
     <button class="bt" data-fechar>Fechar</button>
   </div>
 </div>
+
+<!-- comandos visuais (teleporte, casa, amigos, hora) -->
+<div id="comandos" class="janela" hidden>
+  <div class="caixa larga">
+    <h2 class="com-ic"><span data-icone="bussola"></span> Comandos</h2>
+    <p class="sub" id="cmd-onde"></p>
+    <h3>Ir para…</h3>
+    <div class="cmds" id="cmd-lugares"></div>
+    <h3>Meus lugares</h3>
+    <div class="cmds" id="cmd-salvos"></div>
+    <h3>Amigos no mundo</h3>
+    <div id="cmd-amigos"></div>
+    <label class="campo linha" id="cmd-recusar-linha"><input id="cmd-recusar" type="checkbox"> Não aceitar pedidos de teleporte</label>
+    <h3>Hora do dia</h3>
+    <div class="cmds" id="cmd-horas"></div>
+    <p class="sub" id="cmd-hora-aviso"></p>
+    <button class="bt verde" data-fechar-cmd>Voltar a jogar</button>
+  </div>
+</div>
+<div id="flash-tp"></div>
 
 <!-- pausa / ajustes -->
 <div id="pausa" class="janela" hidden>
@@ -184,6 +213,6 @@
 </div>
 
 <div id="fps" hidden></div>
-<script type="module" src="js/main.js?v=7"></script>
+<script type="module" src="js/main.js?v=8"></script>
 </body>
 </html>

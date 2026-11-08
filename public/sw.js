@@ -1,11 +1,11 @@
 // Deixa o jogo instalável e abrindo sem internet.
 // Rede primeiro (para sempre pegar a versão nova); se não tiver internet, usa a cópia guardada.
-const CACHE = 'pradaria-v9';
+const CACHE = 'pradaria-v10';
 const BASICO = [
   '/', '/index.html', '/estilo.css', '/manifest.webmanifest', '/icone.svg', '/icone-192.png', '/icone-512.png',
   '/vendor/three.module.min.js',
   '/js/main.js', '/js/graficos.js', '/js/mundo.js', '/js/blocos.js', '/js/jogador.js', '/js/controles.js',
-  '/js/animais.js', '/js/modelos.js', '/js/som.js', '/js/rede.js', '/js/ruido.js', '/js/vilas.js', '/js/aldeoes.js', '/js/escavar.js', '/js/icones.js',
+  '/js/animais.js', '/js/modelos.js', '/js/som.js', '/js/rede.js', '/js/ruido.js', '/js/vilas.js', '/js/aldeoes.js', '/js/escavar.js', '/js/icones.js', '/js/comandos.js',
 ];
 
 self.addEventListener('install', (e) => {

@@ -189,3 +189,35 @@ details.mais summary { font-weight: 800; padding: 8px 0; cursor: pointer; }
 details.mais[open] { display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; }
 .campo .val { font-weight: 600; opacity: .7; margin-left: 4px; }
 .campo input[type=range]:disabled { opacity: .4; }
+
+/* comandos visuais */
+.caixa.larga { width: min(560px, 100%); }
+.caixa h3 { margin: 6px 0 0; font-size: 17px; }
+.cmds { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.cmd { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 84px; padding: 10px 6px; border: 0; border-radius: 16px; background: #fff; box-shadow: 0 4px 0 #e2d6bf; font: inherit; font-weight: 800; font-size: 14px; color: var(--txt); cursor: pointer; text-align: center; line-height: 1.15; }
+.cmd .ic { font-size: 30px; line-height: 1; }
+.cmd:active { transform: translateY(3px); box-shadow: 0 1px 0 #e2d6bf; }
+.cmd.verde { background: var(--verde); color: #fff; box-shadow: 0 4px 0 var(--verde-esc); }
+.cmd.trancado { opacity: .45; }
+.cmd .apagar { position: absolute; top: 4px; right: 6px; width: 26px; height: 26px; border-radius: 50%; background: #f3e9d6; display: grid; place-items: center; font-size: 13px; }
+.cmd.mini { min-height: 0; flex-direction: row; padding: 10px 12px; font-size: 15px; }
+.cmd.mini .ic { font-size: 20px; }
+.icones { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; background: #fff; border-radius: 16px; padding: 10px; box-shadow: 0 4px 0 #e2d6bf; }
+.icones .sub { width: 100%; margin: 0; }
+.icones button { width: 52px; height: 52px; border-radius: 14px; border: 0; background: #f6efe0; font-size: 28px; }
+#cmd-amigos { display: flex; flex-direction: column; gap: 8px; }
+.amigo { display: flex; align-items: center; gap: 8px; background: #fff; border-radius: 14px; padding: 8px 10px; box-shadow: 0 4px 0 #e2d6bf; }
+.amigo > span { flex: 1; min-width: 0; } .amigo b { display: block; font-size: 17px; overflow: hidden; text-overflow: ellipsis; } .amigo small { opacity: .65; }
+#pedido-tp { position: absolute; left: 50%; top: max(76px, calc(env(safe-area-inset-top) + 66px)); transform: translateX(-50%); width: min(400px, 92vw); background: var(--creme); border-radius: 20px; padding: 14px; box-shadow: 0 8px 0 rgba(0,0,0,.15), 0 14px 30px rgba(0,0,0,.25); display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; pointer-events: auto; font-weight: 800; font-size: 17px; animation: chega .3s ease-out; }
+#pedido-tp #pedido-ic { font-size: 34px; }
+#pedido-tp .linha-bts { grid-column: 1 / -1; }
+@keyframes chega { from { transform: translate(-50%, -20px); opacity: 0; } }
+#flash-tp { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(circle, #fff 0%, rgba(255,250,220,.85) 40%, rgba(255,255,255,0) 75%); opacity: 0; }
+#flash-tp.vai { animation: flash .7s ease-out; }
+@keyframes flash { 0% { opacity: 1; } 100% { opacity: 0; } }
+.com-ic { display: flex; align-items: center; gap: 8px; }
+.com-ic .ic-svg { width: 30px; height: 30px; }
+.cmd .ic .ic-svg { width: 34px; height: 34px; display: block; }
+.cmd.mini .ic .ic-svg { width: 22px; height: 22px; }
+.cmd.verde .ic .ic-svg { color: #fff; }
+#pedido-tp #pedido-ic .ic-svg { width: 36px; height: 36px; }
