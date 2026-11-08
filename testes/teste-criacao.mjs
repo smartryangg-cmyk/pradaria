@@ -116,6 +116,12 @@ await p.waitForFunction(() => window.__jogo && window.__jogo.jog);
 const depois = await p.evaluate(() => JSON.stringify(window.__jogo.mercado.e.itens));
 conferir(antes === depois, 'a mochila continua depois de recarregar (' + depois + ')');
 conferir(await p.evaluate(() => window.__jogo.barra.includes(1001)), 'a barra também');
+// com o mercado: vender sai da mesma mochila e comprar traz 4 do bloco
+const m0 = await p.evaluate(() => window.__jogo.mercado.e.moedas);
+await p.evaluate(() => window.__jogo.mercado.enviar({ t: 'comprar', b: 33 }));
+conferir(await qtd(p, 33) === 4 && await p.evaluate(() => window.__jogo.mercado.e.moedas) === m0 - 8, 'loja: comprou 4 fenos (8 moedas)');
+await p.evaluate(() => window.__jogo.mercado.enviar({ t: 'vender', b: 1001, n: 1 }));
+conferir(await qtd(p, 1001) === 0, 'loja: vendeu a picareta da mochila');
 await p.context().close();
 
 // ---------- mundo criativo (opção desligada): blocos à vontade, sem mochila ----------
@@ -141,7 +147,7 @@ const o = await pagina(true);
 await o.click('#bt-criar-conta');
 await o.fill('#c-nome', nome); await o.fill('#c-senha', 'senha123');
 await o.click('#c-ok');
-await o.waitForSelector('#m-mundos:not([hidden])');
+await o.waitForSelector('#m-mundos:not([hidden])', { timeout: 90000 }); // o primeiro cadastro depois de ligar o servidor demora
 await o.click('#bt-novo-mundo');
 await o.fill('#n-nome', 'Mundo de criar');
 await o.click('#m-novo button[type=submit]');
