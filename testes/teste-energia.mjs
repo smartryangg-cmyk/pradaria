@@ -13,6 +13,8 @@ await p.evaluate(() => localStorage.clear());
 await p.reload();
 await p.waitForTimeout(600);
 await p.click('#bt-sozinho');
+await p.waitForTimeout(400);
+if (await p.isVisible('#m-novo')) await p.click('#m-novo button[type=submit]'); // mundo novo: opções padrão
 await p.waitForTimeout(3000);
 
 const r = await p.evaluate(async () => {

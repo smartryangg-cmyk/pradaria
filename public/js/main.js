@@ -584,10 +584,6 @@ function jogarLocal(novo = null) {
   modo = 'local'; mundoAtual = null;
   if (salvo && salvo.barra) barra = salvo.barra;
   if (salvo) tempoDia = salvo.dia ?? 0.3;
-  iniciarMundo({ semente: salvo ? salvo.semente : Math.floor(Math.random() * 1e9), edicoes: salvo ? salvo.edicoes : [], pos: salvo && salvo.pos, yaw: salvo ? salvo.yaw : 0 });
-  cmd.entrouLocal();
-  $('#status').innerHTML = comIcone('casa', 'Sem internet');
-  aviso('Bem-vindo à Pradaria!', 2500, 'flor');
   tempoDia = salvo ? salvo.dia ?? 0.3 : 0.3;
   iniciarMundo({
     semente: salvo ? salvo.semente : novo.semente ?? Math.floor(Math.random() * 1e9), edicoes: salvo ? salvo.edicoes : [],
@@ -596,8 +592,9 @@ function jogarLocal(novo = null) {
     opcoes: salvo ? salvo.opcoes || PADRAO_MUNDO : novo.opcoes,
   });
   if (novo) salvarLocal();
-  $('#status').textContent = '🏡 Sem internet';
-  aviso('Bem-vindo à Pradaria! 🌼', 2500);
+  cmd.entrouLocal();
+  $('#status').innerHTML = comIcone('casa', 'Sem internet');
+  aviso('Bem-vindo à Pradaria!', 2500, 'flor');
 }
 
 async function jogarOnline(m) {
