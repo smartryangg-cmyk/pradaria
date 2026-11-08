@@ -7,6 +7,8 @@ export const B = {
   GRAMA: 1, TERRA: 2, PEDRA: 3, AREIA: 4, AGUA: 5, TRONCO: 6, FOLHAS: 7, TABUAS: 8, VIDRO: 9,
   TIJOLO: 10, FLOR_VERMELHA: 11, FLOR_AMARELA: 12, CAPIM: 13, LA_BRANCA: 14, LA_VERMELHA: 15,
   LA_AZUL: 16, LA_AMARELA: 17, LA_VERDE: 18, LA_ROSA: 19, PEDRISCO: 20, LAMPIAO: 21, FLOR_AZUL: 22,
+  // 23..30 são as águas correntes (veja abaixo)
+  TERRA_ARADA: 31, TRIGO: 32, FENO: 33,
 };
 
 // tiles: [cima, baixo, lados]
@@ -40,6 +42,9 @@ def(B.LA_ROSA, 'Lã rosa', 20);
 def(B.PEDRISCO, 'Pedrisco', 21);
 def(B.LAMPIAO, 'Lampião', 22);
 def(B.FLOR_AZUL, 'Flor azul', 23, { solido: false, opaco: false, planta: true });
+def(B.TERRA_ARADA, 'Terra de plantar', 24);
+def(B.TRIGO, 'Trigo', 25, { solido: false, opaco: false, planta: true });
+def(B.FENO, 'Feno', [26, 26, 27]);
 
 // Água corrente: nasce das fontes (o bloco Água) e não é salva nem enviada pela rede;
 // cada aparelho recalcula sozinho a partir das fontes. Nível 1 = perto da fonte, 7 = a pontinha.
@@ -65,8 +70,8 @@ NIVEL[AGUA_CAINDO] = 8;
 // Ordem dos blocos no inventário (modo criativo)
 export const INVENTARIO = [
   B.GRAMA, B.TERRA, B.PEDRA, B.PEDRISCO, B.AREIA, B.TRONCO, B.TABUAS, B.FOLHAS, B.VIDRO, B.TIJOLO,
-  B.LAMPIAO, B.LA_BRANCA, B.LA_VERMELHA, B.LA_AZUL, B.LA_AMARELA, B.LA_VERDE, B.LA_ROSA,
-  B.FLOR_VERMELHA, B.FLOR_AMARELA, B.FLOR_AZUL, B.CAPIM, B.AGUA,
+  B.LAMPIAO, B.FENO, B.TERRA_ARADA, B.LA_BRANCA, B.LA_VERMELHA, B.LA_AZUL, B.LA_AMARELA, B.LA_VERDE, B.LA_ROSA,
+  B.FLOR_VERMELHA, B.FLOR_AMARELA, B.FLOR_AZUL, B.CAPIM, B.TRIGO, B.AGUA,
 ];
 
 export const TILE = 16;
@@ -173,6 +178,19 @@ export function criarAtlas() {
     return [255, 230 - d * 8, 120 - d * 6, 255];
   });
   pintarTile(img, 23, flor(0x5a8cff, 0xffffff));
+  // 24 terra de plantar (sulcos)
+  pintarTile(img, 24, (x, y, r) => var_(y % 4 < 2 ? hex(0x5e3a22) : hex(0x7a4d2e), r, 0.18));
+  // 25 trigo (fundo transparente): talos com espigas douradas
+  pintarTile(img, 25, (x, y, r) => {
+    const talo = x % 3 === 1;
+    const topo = [5, 3, 6, 4, 2, 5, 3, 6, 4, 2, 5, 3, 6, 4, 3, 5][x];
+    if (!talo || y < topo) return [0, 0, 0, 0];
+    if (y < topo + 5) return var_(hex(0xe8b93c), r, 0.25);
+    return var_(hex(0x9cbf4a), r, 0.2);
+  });
+  // 26 feno (topo) e 27 feno (lado, com amarração)
+  pintarTile(img, 26, (x, y, r) => var_(r() < 0.2 ? hex(0xc99a2e) : hex(0xe6c056), r, 0.2));
+  pintarTile(img, 27, (x, y, r) => var_(y === 4 || y === 11 ? hex(0x8a5a2b) : (x + y * 3) % 5 === 0 ? hex(0xc99a2e) : hex(0xe6c056), r, 0.15));
   ctx.putImageData(img, 0, 0);
 
   const tex = new THREE.CanvasTexture(cv);
