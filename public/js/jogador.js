@@ -77,6 +77,15 @@ export class Jogador {
       if (v.y < 0) { this.noChao = true; p.y = Math.floor(ny) + (this.colide(p.x, Math.floor(ny), p.z) ? 1 : 0); if (this.voando) this.voando = false; }
       v.y = 0;
     }
+    // borda do mundo pequeno/médio: dá para nadar um pouquinho no mar, mas não passar
+    const L = this.mundo.limite;
+    if (L) {
+      const M = L + 6;
+      if (Math.abs(p.x) > M || Math.abs(p.z) > M) {
+        p.x = Math.max(-M, Math.min(M, p.x)); p.z = Math.max(-M, Math.min(M, p.z));
+        if (this.aoBorda) this.aoBorda();
+      }
+    }
     if (p.y < -10) { p.y = this.mundo.chao(Math.floor(p.x), Math.floor(p.z)) + 2; v.y = 0; }
     if (this.noChao && len > 0.1) this.passo += dt * vel;
   }

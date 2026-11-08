@@ -3,6 +3,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { criarRuido, hash3 } from './ruido.js';
 import { AR, B, SOLIDO, OPACO, PLANTA, BLOCOS, AGUA, NIVEL, AGUA_CORRENTE, AGUA_CAINDO, uvTile } from './blocos.js';
 import { Vilas } from './vilas.js';
+import { opcoesMundo, limiteMundo } from './opcoes-mundo.js';
 
 export const CX = 16, CZ = 16, ALT = 64;
 export const NIVEL_AGUA = 20;
@@ -47,6 +48,8 @@ export class Mundo {
     this.fila = [];
     this.raio = 3;
     this.aoMudarBloco = null;
+    this.opcoes = opcoesMundo; // opções escolhidas na criação do mundo
+    this.limite = limiteMundo(); // mundo pequeno/médio: ilha com mar em volta (null = sem fim)
     this.filaAgua = new Set(); // células para reavaliar no próximo passo da água
     this.ultimoPassoAgua = 0;
     this.vilas = new Vilas(this);
@@ -72,7 +75,14 @@ export class Mundo {
     const cont = r.fbm(x / 240, z / 240, 3);
     const det = r.fbm(x / 55, z / 55, 3);
     const morro = Math.max(0, r2.fbm(x / 130 + 100, z / 130 - 50, 3));
-    return Math.floor(24 + cont * 9 + det * 4 + morro * morro * 40);
+    const h = 24 + cont * 9 + det * 4 + morro * morro * 40;
+    if (!this.limite) return Math.floor(h);
+    // ilha: perto da borda o chão desce suave até o fundo do mar (borda arredondada, com ondulação)
+    const L = this.limite;
+    const d = Math.hypot(Math.max(0, Math.abs(x) - L * 0.55), Math.max(0, Math.abs(z) - L * 0.55)) / (L * 0.45) + det * 0.08;
+    const t = Math.min(1, Math.max(0, (d - 0.55) / 0.45)); // 0 = terra normal, 1 = fundo do mar
+    const s = t * t * (3 - 2 * t);
+    return Math.floor(h * (1 - s) + (NIVEL_AGUA - 7) * s);
   }
 
   gerarDados(cx, cz) {
@@ -477,7 +487,7 @@ export class Mundo {
     const pcx = Math.floor(px / CX), pcz = Math.floor(pz / CZ);
     const R = this.raio;
     const ini = performance.now();
-    if (ini - this.ultimoPassoAgua >= TICK_AGUA) { this.ultimoPassoAgua = ini; this.passoAgua(); }
+    if (opcoesMundo.aguaCorre && ini - this.ultimoPassoAgua >= TICK_AGUA) { this.ultimoPassoAgua = ini; this.passoAgua(); }
     // primeiro os pedaços editados (resposta imediata ao colocar/quebrar)
     for (const c of this.chunks.values()) {
       if (c.prioridade && c.temMalha) this.construir(c);

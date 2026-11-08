@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS mundos (
   nome TEXT NOT NULL,
   dono_id INTEGER NOT NULL,
   semente INTEGER NOT NULL,
-  criado_em INTEGER NOT NULL
+  criado_em INTEGER NOT NULL,
+  opcoes TEXT NOT NULL DEFAULT '{}' -- opções da criação (bichos, monstros, vilas...), ver public/js/opcoes-mundo.js
 );
 CREATE TABLE IF NOT EXISTS membros (
   mundo_id INTEGER NOT NULL,

@@ -87,6 +87,7 @@
   <div class="caixa">
     <h2>Pausa</h2>
     <p id="pausa-mundo" class="sub"></p>
+    <p id="pausa-opcoes" class="sub"></p>
     <label class="campo">Gráficos
       <select id="aj-graf">
         <option value="ultra">Ultra (computador forte)</option>
@@ -200,6 +201,18 @@
   <form class="caixa" id="m-novo" hidden>
     <h2 id="novo-titulo">Novo mundo</h2>
     <label class="campo" id="novo-rotulo">Nome do mundo<input id="n-nome" maxlength="24" required></label>
+    <div id="n-opcoes" hidden>
+      <p class="sub">Tamanho do mundo</p>
+      <div class="tamanhos-mundo" id="n-tamanhos" role="radiogroup" aria-label="Tamanho do mundo"></div>
+      <p class="sub">O que vai ter no seu mundo? Toque para ligar ou desligar.</p>
+      <div class="opcoes-mundo" id="n-lista"></div>
+      <details class="mais">
+        <summary>Semente do mundo (opcional)</summary>
+        <label class="campo">Uma palavra ou número cria sempre o mesmo terreno
+          <input id="n-semente" maxlength="40" placeholder="Deixe vazio para sortear" autocomplete="off">
+        </label>
+      </details>
+    </div>
     <p id="n-erro" class="erro"></p>
     <button class="bt verde grande" type="submit">Criar</button>
     <button class="bt" type="button" data-voltar-mundos><span data-icone="voltar"></span>Voltar</button>

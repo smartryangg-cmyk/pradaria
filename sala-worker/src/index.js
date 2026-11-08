@@ -67,6 +67,8 @@ export class Sala extends DurableObject {
       this.info = { codigo: mundo.codigo, semente: mundo.semente, inicio: Date.now() };
       await this.ctx.storage.put('info', this.info);
     }
+    // as opções do mundo vêm do banco (D1) a cada entrada
+    const opcoes = mundo.opcoes && typeof mundo.opcoes === 'object' ? mundo.opcoes : {};
     const par = new WebSocketPair();
     const [cliente, servidor] = Object.values(par);
     // o mesmo login em outro aparelho/aba: a conexão antiga sai
@@ -94,10 +96,11 @@ export class Sala extends DurableObject {
     const ed = await this.carregarEdicoes();
     const edicoes = [];
     for (const [k, b] of ed) { const [x, y, z] = k.split(',').map(Number); edicoes.push([x, y, z, b]); }
-    const dia = this.diaAgora();
+    // sem ciclo de dia e noite: sempre de manhã clarinha
+    const dia = opcoes.cicloDia === false ? 0.3 : this.diaAgora();
     const lugares = (await this.ctx.storage.get('l:' + u.id)) || { casa: null, lista: [] };
     servidor.send(JSON.stringify({
-      t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia, dono: eu.dono, lugares,
+      t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia, dono: eu.dono, lugares, opcoes,
       jogadores: this.jogadores().filter((j) => j.id !== id).map(({ id, nome, cor, p, r }) => ({ id, nome, cor, p, r })),
     }));
     this.enviarTodos({ t: 'entrou', j: { id, nome: u.nome, cor: u.cor, p: eu.p, r: eu.r } }, servidor);
