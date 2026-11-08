@@ -10,7 +10,9 @@ import { Bichos } from './animais.js';
 import { Aldeoes } from './aldeoes.js';
 import { Garagem } from './garagem.js';
 import { Som } from './som.js';
-import { montarBoneco, etiqueta, matModelo, caixa, juntar, animarBoneco } from './modelos.js';
+import { montarBoneco, vestirBoneco, etiqueta, matModelo, caixa, juntar, animarBoneco } from './modelos.js';
+import { normalizarSkin, skinDeCor, skinIgual, CORES_ROUPA } from './skin.js';
+import { Personagem } from './personagem.js';
 import { Visao } from './visao.js';
 import { conta, api, Sala } from './rede.js';
 import { criarGraficos, QUALIDADES, PESSOAIS } from './graficos.js';
@@ -172,14 +174,53 @@ let euId = null;
 // veículos: garagem, direção e câmera de trás (código em garagem.js e veiculos.js)
 const garagem = new Garagem({
   cena, camera, som, aviso: (t, ms, ic) => aviso(t, ms, ic), outros,
-  corBoneco: () => CORES[(conta.usuario && conta.usuario.cor) || 0] ?? CORES[0],
+  corBoneco: () => meuSkin(),
   sala: () => sala, euId: () => euId, jog: () => jog, mundo: () => mundo, bichos: () => bichos, aldeoes: () => aldeoes,
   pausar: (sim) => { pausado = sim; },
 });
 
 // câmera: com os olhos, de trás ou de frente (vendo o próprio boneco)
 const visao = new Visao(cena);
-const corMeuBoneco = () => CORES[(conta.usuario && conta.usuario.cor) || 0] ?? CORES[0];
+// ---------- meu personagem (skin.js / personagem.js) ----------
+// Com conta: fica salvo na conta (D1). Sem conta: neste aparelho. Online: os amigos veem na hora.
+const CHAVE_SKIN = 'pradaria.skin';
+function skinLocal() { try { const t = localStorage.getItem(CHAVE_SKIN); return t ? normalizarSkin(t) : null; } catch { return null; } }
+function meuSkin() {
+  const u = conta.usuario;
+  if (u && u.skinSalva) return normalizarSkin(u.skin, u.cor);
+  return skinLocal() || (u ? normalizarSkin(u.skin, u.cor) : skinDeCor(0));
+}
+// conta sem personagem salvo: leva o que foi montado neste aparelho antes de entrar
+function levarSkinLocal() {
+  const u = conta.usuario, s = skinLocal();
+  if (!u || u.skinSalva || !s) return;
+  api('eu/skin', { skin: s }).then((r) => { u.skin = r.skin; u.skinSalva = true; }).catch(() => {});
+}
+function vestirMeusBonecos(s) {
+  if (visao.boneco) vestirBoneco(visao.boneco, s);
+  if (garagem.meuBoneco) vestirBoneco(garagem.meuBoneco, s);
+}
+async function salvarSkin(s) {
+  try { localStorage.setItem(CHAVE_SKIN, JSON.stringify(s)); } catch {}
+  if (conta.token && conta.usuario) {
+    try {
+      const r = await api('eu/skin', { skin: s });
+      conta.usuario.skin = r.skin; conta.usuario.skinSalva = true;
+    } catch (e) {
+      if (/sess/i.test(e.message)) return 'Entre na conta de novo para salvar o personagem.';
+      return 'Não consegui salvar na conta agora: ' + e.message;
+    }
+  }
+  vestirMeusBonecos(s);
+  if (sala) sala.enviar({ t: 'skin', s });
+  aviso('Personagem salvo!', 1500, 'camiseta');
+  return null;
+}
+const personagem = new Personagem({ som, salvar: salvarSkin });
+function abrirPersonagem(voltar) {
+  som.iniciar();
+  personagem.abrir(meuSkin(), voltar);
+}
 function alternarVisao() {
   if (!jogando) return;
   const m = visao.alternar();
@@ -594,6 +635,7 @@ document.querySelectorAll('.instalar').forEach((b) => b.addEventListener('click'
 addEventListener('keydown', (e) => {
   if (!jogando) return;
   if (e.target.tagName === 'INPUT' && e.code !== 'Escape') return; // digitando (nome do mundo etc.)
+  if (personagem.aberto) { if (e.code === 'Escape') personagem.fechar(); return; }
   if (e.code === 'Escape' && pausado) fecharJanelas();
   else if (e.code === 'KeyP') abrirPausa();
   else if (e.code === 'KeyC' && !pausado && e.target.tagName !== 'INPUT') cmd.abrir();
@@ -920,14 +962,14 @@ function quebraParticulas(x, y, z, b) {
 // ---------- outros jogadores ----------
 function adicionarOutro(j) {
   if (j.id === euId || outros.has(j.id)) return;
-  const b = montarBoneco(CORES[j.cor % CORES.length] ?? CORES[0]);
+  const b = montarBoneco(j.skin ? normalizarSkin(j.skin, j.cor) : skinDeCor(j.cor));
   const et = etiqueta(j.nome);
   et.position.y = 2.25;
   b.grupo.add(et);
   const p = j.p || [0, 60, 0];
   b.grupo.position.set(p[0], p[1], p[2]);
   cena.add(b.grupo);
-  outros.set(j.id, { ...b, nome: j.nome, corCss: '#' + (CORES[j.cor % CORES.length] ?? CORES[0]).toString(16).padStart(6, '0'), alvo: new THREE.Vector3(...p), yaw: 0, alvoYaw: (j.r && j.r[0]) || 0, fase: 0 });
+  outros.set(j.id, { ...b, nome: j.nome, corCss: '#' + CORES_ROUPA[b.skin.corRoupa].toString(16).padStart(6, '0'), alvo: new THREE.Vector3(...p), yaw: 0, alvoYaw: (j.r && j.r[0]) || 0, fase: 0 });
 }
 function removerOutro(id) {
   const o = outros.get(id);
@@ -990,6 +1032,7 @@ function limparMundo() {
 }
 
 function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = null, veiculos = [], guardado = null }) {
+  vestirMeusBonecos(meuSkin()); // pode ter trocado de conta desde o último mundo
   segundosJogando = 0; calib.reiniciar();
   limparMundo();
   visao.definir(ajustes.visao || 0);
@@ -1146,6 +1189,12 @@ async function jogarOnline(m, volta = null) {
     vnovo: (m) => garagem.mensagem(m), vassento: (m) => garagem.mensagem(m), vmov: (m) => garagem.mensagem(m),
     vfim: (m) => garagem.mensagem(m), buzina: (m) => garagem.mensagem(m),
     entrou: (msg) => { adicionarOutro(msg.j); aviso(`${msg.j.nome} entrou no mundo`, 1800, 'acenar'); som.oi(); },
+    skin: (msg) => {
+      const o = outros.get(msg.id);
+      if (!o || !msg.s) return;
+      vestirBoneco(o, msg.s);
+      o.corCss = '#' + CORES_ROUPA[o.skin.corRoupa].toString(16).padStart(6, '0');
+    },
     saiu: (msg) => { const o = outros.get(msg.id); if (o) aviso(`${o.nome} saiu`); removerOutro(msg.id); },
     pos: (msg) => {
       const o = outros.get(msg.id);
@@ -1238,8 +1287,9 @@ $('#m-conta').addEventListener('submit', async (e) => {
   $('#c-erro').textContent = '';
   $('#c-ok').disabled = true;
   try {
-    const r = await api(modoConta === 'entrar' ? 'entrar' : 'cadastrar', { nome: $('#c-nome').value.trim(), senha: $('#c-senha').value, cor: corEscolhida });
+    const r = await api(modoConta === 'entrar' ? 'entrar' : 'cadastrar', { nome: $('#c-nome').value.trim(), senha: $('#c-senha').value, cor: corEscolhida, skin: modoConta === 'entrar' ? undefined : skinLocal() || undefined });
     conta.salvar(r.token); conta.usuario = r.usuario;
+    levarSkinLocal();
     $('#c-senha').value = '';
     abrirMundos();
   } catch (err) { $('#c-erro').textContent = err.message; }
@@ -1247,12 +1297,15 @@ $('#m-conta').addEventListener('submit', async (e) => {
 });
 $('#bt-sair-conta').addEventListener('click', () => { conta.salvar(null); conta.usuario = null; mostrarMenu('m-inicio'); });
 ligarApagarConta(() => mostrarMenu('m-inicio'));
+$('#bt-personagem').addEventListener('click', () => abrirPersonagem());
+$('#bt-personagem2').addEventListener('click', () => abrirPersonagem());
+$('#bt-personagem3').addEventListener('click', () => { $('#pausa').hidden = true; abrirPersonagem(() => { if (jogando) abrirPausa(); }); });
 
 async function abrirMundos() {
   mostrarMenu('m-carregando');
   $('#carregando-txt').textContent = 'Buscando seus mundos…';
   try {
-    if (!conta.usuario) conta.usuario = (await api('eu')).usuario;
+    if (!conta.usuario) { conta.usuario = (await api('eu')).usuario; levarSkinLocal(); }
     const { mundos } = await api('mundos');
     nomesMeusMundos = mundos.filter(m => m.dono).map(m => m.nome);
     $('#m-nome').textContent = conta.usuario.nome;
@@ -1407,7 +1460,7 @@ function laco(agora) {
     }
   }
   const dirigindo = garagem.camera(camera);
-  if (!visao.quadro(dt, jog, camera, mundo, corMeuBoneco(), dirigindo) && !dirigindo) {
+  if (!visao.quadro(dt, jog, camera, mundo, meuSkin, dirigindo) && !dirigindo) {
     camera.position.set(jog.pos.x, jog.pos.y + OLHOS, jog.pos.z);
     camera.rotation.set(jog.pitch, jog.yaw, 0, 'YXZ');
   }
@@ -1559,4 +1612,4 @@ camera.position.set(0, 40, 0);
 if (conta.token) abrirMundos(); else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, garagem, visao, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, armas, get pausado() { return pausado; }, mecanismos }; }
+if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, garagem, visao, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, armas, get pausado() { return pausado; }, mecanismos }; }

@@ -221,6 +221,7 @@
     <label class="campo linha"><input id="aj-fps" type="checkbox"> Mostrar FPS</label>
     <button class="bt" id="bt-tela2"><span data-icone="telacheia"></span>Tela cheia</button>
     <button class="bt instalar" hidden><span data-icone="baixar"></span>Instalar o jogo</button>
+    <button class="bt" id="bt-personagem3"><span data-icone="camiseta"></span>Meu personagem</button>
     <button class="bt verde" data-fechar>Voltar a jogar</button>
     <button class="bt" id="bt-sair-mundo">Sair do mundo</button>
     <p class="versao" id="versao-pausa"></p>
@@ -237,6 +238,7 @@
     <button class="bt verde grande" id="bt-entrar"><span data-icone="entrar"></span>Entrar</button>
     <button class="bt" id="bt-criar-conta"><span data-icone="pessoa"></span>Criar conta</button>
     <button class="bt amarelo" id="bt-sozinho"><span data-icone="casa"></span>Jogar sem conta</button>
+    <button class="bt" id="bt-personagem"><span data-icone="camiseta"></span>Meu personagem</button>
     <button class="bt instalar" hidden><span data-icone="baixar"></span>Instalar o jogo</button>
     <a class="bt baixar-apk" href="https://github.com/smartryangg-cmyk/pradaria/releases/latest/download/pradaria.apk" hidden><span data-icone="celular"></span>Baixar app para Android</a>
     <p class="versao" id="versao-inicio"></p>
@@ -267,6 +269,7 @@
     </div>
     <button class="bt" id="bt-importar"><span data-icone="subir"></span>Importar mundo de um arquivo</button>
     <button class="bt amarelo" id="bt-sozinho2"><span data-icone="casa"></span>Jogar sem internet</button>
+    <button class="bt" id="bt-personagem2"><span data-icone="camiseta"></span>Meu personagem</button>
     <button class="bt instalar" hidden><span data-icone="baixar"></span>Instalar o jogo</button>
     <a class="bt baixar-apk" href="https://github.com/smartryangg-cmyk/pradaria/releases/latest/download/pradaria.apk" hidden><span data-icone="celular"></span>Baixar app para Android</a>
     <button class="bt fraco" id="bt-sair-conta"><span data-icone="sair"></span>Sair da conta</button>
@@ -326,6 +329,27 @@
 </div>
 
 <input type="file" id="arquivo-mundo" accept=".json,application/json" hidden>
+<!-- editor de personagem (personagem.js) -->
+<div id="personagem" class="janela" hidden>
+  <div class="caixa larga">
+    <h2>Meu personagem</h2>
+    <div class="pers-grade">
+      <div id="pers-vitrine"><p class="sub centro">Arraste para girar</p></div>
+      <div>
+        <div id="pers-abas" role="tablist"></div>
+        <div id="pers-painel"></div>
+      </div>
+    </div>
+    <p id="pers-erro" class="erro"></p>
+    <div class="linha-bts">
+      <button class="bt" type="button" id="pers-sortear"><span data-icone="dado"></span>Sortear</button>
+      <button class="bt" type="button" id="pers-desfazer"><span data-icone="voltar"></span>Desfazer</button>
+    </div>
+    <button class="bt verde grande" type="button" id="pers-salvar"><span data-icone="camiseta"></span>Salvar</button>
+    <button class="bt" type="button" id="pers-cancelar">Cancelar</button>
+  </div>
+</div>
+
 <div id="desmaio" hidden></div>
 <div id="fps" hidden></div>
 <script type="module" src="js/main.js?v=17"></script>

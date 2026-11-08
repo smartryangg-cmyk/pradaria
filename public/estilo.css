@@ -413,6 +413,28 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 .bt.perigo { background: #ffe1dc; color: #a3271b; }
 
 #e-mais .bt { width: 100%; margin-top: 8px; }
+/* ---------- editor de personagem ---------- */
+#personagem { z-index: 30; }
+#personagem .caixa { width: min(720px, 100%); }
+.pers-grade { display: grid; grid-template-columns: 1fr; gap: 12px; }
+#pers-vitrine { position: relative; border: 3px solid var(--txt); border-radius: 18px; background: linear-gradient(#bfe6ff, #eaf7ff 70%, #d8efc8); overflow: hidden; }
+#pers-canvas { display: block; width: 100%; height: 240px; touch-action: none; cursor: grab; }
+#pers-vitrine .sub { position: absolute; left: 0; right: 0; bottom: 4px; margin: 0; font-size: 13px; pointer-events: none; }
+#pers-abas { display: flex; gap: 6px; margin-bottom: 8px; }
+.pers-aba { flex: 1; min-height: 44px; border: 3px solid var(--txt); border-radius: 14px; background: #fff; font: inherit; font-weight: 900; font-size: 15px; color: var(--txt); cursor: pointer; padding: 4px; }
+.pers-aba.sel { background: var(--amarelo); }
+#pers-painel { display: flex; flex-direction: column; gap: 10px; }
+.pers-linha .sub { margin-bottom: 6px; }
+.pers-estilos { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.pers-estilo { min-height: 40px; padding: 6px 12px; border: 3px solid var(--txt); border-radius: 12px; background: #fff; font: inherit; font-weight: 800; font-size: 14px; color: var(--txt); cursor: pointer; }
+.pers-estilo.sel { background: var(--verde); color: #fff; }
+.pers-cores { justify-content: flex-start; gap: 8px; padding: 4px; }
+.pers-cores button { width: 34px; height: 34px; border-radius: 10px; }
+@media (min-width: 700px) {
+  .pers-grade { grid-template-columns: 260px 1fr; }
+  #pers-canvas { height: 360px; }
+  #pers-painel { max-height: 360px; overflow-y: auto; padding: 4px 6px 4px 8px; }
+}
 
 /* ---------- armas (opção do mundo) ---------- */
 #armas-hud { position: absolute; left: max(12px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none; }

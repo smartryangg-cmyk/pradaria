@@ -4,6 +4,7 @@ import { ARMAS, danoMaximo, VOLTA_ITEM } from '../../public/js/armas-dados.js';
 import { opcoesEcon, econLigada, normalizar, aplicar, dar, liberado } from '../../public/js/economia.js';
 import { lugarVazio, gastoDe, ULTIMO_ITEM } from '../../public/js/receitas.js';
 import { normalizarOpcoes } from '../../public/js/opcoes-mundo.js';
+import { normalizarSkin } from '../../public/js/skin.js';
 
 const MAX_BLOCO = 255; // 0..63 base, 100..126 engenharia, 128..175 eras (blocos-eras.js)
 // o cliente ignora ids que não existem (antes um id desconhecido travava o mundo de todos); aqui só o intervalo
@@ -198,7 +199,7 @@ export class Sala extends DurableObject {
     }
     const id = u.id + '-' + Math.random().toString(36).slice(2, 7);
     const pos = (await this.ctx.storage.get('p:' + u.id)) || null;
-    const eu = { id, uid: u.id, nome: u.nome, cor: u.cor, dono: !!u.dono, p: pos || [0, 60, 0], r: [0, 0], cota: 0, janela: 0, semVeiculos: opcoes.veiculos === false };
+    const eu = { id, uid: u.id, nome: u.nome, cor: u.cor, skin: normalizarSkin(u.skin, u.cor), dono: !!u.dono, p: pos || [0, 60, 0], r: [0, 0], cota: 0, janela: 0, semVeiculos: opcoes.veiculos === false };
     this.ctx.acceptWebSocket(servidor);
     servidor.serializeAttachment(eu);
 
@@ -215,9 +216,9 @@ export class Sala extends DurableObject {
     const barra = (await this.ctx.storage.get('h:' + u.id)) || null;
     servidor.send(JSON.stringify({
       t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia, dono: eu.dono, lugares, opcoes, econ, veiculos, barra,
-      jogadores: this.jogadores().filter((j) => j.id !== id).map(({ id, nome, cor, p, r }) => ({ id, nome, cor, p, r })),
+      jogadores: this.jogadores().filter((j) => j.id !== id).map(({ id, nome, cor, skin, p, r }) => ({ id, nome, cor, skin, p, r })),
     }));
-    this.enviarTodos({ t: 'entrou', j: { id, nome: u.nome, cor: u.cor, p: eu.p, r: eu.r } }, servidor);
+    this.enviarTodos({ t: 'entrou', j: { id, nome: u.nome, cor: u.cor, skin: eu.skin, p: eu.p, r: eu.r } }, servidor);
     return new Response(null, { status: 101, webSocket: cliente });
   }
 
@@ -382,6 +383,14 @@ export class Sala extends DurableObject {
     } else if (m.t === 'buzina') {
       if (!eu.v || eu.v[0] !== m.id) return;
       this.enviarTodos({ t: 'buzina', id: m.id }, ws);
+    } else if (m.t === 'skin' && m.s && typeof m.s === 'object') {
+      // trocou de personagem no meio do jogo: os amigos veem na hora (a conta já salvou pela API)
+      const agora = Date.now();
+      if (eu.skinEm && agora - eu.skinEm < 1500) return;
+      eu.skinEm = agora;
+      eu.skin = normalizarSkin(m.s, eu.cor);
+      ws.serializeAttachment(eu);
+      this.enviarTodos({ t: 'skin', id: eu.id, s: eu.skin }, ws);
     } else if (m.t === 'emote' && EMOTES.has(m.e)) {
       // no máximo um emote a cada 0,8 s (evita encher a tela/os ouvidos dos outros)
       const agora = Date.now();
