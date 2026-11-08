@@ -39,6 +39,15 @@ O terreno é gerado a partir de uma semente, então o servidor só guarda **o qu
 Todo push no `main` publica sozinho pelo GitHub Actions (`.github/workflows/publicar.yml`): cria o D1 se não existir, aplica o schema, publica a sala e o site.
 Precisa dos segredos do repositório `CLOUDFLARE_API_TOKEN` (permissões: Pages, Workers Scripts, D1 — edição) e `CLOUDFLARE_ACCOUNT_ID`.
 
+## App Android (APK)
+
+A pasta `android/` é um app pequeno (Trusted Web Activity) que abre https://pradaria.pages.dev em tela cheia, sem barra de endereço. Se o tablet não tiver Chrome, ele abre o jogo num WebView. O jogo em si continua vindo do site, então atualizações do jogo chegam sem baixar APK novo.
+
+O `.github/workflows/apk.yml` gera o APK quando `android/` muda no `main` (ou rodando à mão em Actions) e publica em Releases:
+https://github.com/smartryangg-cmyk/pradaria/releases/latest/download/pradaria.apk
+
+Precisa dos segredos `ANDROID_KEYSTORE_B64` (a chave .jks em base64) e `ANDROID_KEYSTORE_SENHA`. A impressão digital dessa chave está em `public/.well-known/assetlinks.json`; se trocar a chave, troque lá também, senão o app mostra a barra de endereço. Guarde a chave: sem ela o tablet não aceita atualizar o app por cima.
+
 ## Rodar no computador
 
 ```bash

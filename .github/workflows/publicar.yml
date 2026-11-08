@@ -58,4 +58,5 @@ jobs:
           curl -sf https://pradaria.pages.dev/ -o /dev/null && echo "site ok"
           curl -sf https://pradaria.pages.dev/api/saude | tee /tmp/saude.json
           grep -q '"banco":true' /tmp/saude.json && grep -q '"sala":true' /tmp/saude.json
+          curl -sf https://pradaria.pages.dev/.well-known/assetlinks.json | grep -q dev.pradaria.jogo && echo 'assetlinks ok' || echo '::warning::assetlinks.json não está no ar (o app Android vai mostrar a barra de endereço)'
           curl -s -X POST https://pradaria.pages.dev/api/entrar -H 'content-type: application/json' -d '{"nome":"ninguem_teste","senha":"xxxx"}'

@@ -196,6 +196,8 @@ const ehIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platfor
 function mostrarInstalar(sim) { document.querySelectorAll('.instalar').forEach((b) => { b.hidden = !sim || !!ehApp; }); }
 addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); pedidoInstalar = e; mostrarInstalar(true); });
 addEventListener('appinstalled', () => { pedidoInstalar = null; mostrarInstalar(false); aviso('Pronto! O Pradaria está na sua tela de início 🎉', 3500); });
+// no Android (fora do app) oferece baixar o APK, que abre o jogo em tela cheia
+if (/Android/i.test(navigator.userAgent) && !ehApp) document.querySelectorAll('.baixar-apk').forEach((b) => { b.hidden = false; });
 if (ehIOS) mostrarInstalar(true); // no iPhone/iPad não tem pedido automático: mostramos o passo a passo
 document.querySelectorAll('.instalar').forEach((b) => b.addEventListener('click', async () => {
   if (pedidoInstalar) {
