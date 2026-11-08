@@ -202,6 +202,7 @@ export class Garagem {
     if (!this.meuBoneco) this.meuBoneco = montarBoneco(J.corBoneco());
     this.veic.ocupar(v, a, this.eu, this.meuBoneco);
     this.dentro = { v, a };
+    this._esperado = null;
     jog.voando = false; jog.vel.x = jog.vel.y = jog.vel.z = 0;
     jog.yaw = 0; jog.pitch = -0.22;
     this.ultYaw = 0; this.ultPitch = jog.pitch;
@@ -275,6 +276,12 @@ export class Garagem {
   quadro(dt, ent, pausado) {
     if (!this.veic) return false;
     const J = this.J, jog = J.jog();
+    // alguém teleportou o jogador (comandos, desmaio): desce do veículo e fica lá
+    if (this.dentro && this._esperado && Math.hypot(jog.pos.x - this._esperado.x, jog.pos.y - this._esperado.y, jog.pos.z - this._esperado.z) > 3) {
+      const p = { x: jog.pos.x, y: jog.pos.y, z: jog.pos.z }, yaw = this.dentro.v.yaw + jog.yaw;
+      this.sair();
+      Object.assign(jog.pos, p); jog.yaw = yaw;
+    }
     const meu = this.dentro && this.dentro.a === 0 ? this.dentro.v : null;
     if (meu && !pausado) {
       const obst = [];
@@ -305,6 +312,7 @@ export class Garagem {
       // o jogador "fica" no assento (para carregar o mundo e os bichos em volta)
       const p = this.veic.posAssento(this.dentro.v, this.dentro.a);
       jog.pos.x = p.x; jog.pos.y = p.y - 0.75; jog.pos.z = p.z;
+      this._esperado = { x: jog.pos.x, y: jog.pos.y, z: jog.pos.z };
       // a câmera volta para trás do veículo quando ninguém está mexendo nela
       const mexeu = Math.abs(jog.yaw - this.ultYaw) > 1e-4 || Math.abs(jog.pitch - this.ultPitch) > 1e-4;
       this.tempoOlhar = mexeu ? 1.2 : Math.max(0, this.tempoOlhar - dt);
