@@ -25,6 +25,7 @@ import { vida } from './vida.js';
 import { Mapa } from './mapa.js';
 import { Mercado } from './mercado.js';
 import { preencherDono, contaModo, ligarApagarConta } from './dono.js';
+import { Armas } from './armas.js';
 
 const $ = (s) => document.querySelector(s);
 preencherIcones();
@@ -189,16 +190,21 @@ const mercado = new Mercado({
   outros: () => [...outros.entries()].map(([id, o]) => ({ id, nome: o.nome })),
 });
 
+// opção "Construção": desligada, ninguém coloca nem quebra blocos (o servidor também não deixa)
+const podeConstruir = () => opcoesMundo.construcao !== false;
 function desenharBarra() {
   const el = $('#barra');
   el.innerHTML = '';
+  el.hidden = !podeConstruir();
+  if (el.hidden) return;
+  const naMao = !armas.empunhando;
   barra.forEach((id, i) => {
     const b = document.createElement('button');
-    b.className = 'slot' + (i === slotSel ? ' sel' : '');
+    b.className = 'slot' + (i === slotSel && naMao ? ' sel' : '');
     b.setAttribute('aria-label', BLOCOS[id].nome);
     b.appendChild(iconeBloco(atlasCanvas, id, 48));
     if (!mercado.podeColocar(id)) { b.classList.add('trancado'); b.title = 'Compre na loja de uma vila'; b.insertAdjacentHTML('beforeend', `<span class="cad">${icone('cadeado')}</span>`); }
-    b.addEventListener('click', () => { slotSel = i; som.clique(); desenharBarra(); aviso(BLOCOS[id].nome, 900); });
+    b.addEventListener('click', () => { slotSel = i; armas.escolher(-1); som.clique(); desenharBarra(); aviso(BLOCOS[id].nome, 900); });
     el.appendChild(b);
   });
   const mais = document.createElement('button');
@@ -210,7 +216,7 @@ function desenharBarra() {
 let abaInv = 'blocos';
 const maquinasLigadas = () => opcoesMundo.maquinas !== false;
 function abrirInventario() {
-  if (!jogando) return;
+  if (!jogando || !podeConstruir()) return;
   const g = $('#grade');
   if (!maquinasLigadas()) abaInv = 'blocos';
   $('#abas-inv').hidden = !maquinasLigadas();
@@ -228,6 +234,7 @@ function abrirInventario() {
         if (trancado) { som.clique(); aviso(`${BLOCOS[id].nome}: compre na loja de uma vila por ${mercado.precoDe(id)} moedas (toque num aldeão)`, 2800, 'cadeado'); return; }
         const ja = barra.indexOf(id);
         if (ja >= 0) slotSel = ja; else barra[slotSel] = id;
+        armas.escolher(-1);
         som.clique(); desenharBarra(); fecharJanelas(); aviso(BLOCOS[id].nome, 900);
       });
       g.appendChild(b);
@@ -390,12 +397,20 @@ vida.aoDesmaiar = () => {
   if (monstros) monstros.limpar();
   const el = $('#desmaio');
   el.hidden = false; el.classList.remove('vai'); void el.offsetWidth; el.classList.add('vai');
+  const comArmas = !!opcoesMundo.armas;
+  if (comArmas) armas.caiu();
   setTimeout(() => {
     if (!jogando) return;
     const c = cmd.casa();
-    if (c) cmd.teleportar(c[0], c[1], c[2], c[3], 'Você desmaiou e acordou em casa');
-    else { const p = acharInicio(); cmd.teleportar(p.x, p.y, p.z, 0, 'Você desmaiou e acordou no começo do mundo'); }
-    vida.reiniciar(); vida.protegido = 6;
+    if (comArmas && mundo.aventura) {
+      // Ilha de Aventura: volta lá do alto, num ponto qualquer da ilha, e escolhe onde pousar
+      const a = Math.random() * Math.PI * 2, r = 40 + Math.random() * 120, ini = mundo.aventura.inicio();
+      cmd.teleportar(Math.round(Math.cos(a) * r) + 0.5, ini.y, Math.round(Math.sin(a) * r) + 0.5, a, 'Você caiu! Escolha onde pousar');
+      jog.planando = true; jog.voando = false;
+    } else if (c) cmd.teleportar(c[0], c[1], c[2], c[3], comArmas ? 'Você caiu e voltou para casa' : 'Você desmaiou e acordou em casa');
+    else { const p = acharInicio(); cmd.teleportar(p.x, p.y, p.z, 0, comArmas ? 'Você caiu e voltou para o começo' : 'Você desmaiou e acordou no começo do mundo'); }
+    vida.reiniciar(); vida.protegido = comArmas ? 3 : 6;
+    if (comArmas) armas.renasceu();
   }, 900);
   setTimeout(() => { el.hidden = true; }, 2200);
 };
@@ -406,6 +421,16 @@ const cmd = criarComandos({
   definirDia: (v) => { tempoDia = v; },
   pausar: (sim) => { pausado = sim; },
 });
+// ---------- armas (opção do mundo) ----------
+const armas = new Armas({
+  cena, camera, som, aviso,
+  outros: () => outros, mundo: () => mundo, monstros: () => monstros, jog: () => jog, sala: () => sala, euId: () => euId,
+  fovBase: () => ajustes.fov || 72, controles: () => ctrl,
+  aoMudar: () => { if (jogando) { desenharBarraSeMudou(); } },
+});
+cena.add(camera); // a arma em primeira pessoa fica presa na câmera
+let barraArmado = null;
+function desenharBarraSeMudou() { if (barraArmado !== armas.empunhando) { barraArmado = armas.empunhando; desenharBarra(); } }
 $('#bt-comandos').addEventListener('click', () => { som.iniciar(); som.clique(); cmd.abrir(); });
 $('#bt-voar').addEventListener('click', () => alternarVoo());
 document.querySelectorAll('[data-emote]').forEach((b) => b.addEventListener('click', () => {
@@ -424,6 +449,7 @@ function ajustarNevoa() {
 
 function alternarVoo() {
   if (!jog || garagem.dentro) return;
+  if (opcoesMundo.armas) { if (!jog.planando) aviso('Com armas não dá para voar', 1300, 'arma'); return; }
   jog.voando = !jog.voando;
   jog.vel.y = jog.voando ? 2 : 0;
   $('#bt-voar').classList.toggle('ligado', jog.voando);
@@ -472,6 +498,7 @@ function usar(ponto) {
     return;
   }
   if (BASE[h.b] === E.BOTAO) { apertarBotao(h.x, h.y, h.z); return; }
+  if (armas.empunhando || !podeConstruir()) return; // com arma na mão (ou sem construção) não coloca bloco
   const x = h.x + h.n[0], y = h.y + h.n[1], z = h.z + h.n[2];
   let novo = barra[slotSel];
   if (y < 1 || y >= ALT) return;
@@ -567,6 +594,7 @@ function quebrar(ponto) {
   if (m.veiculo) return;
   if (m.bicho) { fazerCarinho(m.bicho); return; }
   if (m.aldeao) { conversarCom(m.aldeao); return; }
+  if (armas.empunhando || !podeConstruir()) return; // sem construção ninguém quebra bloco
   // com a Água na mão, "quebrar" recolhe a água (como um balde)
   if (barra[slotSel] === B.AGUA && recolherAgua(ponto)) return;
   const h = m.bloco;
@@ -660,6 +688,7 @@ function salvarLocal() {
 
 function limparMundo() {
   garagem.parar();
+  armas.parar();
   if (sala) { sala.fechar(); sala = null; }
   for (const id of [...outros.keys()]) removerOutro(id);
   mapa.usarMundo(null);
@@ -712,7 +741,16 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   if (!ctrl) {
     ctrl = new Controles(canvas, jog, {
       usar, quebrar, alternarVoo, inventario: abrirInventario,
-      slot: (i) => { if (i < barra.length) { slotSel = i; desenharBarra(); } },
+      slot: (i) => {
+        // sem construção, os números escolhem as armas (1, 2) e as mãos (3)
+        if (!podeConstruir()) { if (i < 2) armas.escolher(i); else if (i === 2) armas.escolher(-1); return; }
+        if (i < barra.length) { slotSel = i; armas.escolher(-1); desenharBarra(); }
+      },
+      armado: () => jogando && !pausado && !garagem.dentro && armas.empunhando,
+      gatilho: (sim) => { if (!sim || (jogando && !pausado)) armas.gatilho(sim); },
+      mirar: (sim) => armas.mirar(sim),
+      recarregar: () => { if (jogando && !pausado) armas.recarregar(); },
+      trocar: () => { if (jogando && !pausado) armas.trocar(); },
       rolar: (d) => { slotSel = (slotSel + d + barra.length) % barra.length; desenharBarra(); },
       primeiroToque: () => som.iniciar(),
       mira: (p) => { miraToque = p; },
@@ -730,6 +768,12 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
     else aviso('Buu! Toque no monstrinho para espantar', 1800, 'sorriso');
   };
   vida.reiniciar();
+  armas.comecar();
+  barraArmado = null;
+  $('#bt-voar').hidden = !!opcoesMundo.armas;
+  $('#dica-toque').textContent = opcoesMundo.armas ? 'Botão da arma: atirar · Mira: aproximar · Ande por cima das caixas para pegar'
+    : podeConstruir() ? 'Toque: colocar bloco ou fazer carinho · Segure: quebrar' : 'Toque: fazer carinho e conversar · Mundo só para explorar';
+  $('#dica-toque').style.opacity = 1;
   mapa.usarMundo(mundo, 'pradaria.mapa.' + (modo === 'online' && mundoAtual ? mundoAtual.codigo : 'local'));
   aplicarMinimapa();
   garagem.comecar(mundo, veiculos);
@@ -787,12 +831,14 @@ async function jogarOnline(m) {
         iniciarMundo({ semente: msg.semente, edicoes: msg.edicoes, pos: msg.pos, yaw: 0, opcoes: msg.opcoes || m.opcoes });
         sala = s;
         cmd.entrouOnline(msg);
+        armas.entrouOnline(s);
         mercado.iniciar({ opcoes: msg.opcoes, estado: msg.econ, sala: s });
         desenharBarra();
         $('#status').innerHTML = comIcone('globo', m.nome);
         aviso(`Bem-vindo, ${conta.usuario.nome}!` + (m.dono ? ` Código do mundo: ${m.codigo}` : ''), 3500, 'flor');
       } else {
         mundo.carregarEdicoes(msg.edicoes);
+        armas.entrouOnline(sala);
       }
       for (const id of [...outros.keys()]) removerOutro(id);
       for (const j of msg.jogadores) adicionarOutro(j);
@@ -819,6 +865,7 @@ async function jogarOnline(m) {
     'econ-erro': (msg) => mercado.erro(msg.msg),
     fim: (texto) => { sala = null; sairDoMundo(); $('#mundos-erro').textContent = texto || ''; },
     ...cmd.rede,
+    ...armas.rede,
   });
 }
 
@@ -1047,6 +1094,8 @@ function laco(agora) {
   aldeoes.atualizar(dt, jog, Math.sin(tempoDia * Math.PI * 2));
   monstros.atualizar(pausado ? 0 : dt, jog, tempoDia);
   if (!pausado) vida.atualizar(dt);
+  armas.quadro(dt, pausado || garagem.dentro);
+  if (garagem.dentro) armas.mao.visible = false;
   mapa.atualizar(dt, jog, outros, bichos);
   mercado.passo(jog.pos.x - passoAntes.x, jog.pos.z - passoAntes.z, jog, mundo.alturaEm(Math.floor(jog.pos.x), Math.floor(jog.pos.z)));
   passoAntes.x = jog.pos.x; passoAntes.z = jog.pos.z;
@@ -1176,4 +1225,4 @@ camera.position.set(0, 40, 0);
 if (conta.token) abrirMundos(); else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, garagem, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa }; }
+if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, garagem, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, armas, get pausado() { return pausado; } }; }

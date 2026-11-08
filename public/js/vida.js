@@ -1,4 +1,4 @@
-// Vida do jogador (corações). Só aparece nos mundos com a opção "Monstros machucam".
+// Vida do jogador (corações). Só aparece nos mundos com a opção "Monstros machucam" ou "Armas".
 // Outras partes do jogo podem curar: import { vida } from './vida.js'; vida.curar(2); // 2 = um coração inteiro
 import { icone } from './icones.js';
 import { opcoesMundo } from './opcoes-mundo.js';
@@ -16,7 +16,7 @@ export const vida = {
   aoDesmaiar: null, // definido pelo main.js
   aoMudar: null,
 
-  ligada() { return !!(opcoesMundo.monstros && opcoesMundo.monstrosMachucam); },
+  ligada() { return !!((opcoesMundo.monstros && opcoesMundo.monstrosMachucam) || opcoesMundo.armas); },
 
   reiniciar() { this.atual = MAX; this.semDano = 99; this.protegido = 0; this.acumCura = 0; this.desenhar(); },
 
