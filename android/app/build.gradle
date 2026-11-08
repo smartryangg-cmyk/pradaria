@@ -1,0 +1,41 @@
+plugins { id "com.android.application" }
+
+// A chave de assinatura vem do GitHub Actions (segredos ANDROID_KEYSTORE_B64 / ANDROID_KEYSTORE_SENHA).
+def chave = System.getenv("ANDROID_KEYSTORE_ARQUIVO")
+def senha = System.getenv("ANDROID_KEYSTORE_SENHA")
+
+android {
+    namespace "dev.pradaria.jogo"
+    compileSdk 35
+    defaultConfig {
+        applicationId "dev.pradaria.jogo"
+        minSdk 21
+        targetSdk 35
+        versionCode Integer.parseInt(System.getenv("VERSAO_CODIGO") ?: "1")
+        versionName System.getenv("VERSAO_NOME") ?: "1.0"
+    }
+    signingConfigs {
+        release {
+            if (chave) {
+                storeFile file(chave)
+                storePassword senha
+                keyAlias "pradaria"
+                keyPassword senha
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation "com.google.androidbrowserhelper:androidbrowserhelper:2.5.0"
+}

@@ -1,0 +1,5 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": { "namespace": "android_app", "package_name": "dev.pradaria.jogo",
+    "sha256_cert_fingerprints": ["5B:81:E6:96:09:15:31:43:4B:DD:9F:75:FA:99:FB:80:3C:83:53:FE:9A:20:44:4B:08:34:00:25:9F:A5:73:AD"] }
+}]
