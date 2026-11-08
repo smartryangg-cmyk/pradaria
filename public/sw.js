@@ -1,6 +1,6 @@
 // Deixa o jogo instalável e abrindo sem internet.
 // Rede primeiro (para sempre pegar a versão nova); se não tiver internet, usa a cópia guardada.
-const CACHE = 'pradaria-v25';
+const CACHE = 'pradaria-v26';
 const BASICO = [
   '/', '/index.html', '/estilo.css', '/manifest.webmanifest', '/icone.svg', '/icone-192.png', '/icone-512.png',
   '/vendor/three.module.min.js',
