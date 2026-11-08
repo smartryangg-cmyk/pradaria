@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS usuarios (
   hash TEXT NOT NULL,
   sal TEXT NOT NULL,
   cor INTEGER NOT NULL DEFAULT 0,
-  criado_em INTEGER NOT NULL
+  criado_em INTEGER NOT NULL,
+  skin TEXT -- personagem em JSON (public/js/skin.js); bancos antigos ganham a coluna em lib/base.js
 );
 CREATE TABLE IF NOT EXISTS mundos (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
