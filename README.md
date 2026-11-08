@@ -6,6 +6,7 @@ Jogo de construir e explorar, **pacífico** (só bichinhos, nada de monstros), q
 - 22 blocos para construir (grama, pedra, tábuas, vidro, tijolo, lãs coloridas, flores, lampião…).
 - **Vilas** espalhadas pelo mundo (sempre tem uma pertinho de onde se começa): casas com telhado colorido, caminha e lampião, ruas com postes, praça com poço, plantações de trigo e celeiro com feno. Quatro estilos: do campo, de tijolinho, da praia (telhado de feno) e da serra. Cada vila tem nome (ex.: "Vila do Girassol").
 - **Aldeões** que passeiam, acenam quando você chega, conversam com um toque (às vezes dão um presentinho) e dormem em casa à noite.
+- **Veículos** (botão 🚗 = garagem): carro conversível, jipe, esportivo, quadriciclo, moto, bicicleta, skate, trator, caminhão, ônibus, barco, avião e helicóptero, em 8 cores. Aparecem na sua frente, sobem degraus de um bloco, boiam na água e freiam sozinhos na frente dos bichos e das pessoas (ninguém se machuca). Amigos entram como passageiros e todo mundo vê quem está dentro; cada um tem sua buzina. Ficam salvos no mundo.
 - Bichos: ovelha, porquinho, galinha, vaca, coelho, capivara e o Caramelo (que segue você depois de um carinho).
 - Visual caprichado já no padrão: sol que faz sombra de verdade, céu com degradê, pôr do sol rosado e estrelas, água que reflete o céu e brilha, folhas e flores balançando com o vento, lampiões que iluminam a noite, névoa na cor do horizonte.
 - Três níveis de gráficos (Linda, Bonita, Leve). Se o aparelho ficar lento, o jogo baixa sozinho para rodar liso.
@@ -26,6 +27,8 @@ Jogo de construir e explorar, **pacífico** (só bichinhos, nada de monstros), q
 | ⬆ pular · 🕊️ voar · ⬇ descer | Espaço · espaço duas vezes ou F · Shift |
 | Barra de baixo e ＋: escolher blocos | 1–9, rodinha, E |
 | 🧭: comandos (teleporte, casa, amigos, hora) | C |
+| 🚗 garagem · toque no veículo ou "Entrar" · 🚪 Descer · 📯 buzina | G · V · V · H |
+| No veículo: joystick dirige; ⬆ ⬇ sobem e descem avião/helicóptero | WASD; Espaço/Shift |
 
 ## Como funciona (arquitetura)
 
