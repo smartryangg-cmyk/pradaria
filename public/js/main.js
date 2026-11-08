@@ -956,7 +956,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   escav = new Escavacao(cena, mundo, matBlocos, atlasCanvas);
   fisica = new Fisica(cena, mundo, matBlocos);
   fisica.aoCair = (x, y, z) => { if (Math.abs(x - jog.pos.x) + Math.abs(z - jog.pos.z) < 24) som.passo(); };
-  fisica.aoFolha = (x, y, z) => escav.estilhacar(x, y, z, B.FOLHAS, null, null);
+  fisica.aoFolha = (x, y, z, b) => escav.estilhacar(x, y, z, b, null, null);
   mundo.carregarEdicoes(edicoes);
   mundo.aoMudarBloco = (x, y, z, b, de, natural) => {
     edicoesPendentes = true;
