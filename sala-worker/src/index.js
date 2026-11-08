@@ -191,7 +191,9 @@ export class Sala extends DurableObject {
   }
 
   async fetch(request) {
-    const acao = request.headers.get('x-admin');
+    // ações do dono só chegam pelo binding do servidor (https://sala/admin); do jogador nunca
+    const acao = new URL(request.url).hostname === 'sala' ? request.headers.get('x-admin') : null;
+    if (request.headers.get('x-admin') && !acao) return new Response('não', { status: 403 });
     if (acao) { let d = {}; try { d = await request.json(); } catch {} return this.admin(acao, d || {}); }
     const u = JSON.parse(request.headers.get('x-usuario') || 'null');
     const mundo = JSON.parse(request.headers.get('x-mundo') || 'null');

@@ -50,6 +50,19 @@ wc.send(JSON.stringify({ t: 'bloco', x: 3, y: 30, z: 3, b: 50 }));
 wc.send(JSON.stringify({ t: 'bloco', x: 4, y: 30, z: 3, b: 1 }));
 await espera(500);
 ok(wd.msgs.some((m) => m.t === 'bloco' && m.b === 1), 'bloco válido chega ao dono');
+// membro tentando se passar pelo servidor com um cabeçalho "x-admin" (antes apagava o mundo do dono)
+const http = await import('node:http');
+const forjado = await new Promise((res) => {
+  const r = http.request(`${BASE}/api/sala/${mundo.codigo}?t=${encodeURIComponent(amigo.token)}`, {
+    headers: { Upgrade: 'websocket', Connection: 'Upgrade', 'Sec-WebSocket-Version': '13', 'Sec-WebSocket-Key': 'x3JJHMbDL1EzLkh9GBhXDw==', 'x-admin': 'apagar' },
+  });
+  r.on('response', (resp) => { resp.resume(); res(resp.statusCode); });
+  r.on('upgrade', (resp, sock) => { sock.destroy(); res(resp.statusCode); });
+  r.on('error', () => res(0));
+  r.end();
+});
+await espera(600);
+ok(forjado !== 200 && !wd.msgs.some((m) => m.t === 'erro' && m.fim) && wd.fechou === undefined, `cabeçalho x-admin falso não apaga o mundo (resposta ${forjado})`);
 // emotes: no máximo um a cada 0,8 s
 for (let i = 0; i < 6; i++) wc.send(JSON.stringify({ t: 'emote', e: 'coracao' }));
 await espera(400);
@@ -126,9 +139,9 @@ await p.keyboard.press('KeyP');
 await espera(800);
 const temDono = await p.evaluate(() => !document.querySelector('#pausa-dono').hidden);
 ok(temDono, 'pausa do dono mostra "Quem pode entrar"');
-const ignorou = await p.evaluate(() => { const m = window.__jogo.mundo; m.carregarEdicoes([[6, 30, 6, 50]]); return m.definir(5, 30, 5, 50) === false; });
+const ignorou = await p.evaluate(() => { const m = window.__jogo.mundo; m.carregarEdicoes([[6, 30, 6, 250]]); return m.definir(5, 30, 5, 250) === false; });
 await espera(800);
-ok(ignorou, 'bloco que não existe (id 50) é ignorado pelo jogo');
+ok(ignorou, 'bloco que não existe (id 250) é ignorado pelo jogo');
 ok(erros.length === 0, 'sem erros na página ' + erros.join(' | '));
 await b.close();
 console.log(falhas ? `${falhas} falha(s)` : 'tudo certo');
