@@ -12,6 +12,16 @@ for (const { b } of LOJA) {
   for (let i = 0; i < 5; i++) { aplicar(e, op, { t: 'comprar', b }); aplicar(e, op, { t: 'vender', b, n: LOTE_LOJA }); }
   conferir(e.moedas <= 100, `comprar e vender o bloco ${b} 5 vezes: ${e.moedas} moedas (começou com 100)`);
 }
+// comprar tudo o que a loja vende, moer, assar e vender tudo: nunca dá lucro
+for (const { b } of LOJA) {
+  const e = normalizar({ ...estadoNovo(op), moedas: 100 }, op);
+  for (let i = 0; i < 5; i++) {
+    aplicar(e, op, { t: 'comprar', b });
+    aplicar(e, op, { t: 'moer' }); aplicar(e, op, { t: 'assar' });
+    for (const id of Object.keys(e.itens)) aplicar(e, op, { t: 'vender', b: +id, n: 999 });
+  }
+  conferir(e.moedas <= 100, `comprar o bloco ${b}, moer, assar e vender 5 vezes: ${e.moedas} moedas (começou com 100)`);
+}
 // folha colocada pelo jogador não dá graveto extra; folha da árvore pode dar
 let extraEditado = 0, extraNatural = 0;
 for (let x = 0; x < 200; x++) {

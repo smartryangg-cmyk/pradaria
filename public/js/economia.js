@@ -20,6 +20,10 @@ export const LOJA = [
   [LB, 8], [LV, 10], [LZ, 10], [LM, 10], [LG, 10], [LR, 10],
 ].map(([b, preco]) => ({ b, preco }));
 const PRECO_LOJA = new Map(LOJA.map((x) => [x.b, x.preco]));
+// no "Coletar e criar" a loja não vende trigo: comprado, virava pão (9 cada) no moinho e no forno e dava moedas sem fim.
+// Trigo se colhe no campo.
+export const SO_COLHENDO = new Set([TRI]);
+export const naLoja = (b, op) => !(op && op.sobrevivencia && SO_COLHENDO.has(b));
 // no "Coletar e criar" a loja entrega LOTE_LOJA de uma vez: o lote nunca pode valer mais na venda do que custa
 // (trigo custava 6 e o lote de 4 vendia por 12: moedas infinitas comprando e vendendo)
 
@@ -236,7 +240,7 @@ export function aplicar(e, op, a, ctx = {}) {
   } else if (a.t === 'comprar') {
     if (!op.mercado) return falha('O mercado está desligado neste mundo.');
     const preco = PRECO_LOJA.get(a.b);
-    if (!preco) return falha('Isso não está à venda.');
+    if (!preco || !naLoja(a.b, op)) return falha('Isso não está à venda.');
     if (e.moedas < preco) return falha(`Faltam ${preco - e.moedas} moedas.`);
     if (op.sobrevivencia) {
       if (qtdEm(e.itens, a.b) + LOTE_LOJA > MAX_ITEM) return falha('Sua mochila já está cheia disso!');

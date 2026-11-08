@@ -1,7 +1,7 @@
 // Mercado (moedas, loja dos aldeões, presentes) e objetivos: a parte da tela.
 // As regras ficam em economia.js. Online quem decide é a sala (servidor); sem internet, o próprio aparelho.
 import { icone, comIcone } from './icones.js';
-import { opcoesEcon, econLigada, estadoNovo, normalizar, aplicar, liberado, LOJA, LOTE_LOJA, precoVenda, vendivel, objetivosDoMundo, objetivosAtivos, OBJETIVOS } from './economia.js';
+import { opcoesEcon, econLigada, estadoNovo, normalizar, aplicar, liberado, LOJA, LOTE_LOJA, naLoja, precoVenda, vendivel, objetivosDoMundo, objetivosAtivos, OBJETIVOS } from './economia.js';
 import { OFICIOS, HORA_INI, HORA_FIM, livreDe, MAX_MARCAS } from './trabalho.js';
 
 const $ = (s) => document.querySelector(s);
@@ -298,6 +298,7 @@ export class Mercado {
       lista.appendChild(ver);
     } else {
       for (const { b, preco } of LOJA) {
+        if (!naLoja(b, this.op)) continue;
         const tem = !this.op.sobrevivencia && this.e.comprados.includes(b);
         const bt = el('button', 'bt econ-bt' + (tem ? ' fraco' : this.e.moedas >= preco ? ' verde' : ''));
         bt.innerHTML = tem ? 'Já é seu' : (this.op.sobrevivencia ? `${LOTE_LOJA} por ` : '') + moedaHtml(preco);
