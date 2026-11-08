@@ -388,6 +388,8 @@ vec3 gDirBorda = vec3(0.0);`)
       c.near = 1; c.far = DIST_SOL + q.area * 2.5;
       c.updateProjectionMatrix();
       sol.shadow.normalBias = Math.max(0.03, (2 * q.area / q.sombra) * 1.2);
+    } else if (sol.shadow.map) {
+      sol.shadow.map.dispose(); sol.shadow.map = null; // libera a memória da sombra
     }
     lampioes.forEach((l, i) => { l.visible = i < q.luzes; });
     // força recompilar os materiais (sombra liga/desliga, nº de luzes)

@@ -92,6 +92,14 @@ function palpiteGrafico() {
   palpiteFeito = n;
   return n;
 }
+// a placa de vídeo desistiu (memória cheia, comum em tablet fraco): volta para o nível leve e lembra disso
+canvas.addEventListener('webglcontextlost', (e) => {
+  e.preventDefault(); // deixa o navegador devolver a tela
+  if (ajustes.graf === 'auto') { ajustes.grafAuto = 'baixa'; ajustes.grafTeto = 'baixa'; }
+  else if (ajustes.graf !== 'baixa') { ajustes.graf = 'baixa'; ajustes.grafManual = false; }
+  salvarAjustes();
+});
+canvas.addEventListener('webglcontextrestored', () => { try { aplicarGraficos(); preencherGraficos(); } catch {} });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 const cena = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 400);
@@ -1209,6 +1217,10 @@ function jogarLocal(novo = null, idadeOk = false) {
     confirmarIdade16('Este mundo').then((ok) => { if (ok) jogarLocal(novo, true); else if (!jogando) mostrarMenu('m-inicio'); });
     return;
   }
+  // mundo novo não herda os lugares marcados nem a marca do mapa do mundo antigo
+  if (novo) {
+    try { localStorage.removeItem('pradaria.lugares.local'); localStorage.removeItem('pradaria.mapa.local'); } catch {}
+  }
   modo = 'local'; mundoAtual = null;
   if (salvo && salvo.barra) barra = salvo.barra;
   tempoDia = salvo ? salvo.dia ?? 0.3 : 0.3;
@@ -1662,7 +1674,10 @@ const calib = {
     if (this.aguardar > 0) { this.aguardar--; return; }
     const alvo = ajustes.fpsMax || 60; // tela de 60 Hz não passa de ~60
     const atual = NIVEIS.indexOf(nivelAuto());
-    const teto = NIVEIS.includes(ajustes.grafTeto) ? NIVEIS.indexOf(ajustes.grafTeto) : NIVEIS.length - 1;
+    // sem teto marcado: no máximo um nível acima do palpite, e tablet/celular ou pouca memória nunca vão sozinhos ao Ultra
+    const fraco = ehToque || (navigator.deviceMemory || 8) <= 4;
+    const tetoPadrao = Math.min(NIVEIS.indexOf(palpiteGrafico()) + 1, NIVEIS.length - (fraco ? 2 : 1));
+    const teto = NIVEIS.includes(ajustes.grafTeto) ? NIVEIS.indexOf(ajustes.grafTeto) : tetoPadrao;
     this.bons = fps >= alvo * 0.9 ? this.bons + 1 : 0;
     this.ruins = fps < alvo * 0.62 ? this.ruins + 1 : 0;
     let novo = atual;
@@ -1674,6 +1689,8 @@ const calib = {
     }
     ajustes.grafAuto = NIVEIS[novo];
     salvarAjustes(); aplicarGraficos(); preencherGraficos();
+    if (mundo) mundo.raio = raioVisao();
+    ajustarNevoa();
     this.reiniciar();
     if (novo < atual) aviso('Ajustei os gráficos para rodar liso', 2200, 'brilho');
   },

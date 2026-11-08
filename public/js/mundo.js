@@ -417,8 +417,9 @@ export class Mundo {
 
   // aplica uma lista de edições [x,y,z,b] (ex.: vindas do servidor) antes de gerar
   carregarEdicoes(lista) {
-    for (const [x, y, z, b] of lista) {
+    for (let [x, y, z, b] of lista) {
       if (b !== AR && !BLOCOS[b]) continue;
+      if (b === E.BOTAO_LIGADO) b = E.BOTAO; // salvou com o botão apertado: ele volta solto
       const cx = Math.floor(x / CX), cz = Math.floor(z / CZ);
       const k = chave(cx, cz);
       if (!this.edicoes.has(k)) this.edicoes.set(k, new Map());

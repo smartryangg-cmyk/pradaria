@@ -179,12 +179,13 @@ export class Sala extends DurableObject {
       // o dono ligou/desligou o chat de texto ou de voz nas opções do mundo (vale na hora, para todo mundo)
       await this.mudarChat({ texto: d.texto !== false, voz: d.voz !== false });
     } else if (acao === 'esquecer' && Number.isInteger(d.uid)) {
-      await this.ctx.storage.delete(['p:' + d.uid, 'l:' + d.uid]);
+      await this.ctx.storage.delete(['p:' + d.uid, 'l:' + d.uid, 'e:' + d.uid]);
+      if (this.econ) this.econ.delete(d.uid);
       await this.admin('expulsar', { uids: [d.uid] });
     } else if (acao === 'apagar') {
       await this.admin('expulsar', { todosMenos: -1, msg: 'O dono apagou este mundo.' });
       await this.ctx.storage.deleteAll();
-      this.edicoes = null; this.info = null;
+      this.edicoes = null; this.info = null; this.econ = null; this.veiculos = null; this.coleta = null;
     }
     return new Response('ok');
   }
@@ -405,7 +406,8 @@ export class Sala extends DurableObject {
     if (m.t === 'pos' && Array.isArray(m.p) && m.p.length === 3 && m.p.every(Number.isFinite)) {
       if (Math.abs(m.p[0]) > LONGE || Math.abs(m.p[2]) > LONGE || m.p[1] < -64 || m.p[1] > 512) return;
       eu.p = m.p.map((v) => Math.round(v * 100) / 100);
-      eu.r = Array.isArray(m.r) ? m.r.slice(0, 2).map((v) => (Number.isFinite(v) ? v : 0)) : [0, 0];
+      const fin = (v) => (Number.isFinite(v) ? v : 0); // r:[] deixava o boneco invisível (NaN) nos outros
+      eu.r = Array.isArray(m.r) ? [fin(m.r[0]), fin(m.r[1])] : [0, 0];
       ws.serializeAttachment(eu);
       // a = o que o boneco está fazendo (1 batendo, 2 voando, 4 na água, 8 no ar): só para a animação
       this.enviarTodos({ t: 'pos', id: eu.id, p: eu.p, r: eu.r, a: (m.a | 0) & 15 }, ws);
@@ -434,7 +436,14 @@ export class Sala extends DurableObject {
       const ed = await this.carregarEdicoes();
       const k = x + ',' + y + ',' + z;
       if (!ed.has(k) && ed.size >= MAX_EDICOES) return;
-      const natural = !ed.has(k); // ninguém mexeu aqui ainda: é um bloco do mundo original
+      let natural = !ed.has(k); // ninguém mexeu aqui ainda: é um bloco do mundo original
+      if (natural && b === 0 && econ) {
+        // coleta só perto do jogador e no máximo 40 itens por minuto (por conta: reconectar não zera)
+        const min = Math.floor(Date.now() / 60000), c = (this.coleta ??= new Map()).get(eu.uid) || { min, n: 0 };
+        if (c.min !== min) { c.min = min; c.n = 0; }
+        if (Math.hypot(x + 0.5 - eu.p[0], z + 0.5 - eu.p[2]) > 10 || ++c.n > 40) natural = false;
+        this.coleta.set(eu.uid, c);
+      }
       ed.set(k, b);
       await this.ctx.storage.put('b:' + k, b);
       this.enviarTodos({ t: 'bloco', x, y, z, b }, ws);
@@ -515,7 +524,7 @@ export class Sala extends DurableObject {
       this.enviarTodos({ t: 'vestado', id: v.id, c: fracao(v.c, 1), d: fracao(v.d, 0) });
     } else if (m.t === 'ventrar') {
       const v = (await this.carregarVeiculos()).get(m.id);
-      if (!v) return;
+      if (!v || Math.hypot(v.p[0] - eu.p[0], v.p[1] - eu.p[1], v.p[2] - eu.p[2]) > 12) return;
       const atual = this.ocupacao().get(v.id) || [];
       let a = -1;
       // o volante é só de quem tem a chave (o dono); os outros vão de passageiro. Os das vilas qualquer um dirige
@@ -543,7 +552,7 @@ export class Sala extends DurableObject {
     } else if (m.t === 'vguardar') {
       const vs = await this.carregarVeiculos();
       const v = vs.get(m.id);
-      if (!v) return;
+      if (!v || (v.dono !== eu.uid && !eu.dono)) return;
       const atual = this.ocupacao().get(v.id) || [];
       if (v.k || atual.some((j) => j && j !== eu.id)) return; // o que mora na vila fica lá
       if (eu.v && eu.v[0] === v.id) { eu.v = null; ws.serializeAttachment(eu); }

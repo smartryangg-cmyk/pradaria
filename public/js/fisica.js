@@ -3,13 +3,14 @@
 // (o resultado vai pela rede como edições comuns, então os amigos veem o mesmo).
 import * as THREE from '../vendor/three.module.min.js';
 import { AR, B, BLOCOS, SOLIDO, OPACO, PLANTA, AGUA, uvTile } from './blocos.js';
+import { BE } from './blocos-eras.js';
 
 export const CAI = new Uint8Array(256);
 CAI[B.AREIA] = 1; CAI[B.PEDRISCO] = 1; CAI[B.CASCALHO] = 1;
 const TRONCO = new Uint8Array(256), FOLHA = new Uint8Array(256);
-TRONCO[B.TRONCO] = TRONCO[B.TRONCO_PINHEIRO] = TRONCO[B.TRONCO_BETULA] = 1;
+TRONCO[B.TRONCO] = TRONCO[B.TRONCO_PINHEIRO] = TRONCO[B.TRONCO_BETULA] = TRONCO[BE.TRONCO_PALMEIRA] = 1;
 TRONCO[80] = TRONCO[81] = TRONCO[82] = 1; // troncos redondos das árvores (formas-defs.js)
-FOLHA[B.FOLHAS] = FOLHA[B.FOLHAS_PINHEIRO] = FOLHA[B.FOLHAS_SELVA] = 1;
+FOLHA[B.FOLHAS] = FOLHA[B.FOLHAS_PINHEIRO] = FOLHA[B.FOLHAS_SELVA] = FOLHA[BE.FOLHA_PALMEIRA] = 1;
 
 const FACES = [
   { n: [1, 0, 0], c: [[1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]], t: 2 },
@@ -163,7 +164,7 @@ export class Fisica {
       const base = Math.floor(novoY - 0.5); // célula onde a parte de baixo está entrando
       if (base < 1 || !vazio(m.bloco(c.x, base, c.z))) {
         let y = Math.max(1, base + 1);
-        while (y < 63 && !vazio(m.bloco(c.x, y, c.z))) y++; // caiu em cima de outro que acabou de pousar
+        while (y < 95 && !vazio(m.bloco(c.x, y, c.z))) y++; // caiu em cima de outro que acabou de pousar
         this.cena.remove(c.m);
         this.caindo.splice(i, 1);
         if (vazio(m.bloco(c.x, y, c.z))) m.definir(c.x, y, c.z, c.b);

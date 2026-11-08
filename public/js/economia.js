@@ -188,7 +188,7 @@ export function aplicar(e, op, a, ctx = {}) {
     return { ok: true, feitos: [], mudou: !tr.quieto, blocos: tr.blocos || [], marcar: tr.marcar || [], msgs: tr.msgs || [], vendas: tr.vendas || 0, paes: tr.paes || 0 };
   }
   if (a.t === 'ev') {
-    const max = EVENTOS[a.e];
+    const max = Object.prototype.hasOwnProperty.call(EVENTOS, a.e) ? EVENTOS[a.e] : 0; // 'constructor' etc. não contam
     if (!max) return falha('?');
     const n = Math.max(1, Math.min(max, a.n | 0 || 1));
     if (a.e === 'la') {
