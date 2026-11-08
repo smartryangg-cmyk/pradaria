@@ -48,6 +48,12 @@ export class Som {
 
   colocar() { this.tom(520, 0.08, { tipo: 'triangle', vol: 0.4, ate: 780 }); }
   quebrar() { this.ruido(0.14, { vol: 0.5, freq: 1200 }); this.tom(220, 0.1, { tipo: 'triangle', vol: 0.2, ate: 140 }); }
+  // toque que arranca um pedaço: som mais grave na pedra, mais abafado na terra
+  bater(b) {
+    const duro = b === 3 || b === 10 || b === 20, madeira = b === 6 || b === 8;
+    this.ruido(0.07, { vol: 0.35, freq: duro ? 2200 : madeira ? 1000 : 600 });
+    this.tom(duro ? 300 : madeira ? 200 : 140, 0.06, { tipo: 'triangle', vol: 0.18, ate: duro ? 220 : 110 });
+  }
   passo() { this.ruido(0.05, { vol: 0.12, freq: 500 }); }
   clique() { this.tom(880, 0.05, { tipo: 'sine', vol: 0.25 }); }
   oi() { this.tom(660, 0.12, { tipo: 'sine', vol: 0.3 }); this.tom(990, 0.18, { tipo: 'sine', vol: 0.3, atraso: 0.1 }); }

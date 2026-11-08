@@ -41,11 +41,19 @@ export class Controles {
     c.addEventListener('mousedown', (e) => {
       if (this.toque || !this.ativo) return;
       if (!this.travado) { c.requestPointerLock && c.requestPointerLock(); return; }
-      if (e.button === 0) this.cb.quebrar(null);
+      if (e.button === 0) {
+        // cada clique arranca um pedaço; segurando, continua batendo
+        this.cb.quebrar(null);
+        clearInterval(this.timerMouse);
+        this.timerMouse = setInterval(() => this.travado && this.ativo && this.cb.quebrar(null), 260);
+      }
       if (e.button === 2) this.cb.usar(null);
     });
+    addEventListener('mouseup', (e) => { if (e.button === 0) clearInterval(this.timerMouse); });
+    addEventListener('blur', () => clearInterval(this.timerMouse));
     c.addEventListener('contextmenu', (e) => e.preventDefault());
     document.addEventListener('pointerlockchange', () => {
+      clearInterval(this.timerMouse);
       this.travado = document.pointerLockElement === c;
       this.cb.travaMudou && this.cb.travaMudou(this.travado);
     });
@@ -137,7 +145,7 @@ export class Controles {
     const q = () => this.olhar === o && this.cb.quebrar({ x: o.x, y: o.y });
     this.cb.mira && this.cb.mira({ x: o.x, y: o.y });
     q();
-    this.timerQuebra = setInterval(q, 320);
+    this.timerQuebra = setInterval(q, 260);
   }
 
   atualizar() {

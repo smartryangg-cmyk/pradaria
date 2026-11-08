@@ -10,6 +10,7 @@ import { Som } from './som.js';
 import { montarBoneco, etiqueta, matModelo, caixa, juntar } from './modelos.js';
 import { conta, api, Sala } from './rede.js';
 import { criarGraficos, QUALIDADES, PESSOAIS } from './graficos.js';
+import { Escavacao } from './escavar.js';
 
 const $ = (s) => document.querySelector(s);
 const CORES = [0x3f6fd9, 0xe8433f, 0x4caf50, 0xf2c72e, 0x9c5bd9, 0xf29ac2, 0xff8a3d, 0x2bb3b3];
@@ -86,7 +87,7 @@ cena.add(contorno);
 
 // ---------- estado do jogo ----------
 const som = new Som();
-let mundo = null, jog = null, ctrl = null, bichos = null, aldeoes = null, sala = null;
+let mundo = null, jog = null, ctrl = null, bichos = null, aldeoes = null, sala = null, escav = null;
 let jogando = false, pausado = false;
 let modo = 'local', mundoAtual = null;
 let barra = [B.GRAMA, B.TERRA, B.PEDRA, B.TABUAS, B.TRONCO, B.VIDRO, B.TIJOLO, B.LA_VERMELHA, B.FLOR_AMARELA];
@@ -325,9 +326,9 @@ function quebrar(ponto) {
   if (barra[slotSel] === B.AGUA && recolherAgua(ponto)) return;
   const h = m.bloco;
   if (!h || h.y < 1) return;
-  mundo.definir(h.x, h.y, h.z, AR);
-  som.quebrar();
-  quebraParticulas(h.x, h.y, h.z, h.b);
+  // cada toque arranca um pedaço; o último derruba o bloco
+  const p = raio.ray.at(h.t + 0.001, new THREE.Vector3());
+  if (escav.bater(h, p)) som.quebrar(); else som.bater(h.b);
 }
 
 // recolhe a fonte de água mirada; a água corrente que dependia dela seca sozinha
@@ -416,15 +417,17 @@ function limparMundo() {
   if (mundo) {
     for (const c of mundo.chunks.values()) for (const m of [c.malha, c.agua]) if (m) { cena.remove(m); m.geometry.dispose(); }
   }
+  if (escav) { for (const k of [...escav.blocos.keys()]) escav.soltar(k); escav.atualizar(10, 0, 0); }
   if (bichos) for (let i = bichos.lista.length - 1; i >= 0; i--) bichos.remover(i);
   if (aldeoes) aldeoes.limpar();
-  mundo = null; bichos = null; aldeoes = null;
+  mundo = null; bichos = null; aldeoes = null; escav = null;
 }
 
 function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0 }) {
   limparMundo();
   mundo = new Mundo(cena, matBlocos, matAgua, semente);
   mundo.raio = ajustes.dist;
+  escav = new Escavacao(cena, mundo, matBlocos, atlasCanvas);
   mundo.carregarEdicoes(edicoes);
   mundo.aoMudarBloco = (x, y, z, b) => {
     edicoesPendentes = true;
@@ -660,6 +663,7 @@ aplicarGraficos();
     if (h && h.t > 0.05) { contorno.visible = true; contorno.position.set(h.x + 0.5, h.y + 0.5, h.z + 0.5); } else contorno.visible = false;
   } else contorno.visible = false;
 
+  escav.atualizar(dt, jog.pos.x, jog.pos.z);
   // partículas de quebra
   for (let i = partQ.length - 1; i >= 0; i--) {
     const q = partQ[i];
