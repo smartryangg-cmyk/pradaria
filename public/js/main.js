@@ -12,6 +12,7 @@ import { conta, api, Sala } from './rede.js';
 import { criarGraficos, QUALIDADES, PESSOAIS } from './graficos.js';
 import { icone, preencherIcones, comIcone, nomeEmote } from './icones.js';
 import { Escavacao } from './escavar.js';
+import { criarComandos } from './comandos.js';
 
 const $ = (s) => document.querySelector(s);
 preencherIcones();
@@ -160,6 +161,7 @@ function abrirPausa() {
 }
 function fecharJanelas() {
   $('#inventario').hidden = true; $('#pausa').hidden = true;
+  if (cmd) cmd.fechar();
   pausado = false;
 }
 document.querySelectorAll('[data-fechar]').forEach((b) => b.addEventListener('click', fecharJanelas));
@@ -217,6 +219,7 @@ addEventListener('keydown', (e) => {
   if (!jogando) return;
   if (e.code === 'Escape' && pausado) fecharJanelas();
   else if (e.code === 'KeyP') abrirPausa();
+  else if (e.code === 'KeyC' && !pausado && e.target.tagName !== 'INPUT') cmd.abrir();
 });
 $('#aj-dist').addEventListener('input', (e) => { ajustes.dist = +e.target.value; if (mundo) mundo.raio = ajustes.dist; salvarAjustes(); ajustarNevoa(); });
 $('#aj-graf').addEventListener('change', (e) => {
@@ -256,6 +259,16 @@ $('#aj-sens').addEventListener('input', (e) => { ajustes.sens = +e.target.value;
 $('#aj-som').addEventListener('change', (e) => { ajustes.som = e.target.checked; som.ligado = ajustes.som; salvarAjustes(); });
 $('#aj-fps').addEventListener('change', (e) => { ajustes.fps = e.target.checked; $('#fps').hidden = !ajustes.fps; salvarAjustes(); });
 $('#bt-sair-mundo').addEventListener('click', sairDoMundo);
+
+// ---------- comandos visuais (teleporte, casa, amigos, hora) ----------
+const cmd = criarComandos({
+  aviso, som, outros, acharInicio: () => acharInicio(),
+  jog: () => (jogando ? jog : null), mundo: () => mundo, sala: () => sala, modo: () => modo, mundoAtual: () => mundoAtual,
+  nomeEu: () => conta.usuario && conta.usuario.nome,
+  definirDia: (v) => { tempoDia = v; },
+  pausar: (sim) => { pausado = sim; },
+});
+$('#bt-comandos').addEventListener('click', () => { som.iniciar(); som.clique(); cmd.abrir(); });
 $('#bt-voar').addEventListener('click', () => alternarVoo());
 document.querySelectorAll('[data-emote]').forEach((b) => b.addEventListener('click', () => {
   const e = b.dataset.emote; // nome do ícone: 'acenar', 'coracao', 'sorriso', 'estrela'
@@ -474,6 +487,7 @@ function jogarLocal() {
   if (salvo && salvo.barra) barra = salvo.barra;
   if (salvo) tempoDia = salvo.dia ?? 0.3;
   iniciarMundo({ semente: salvo ? salvo.semente : Math.floor(Math.random() * 1e9), edicoes: salvo ? salvo.edicoes : [], pos: salvo && salvo.pos, yaw: salvo ? salvo.yaw : 0 });
+  cmd.entrouLocal();
   $('#status').innerHTML = comIcone('casa', 'Sem internet');
   aviso('Bem-vindo à Pradaria!', 2500, 'flor');
 }
@@ -494,6 +508,7 @@ async function jogarOnline(m) {
         tempoDia = msg.dia ?? 0.3;
         iniciarMundo({ semente: msg.semente, edicoes: msg.edicoes, pos: msg.pos, yaw: 0 });
         sala = s;
+        cmd.entrouOnline(msg);
         $('#status').innerHTML = comIcone('globo', m.nome);
         aviso(`Bem-vindo, ${conta.usuario.nome}! Código do mundo: ${m.codigo}`, 3500, 'flor');
       } else {
@@ -518,11 +533,13 @@ async function jogarOnline(m) {
     },
     erro: (msg) => { aviso(msg.msg || 'Erro', 3000); },
     fim: (texto) => { sala = null; sairDoMundo(); $('#mundos-erro').textContent = texto || ''; },
+    ...cmd.rede,
   });
 }
 
 function sairDoMundo() {
   salvarLocal();
+  cmd.saiu();
   if (sala && jog) sala.enviar({ t: 'pos', p: [jog.pos.x, jog.pos.y, jog.pos.z], r: [jog.yaw, jog.pitch] });
   limparMundo();
   jogando = false; pausado = false;
@@ -651,16 +668,7 @@ function laco(agora) {
   bichos.atualizar(dt, jog, tempoTotal);
   aldeoes.atualizar(dt, jog, Math.sin(tempoDia * Math.PI * 2));
 
-  function aplicarGraficos() {
-  const o = graf.aplicar(opcoesGraficas());
-  nuvens.visible = o.nuvens;
-  $('#vinheta').hidden = !o.vinheta;
-  redimensionar();
-  return o;
-}
-aplicarGraficos();
-
-// contorno do bloco mirado
+  // contorno do bloco mirado
   if (!ehToque || miraToque) {
     const h = mundo.raycast(camera.position, direcaoDe(miraToque), 6);
     if (h && h.t > 0.05) { contorno.visible = true; contorno.position.set(h.x + 0.5, h.y + 0.5, h.z + 0.5); } else contorno.visible = false;
@@ -750,4 +758,4 @@ camera.position.set(0, 40, 0);
 if (conta.token) abrirMundos(); else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, set dia(v) { tempoDia = v; }, graf, renderer, ajustes, jogarLocal, usar, quebrar }; }
+if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, graf, renderer, ajustes, jogarLocal, usar, quebrar, cmd }; }

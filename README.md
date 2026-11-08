@@ -12,6 +12,7 @@ Jogo de construir e explorar, **pacífico** (só bichinhos, nada de monstros), q
 - Quebrar é aos poucos: cada batida arranca um pedaço do bloco, que vai ficando esculpido até cair. Pedra e tijolo aguentam mais batidas que terra e folhas; flores saem de uma vez.
 - Dia e noite (a noite é clarinha), sons feitos na hora.
 - Contas com login, mundos com código para jogar com amigos em tempo real e emotes (sem chat aberto, mais seguro para crianças).
+- Menu de comandos 🧭 só com botões (sem digitar): marcar casa e voltar para ela, guardar lugares com desenhos, ir para o começo do mundo, ir para um lugar novo bem longe, voltar para onde estava, ir até um amigo ou chamar um amigo (o amigo precisa tocar em "Pode!") e mudar a hora do dia (online, só o dono do mundo).
 - Funciona sem internet também (mundo salvo no aparelho).
 
 ## Controles
@@ -24,6 +25,7 @@ Jogo de construir e explorar, **pacífico** (só bichinhos, nada de monstros), q
 | Segure o dedo: bater no bloco (cada batida arranca um pedaço) | Botão esquerdo (clique ou segure) |
 | ⬆ pular · 🕊️ voar · ⬇ descer | Espaço · espaço duas vezes ou F · Shift |
 | Barra de baixo e ＋: escolher blocos | 1–9, rodinha, E |
+| 🧭: comandos (teleporte, casa, amigos, hora) | C |
 
 ## Como funciona (arquitetura)
 
