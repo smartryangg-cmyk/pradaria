@@ -440,7 +440,7 @@ export class Mundo {
   }
 
   construirMalha(c) {
-    const P = [], U = [], C = [], I = [], N = [], O = [], L = [];
+    const P = [], U = [], C = [], I = [], N = [], O = [], L = [], BD = [];
     const luzes = [];
     const PA = [], UA = [], CA = [], IA = [], FA = [];
     const d = c.dados;
@@ -478,6 +478,37 @@ export class Mundo {
     let topo = 0;
     for (let i = d.length - 1; i >= 0; i--) if (d[i]) { topo = Math.floor(i / (CX * CZ)); break; }
 
+    // "luz do céu": altura do bloco opaco mais alto de cada coluna (com borda de 1 dos vizinhos).
+    // Embaixo de árvore, beiral ou caverna a face fica mais escura (sombra macia, custo zero ao jogar).
+    const LC = CX + 2;
+    const altCeu = new Int16Array(LC * (CZ + 2)).fill(-1);
+    for (let z = -1; z <= CZ; z++) for (let x = -1; x <= CX; x++) {
+      const dentro = x >= 0 && x < CX && z >= 0 && z < CZ;
+      if (dentro) { for (let y = topo; y >= 0; y--) if (OPACO[d[idx(x, y, z)]]) { altCeu[x + 1 + (z + 1) * LC] = y; break; } }
+      else for (let y = ALT - 1; y >= 0; y--) if (OPACO[get(x, y, z)]) { altCeu[x + 1 + (z + 1) * LC] = y; break; }
+    }
+    const coberto = (x, y, z) => (altCeu[x + 1 + (z + 1) * LC] > y ? 1 : 0);
+    // água (para o shader): profundidade e beirada no canto de uma face.
+    // Retorna [fundura 0..1, 1 - beirada, 1]; (1,1,1) = "fundo, sem espuma" (padrão seguro).
+    const ehAgua = (q) => !!(BLOCOS[q] && BLOCOS[q].agua);
+    const fundura = (x, y, z) => {
+      if (!ehAgua(get(x, y, z))) return 0;
+      let n = 0;
+      while (n < 6 && ehAgua(get(x, y - n - 1, z))) n++;
+      return n + 1;
+    };
+    const corAgua = (x, y, z, cn, f) => {
+      if (f.n[1] !== 1 || ehAgua(get(x, y + 1, z))) return [1, 1, 1];
+      let fd = 0, terra = 0;
+      for (let i = 0; i < 4; i++) {
+        const qx = x + cn[0] - (i & 1), qz = z + cn[2] - (i >> 1);
+        const qb = get(qx, y, qz);
+        fd += fundura(qx, y, qz);
+        if (SOLIDO[qb] || OPACO[qb]) terra = 1;
+      }
+      return [Math.min(1, fd / 4 / 5), 1 - terra, 1];
+    };
+
     for (let y = 0; y <= topo; y++) for (let z = 0; z < CZ; z++) for (let x = 0; x < CX; x++) {
       const b = d[idx(x, y, z)];
       if (b === AR) continue;
@@ -492,7 +523,8 @@ export class Mundo {
           const k = P.length / 3;
           P.push(x + ax, y, z + az, x + bx, y, z + bz, x + bx, y + 0.9, z + bz, x + ax, y + 0.9, z + az);
           U.push(u0, v0, u1, v0, u1, v1, u0, v1);
-          for (let n = 0; n < 4; n++) { C.push(0.95, 0.95, 0.95); N.push(0, 1, 0); L.push(0); }
+          const lp = 0.95 * (coberto(x, y, z) ? 0.7 : 1);
+          for (let n = 0; n < 4; n++) { C.push(lp, lp, lp); N.push(0, 1, 0); L.push(0); BD.push(0); }
           O.push(0, 0, 1, 1); // só o topo da plantinha balança
           I.push(k, k + 1, k + 2, k, k + 2, k + 3, k, k + 2, k + 1, k, k + 3, k + 2);
         }
@@ -525,6 +557,21 @@ export class Mundo {
         const PP = agua ? PA : P, UU = agua ? UA : U, CC = agua ? CA : C, II = agua ? IA : I;
         const k = PP.length / 3;
         const aos = [];
+        // arestas "arredondadas" (shader): 1 + bits das bordas expostas da face, 0 = sem efeito.
+        // Eixos da face na ordem x,y,z (os que não são a normal): bit0 eixo1-, bit1 eixo1+, bit2 eixo2-, bit3 eixo2+
+        let bd = 0;
+        if (!agua && OPACO[b] && b !== B.FOLHAS) {
+          let bit = 1;
+          for (let a = 0; a < 3; a++) {
+            if (f.n[a] !== 0) continue;
+            for (const sn of [-1, 1]) {
+              const v = [x, y, z]; v[a] += sn;
+              if (!OPACO[get(v[0], v[1], v[2])]) bd += bit;
+              bit *= 2;
+            }
+          }
+          bd += 1;
+        }
         for (const cn of f.c) {
           let py = y + cn[1];
           if (agua && cn[1] === 1) py = y + HC[cn[0]][cn[2]];
@@ -542,12 +589,22 @@ export class Mundo {
             ao = s1 && s2 ? 0 : 3 - (s1 + s2 + cc);
           }
           aos.push(ao);
-          if (agua) { CC.push(1, 1, 1); FA.push(fluxoX, fluxoZ, f.n[1] === 0 ? caindo : 0); continue; }
-          const v = AO[ao];
+          if (agua) { CC.push(...corAgua(x, y, z, cn, f)); FA.push(fluxoX, fluxoZ, f.n[1] === 0 ? caindo : 0); continue; }
+          // luz do céu nas 4 colunas que tocam o canto (só no plano da face)
+          let cob = 0, nc = 0;
+          for (let i = 0; i < 4; i++) {
+            const qx = f.n[0] ? x + f.n[0] : x + cn[0] - (i & 1);
+            const qz = f.n[2] ? z + f.n[2] : z + cn[2] - (i >> 1);
+            if (f.n[0] && (i & 1)) continue;
+            if (f.n[2] && (i >> 1)) continue;
+            cob += coberto(qx, y + f.n[1], qz); nc++;
+          }
+          const v = AO[ao] * (1 - 0.32 * cob / nc);
           CC.push(v, v, v);
           N.push(f.n[0], f.n[1], f.n[2]);
           O.push(FOLHAGEM[b] ? 0.6 : 0);
           L.push(BRILHO[b]);
+          BD.push(bd);
         }
         UU.push(u0, v0, u1, v0, u1, v1, u0, v1);
         // vira a diagonal para o AO ficar suave
@@ -567,6 +624,7 @@ export class Mundo {
         g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
         g.setAttribute('onda', new THREE.Float32BufferAttribute(O, 1));
         g.setAttribute('brilho', new THREE.Float32BufferAttribute(L, 1));
+        g.setAttribute('borda', new THREE.Float32BufferAttribute(BD, 1));
       }
       if (fluxo) g.setAttribute('fluxo', new THREE.Float32BufferAttribute(fluxo, 3));
       g.setIndex(P.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(I, 1) : new THREE.Uint16BufferAttribute(I, 1));
