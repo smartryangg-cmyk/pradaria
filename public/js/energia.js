@@ -8,6 +8,7 @@
 //  * Tudo que é elétrico e encosta conduz: fio, lâmpada, portão, ventilador, sino e confete.
 //    Um grupo de peças encostadas fica ligado se alguma fonte ligada encostar nele.
 import { E, ESTEIRA_DIRS, BLOCOS, OPACO, SOLIDO, BRILHO, uvTile } from './blocos.js';
+const ALT_MAX = 96; // altura do mundo (igual a ALT de mundo.js)
 
 // pares desligado -> ligado
 const PARES = [
@@ -96,7 +97,7 @@ export class Energia {
     const visto = new Set();
     for (const [k, silencioso] of fila) {
       const [x, y, z] = k.split(',').map(Number);
-      if (y < 1 || y >= 64 || !this.carregado(x, z)) continue;
+      if (y < 1 || y >= ALT_MAX || !this.carregado(x, z)) continue;
       const b = m.bloco(x, y, z);
       if (DO_TEMPO[b]) this.relogio.set(k, [x, y, z]);
       // sementes: a própria peça e as vizinhas (inclusive fio subindo/descendo degrau)
@@ -105,7 +106,7 @@ export class Energia {
       for (const [dx, dz] of H4) { sementes.push([x + dx, y + 1, z + dz]); sementes.push([x + dx, y - 1, z + dz]); }
       for (const [sx, sy, sz] of sementes) {
         const sk = k3(sx, sy, sz);
-        if (visto.has(sk) || sy < 1 || sy >= 64 || !CONDUZ[m.bloco(sx, sy, sz)]) continue;
+        if (visto.has(sk) || sy < 1 || sy >= ALT_MAX || !CONDUZ[m.bloco(sx, sy, sz)]) continue;
         this.resolverGrupo(sx, sy, sz, visto, silencioso);
       }
     }
@@ -126,7 +127,7 @@ export class Energia {
       // fio sobe e desce degraus
       if (BASE[b] === E.FIO) for (const [dx, dz] of H4) { viz.push([x + dx, y + 1, z + dz]); viz.push([x + dx, y - 1, z + dz]); }
       for (const [nx, ny, nz] of viz) {
-        if (ny < 1 || ny >= 64) continue;
+        if (ny < 1 || ny >= ALT_MAX) continue;
         const nb = m.bloco(nx, ny, nz);
         if (FONTE[nb] && ESTA_LIGADO[nb]) energia = true;
         if (!CONDUZ[nb]) continue;

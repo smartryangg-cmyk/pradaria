@@ -69,7 +69,7 @@ export function criarComandos(j) {
       const x = Math.floor(jog.pos.x + Math.cos(a) * d), z = Math.floor(jog.pos.z + Math.sin(a) * d);
       if (Math.abs(x) > 90000 || Math.abs(z) > 90000) continue;
       const h = mundo.chao(x, z);
-      if (h > NIVEL_AGUA + 1 && h < 50) { teleportar(x + 0.5, h + 1.2, z + 0.5, a, 'Uau, um lugar novo para explorar!', 'mapa'); return; }
+      if (h > mundo.nivelAgua + 1 && h < mundo.nivelAgua + 30) { teleportar(x + 0.5, h + 1.2, z + 0.5, a, 'Uau, um lugar novo para explorar!', 'mapa'); return; }
     }
     j.aviso('Não achei terra firme agora, tente de novo', 1800, 'onda');
   }

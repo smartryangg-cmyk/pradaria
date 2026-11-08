@@ -623,13 +623,13 @@ function acharInicio() {
   if (v && v.ruas.length) {
     const r = v.ruas[0];
     const x = v.x + r.dx * 6, z = v.z + r.dz * 6;
-    return { x: x + 0.5, y: Math.max(mundo.alturaEm(x, z), NIVEL_AGUA) + 2, z: z + 0.5 };
+    return { x: x + 0.5, y: Math.max(mundo.alturaEm(x, z), mundo.nivelAgua) + 2, z: z + 0.5 };
   }
   // procura um lugar de terra firme perto da origem
   for (let r = 0; r < 200; r += 4) for (let a = 0; a < 8; a++) {
     const x = Math.round(Math.cos(a * 0.785) * r), z = Math.round(Math.sin(a * 0.785) * r);
     const h = mundo.alturaEm(x, z);
-    if (h > NIVEL_AGUA + 1 && h < 40) return { x: x + 0.5, y: h + 2, z: z + 0.5 };
+    if (h > mundo.nivelAgua + 1 && h < mundo.nivelAgua + 20) return { x: x + 0.5, y: h + 2, z: z + 0.5 };
   }
   return { x: 0.5, y: 50, z: 0.5 };
 }
@@ -1015,7 +1015,7 @@ function laco(agora) {
   }
 
   mundo.energia.noite = graf.U.uNoite.value > 0.5;
-  mundo.atualizar(jog.pos.x, jog.pos.z, ehToque ? 5 : 8);
+  mundo.atualizar(jog.pos.x, jog.pos.z, ehToque ? 5 : 8, jog.pos.y);
   if (!pausado) vigiarPlaca();
   if (jog.quicou) { jog.quicou = false; som.boing(); }
   bichos.atualizar(dt, jog, tempoTotal);
