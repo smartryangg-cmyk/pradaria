@@ -250,3 +250,16 @@ details.mais[open] { display: flex; flex-direction: column; gap: 10px; padding-b
 /* tipo de mundo (Pradaria, Linha do Tempo...) */
 .tipos-mundo { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
 .opcao-mundo:disabled { opacity: .3; cursor: default; }
+/* ---------- vida (corações) ---------- */
+#vida { position: absolute; left: 50%; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 84px); transform: translateX(-50%); display: flex; gap: 3px; pointer-events: none; filter: drop-shadow(0 2px 2px rgba(0,0,0,.45)); }
+#vida .coracao { position: relative; width: 26px; height: 26px; }
+#vida .coracao .ic-svg { width: 26px; height: 26px; display: block; }
+#vida .coracao .metade { position: absolute; inset: 0; width: 50%; overflow: hidden; display: none; }
+#vida .coracao.vazio > .ic-svg, #vida .coracao.meio > .ic-svg { filter: grayscale(1) brightness(.55); opacity: .7; }
+#vida .coracao.meio .metade { display: block; }
+#vida.treme { animation: treme .35s; }
+@keyframes treme { 0%, 100% { transform: translateX(-50%); } 25% { transform: translateX(calc(-50% - 5px)); } 75% { transform: translateX(calc(-50% + 5px)); } }
+@media (max-width: 640px) { #vida { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 64px); } #vida .coracao, #vida .coracao .ic-svg { width: 20px; height: 20px; } }
+#desmaio { position: fixed; inset: 0; pointer-events: none; background: #2a1d45; opacity: 0; }
+#desmaio.vai { animation: desmaio 2.2s ease-in-out; }
+@keyframes desmaio { 0% { opacity: 0; } 35%, 55% { opacity: .95; } 100% { opacity: 0; } }

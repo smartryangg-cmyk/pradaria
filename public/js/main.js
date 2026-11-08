@@ -17,6 +17,7 @@ import { Fisica } from './fisica.js';
 import { criarComandos } from './comandos.js';
 import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto } from './opcoes-mundo.js';
 import { Monstros } from './monstros.js';
+import { vida } from './vida.js';
 
 const $ = (s) => document.querySelector(s);
 preencherIcones();
@@ -277,6 +278,21 @@ $('#aj-fps').addEventListener('change', (e) => { ajustes.fps = e.target.checked;
 $('#bt-sair-mundo').addEventListener('click', sairDoMundo);
 
 // ---------- comandos visuais (teleporte, casa, amigos, hora) ----------
+// sem corações: desmaia, os monstrinhos vão embora e acorda em casa (ou no começo), sem perder nada
+vida.aoDesmaiar = () => {
+  if (!jogando) return;
+  if (monstros) monstros.limpar();
+  const el = $('#desmaio');
+  el.hidden = false; el.classList.remove('vai'); void el.offsetWidth; el.classList.add('vai');
+  setTimeout(() => {
+    if (!jogando) return;
+    const c = cmd.casa();
+    if (c) cmd.teleportar(c[0], c[1], c[2], c[3], 'Você desmaiou e acordou em casa');
+    else { const p = acharInicio(); cmd.teleportar(p.x, p.y, p.z, 0, 'Você desmaiou e acordou no começo do mundo'); }
+    vida.reiniciar(); vida.protegido = 6;
+  }, 900);
+  setTimeout(() => { el.hidden = true; }, 2200);
+};
 const cmd = criarComandos({
   aviso, som, outros, acharInicio: () => acharInicio(),
   jog: () => (jogando ? jog : null), mundo: () => mundo, sala: () => sala, modo: () => modo, mundoAtual: () => mundoAtual,
@@ -567,7 +583,11 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   aldeoes = new Aldeoes(cena, mundo, som, (...a) => bichos.icone(...a));
   aldeoes.aoEntrarVila = (v) => aviso(v.nome, 2600, 'vila');
   monstros = new Monstros(cena, mundo, som, bichos);
-  monstros.aoSusto = () => aviso('Buu! Toque no monstrinho para espantar', 1800, 'sorriso');
+  monstros.aoSusto = () => {
+    if (vida.dano(1)) { som.tom(200, 0.15, { tipo: 'sine', vol: 0.3, ate: 120 }); aviso('Ai! Toque no monstrinho ou acenda uma luz', 1800, 'coracao'); }
+    else aviso('Buu! Toque no monstrinho para espantar', 1800, 'sorriso');
+  };
+  vida.reiniciar();
   som.ligado = ajustes.som;
   ajustarNevoa();
   desenharBarra();
@@ -772,7 +792,14 @@ function desenharOpcoesNovo() {
     b.querySelector('.ic').innerHTML = icone(o.icone);
     b.querySelector('b').textContent = o.nome;
     b.querySelector('small').textContent = o.desc;
-    b.addEventListener('click', () => { escolhaNovo[o.id] = !escolhaNovo[o.id]; b.setAttribute('aria-pressed', String(escolhaNovo[o.id])); som.iniciar(); som.clique(); });
+    b.addEventListener('click', () => {
+      escolhaNovo[o.id] = !escolhaNovo[o.id];
+      // "Monstros machucam" só faz sentido com monstrinhos: um liga/desliga o outro
+      if (o.id === 'monstrosMachucam' && escolhaNovo.monstrosMachucam) escolhaNovo.monstros = true;
+      if (o.id === 'monstros' && !escolhaNovo.monstros) escolhaNovo.monstrosMachucam = false;
+      for (const x of l.children) x.setAttribute('aria-pressed', String(!!escolhaNovo[x.dataset.opcao]));
+      som.iniciar(); som.clique();
+    });
     l.appendChild(b);
   }
   marcarTamanho();
@@ -781,8 +808,11 @@ function marcarTamanho() {
   for (const b of $('#n-tamanhos').children) { const sel = b.dataset.tamanho === escolhaNovo.tamanho; b.setAttribute('aria-pressed', String(sel)); b.setAttribute('aria-checked', String(sel)); }
   for (const b of $('#n-tipos').children) { const sel = b.dataset.tipo === escolhaNovo.tipo; b.setAttribute('aria-pressed', String(sel)); b.setAttribute('aria-checked', String(sel)); }
   // alguns tipos não têm monstrinhos (ex.: Linha do Tempo)
-  const mb = $('#n-lista [data-opcao="monstros"]');
-  if (mb) { const sem = !!TIPOS[escolhaNovo.tipo].semMonstros; mb.disabled = sem; if (sem) { escolhaNovo.monstros = false; mb.setAttribute('aria-pressed', 'false'); } }
+  const sem = !!TIPOS[escolhaNovo.tipo].semMonstros;
+  for (const id of ['monstros', 'monstrosMachucam']) {
+    const mb = $(`#n-lista [data-opcao="${id}"]`);
+    if (mb) { mb.disabled = sem; if (sem) { escolhaNovo[id] = false; mb.setAttribute('aria-pressed', 'false'); } }
+  }
 }
 let modoNovo = 'criar';
 function abrirNovo(modoN) {
@@ -842,6 +872,7 @@ function laco(agora) {
   bichos.atualizar(dt, jog, tempoTotal);
   aldeoes.atualizar(dt, jog, Math.sin(tempoDia * Math.PI * 2));
   monstros.atualizar(pausado ? 0 : dt, jog, tempoDia);
+  if (!pausado) vida.atualizar(dt);
 
   // contorno do bloco mirado
   if (!ehToque || miraToque) {
@@ -936,4 +967,4 @@ camera.position.set(0, 40, 0);
 if (conta.token) abrirMundos(); else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, camera, graf, renderer, ajustes, jogarLocal, usar, quebrar, cmd }; }
+if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, camera, graf, renderer, ajustes, jogarLocal, usar, quebrar, cmd }; }
