@@ -59,6 +59,7 @@ body:not(.toque) #botoes-toque, body:not(.toque) #dica-toque { display: none; }
 .bt:active { transform: translateY(3px); box-shadow: 0 2px 0 #d8cdb8; }
 .bt.verde { background: var(--verde); color: #fff; box-shadow: 0 5px 0 var(--verde-esc); }
 .bt.grande { font-size: 20px; padding: 16px; }
+a.bt { display: block; text-align: center; text-decoration: none; }
 .bt.fraco { background: transparent; box-shadow: none; opacity: .7; }
 .linha-bts { display: flex; gap: 8px; } .linha-bts .bt { flex: 1; }
 .campo { display: flex; flex-direction: column; gap: 4px; font-weight: 700; font-size: 15px; }
