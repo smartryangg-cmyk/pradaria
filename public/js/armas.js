@@ -453,9 +453,10 @@ export class Armas {
 
   armaDeOutro(ou, a) {
     a = ARMAS[a] ? a : null;
-    if ((ou.arma && ou.arma.userData.a) === a || (!ou.arma && !a)) return;
     const braco = ou.membros[0];
-    if (ou.arma) { braco.remove(ou.arma); ou.arma.geometry.dispose(); ou.arma = null; }
+    // a roupa (skin) pode trocar os braços do boneco: aí a arma volta para o braço novo
+    if (((ou.arma && ou.arma.userData.a) === a && (!ou.arma || ou.arma.parent === braco)) || (!ou.arma && !a)) return;
+    if (ou.arma) { if (ou.arma.parent) ou.arma.parent.remove(ou.arma); ou.arma.geometry.dispose(); ou.arma = null; }
     if (a) {
       const m = modeloArma(a, 1.6);
       m.userData.a = a;
