@@ -10,7 +10,8 @@ import { Bichos } from './animais.js';
 import { Aldeoes } from './aldeoes.js';
 import { Garagem } from './garagem.js';
 import { Som } from './som.js';
-import { montarBoneco, etiqueta, matModelo, caixa, juntar } from './modelos.js';
+import { montarBoneco, etiqueta, matModelo, caixa, juntar, animarBoneco } from './modelos.js';
+import { Visao } from './visao.js';
 import { conta, api, Sala } from './rede.js';
 import { criarGraficos, QUALIDADES, PESSOAIS } from './graficos.js';
 import { MapaIlha } from './mapa-ilha.js';
@@ -172,6 +173,17 @@ const garagem = new Garagem({
   sala: () => sala, euId: () => euId, jog: () => jog, mundo: () => mundo, bichos: () => bichos, aldeoes: () => aldeoes,
   pausar: (sim) => { pausado = sim; },
 });
+
+// câmera: com os olhos, de trás ou de frente (vendo o próprio boneco)
+const visao = new Visao(cena);
+const corMeuBoneco = () => CORES[(conta.usuario && conta.usuario.cor) || 0] ?? CORES[0];
+function alternarVisao() {
+  if (!jogando) return;
+  const m = visao.alternar();
+  ajustes.visao = visao.modo; salvarAjustes();
+  aviso(garagem.dentro ? m.texto + ' (quando sair do veículo)' : m.texto, 1200, m.icone);
+}
+$('#bt-visao').addEventListener('click', () => { som.clique(); alternarVisao(); });
 
 // ---------- interface ----------
 function mostrarMenu(id) {
@@ -542,6 +554,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Escape' && pausado) fecharJanelas();
   else if (e.code === 'KeyP') abrirPausa();
   else if (e.code === 'KeyC' && !pausado && e.target.tagName !== 'INPUT') cmd.abrir();
+  else if ((e.code === 'KeyR' || e.code === 'F5') && !pausado && e.target.tagName !== 'INPUT') { e.preventDefault(); if (!e.repeat) alternarVisao(); }
   else if (e.code === 'KeyM') { if (!$('#mapa').hidden) fecharJanelas(); else if (!pausado) mapa.abrir(); }
 });
 // mundo pequeno/médio: como acaba no mar, dá para enxergar mais longe sem pesar
@@ -649,12 +662,13 @@ const centro = new THREE.Vector2(0, 0);
 function direcaoDe(ponto) {
   if (!ponto) raio.setFromCamera(centro, camera);
   else raio.setFromCamera(new THREE.Vector2((ponto.x / innerWidth) * 2 - 1, -(ponto.y / innerHeight) * 2 + 1), camera);
+  if (!garagem.dentro) visao.ajustarRaio(raio.ray, !ponto, mundo); // 3ª pessoa: o alcance conta a partir do boneco
   return raio.ray.direction;
 }
 
 function mirar(ponto, alcance = 6) {
   const dir = direcaoDe(ponto);
-  const o = camera.position;
+  const o = raio.ray.origin;
   const hb = mundo.raycast(o, dir, alcance);
   const ha = bichos.atingir(o, dir, hb ? hb.t + 0.01 : alcance);
   const hm = monstros.atingir(o, dir, ha ? ha.t : hb ? hb.t + 0.01 : alcance);
@@ -670,6 +684,7 @@ function usar(ponto) {
   if (!jogando || pausado) return;
   som.iniciar();
   if (garagem.dentro) return;
+  visao.bater();
   const m = mirar(ponto);
   if (m.monstro) { monstros.espantar(m.monstro); return; }
   if (m.veiculo) { garagem.pedirEntrar(m.veiculo); return; }
@@ -778,6 +793,7 @@ function quebrar(ponto) {
   if (!jogando || pausado) return;
   som.iniciar();
   if (garagem.dentro) return;
+  visao.bater();
   const m = mirar(ponto);
   if (m.monstro) { monstros.espantar(m.monstro); return; }
   if (m.veiculo) return;
@@ -796,7 +812,8 @@ function quebrar(ponto) {
 
 // recolhe a fonte de água mirada; a água corrente que dependia dela seca sozinha
 function recolherAgua(ponto) {
-  const h = mundo.raycast(camera.position, direcaoDe(ponto), 6, true);
+  const dir = direcaoDe(ponto);
+  const h = mundo.raycast(raio.ray.origin, dir, 6, true);
   if (!h || !AGUA[h.b]) return false;
   // mirou na água corrente: procura a fonte mais perto dali
   let alvo = h.b === B.AGUA ? h : null;
@@ -879,6 +896,7 @@ function salvarLocal() {
 
 function limparMundo() {
   garagem.parar();
+  visao.esconder();
   if (sala) { sala.fechar(); sala = null; }
   for (const id of [...outros.keys()]) removerOutro(id);
   mapa.usarMundo(null);
@@ -898,6 +916,7 @@ function limparMundo() {
 function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = null, veiculos = [], guardado = null }) {
   segundosJogando = 0; calib.reiniciar();
   limparMundo();
+  visao.definir(ajustes.visao || 0);
   definirOpcoesMundo(opcoes); // antes do Mundo: a geração (vilas etc.) já lê as opções
   // coletar e criar: a mochila e a barra deste jogador neste mundo (criativo: blocos à vontade)
   const barraOk = (b) => Array.isArray(b) && b.length === 9 && b.every((x) => Number.isInteger(x) && (x === 0 || nomeDe(x) !== '?'));
@@ -1035,7 +1054,7 @@ async function jogarOnline(m) {
       const o = outros.get(msg.id);
       if (!o) return;
       o.alvo.set(msg.p[0], msg.p[1], msg.p[2]);
-      o.alvoYaw = msg.r[0]; o.alvoPitch = msg.r[1];
+      o.alvoYaw = msg.r[0]; o.alvoPitch = msg.r[1]; o.acao = msg.a | 0;
     },
     bloco: (msg) => { if (mundo) mundo.definir(msg.x, msg.y, msg.z, msg.b, true); },
     emote: (msg) => {
@@ -1264,7 +1283,8 @@ function laco(agora) {
       if (jog.noChao && Math.floor(jog.passo / 1.8) !== ultimoPasso) { ultimoPasso = Math.floor(jog.passo / 1.8); som.passo(); }
     }
   }
-  if (!garagem.camera(camera)) {
+  const dirigindo = garagem.camera(camera);
+  if (!visao.quadro(dt, jog, camera, mundo, corMeuBoneco(), dirigindo) && !dirigindo) {
     camera.position.set(jog.pos.x, jog.pos.y + OLHOS, jog.pos.z);
     camera.rotation.set(jog.pitch, jog.yaw, 0, 'YXZ');
   }
@@ -1284,7 +1304,8 @@ function laco(agora) {
   // contorno do bloco mirado
   if (garagem.dentro) contorno.visible = false;
   else if (!ehToque || miraToque) {
-    const h = mundo.raycast(camera.position, direcaoDe(miraToque), 6);
+    const dir = direcaoDe(miraToque);
+    const h = mundo.raycast(raio.ray.origin, dir, 6);
     if (h && h.t > 0.05) { contorno.visible = true; contorno.position.set(h.x + 0.5, h.y + 0.5, h.z + 0.5); } else contorno.visible = false;
   } else contorno.visible = false;
 
@@ -1308,12 +1329,13 @@ function laco(agora) {
     const dx = o.alvo.x - g.x, dz = o.alvo.z - g.z;
     const andando = Math.hypot(dx, dz) > 0.05;
     g.lerp(o.alvo, Math.min(1, dt * 10));
-    let d = ((o.alvoYaw - o.grupo.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    // a frente do boneco é +z e a câmera olha para -z: meio giro para ele olhar para onde o amigo olha
+    let d = ((o.alvoYaw + Math.PI - o.grupo.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
     o.grupo.rotation.y += d * Math.min(1, dt * 10);
-    o.cabeca.rotation.x = -(o.alvoPitch || 0) * 0.6;
-    o.fase += andando ? dt * 10 : 0;
-    const s = andando ? Math.sin(o.fase) * 0.7 : 0;
-    o.membros[0].rotation.x = s; o.membros[1].rotation.x = -s; o.membros[2].rotation.x = -s; o.membros[3].rotation.x = s;
+    const acao = o.acao | 0; // 1 = batendo, 2 = voando, 4 = na água, 8 = no ar (pulando/caindo)
+    if (acao & 1 && (o.golpe ?? 1) >= 1) o.golpe = 0;
+    if ((o.golpe ?? 1) < 1) o.golpe = Math.min(1, o.golpe + dt / 0.3);
+    animarBoneco(o, { anda: andando ? 0.8 : 0, noAr: !!(acao & 8), voando: !!(acao & 2), nadando: !!(acao & 4) && andando, golpe: o.golpe ?? 1, pitch: o.alvoPitch || 0 }, dt);
   }
 
   // ciclo de dia e noite (a noite é clarinha: nada de medo!)
@@ -1333,7 +1355,7 @@ function laco(agora) {
   // rede: posição ~8x por segundo
   if (sala) {
     acumPos += dt;
-    if (acumPos > 0.125) { acumPos = 0; sala.enviar({ t: 'pos', p: [+jog.pos.x.toFixed(2), +jog.pos.y.toFixed(2), +jog.pos.z.toFixed(2)], r: [+jog.yaw.toFixed(2), +jog.pitch.toFixed(2)] }); }
+    if (acumPos > 0.125) { acumPos = 0; sala.enviar({ t: 'pos', p: [+jog.pos.x.toFixed(2), +jog.pos.y.toFixed(2), +jog.pos.z.toFixed(2)], r: [+jog.yaw.toFixed(2), +jog.pitch.toFixed(2)], a: (visao.batendo ? 1 : 0) | (jog.voando ? 2 : 0) | (jog.naAgua ? 4 : 0) | (!jog.noChao && !jog.voando && !jog.naAgua ? 8 : 0) }); }
   }
   // salvamento local a cada 5s
   salvarLocalTimer += dt;
@@ -1406,4 +1428,4 @@ camera.position.set(0, 40, 0);
 if (conta.token) abrirMundos(); else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, garagem, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa }; }
+if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, garagem, visao, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa }; }
