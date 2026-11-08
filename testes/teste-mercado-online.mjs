@@ -32,12 +32,11 @@ await a.waitForTimeout(1500);
 let e = await est(a);
 conferir(e.feitos.includes('colocar10') && e.moedas === 15, 'servidor cumpriu o objetivo e pagou (' + e.moedas + ')');
 const itens = Object.values(e.itens).reduce((s, n) => s + n, 0);
-conferir(itens === 3, 'servidor coletou 3 itens ' + JSON.stringify(e.itens));
+conferir(itens >= 3, 'servidor coletou os itens (o capim de cima conta junto) ' + JSON.stringify(e.itens));
 // trapaça: tentar colocar bloco trancado direto pela rede
 await a.evaluate(() => window.__jogo.sala.enviar({ t: 'bloco', x: 5, y: 45, z: 5, b: 9 }));
 // vende tudo
-const [[bid, qtd]] = Object.entries(e.itens);
-await a.evaluate(([bid, qtd]) => window.__jogo.mercado.enviar({ t: 'vender', b: +bid, n: qtd }), [bid, qtd]);
+for (const [bid, qtd] of Object.entries(e.itens)) await a.evaluate(([bid, qtd]) => window.__jogo.mercado.enviar({ t: 'vender', b: +bid, n: qtd }), [bid, qtd]);
 await a.waitForTimeout(800);
 e = await est(a);
 conferir(e.moedas > 15 && !Object.keys(e.itens).length, 'vendeu no servidor (' + e.moedas + ')');
