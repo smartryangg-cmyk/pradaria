@@ -106,14 +106,14 @@ export class Sala extends DurableObject {
     }
   }
 
-  // pedidos da API (só chegam pelo binding, nunca do jogador): expulsar, esquecer alguém, apagar o mundo, editar
+  // pedidos da API (só chegam pelo binding, nunca do jogador): expulsar, esquecer alguém, apagar o mundo, editar, exportar, importar
   async admin(acao, d) {
     if (acao === 'expulsar') {
       const uids = new Set(Array.isArray(d.uids) ? d.uids : []);
       for (const ws of this.ctx.getWebSockets()) {
         const j = ws.deserializeAttachment();
         if (!j || !(uids.has(j.uid) || (d.todosMenos != null && j.uid !== d.todosMenos))) continue;
-        try { ws.send(JSON.stringify({ t: 'erro', fim: true, msg: 'O dono do mundo tirou você deste mundo.' })); } catch {}
+        try { ws.send(JSON.stringify({ t: 'erro', fim: true, msg: typeof d.msg === 'string' ? d.msg : 'O dono do mundo tirou você deste mundo.' })); } catch {}
         ws.serializeAttachment(null);
         try { ws.close(4004, 'expulso'); } catch {}
         this.enviarTodos({ t: 'saiu', id: j.id }, ws);
@@ -130,11 +130,30 @@ export class Sala extends DurableObject {
         j.semVeiculos = opcoes.veiculos === false; ws.serializeAttachment(j);
         try { ws.send(JSON.stringify({ t: 'mundo-editado', nome, opcoes, recarregar: d.recarregar === true })); } catch {}
       }
+    } else if (acao === 'exportar') {
+      // todos os blocos mudados neste mundo (para o arquivo do dono)
+      const edicoes = [];
+      for (const [k, b] of await this.carregarEdicoes()) { if (!blocoOk(b)) continue; const [x, y, z] = k.split(',').map(Number); edicoes.push([x, y, z, b]); }
+      return Response.json({ edicoes });
+    } else if (acao === 'importar' && Array.isArray(d.edicoes)) {
+      // mundo novo vindo de um arquivo (a API já conferiu): grava os blocos de 128 em 128
+      const ed = await this.carregarEdicoes();
+      let lote = {}, n = 0;
+      for (const e of d.edicoes.slice(0, MAX_EDICOES)) {
+        if (!Array.isArray(e) || e.length !== 4) continue;
+        const [x, y, z, b] = e;
+        if (![x, y, z].every(Number.isInteger) || y < 1 || y > 63 || !blocoOk(b) || Math.abs(x) > LONGE || Math.abs(z) > LONGE) continue;
+        const k = x + ',' + y + ',' + z;
+        ed.set(k, b); lote['b:' + k] = b;
+        if (++n % 128 === 0) { await this.ctx.storage.put(lote); lote = {}; }
+      }
+      if (Object.keys(lote).length) await this.ctx.storage.put(lote);
+      return Response.json({ ok: true, n });
     } else if (acao === 'esquecer' && Number.isInteger(d.uid)) {
       await this.ctx.storage.delete(['p:' + d.uid, 'l:' + d.uid]);
       await this.admin('expulsar', { uids: [d.uid] });
     } else if (acao === 'apagar') {
-      await this.admin('expulsar', { todosMenos: -1 });
+      await this.admin('expulsar', { todosMenos: -1, msg: 'O dono apagou este mundo.' });
       await this.ctx.storage.deleteAll();
       this.edicoes = null; this.info = null;
     }

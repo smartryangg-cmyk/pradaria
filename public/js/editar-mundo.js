@@ -4,6 +4,7 @@
 import { OPCOES_MUNDO, TAMANHOS, TIPOS, normalizarOpcoes, editarOpcoes, opcoesMudadas } from './opcoes-mundo.js';
 import { icone } from './icones.js';
 import { api } from './rede.js';
+import { montarArquivo, lerArquivo, nomeArquivo } from './arquivo-mundo.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -40,9 +41,34 @@ export function marcarLista(l, escolha) {
   }
 }
 
+// ---------- arquivo do mundo ----------
+export function baixarArquivo(arquivo) {
+  const blob = new Blob([JSON.stringify(arquivo)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = nomeArquivo(arquivo.nome);
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+// abre a escolha de arquivo; devolve o mundo lido ({ nome, semente, opcoes, edicoes }), { erro } ou null (desistiu)
+export function escolherArquivo() {
+  return new Promise((res) => {
+    const inp = $('#arquivo-mundo');
+    inp.value = '';
+    inp.onchange = async () => {
+      const f = inp.files && inp.files[0];
+      if (!f) return res(null);
+      if (f.size > 20e6) return res({ erro: 'Esse arquivo é grande demais.' });
+      try { res(lerArquivo(await f.text())); } catch { res({ erro: 'Não consegui ler esse arquivo.' }); }
+    };
+    inp.click();
+  });
+}
+export { montarArquivo };
+
 // abre a janela. mundo = { codigo, nome, opcoes } (online) ou null (mundo sem internet, só opções)
 // salvarLocal(opcoes) é chamado no mundo sem internet; aoSalvar(mundo, mudou) depois que deu certo
-export function abrirEditarMundo({ mundo = null, opcoes, salvarLocal = null, aoSalvar = null, som = null }) {
+// local = { exportar(), importar(arquivoLido), apagar() } no mundo sem internet; aoApagar() depois de apagar online
+export function abrirEditarMundo({ mundo = null, opcoes, salvarLocal = null, aoSalvar = null, som = null, local = null, aoApagar = null }) {
   const jan = $('#editar-mundo');
   const antes = normalizarOpcoes(opcoes);
   const escolha = { ...antes };
@@ -92,6 +118,33 @@ export function abrirEditarMundo({ mundo = null, opcoes, salvarLocal = null, aoS
     salvar.disabled = false;
   };
   $('#e-cancelar').onclick = fechar;
+  // arquivo e apagar
+  $('#e-mais').open = false;
+  $('#e-importar').hidden = online;
+  $('#e-exportar').onclick = async () => {
+    $('#e-erro').textContent = '';
+    if (!online) { local && local.exportar(); return; }
+    const bt = $('#e-exportar'); bt.disabled = true;
+    try { baixarArquivo(await api('mundos/exportar', { codigo: mundo.codigo })); }
+    catch (e) { $('#e-erro').textContent = e.message; }
+    bt.disabled = false;
+  };
+  $('#e-importar').onclick = async () => {
+    const a = await escolherArquivo();
+    if (!a) return;
+    if (a.erro) { $('#e-erro').textContent = a.erro; return; }
+    if (!confirm('Trocar o mundo deste aparelho pelo mundo do arquivo? O mundo de agora some (exporte antes se quiser guardar).')) return;
+    fechar(); local && local.importar(a);
+  };
+  $('#e-apagar').onclick = async () => {
+    const nome = online ? `"${mundo.nome}"` : 'o mundo sem internet deste aparelho';
+    if (!confirm(`Apagar ${nome} para sempre? Tudo o que foi construído some e não dá para desfazer. Se quiser guardar, toque em Exportar antes.`)) return;
+    if (!online) { fechar(); local && local.apagar(); return; }
+    const bt = $('#e-apagar'); bt.disabled = true;
+    try { await api('mundos/apagar', { codigo: mundo.codigo }); fechar(); aoApagar && aoApagar(); }
+    catch (e) { $('#e-erro').textContent = e.message; }
+    bt.disabled = false;
+  };
   jan.hidden = false;
   if (online) setTimeout(() => $('#e-nome').focus(), 50);
   function fechar() { jan.hidden = true; }

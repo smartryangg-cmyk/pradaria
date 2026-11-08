@@ -410,3 +410,6 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 #e-fixas .ic-svg { flex: none; width: 20px; height: 20px; }
 .aviso-editar { margin: 0; padding: 8px 10px; border-radius: 12px; background: #fff3c4; border: 2px solid #e0b93a; font-weight: 700; font-size: 13.5px; }
 .opcao-mundo.mudou { border-style: dashed; }
+.bt.perigo { background: #ffe1dc; color: #a3271b; }
+
+#e-mais .bt { width: 100%; margin-top: 8px; }

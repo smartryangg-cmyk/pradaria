@@ -28,7 +28,7 @@ import { Mapa } from './mapa.js';
 import { Mercado } from './mercado.js';
 import { VERSAO } from './versao.js';
 import { preencherDono, contaModo, ligarApagarConta } from './dono.js';
-import { abrirEditarMundo, desenharListaOpcoes, marcarLista } from './editar-mundo.js';
+import { abrirEditarMundo, desenharListaOpcoes, marcarLista, baixarArquivo, escolherArquivo, montarArquivo } from './editar-mundo.js';
 
 const $ = (s) => document.querySelector(s);
 preencherIcones();
@@ -485,6 +485,10 @@ $('#bt-editar-mundo').addEventListener('click', () => {
       // mundo sem internet: guarda as opções novas e abre o mundo de novo no mesmo lugar
       definirOpcoesMundo(novas); salvarLocal();
       fecharJanelas(); jogarLocal(); aviso('Pronto! O mundo foi atualizado.', 2500, 'lapis');
+    }, local: {
+      exportar: () => { salvarLocal(); baixarArquivo(montarArquivo({ nome: 'Mundo sem internet', semente: mundo.semente, opcoes: opcoesMundo, edicoes: mundo.listarEdicoes() })); },
+      importar: (a) => { fecharJanelas(); jogarLocal({ opcoes: a.opcoes, semente: a.semente, edicoes: a.edicoes }); aviso('Mundo importado!', 2500, 'subir'); },
+      apagar: () => { sairDoMundo({ apagarLocal: true }); },
     } });
   } else if (mundoAtual && mundoAtual.dono) {
     abrirEditarMundo({ mundo: mundoAtual, opcoes: opcoesMundo, som: () => som.clique(), aoSalvar: (m, mudou) => {
@@ -493,7 +497,7 @@ $('#bt-editar-mundo').addEventListener('click', () => {
       // a sala avisa todo mundo (inclusive aqui) e o jogo recarrega; se o aviso não chegar, recarrega mesmo assim
       if (mudou.length) esperarEdicao = setTimeout(() => recarregarOnline({ ...mundoAtual, opcoes: m.opcoes }), 5000);
       else aviso('Nome salvo!', 2000, 'lapis');
-    } });
+    }, aoApagar: () => { /* a sala tira todo mundo (inclusive o dono) e o jogo volta para a lista */ } });
   }
 });
 // ---------- Ilha de Aventura: mapa e nome dos lugares ----------
@@ -1027,6 +1031,7 @@ function jogarLocal(novo = null) {
   tempoDia = salvo ? salvo.dia ?? 0.3 : 0.3;
   iniciarMundo({
     semente: salvo ? salvo.semente : novo.semente ?? Math.floor(Math.random() * 1e9), edicoes: salvo ? salvo.edicoes : [],
+    edicoes: salvo ? salvo.edicoes : novo.edicoes || [], // mundo importado de arquivo já vem com blocos
     pos: salvo && salvo.pos, yaw: salvo ? salvo.yaw : 0,
     // mundos salvos antes das opções existirem continuam do jeito que eram (sem monstros)
     opcoes: salvo ? salvo.opcoes || PADRAO_MUNDO : novo.opcoes,
@@ -1117,9 +1122,10 @@ function recarregarOnline(m) {
   $('#carregando-txt').textContent = 'Atualizando o mundo…';
 }
 
-function sairDoMundo() {
+function sairDoMundo(op = {}) {
   if (jogando) enviarBarra();
-  salvarLocal();
+  if (op.apagarLocal) { try { localStorage.removeItem('pradaria.local'); } catch {} } // apagado: não salva de novo
+  else salvarLocal();
   cmd.saiu();
   if (sala && jog) sala.enviar({ t: 'pos', p: [jog.pos.x, jog.pos.y, jog.pos.z], r: [jog.yaw, jog.pitch] });
   limparMundo();
@@ -1199,7 +1205,7 @@ async function abrirMundos() {
       const ed = document.createElement('button');
       ed.type = 'button'; ed.className = 'bt-editar'; ed.innerHTML = icone('lapis', 'ic-svg');
       ed.setAttribute('aria-label', 'Editar ' + m.nome); ed.title = 'Editar o mundo';
-      ed.addEventListener('click', () => { som.iniciar(); som.clique(); abrirEditarMundo({ mundo: m, opcoes: m.opcoes, som: () => som.clique(), aoSalvar: () => abrirMundos() }); });
+      ed.addEventListener('click', () => { som.iniciar(); som.clique(); abrirEditarMundo({ mundo: m, opcoes: m.opcoes, som: () => som.clique(), aoSalvar: () => abrirMundos(), aoApagar: () => abrirMundos() }); });
       linha.append(b, ed);
       l.appendChild(linha);
     }
@@ -1279,6 +1285,22 @@ function abrirNovo(modoN) {
   mostrarMenu('m-novo');
 }
 $('#bt-novo-mundo').addEventListener('click', () => abrirNovo('criar'));
+// importar: o arquivo vira um mundo novo da conta (com código novo)
+$('#bt-importar').addEventListener('click', async () => {
+  som.iniciar();
+  $('#mundos-erro').textContent = '';
+  const a = await escolherArquivo();
+  if (!a) return;
+  if (a.erro) { $('#mundos-erro').textContent = a.erro; return; }
+  const bt = $('#bt-importar'); bt.disabled = true;
+  try {
+    const arquivo = montarArquivo(a);
+    const nome = /^[A-Za-zÀ-ÿ0-9 ]{2,24}$/.test(a.nome) && !nomesMeusMundos.includes(a.nome) ? a.nome : proximoNomeMundo(nomesMeusMundos);
+    await api('mundos/importar', { arquivo, nome });
+    await abrirMundos();
+  } catch (e) { $('#mundos-erro').textContent = e.message; }
+  bt.disabled = false;
+});
 $('#bt-codigo').addEventListener('click', () => abrirNovo('codigo'));
 $('#m-novo').addEventListener('submit', async (e) => {
   e.preventDefault();

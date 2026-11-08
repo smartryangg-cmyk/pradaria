@@ -248,6 +248,7 @@
       <button class="bt verde" id="bt-novo-mundo"><span data-icone="mais"></span>Novo mundo</button>
       <button class="bt" id="bt-codigo"><span data-icone="chave"></span>Entrar com código</button>
     </div>
+    <button class="bt" id="bt-importar"><span data-icone="subir"></span>Importar mundo de um arquivo</button>
     <button class="bt amarelo" id="bt-sozinho2"><span data-icone="casa"></span>Jogar sem internet</button>
     <button class="bt instalar" hidden><span data-icone="baixar"></span>Instalar o jogo</button>
     <a class="bt baixar-apk" href="https://github.com/smartryangg-cmyk/pradaria/releases/latest/download/pradaria.apk" hidden><span data-icone="celular"></span>Baixar app para Android</a>
@@ -297,9 +298,17 @@
     <p id="e-erro" class="erro"></p>
     <button class="bt verde grande" type="submit" id="e-salvar">Salvar</button>
     <button class="bt" type="button" id="e-cancelar"><span data-icone="voltar"></span>Cancelar</button>
+    <details class="mais" id="e-mais">
+      <summary>Guardar num arquivo ou apagar</summary>
+      <p class="sub">O arquivo guarda o mundo inteiro (o que foi construído e as opções). Dá para importar de volta depois, aqui ou em outro aparelho.</p>
+      <button class="bt" type="button" id="e-exportar"><span data-icone="baixar"></span>Exportar (baixar o arquivo)</button>
+      <button class="bt" type="button" id="e-importar" hidden><span data-icone="subir"></span>Trocar por um mundo de arquivo</button>
+      <button class="bt perigo" type="button" id="e-apagar"><span data-icone="lixeira"></span>Apagar este mundo</button>
+    </details>
   </form>
 </div>
 
+<input type="file" id="arquivo-mundo" accept=".json,application/json" hidden>
 <div id="desmaio" hidden></div>
 <div id="fps" hidden></div>
 <script type="module" src="js/main.js?v=17"></script>
