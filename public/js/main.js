@@ -14,6 +14,7 @@ import { conta, api, Sala } from './rede.js';
 import { criarGraficos, QUALIDADES, PESSOAIS } from './graficos.js';
 import { MapaIlha } from './mapa-ilha.js';
 import { ICONE_LUGAR } from './ilha-aventura.js';
+import { criarPosEfeitos } from './posefeitos.js';
 import { icone, preencherIcones, comIcone, nomeEmote } from './icones.js';
 import { Escavacao } from './escavar.js';
 import { Fisica } from './fisica.js';
@@ -81,14 +82,18 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 const cena = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 400);
 cena.fog = new THREE.Fog(0x8fd3ff, 30, 60);
+// efeitos de cinema do Ultra (desligados não custam nada)
+const pos = criarPosEfeitos(renderer, cena, camera);
 
 function redimensionar() {
   // limite de pixels por nível (tablet com tela enorme não precisa desenhar 4 milhões de pixels)
-  const tetoMP = opcoesGraficas().teto || 1.3;
+  const og = opcoesGraficas(), tetoMP = og.teto || 1.3;
   const maxPr = Math.sqrt((tetoMP * 1e6) / (innerWidth * innerHeight));
-  const pr = Math.min(window.devicePixelRatio || 1, 2, maxPr) * ajustes.qual;
+  // Ultra: resolução nativa da tela (sem teto)
+  const pr = (og.nativo ? window.devicePixelRatio || 1 : Math.min(window.devicePixelRatio || 1, 2, maxPr)) * ajustes.qual;
   renderer.setPixelRatio(Math.max(0.4, pr));
   renderer.setSize(innerWidth, innerHeight, false);
+  pos.tamanho(innerWidth, innerHeight, renderer.getPixelRatio());
   camera.aspect = innerWidth / innerHeight;
   camera.fov = ajustes.fov || 72;
   camera.updateProjectionMatrix();
@@ -130,6 +135,7 @@ function aplicarGraficos() {
   const o = graf.aplicar(opcoesGraficas());
   nuvens.visible = o.nuvens;
   $('#vinheta').hidden = !o.vinheta;
+  pos.ligar(!!o.pos);
   redimensionar();
   return o;
 }
@@ -324,7 +330,9 @@ addEventListener('keydown', (e) => {
   else if (e.code === 'KeyM') { if (!$('#mapa').hidden) fecharJanelas(); else if (!pausado) mapa.abrir(); }
 });
 // mundo pequeno/médio: como acaba no mar, dá para enxergar mais longe sem pesar
-const raioVisao = () => Math.min(9, ajustes.dist + raioExtraMundo());
+// Ultra enxerga longe (visao: distância mínima do preset)
+const distVisao = () => Math.max(ajustes.dist, opcoesGraficas().visao || 0);
+const raioVisao = () => Math.min(9, distVisao() + raioExtraMundo());
 $('#aj-dist').addEventListener('input', (e) => { ajustes.dist = +e.target.value; if (mundo) mundo.raio = raioVisao(); salvarAjustes(); ajustarNevoa(); });
 $('#aj-graf').addEventListener('change', (e) => {
   ajustes.graf = e.target.value;
@@ -332,11 +340,13 @@ $('#aj-graf').addEventListener('change', (e) => {
   if (ajustes.graf === 'auto') { ajustes.grafTeto = null; calib.reiniciar(); }
   if (ajustes.graf === 'personalizado' && !ajustes.gopc) ajustes.gopc = { ...QUALIDADES.alta };
   salvarAjustes(); aplicarGraficos(); preencherGraficos(); segundosLentos = 0;
+  if (mundo) mundo.raio = raioVisao();
+  ajustarNevoa();
 });
 // opções avançadas: mexer em qualquer uma vira "Personalizado"
 const OPC = [
   ['aj-sombra', 'sombra', 'num'], ['aj-area', 'area', 'num'], ['aj-luzes', 'luzes', 'num'], ['aj-teto', 'teto', 'num'],
-  ['aj-vento', 'vento', 'bool'], ['aj-ondas', 'ondas', 'bool'], ['aj-nuvens', 'nuvens', 'bool'], ['aj-vinheta', 'vinheta', 'bool'],
+  ['aj-vento', 'vento', 'bool'], ['aj-ondas', 'ondas', 'bool'], ['aj-nuvens', 'nuvens', 'bool'], ['aj-vinheta', 'vinheta', 'bool'], ['aj-pos', 'pos', 'bool'],
 ];
 const PESS = [['aj-fov', 'fov'], ['aj-brilho', 'brilho'], ['aj-fpsmax', 'fpsMax']];
 function preencherGraficos() {
@@ -353,7 +363,7 @@ function preencherGraficos() {
 }
 for (const [id, k, t] of OPC) $('#' + id).addEventListener(t === 'bool' ? 'change' : 'input', (e) => {
   const o = opcoesGraficas();
-  ajustes.gopc = { sombra: o.sombra, area: o.area, luzes: o.luzes, pular: 0, vento: o.vento, ondas: o.ondas, nuvens: o.nuvens, vinheta: o.vinheta, teto: o.teto };
+  ajustes.gopc = { sombra: o.sombra, area: o.area, luzes: o.luzes, pular: 0, vento: o.vento, ondas: o.ondas, nuvens: o.nuvens, vinheta: o.vinheta, teto: o.teto, pos: o.pos };
   ajustes.gopc[k] = t === 'bool' ? e.target.checked : +e.target.value;
   if (k === 'sombra' && ajustes.gopc.sombra && !ajustes.gopc.area) ajustes.gopc.area = 32;
   ajustes.graf = 'personalizado'; ajustes.grafManual = true;
@@ -404,7 +414,7 @@ document.querySelectorAll('[data-emote]').forEach((b) => b.addEventListener('cli
 }));
 
 function ajustarNevoa() {
-  const d = ajustes.dist * 16;
+  const d = distVisao() * 16;
   cena.fog.near = d * 0.45; cena.fog.far = d * 0.95;
   graf.ajustarNevoa(cena.fog.near, cena.fog.far);
 }
@@ -1084,7 +1094,7 @@ function laco(agora) {
   salvarLocalTimer += dt;
   if (salvarLocalTimer > 5) { salvarLocalTimer = 0; if (modo === 'local') salvarLocal(); }
 
-  renderer.render(cena, camera);
+  if (pos.ativo) pos.render(null, graf.U); else renderer.render(cena, camera);
   quadros++; tempoFps += dt;
   if (tempoFps > 1) {
     if (ajustes.fps) $('#fps').textContent = `${quadros} fps · ${renderer.info.render.calls} draws · ${opcoesGraficas().nome}`;
@@ -1133,6 +1143,8 @@ function vigiarDesempenho(fps) {
     if (i < 0) i = opcoesGraficas().sombra > 1024 ? 2 : 1; // personalizado: desce para o preset logo abaixo
     if (i > 0) {
       ajustes.graf = ordem[i - 1]; salvarAjustes(); aplicarGraficos(); preencherGraficos();
+      if (mundo) mundo.raio = raioVisao();
+      ajustarNevoa();
       aviso('Deixei os gráficos mais leves para rodar liso', 2500, 'brilho');
     } else if (ajustes.qual > 0.6) {
       ajustes.qual = Math.max(0.6, +(ajustes.qual - 0.1).toFixed(1)); salvarAjustes(); redimensionar();
@@ -1149,4 +1161,4 @@ camera.position.set(0, 40, 0);
 if (conta.token) abrirMundos(); else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, garagem, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, camera, graf, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa }; }
+if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, garagem, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa }; }

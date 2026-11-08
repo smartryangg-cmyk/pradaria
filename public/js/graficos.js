@@ -5,11 +5,12 @@ import * as THREE from '../vendor/three.module.min.js';
 // sombra: tamanho do mapa de sombra · area: metros cobertos · luzes: lampiões acesos · pular: quadros entre atualizações da sombra
 // vento: folhas balançando · ondas: água com ondinhas e reflexo · nuvens · vinheta · fov: campo de visão
 // brilho: exposição · teto: milhões de pixels no máximo · fpsMax: 0 = sem limite
+// pos: efeitos de cinema (posefeitos.js) · nativo: resolução nativa da tela, sem teto · visao: distância de visão mínima
 export const QUALIDADES = {
-  baixa: { nome: 'Leve', sombra: 0, area: 0, luzes: 0, pular: 0, vento: false, ondas: false, nuvens: true, vinheta: false, teto: 0.8 },
-  media: { nome: 'Bonita', sombra: 1024, area: 30, luzes: 2, pular: 1, vento: true, ondas: true, nuvens: true, vinheta: true, teto: 1.3 },
-  alta: { nome: 'Linda', sombra: 2048, area: 44, luzes: 4, pular: 0, vento: true, ondas: true, nuvens: true, vinheta: true, teto: 2.4 },
-  ultra: { nome: 'Ultra', sombra: 4096, area: 64, luzes: 4, pular: 0, vento: true, ondas: true, nuvens: true, vinheta: true, teto: 4 },
+  baixa: { nome: 'Leve', sombra: 0, area: 0, luzes: 0, pular: 0, vento: false, ondas: false, nuvens: true, vinheta: false, teto: 0.8, pos: false },
+  media: { nome: 'Bonita', sombra: 1024, area: 30, luzes: 2, pular: 1, vento: true, ondas: true, nuvens: true, vinheta: true, teto: 1.3, pos: false },
+  alta: { nome: 'Linda', sombra: 2048, area: 44, luzes: 4, pular: 0, vento: true, ondas: true, nuvens: true, vinheta: true, teto: 2.4, pos: false },
+  ultra: { nome: 'Ultra', sombra: 4096, area: 64, luzes: 4, pular: 0, vento: true, ondas: true, nuvens: true, vinheta: true, teto: 4, pos: true, nativo: true, visao: 8 },
 };
 // opções que não mudam com o preset (preferência pessoal)
 export const PESSOAIS = { fov: 72, brilho: 1, fpsMax: 0 };
