@@ -3,18 +3,19 @@
 import { createRequire } from 'module'; const { chromium } = createRequire(import.meta.url)('playwright');
 const BASE = `http://localhost:${process.env.PORTA || 8788}`;
 let falhas = 0;
+// cada chamada parece vir de um aparelho diferente (os limites por IP não se acumulam entre execuções)
+const ipx = () => '10.' + Math.floor(Math.random() * 250) + '.' + Math.floor(Math.random() * 250) + '.' + Math.floor(Math.random() * 250);
 const ok = (c, msg) => { console.log((c ? 'OK   ' : 'FALHA') + ' ' + msg); if (!c) falhas++; };
 async function api(caminho, corpo, token, metodo, ip) {
   const r = await fetch(BASE + '/api/' + caminho, {
     method: metodo || (corpo ? 'POST' : 'GET'),
-    headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}), ...(ip ? { 'cf-connecting-ip': ip } : {}) },
+    headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}), 'cf-connecting-ip': ip || ipx() },
     body: corpo ? JSON.stringify(corpo) : undefined,
   });
   let d = null; try { d = await r.json(); } catch {}
   return { status: r.status, ...d };
 }
 const sfx = String(Date.now() % 10000);
-const ipx = () => '10.' + Math.floor(Math.random() * 250) + '.' + Math.floor(Math.random() * 250) + '.' + Math.floor(Math.random() * 250);
 const cadastrar = (nome) => api('cadastrar', { nome, senha: 'senha123' }, null, null, ipx());
 
 // nomes
@@ -84,7 +85,7 @@ const ola = wa2.msgs.find((m) => m.t === 'ola');
 ok(ola && ola.edicoes.some(([x, y, z, b]) => x === 4 && b === 1), 'o que foi construído continua depois de trocar o código');
 
 // limite de tentativas de código
-let r; for (let i = 0; i < 17; i++) r = await api('mundos/entrar', { codigo: 'ZZZZZZZ' + (i % 9) }, chato.token);
+let r; for (let i = 0; i < 17; i++) r = await api('mundos/entrar', { codigo: 'ZZZZZZZ' + (i % 9) }, chato.token, null, '10.7.7.7');
 ok(r.status === 429, 'muitas tentativas de código: 429');
 // login: errar a senha de outra pessoa de um IP não tranca ela em outro IP
 for (let i = 0; i < 12; i++) await api('entrar', { nome: 'Amigo' + sfx, senha: 'errada' }, null, null, '10.9.9.9');
@@ -104,7 +105,7 @@ for (const w of [wd, wc, wc2, wc3, wa, wa2]) try { w.close(); } catch {}
 const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const p = await b.newPage();
 const erros = []; p.on('pageerror', (e) => erros.push(e.message));
-await p.goto(BASE + '/#teste');
+await p.goto(BASE + '/');
 await p.click('#bt-criar-conta');
 ok(await p.isVisible('#c-adulto-ok'), 'criar conta mostra a caixa do adulto');
 await p.fill('#c-nome', 'Tela' + sfx); await p.fill('#c-senha', 'senha123');
@@ -112,6 +113,11 @@ await p.click('#c-ok');
 await espera(500);
 ok(await p.isVisible('#m-conta'), 'sem a caixa marcada não cria');
 await p.check('#c-adulto-ok'); await p.click('#c-ok');
+await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
+await p.evaluate(() => { location.hash = '#teste'; });
+await p.reload();
+await espera(1500);
+if (await p.isVisible('#bt-entrar')) await p.click('#bt-entrar');
 await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
 await p.click('#bt-novo-mundo'); await p.fill('#n-nome', 'Meu Mundo'); await p.click('#m-novo button[type=submit]');
 await p.waitForFunction(() => window.__jogo && window.__jogo.sala, null, { timeout: 30000 });

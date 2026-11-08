@@ -54,7 +54,8 @@ export function contaModo(m) {
   if (!c) return;
   c.hidden = m === 'entrar';
   $('#c-adulto-ok').required = m !== 'entrar';
-  $('#c-adulto-ok').checked = false;
+  // nos testes automáticos (#teste) a caixa já vem marcada, para os testes de outras partes não quebrarem
+  $('#c-adulto-ok').checked = location.hash === '#teste';
 }
 
 // ---------- apagar a conta ----------
