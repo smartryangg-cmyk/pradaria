@@ -105,7 +105,7 @@ const outros = new Map();
 let euId = null;
 // veículos: garagem, direção e câmera de trás (código em garagem.js e veiculos.js)
 const garagem = new Garagem({
-  cena, camera, som, aviso: (t, ms) => aviso(t, ms), outros,
+  cena, camera, som, aviso: (t, ms, ic) => aviso(t, ms, ic), outros,
   corBoneco: () => CORES[(conta.usuario && conta.usuario.cor) || 0] ?? CORES[0],
   sala: () => sala, euId: () => euId, jog: () => jog, mundo: () => mundo, bichos: () => bichos, aldeoes: () => aldeoes,
   pausar: (sim) => { pausado = sim; },

@@ -17,7 +17,7 @@ const espelhar = (f) => [f(1), f(-1)];
 // assento: [x, altura do quadril, z, pose, giro]; pose: s = sentado, p = pedalando, e = em pé
 export const TIPOS = {
   carro: {
-    nome: 'Carro', emoji: '🚗', meio: 'terra', L: 3.4, W: 1.8, H: 1.3, vmax: 16, acel: 7, giro: 1.9, som: 'motor', buzina: 'carro',
+    nome: 'Carro', meio: 'terra', L: 3.4, W: 1.8, H: 1.3, vmax: 16, acel: 7, giro: 1.9, som: 'motor', buzina: 'carro',
     assentos: [[-0.4, 1.04, -0.1], [0.4, 1.04, -0.1], [-0.4, 1.04, 0.8], [0.4, 1.04, 0.8]],
     rodas: [[0.85, 0.38, -1.05, 0.38, 0.3, 1], [-0.85, 0.38, -1.05, 0.38, 0.3, 1], [0.85, 0.38, 1.05, 0.38, 0.3], [-0.85, 0.38, 1.05, 0.38, 0.3]],
     desenho: (cor) => [
@@ -32,7 +32,7 @@ export const TIPOS = {
     ],
   },
   jipe: {
-    nome: 'Jipe', emoji: '🚙', meio: 'terra', L: 3.5, W: 1.9, H: 1.6, vmax: 14, acel: 7, giro: 1.8, som: 'motor', buzina: 'carro', grave: 0.9,
+    nome: 'Jipe', meio: 'terra', L: 3.5, W: 1.9, H: 1.6, vmax: 14, acel: 7, giro: 1.8, som: 'motor', buzina: 'carro', grave: 0.9,
     assentos: [[-0.42, 1.36, -0.15], [0.42, 1.36, -0.15], [-0.42, 1.36, 0.85], [0.42, 1.36, 0.85]],
     rodas: [[0.92, 0.5, -1.15, 0.5, 0.38, 1], [-0.92, 0.5, -1.15, 0.5, 0.38, 1], [0.92, 0.5, 1.15, 0.5, 0.38], [-0.92, 0.5, 1.15, 0.5, 0.38]],
     desenho: (cor) => [
@@ -48,7 +48,7 @@ export const TIPOS = {
     ],
   },
   esportivo: {
-    nome: 'Esportivo', emoji: '🏎️', meio: 'terra', L: 3.9, W: 1.9, H: 1.0, vmax: 24, acel: 11, giro: 2.0, som: 'motor', buzina: 'carro', grave: 1.25,
+    nome: 'Esportivo', meio: 'terra', L: 3.9, W: 1.9, H: 1.0, vmax: 24, acel: 11, giro: 2.0, som: 'motor', buzina: 'carro', grave: 1.25,
     assentos: [[-0.4, 0.8, 0.2], [0.4, 0.8, 0.2]],
     rodas: [[0.9, 0.34, -1.3, 0.34, 0.34, 1], [-0.9, 0.34, -1.3, 0.34, 0.34, 1], [0.9, 0.34, 1.25, 0.34, 0.36], [-0.9, 0.34, 1.25, 0.34, 0.36]],
     desenho: (cor) => [
@@ -62,7 +62,7 @@ export const TIPOS = {
     ],
   },
   quadriciclo: {
-    nome: 'Quadriciclo', emoji: '🛞', meio: 'terra', L: 2.2, W: 1.4, H: 1.2, vmax: 15, acel: 9, giro: 2.4, som: 'motor', buzina: 'carro', grave: 1.15,
+    nome: 'Quadriciclo', meio: 'terra', L: 2.2, W: 1.4, H: 1.2, vmax: 15, acel: 9, giro: 2.4, som: 'motor', buzina: 'carro', grave: 1.15,
     assentos: [[0, 1.08, -0.05], [0, 1.1, 0.5]],
     rodas: [[0.6, 0.38, -0.75, 0.38, 0.36, 1], [-0.6, 0.38, -0.75, 0.38, 0.36, 1], [0.6, 0.38, 0.75, 0.38, 0.36], [-0.6, 0.38, 0.75, 0.38, 0.36]],
     desenho: (cor) => [
@@ -73,7 +73,7 @@ export const TIPOS = {
     ],
   },
   moto: {
-    nome: 'Moto', emoji: '🏍️', meio: 'terra', L: 2.0, W: 0.7, H: 1.3, vmax: 20, acel: 10, giro: 2.4, som: 'motor', buzina: 'carro', grave: 1.4, inclina: true,
+    nome: 'Moto', meio: 'terra', L: 2.0, W: 0.7, H: 1.3, vmax: 20, acel: 10, giro: 2.4, som: 'motor', buzina: 'carro', grave: 1.4, inclina: true,
     assentos: [[0, 1.04, 0.05], [0, 1.08, 0.55]],
     rodas: [[0, 0.38, -0.75, 0.38, 0.16, 1], [0, 0.38, 0.75, 0.38, 0.18]],
     desenho: (cor) => [
@@ -83,7 +83,7 @@ export const TIPOS = {
     ],
   },
   bicicleta: {
-    nome: 'Bicicleta', emoji: '🚲', meio: 'terra', L: 1.7, W: 0.5, H: 1.2, vmax: 9, acel: 6, giro: 2.4, som: 'pedal', buzina: 'campainha', inclina: true,
+    nome: 'Bicicleta', meio: 'terra', L: 1.7, W: 0.5, H: 1.2, vmax: 9, acel: 6, giro: 2.4, som: 'pedal', buzina: 'campainha', inclina: true,
     assentos: [[0, 0.95, 0.18, 'p']],
     rodas: [[0, 0.35, -0.58, 0.35, 0.08, 1], [0, 0.35, 0.58, 0.35, 0.08]],
     desenho: (cor) => [
@@ -93,13 +93,13 @@ export const TIPOS = {
     ],
   },
   skate: {
-    nome: 'Skate', emoji: '🛹', meio: 'terra', L: 1.0, W: 0.4, H: 0.3, vmax: 9, acel: 6, giro: 2.6, som: 'skate', buzina: 'apito', inclina: true,
+    nome: 'Skate', meio: 'terra', L: 1.0, W: 0.4, H: 0.3, vmax: 9, acel: 6, giro: 2.6, som: 'skate', buzina: 'apito', inclina: true,
     assentos: [[0, 0.22, 0, 'e', Math.PI / 2]],
     rodas: [[0.13, 0.07, -0.34, 0.07, 0.08], [-0.13, 0.07, -0.34, 0.07, 0.08], [0.13, 0.07, 0.34, 0.07, 0.08], [-0.13, 0.07, 0.34, 0.07, 0.08]],
     desenho: (cor) => [c(0.38, 0.06, 0.96, cor, 0, 0.17, 0), c(0.34, 0.06, 0.1, cor, 0, 0.21, -0.5), c(0.34, 0.06, 0.1, cor, 0, 0.21, 0.5), c(0.3, 0.04, 0.04, CINZA, 0, 0.13, -0.34), c(0.3, 0.04, 0.04, CINZA, 0, 0.13, 0.34)],
   },
   trator: {
-    nome: 'Trator', emoji: '🚜', meio: 'terra', L: 3.2, W: 1.9, H: 2.0, vmax: 8, acel: 5, giro: 1.7, som: 'motor', buzina: 'caminhao', grave: 0.65,
+    nome: 'Trator', meio: 'terra', L: 3.2, W: 1.9, H: 2.0, vmax: 8, acel: 5, giro: 1.7, som: 'motor', buzina: 'caminhao', grave: 0.65,
     assentos: [[0, 1.56, 0.55], [0.86, 1.62, 0.85]],
     rodas: [[0.85, 0.75, 0.8, 0.75, 0.42], [-0.85, 0.75, 0.8, 0.75, 0.42], [0.65, 0.4, -1.1, 0.4, 0.28, 1], [-0.65, 0.4, -1.1, 0.4, 0.28, 1]],
     desenho: (cor) => [
@@ -110,7 +110,7 @@ export const TIPOS = {
     ],
   },
   caminhao: {
-    nome: 'Caminhão', emoji: '🚚', meio: 'terra', L: 6.4, W: 2.2, H: 3.0, vmax: 12, acel: 4.5, giro: 1.4, som: 'motor', buzina: 'caminhao', grave: 0.6,
+    nome: 'Caminhão', meio: 'terra', L: 6.4, W: 2.2, H: 3.0, vmax: 12, acel: 4.5, giro: 1.4, som: 'motor', buzina: 'caminhao', grave: 0.6,
     assentos: [[-0.5, 1.76, -2.05], [0.5, 1.76, -2.05], [-0.6, 1.18, 0.1], [0.6, 1.18, 0.1], [-0.6, 1.18, 1.5], [0.6, 1.18, 1.5]],
     rodas: [[1.0, 0.5, -2.2, 0.5, 0.36, 1], [-1.0, 0.5, -2.2, 0.5, 0.36, 1], [1.0, 0.5, 1.3, 0.5, 0.36], [-1.0, 0.5, 1.3, 0.5, 0.36], [1.0, 0.5, 2.4, 0.5, 0.36], [-1.0, 0.5, 2.4, 0.5, 0.36]],
     desenho: (cor) => [
@@ -126,7 +126,7 @@ export const TIPOS = {
     ],
   },
   onibus: {
-    nome: 'Ônibus', emoji: '🚌', meio: 'terra', L: 8, W: 2.5, H: 3.2, vmax: 11, acel: 4, giro: 1.25, som: 'motor', buzina: 'caminhao', grave: 0.55,
+    nome: 'Ônibus', meio: 'terra', L: 8, W: 2.5, H: 3.2, vmax: 11, acel: 4, giro: 1.25, som: 'motor', buzina: 'caminhao', grave: 0.55,
     assentos: [[-0.7, 1.82, -3.2], ...[-1.7, -0.3, 1.1, 2.5].flatMap((z) => [[-0.68, 1.82, z], [0.68, 1.82, z]])],
     rodas: [[1.15, 0.55, -2.6, 0.55, 0.36, 1], [-1.15, 0.55, -2.6, 0.55, 0.36, 1], [1.15, 0.55, 2.6, 0.55, 0.36], [-1.15, 0.55, 2.6, 0.55, 0.36]],
     desenho: (cor) => {
@@ -140,7 +140,7 @@ export const TIPOS = {
     },
   },
   barco: {
-    nome: 'Barco', emoji: '🚤', meio: 'agua', L: 4.4, W: 1.9, H: 1.1, vmax: 13, acel: 6, giro: 1.6, som: 'motor', buzina: 'barco', grave: 0.8,
+    nome: 'Barco', meio: 'agua', L: 4.4, W: 1.9, H: 1.1, vmax: 13, acel: 6, giro: 1.6, som: 'motor', buzina: 'barco', grave: 0.8,
     assentos: [[-0.42, 0.62, -0.3], [0.42, 0.62, -0.3], [-0.42, 0.62, 0.95], [0.42, 0.62, 0.95]],
     rodas: [],
     desenho: (cor) => [
@@ -151,7 +151,7 @@ export const TIPOS = {
     ],
   },
   aviao: {
-    nome: 'Avião', emoji: '✈️', meio: 'ar', L: 5, W: 1.2, H: 1.7, vmax: 26, acel: 7, giro: 1.3, som: 'motor', buzina: 'carro', grave: 1.1, decola: 10,
+    nome: 'Avião', meio: 'ar', L: 5, W: 1.2, H: 1.7, vmax: 26, acel: 7, giro: 1.3, som: 'motor', buzina: 'carro', grave: 1.1, decola: 10,
     assentos: [[0, 1.34, -0.55], [0, 1.34, 0.55]],
     rodas: [[0.7, 0.3, -1.2, 0.3, 0.2], [-0.7, 0.3, -1.2, 0.3, 0.2], [0, 0.18, 2.1, 0.18, 0.12]],
     helice: { pos: [0, 1.1, -2.78], eixo: 'z', desenho: () => [c(0.14, 1.9, 0.06, PRETO, 0, 0, 0), c(0.2, 0.2, 0.12, CINZA, 0, 0, -0.04)] },
@@ -165,7 +165,7 @@ export const TIPOS = {
     ],
   },
   helicoptero: {
-    nome: 'Helicóptero', emoji: '🚁', meio: 'helice', L: 4.6, W: 1.8, H: 2.4, vmax: 14, acel: 6, giro: 1.6, som: 'helice', buzina: 'carro', grave: 1.2,
+    nome: 'Helicóptero', meio: 'helice', L: 4.6, W: 1.8, H: 2.4, vmax: 14, acel: 6, giro: 1.6, som: 'helice', buzina: 'carro', grave: 1.2,
     assentos: [[-0.45, 0.88, -0.55], [0.45, 0.88, -0.55], [-0.45, 0.88, 0.55], [0.45, 0.88, 0.55]],
     rodas: [],
     helice: { pos: [0, 2.48, 0], eixo: 'y', desenho: () => [c(6.2, 0.06, 0.3, PRETO, 0, 0, 0), c(0.3, 0.06, 6.2, PRETO, 0, 0, 0), c(0.3, 0.25, 0.3, CINZA, 0, -0.1, 0)] },

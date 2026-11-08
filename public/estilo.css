@@ -266,3 +266,6 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 .veiculo { display: flex; flex-direction: column; align-items: center; gap: 2px; background: #fff; border: 0; border-radius: 14px; padding: 10px 6px; box-shadow: 0 4px 0 #e2d6bf; font: inherit; cursor: pointer; }
 .veiculo .ic { font-size: 34px; line-height: 1.1; } .veiculo .nm { font-weight: 900; font-size: 15px; } .veiculo small { opacity: .6; font-size: 12px; }
 .veiculo:active { transform: translateY(3px); box-shadow: 0 1px 0 #e2d6bf; }
+.pilula { display: inline-flex; align-items: center; gap: 8px; }
+.pilula .ic-svg { width: 26px; height: 26px; }
+.veiculo .ic .ic-svg { width: 44px; height: 44px; }

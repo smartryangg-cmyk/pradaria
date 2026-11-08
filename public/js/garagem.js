@@ -5,6 +5,7 @@ import { Veiculos, TIPOS, ORDEM, CORES_VEICULO } from './veiculos.js';
 import { SOLIDO, AGUA } from './blocos.js';
 import { montarBoneco } from './modelos.js';
 import { opcoesMundo } from './opcoes-mundo.js';
+import { icone } from './icones.js';
 
 const $ = (s) => document.querySelector(s);
 const MAX_LOCAL = 30;
@@ -39,7 +40,7 @@ export class Garagem {
   montarTela() {
     const topo = $('#topo');
     const bt = document.createElement('button');
-    bt.id = 'bt-garagem'; bt.className = 'redondo'; bt.setAttribute('aria-label', 'Veículos'); bt.textContent = '🚗';
+    bt.id = 'bt-garagem'; bt.className = 'redondo'; bt.setAttribute('aria-label', 'Veículos'); bt.innerHTML = icone('carro');
     bt.addEventListener('click', () => this.abrir());
     topo.insertBefore(bt, $('#status-linha') || $('#status'));
 
@@ -48,11 +49,11 @@ export class Garagem {
     caixa.id = 'veic-botoes';
     caixa.innerHTML = `
       <div id="velo" hidden><b>0</b><small>km/h</small></div>
-      <button id="bt-veic-entrar" class="pilula" hidden>🚗 Entrar</button>
+      <button id="bt-veic-entrar" class="pilula" hidden></button>
       <div id="veic-dentro" hidden>
-        <button id="bt-veic-guardar" class="pilula fraca" title="Guardar o veículo (G)">🅿️ Guardar</button>
-        <button id="bt-veic-sair" class="pilula" title="Descer (V)">🚪 Descer</button>
-        <button id="bt-buzina" class="redondo grande" aria-label="Buzina (H)">📯</button>
+        <button id="bt-veic-guardar" class="pilula fraca" title="Guardar o veículo">${icone('estacionar')}Guardar</button>
+        <button id="bt-veic-sair" class="pilula" title="Descer (V)">${icone('sair')}Descer</button>
+        <button id="bt-buzina" class="redondo grande" aria-label="Buzina (H)">${icone('buzina')}</button>
       </div>`;
     hud.appendChild(caixa);
     const toque = (el, fn) => { el.addEventListener('click', (e) => { e.stopPropagation(); this.J.som.iniciar(); fn(); }); };
@@ -86,7 +87,7 @@ export class Garagem {
       const b = document.createElement('button');
       b.className = 'veiculo'; b.dataset.tipo = t;
       b.innerHTML = `<span class="ic"></span><span class="nm"></span><small></small>`;
-      b.querySelector('.ic').textContent = d.emoji;
+      b.querySelector('.ic').innerHTML = icone(t);
       b.querySelector('.nm').textContent = d.nome;
       b.querySelector('small').textContent = d.assentos.length === 1 ? '1 lugar' : d.assentos.length + ' lugares';
       b.addEventListener('click', () => { this.J.som.clique(); this.fechar(); this.novo(t, this.corSel); });
@@ -100,7 +101,7 @@ export class Garagem {
     if (document.pointerLockElement) document.exitPointerLock();
     let algum = false;
     for (const b of document.querySelectorAll('#garagem-grade .veiculo')) { b.hidden = !this.permitido(b.dataset.tipo); algum = algum || !b.hidden; }
-    if (!algum) { this.J.aviso('Ainda não existem veículos nesta época 🐎', 2200); return; }
+    if (!algum) { this.J.aviso('Ainda não existem veículos nesta época', 2200, 'ampulheta'); return; }
     $('#garagem').hidden = false;
     this.J.pausar(true);
   }
@@ -137,7 +138,7 @@ export class Garagem {
     const fx = -Math.sin(jog.yaw), fz = -Math.cos(jog.yaw);
     const yaw = Math.round(jog.yaw / (Math.PI / 2)) * (Math.PI / 2);
     const lugar = this.acharLugar(d, jog.pos, fx, fz, yaw);
-    if (!lugar) { this.J.aviso(d.meio === 'agua' ? 'O barco precisa de água bem pertinho 🌊' : 'Não cabe aqui. Tente num lugar mais aberto 🙂', 2600); return; }
+    if (!lugar) { this.J.aviso(d.meio === 'agua' ? 'O barco precisa de água bem pertinho' : 'Não cabe aqui. Tente num lugar mais aberto', 2600, d.meio === 'agua' ? 'gota' : tipo); return; }
     if (this.J.sala()) {
       this.pedido = Math.floor(Math.random() * 1e9);
       this.J.sala().enviar({ t: 'vnovo', tipo, cor, p: lugar, r: yaw, n: this.pedido });
@@ -153,7 +154,7 @@ export class Garagem {
     const m = this.J.mundo();
     const prova = { d, x: 0, y: 0, z: 0, yaw };
     const testar = (x, z, y0) => {
-      for (let y = y0; y < y0 + 4; y++) if (!this.veic.colide(prova, x, y, z, yaw)) return y;
+      for (let y = y0; y <= y0 + 1; y++) if (!this.veic.colide(prova, x, y, z, yaw)) return y;
       return null;
     };
     for (let dist = d.L / 2 + 1.2; dist < (d.meio === 'agua' ? 24 : d.L / 2 + 6); dist += 1) {
@@ -191,7 +192,7 @@ export class Garagem {
   mirado(o, dir, max) { return this.veic ? this.veic.atingir(o, dir, max) : null; }
 
   pedirEntrar(v) {
-    if (!v.ocup.includes(null)) { this.J.aviso('Está cheio! 🙈', 1500); return; }
+    if (!v.ocup.includes(null)) { this.J.aviso('Está cheio!', 1500, 'amigos'); return; }
     if (this.J.sala()) this.J.sala().enviar({ t: 'ventrar', id: v.id });
     else this.entrar(v, v.ocup.indexOf(null));
   }
@@ -208,8 +209,8 @@ export class Garagem {
     $('#bt-voar').classList.remove('ligado');
     J.som.porta();
     const d = v.d;
-    if (a === 0) J.aviso(d.meio === 'ar' ? `${d.emoji} Acelere para decolar e use ⬆ ⬇ para subir e descer` : d.meio === 'helice' ? `${d.emoji} Use ⬆ ⬇ para subir e descer` : `${d.emoji} Joystick para dirigir · 📯 buzina`, 3000);
-    else J.aviso(`${d.emoji} Você é passageiro! Aproveite o passeio`, 2200);
+    if (a === 0) J.aviso(d.meio === 'ar' ? 'Acelere para decolar e use as setas para subir e descer' : d.meio === 'helice' ? 'Use as setas para subir e descer' : 'Use o joystick para dirigir', 3000, v.tipo);
+    else J.aviso('Você é passageiro! Aproveite o passeio', 2200, v.tipo);
     this.atualizarHud();
   }
 
@@ -242,11 +243,11 @@ export class Garagem {
   guardar() {
     if (!this.dentro) return;
     const { v } = this.dentro;
-    if (v.ocup.some((q, i) => q && q !== this.eu && i !== this.dentro.a)) { this.J.aviso('Espere todo mundo descer 🙂', 1800); return; }
+    if (v.ocup.some((q, i) => q && q !== this.eu && i !== this.dentro.a)) { this.J.aviso('Espere todo mundo descer', 1800, 'amigos'); return; }
     if (this.J.sala()) { this.J.sala().enviar({ t: 'vguardar', id: v.id }); this.sair(); return; }
     this.sairLocal();
     this.veic.remover(v.id);
-    this.J.aviso('Veículo guardado 🅿️', 1400);
+    this.J.aviso('Veículo guardado', 1400, 'estacionar');
   }
 
   buzinar() {
@@ -320,7 +321,7 @@ export class Garagem {
     this.veic.empurrar(jog.pos);
     const perto = this.pertoDeMim();
     $('#bt-veic-entrar').hidden = !perto;
-    if (perto) $('#bt-veic-entrar').textContent = `${perto.d.emoji} Entrar`;
+    if (perto && this._ultPerto !== perto.tipo) { this._ultPerto = perto.tipo; $('#bt-veic-entrar').innerHTML = icone(perto.tipo) + 'Entrar'; }
     return false;
   }
 
