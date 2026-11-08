@@ -64,8 +64,9 @@ const aVeB = await a.evaluate((id) => window.__jogo.garagem.veic.mapa.get(id).oc
 ok(aVeB, 'A vê B sentado');
 // A dirige (sem aldeões por perto: o carro freia sozinho para eles)
 await a.evaluate(() => window.__jogo.aldeoes.limpar());
-await a.keyboard.down('KeyW'); await a.waitForTimeout(2200); await a.keyboard.up('KeyW');
-await a.waitForTimeout(800);
+await a.keyboard.down('KeyW'); await a.waitForTimeout(2200); await a.keyboard.up('KeyS');
+await a.keyboard.up('KeyW'); await a.keyboard.down('KeyS'); await a.waitForTimeout(700); await a.keyboard.up('KeyS'); // freia
+await a.waitForTimeout(1200);
 const pa = await a.evaluate(() => { const v = window.__jogo.garagem.dentro.v; return [v.x, v.z]; });
 const pbV = await bb.evaluate((id) => { const v = window.__jogo.garagem.veic.mapa.get(id); return [v.x, v.z]; }, vid);
 const pbJ = await bb.evaluate(() => { const j = window.__jogo.jog.pos; return [j.x, j.z]; });
