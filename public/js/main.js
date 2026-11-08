@@ -13,6 +13,7 @@ import { conta, api, Sala } from './rede.js';
 import { criarGraficos, QUALIDADES, PESSOAIS } from './graficos.js';
 import { icone, preencherIcones, comIcone, nomeEmote } from './icones.js';
 import { Escavacao } from './escavar.js';
+import { Fisica } from './fisica.js';
 import { criarComandos } from './comandos.js';
 import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto } from './opcoes-mundo.js';
 import { Monstros } from './monstros.js';
@@ -93,7 +94,7 @@ cena.add(contorno);
 
 // ---------- estado do jogo ----------
 const som = new Som();
-let mundo = null, jog = null, ctrl = null, bichos = null, aldeoes = null, monstros = null, sala = null, escav = null;
+let mundo = null, jog = null, ctrl = null, bichos = null, aldeoes = null, monstros = null, sala = null, escav = null, fisica = null;
 let jogando = false, pausado = false;
 let modo = 'local', mundoAtual = null;
 let barra = [B.GRAMA, B.TERRA, B.PEDRA, B.TABUAS, B.TRONCO, B.VIDRO, B.TIJOLO, B.LA_VERMELHA, B.FLOR_AMARELA];
@@ -518,11 +519,12 @@ function limparMundo() {
   if (mundo) {
     for (const c of mundo.chunks.values()) for (const m of [c.malha, c.agua]) if (m) { cena.remove(m); m.geometry.dispose(); }
   }
+  if (fisica) fisica.limpar();
   if (escav) { for (const k of [...escav.blocos.keys()]) escav.soltar(k); escav.atualizar(10, 0, 0); }
   if (bichos) for (let i = bichos.lista.length - 1; i >= 0; i--) bichos.remover(i);
   if (aldeoes) aldeoes.limpar();
   if (monstros) monstros.limpar();
-  mundo = null; bichos = null; aldeoes = null; monstros = null; escav = null;
+  mundo = null; bichos = null; aldeoes = null; monstros = null; escav = null; fisica = null;
 }
 
 function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = null }) {
@@ -532,10 +534,14 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   mundo = new Mundo(cena, matBlocos, matAgua, semente);
   mundo.raio = raioVisao();
   escav = new Escavacao(cena, mundo, matBlocos, atlasCanvas);
+  fisica = new Fisica(cena, mundo, matBlocos);
+  fisica.aoCair = (x, y, z) => { if (Math.abs(x - jog.pos.x) + Math.abs(z - jog.pos.z) < 24) som.passo(); };
+  fisica.aoFolha = (x, y, z) => escav.estilhacar(x, y, z, B.FOLHAS, null, null);
   mundo.carregarEdicoes(edicoes);
   mundo.aoMudarBloco = (x, y, z, b) => {
     edicoesPendentes = true;
     if (sala) sala.enviar({ t: 'bloco', x, y, z, b });
+    if (fisica) fisica.mudou(x, y, z, b);
   };
   mundo.energia.aoEvento = eventoEnergia;
   minhaPlaca = null;
@@ -844,6 +850,7 @@ function laco(agora) {
   } else contorno.visible = false;
 
   escav.atualizar(dt, jog.pos.x, jog.pos.z);
+  fisica.atualizar(dt);
   // partículas de quebra
   for (let i = partQ.length - 1; i >= 0; i--) {
     const q = partQ[i];
