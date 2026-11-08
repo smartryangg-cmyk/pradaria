@@ -178,7 +178,7 @@ export class Escavacao {
       const pecas = ids ? (Math.random() < 0.5 ? 2 : 1) : 6;
       for (let q = 0; q < pecas; q++) {
         const mesh = new THREE.Mesh(this.geoP, this.corDe(b, tile, (i + q) % N, N - 1 - j));
-        const sz = tam * (0.3 + Math.random() * 0.3);
+        const sz = tam * (0.2 + Math.random() * 0.25);
         mesh.scale.setScalar(sz);
         const cx = ids ? (i + 0.5) / N : 0.2 + Math.random() * 0.6;
         const cy = ids ? (j + 0.5) / N : 0.1 + Math.random() * 0.6;
