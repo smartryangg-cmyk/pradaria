@@ -1,6 +1,6 @@
 // Pradaria: jogo de construir e explorar, pacífico, para o navegador.
 import * as THREE from '../vendor/three.module.min.js';
-import { criarAtlas, iconeBloco, INVENTARIO, B, AR, BLOCOS, SOLIDO } from './blocos.js';
+import { criarAtlas, iconeBloco, INVENTARIO, B, AR, BLOCOS, SOLIDO, AGUA } from './blocos.js';
 import { Mundo, ALT, NIVEL_AGUA } from './mundo.js';
 import { Jogador, OLHOS } from './jogador.js';
 import { Controles } from './controles.js';
@@ -301,7 +301,8 @@ function usar(ponto) {
   const novo = barra[slotSel];
   if (y < 1 || y >= ALT) return;
   const atual = mundo.bloco(x, y, z);
-  if (atual !== AR && atual !== B.AGUA && !BLOCOS[atual].planta) return;
+  if (atual !== AR && !AGUA[atual] && !BLOCOS[atual].planta) return;
+  if (novo === B.AGUA && atual === B.AGUA) return;
   if (SOLIDO[novo] && jog.ocupa(x, y, z)) return;
   if (BLOCOS[novo].planta && !SOLIDO[mundo.bloco(x, y - 1, z)]) return;
   mundo.definir(x, y, z, novo);
@@ -313,11 +314,30 @@ function quebrar(ponto) {
   som.iniciar();
   const m = mirar(ponto);
   if (m.bicho) { bichos.carinho(m.bicho); return; }
+  // com a Água na mão, "quebrar" recolhe a água (como um balde)
+  if (barra[slotSel] === B.AGUA && recolherAgua(ponto)) return;
   const h = m.bloco;
   if (!h || h.y < 1) return;
   mundo.definir(h.x, h.y, h.z, AR);
   som.quebrar();
   quebraParticulas(h.x, h.y, h.z, h.b);
+}
+
+// recolhe a fonte de água mirada; a água corrente que dependia dela seca sozinha
+function recolherAgua(ponto) {
+  const h = mundo.raycast(camera.position, direcaoDe(ponto), 6, true);
+  if (!h || !AGUA[h.b]) return false;
+  // mirou na água corrente: procura a fonte mais perto dali
+  let alvo = h.b === B.AGUA ? h : null;
+  for (let r = 1; !alvo && r <= 3; r++) {
+    for (let dy = -r; dy <= r && !alvo; dy++) for (let dx = -r; dx <= r && !alvo; dx++) for (let dz = -r; dz <= r && !alvo; dz++) {
+      if (mundo.bloco(h.x + dx, h.y + dy, h.z + dz) === B.AGUA) alvo = { x: h.x + dx, y: h.y + dy, z: h.z + dz };
+    }
+  }
+  if (!alvo) { aviso('Essa água vem de longe 💧', 1500); return true; }
+  mundo.definir(alvo.x, alvo.y, alvo.z, AR);
+  som.quebrar();
+  return true;
 }
 
 const partQ = [];

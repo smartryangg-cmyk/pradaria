@@ -1,5 +1,5 @@
 // Física do jogador: andar, pular, voar, nadar e colisão com blocos.
-import { SOLIDO, B } from './blocos.js';
+import { SOLIDO, AGUA } from './blocos.js';
 
 const LARG = 0.3; // meia largura
 const ALTURA = 1.7;
@@ -32,7 +32,8 @@ export class Jogador {
   atualizar(dt, ent) {
     dt = Math.min(dt, 0.05);
     const p = this.pos, v = this.vel;
-    this.naAgua = this.mundo.bloco(Math.floor(p.x), Math.floor(p.y + 0.4), Math.floor(p.z)) === B.AGUA;
+    const bx = Math.floor(p.x), bz = Math.floor(p.z), by = Math.floor(p.y + 0.4);
+    this.naAgua = !!AGUA[this.mundo.bloco(bx, by, bz)];
     const sen = Math.sin(this.yaw), cos = Math.cos(this.yaw);
     // frente = -z da câmera
     let mx = -sen * ent.frente + cos * ent.lado;
@@ -44,6 +45,11 @@ export class Jogador {
     const acel = this.noChao || this.voando ? 14 : 5;
     v.x += (mx * vel - v.x) * Math.min(1, acel * dt);
     v.z += (mz * vel - v.z) * Math.min(1, acel * dt);
+    // correnteza: a água que corre leva a gente devagarinho
+    if (this.naAgua && !this.voando) {
+      const [cx, cz] = this.mundo.correnteza(bx, by, bz);
+      v.x += cx * 9 * dt; v.z += cz * 9 * dt;
+    }
 
     if (this.voando) {
       const alvo = (ent.pular ? 7 : 0) - (ent.descer ? 7 : 0);

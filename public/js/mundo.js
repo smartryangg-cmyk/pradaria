@@ -1,7 +1,7 @@
 // Mundo em pedaços (chunks) de 16x16x64: geração do terreno, edições e montagem das malhas.
 import * as THREE from '../vendor/three.module.min.js';
 import { criarRuido, hash3 } from './ruido.js';
-import { AR, B, SOLIDO, OPACO, PLANTA, BLOCOS, uvTile } from './blocos.js';
+import { AR, B, SOLIDO, OPACO, PLANTA, BLOCOS, AGUA, NIVEL, AGUA_CORRENTE, AGUA_CAINDO, uvTile } from './blocos.js';
 
 export const CX = 16, CZ = 16, ALT = 64;
 export const NIVEL_AGUA = 20;
@@ -19,6 +19,20 @@ const FACES = [
 ];
 const AO = [0.45, 0.65, 0.82, 1];
 
+// ---------- líquidos ----------
+const TICK_AGUA = 200; // ms entre cada "passo" da água (5 por segundo)
+const MAX_POR_PASSO = 1500; // teto de células por passo (tablet fraco)
+// a água pode ocupar este bloco? (ar, plantinhas e água que não é fonte)
+const LIVRE = new Uint8Array(256);
+for (const b of BLOCOS) if (b && (b.id === AR || b.planta || (b.agua && b.id !== B.AGUA))) LIVRE[b.id] = 1;
+// altura da superfície de cada tipo de água (fração do bloco)
+const ALTURA_AGUA = new Float32Array(256);
+ALTURA_AGUA[B.AGUA] = 0.88; ALTURA_AGUA[AGUA_CAINDO] = 0.88;
+for (let n = 1; n <= 7; n++) ALTURA_AGUA[AGUA_CORRENTE[n]] = (8 - n) / 9;
+const H4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+// chave numérica de uma posição (cabe com folga num número do JS)
+const pos2k = (x, y, z) => ((x + 32768) * 65536 + (z + 32768)) * 64 + y;
+
 export class Mundo {
   constructor(cena, material, materialAgua, semente) {
     this.cena = cena;
@@ -32,6 +46,8 @@ export class Mundo {
     this.fila = [];
     this.raio = 3;
     this.aoMudarBloco = null;
+    this.filaAgua = new Set(); // células para reavaliar no próximo passo da água
+    this.ultimoPassoAgua = 0;
   }
 
   // ---------- geração ----------
@@ -110,6 +126,9 @@ export class Mundo {
     if (!c && criar) {
       c = { cx, cz, dados: this.gerarDados(cx, cz), malha: null, agua: null, sujo: true };
       this.chunks.set(k, c);
+      // a água corrente não é salva: perto de cada edição ela é recalculada
+      const ed = this.edicoes.get(k);
+      if (ed) for (const i of ed.keys()) this.agendarAgua(cx * CX + i % CX, Math.floor(i / (CX * CZ)), cz * CZ + Math.floor(i / CX) % CZ);
     }
     return c;
   }
@@ -124,7 +143,7 @@ export class Mundo {
 
   // altura do chão (primeiro bloco sólido de cima para baixo)
   chao(x, z) {
-    for (let y = ALT - 1; y > 0; y--) if (SOLIDO[this.bloco(x, y, z)] || this.bloco(x, y, z) === B.AGUA) return y;
+    for (let y = ALT - 1; y > 0; y--) { const b = this.bloco(x, y, z); if (SOLIDO[b] || AGUA[b]) return y; }
     return 0;
   }
 
@@ -147,8 +166,104 @@ export class Mundo {
     if (lz === CZ - 1) this.marcarSujo(cx, cz + 1);
     // planta sem chão some
     if (!SOLIDO[b] && PLANTA[this.bloco(x, y + 1, z)]) this.definir(x, y + 1, z, AR, daRede);
+    this.agendarAgua(x, y, z);
     if (!daRede && this.aoMudarBloco) this.aoMudarBloco(x, y, z, b);
     return true;
+  }
+
+  // ---------- água que corre ----------
+  // Regras (parecidas com as dos jogos de blocos clássicos):
+  //  * a fonte (bloco Água) nunca some sozinha;
+  //  * a água sempre tenta descer; embaixo dela vira cachoeira;
+  //  * no chão, ela se espalha para os lados perdendo força (até 7 blocos da fonte);
+  //  * água que pode descer não se espalha para os lados (cachoeira fininha);
+  //  * buraco com 2 fontes do lado e chão firme embaixo vira fonte (dá para fazer lago infinito);
+  //  * tirou a fonte? a água corrente vai secando aos poucos.
+  // Cada passo calcula o novo estado de todas as células da fila olhando o mundo antigo
+  // e só depois aplica, então o resultado não depende da ordem (igual em todos os aparelhos).
+  agendarAgua(x, y, z) {
+    const f = this.filaAgua;
+    const add = (a, b, c) => { if (b >= 1 && b < ALT) f.add(pos2k(a, b, c)); };
+    add(x, y, z); add(x, y + 1, z); add(x, y - 1, z);
+    for (const [dx, dz] of H4) { add(x + dx, y, z + dz); add(x + dx, y + 1, z + dz); }
+  }
+
+  // o que deveria existir nesta célula, de acordo com a água em volta
+  aguaDesejada(x, y, z) {
+    const b = this.bloco(x, y, z);
+    if (!LIVRE[b]) return b; // fonte, blocos sólidos, vidro... ficam como estão
+    const cima = this.bloco(x, y + 1, z);
+    const baixo = this.bloco(x, y - 1, z);
+    let fontes = 0, melhor = 99;
+    for (const [dx, dz] of H4) {
+      const n = this.bloco(x + dx, y, z + dz);
+      if (n === B.AGUA) { fontes++; melhor = 0; continue; }
+      if (!AGUA[n]) continue;
+      // água corrente só se espalha para o lado se não tiver como descer
+      if (LIVRE[this.bloco(x + dx, y - 1, z + dz)]) continue;
+      const nv = NIVEL[n] === 8 ? 0 : NIVEL[n];
+      if (nv < melhor) melhor = nv;
+    }
+    if (fontes >= 2 && (SOLIDO[baixo] || baixo === B.AGUA)) return B.AGUA;
+    if (AGUA[cima]) return AGUA_CAINDO;
+    if (melhor < 7) return AGUA_CORRENTE[melhor + 1];
+    return AGUA[b] ? AR : b;
+  }
+
+  // muda um bloco por causa da água (não vira edição salva nem vai para a rede)
+  definirAgua(x, y, z, b) {
+    const cx = Math.floor(x / CX), cz = Math.floor(z / CZ);
+    const c = this.chunks.get(chave(cx, cz));
+    if (!c) return;
+    const lx = x - cx * CX, lz = z - cz * CZ;
+    c.dados[idx(lx, y, lz)] = b;
+    // reconstrói sem furar a fila (a água muda muito; não precisa ser no mesmo quadro)
+    const sujar = (a, d) => { const o = this.chunks.get(chave(a, d)); if (o) o.sujo = true; };
+    sujar(cx, cz);
+    if (lx === 0) sujar(cx - 1, cz);
+    if (lx === CX - 1) sujar(cx + 1, cz);
+    if (lz === 0) sujar(cx, cz - 1);
+    if (lz === CZ - 1) sujar(cx, cz + 1);
+    this.agendarAgua(x, y, z);
+  }
+
+  passoAgua() {
+    if (!this.filaAgua.size) return 0;
+    const fila = this.filaAgua;
+    this.filaAgua = new Set();
+    const mudar = [];
+    let n = 0;
+    for (const k of fila) {
+      if (++n > MAX_POR_PASSO) { this.filaAgua.add(k); continue; }
+      const y = k % 64, r = Math.floor(k / 64);
+      const z = (r % 65536) - 32768, x = Math.floor(r / 65536) - 32768;
+      // só mexe onde o mundo está carregado; o resto é recalculado quando carregar
+      if (!this.chunks.has(chave(Math.floor(x / CX), Math.floor(z / CZ)))) continue;
+      const atual = this.bloco(x, y, z);
+      const novo = this.aguaDesejada(x, y, z);
+      if (novo !== atual) mudar.push(x, y, z, novo);
+    }
+    for (let i = 0; i < mudar.length; i += 4) this.definirAgua(mudar[i], mudar[i + 1], mudar[i + 2], mudar[i + 3]);
+    return mudar.length / 4;
+  }
+
+  // para onde a água empurra quem está dentro dela (x, z)
+  correnteza(x, y, z) {
+    const b = this.bloco(x, y, z);
+    if (!AGUA[b] || b === B.AGUA) return [0, 0];
+    const forca = (q) => (q === B.AGUA || NIVEL[q] === 8 ? 8 : 8 - NIVEL[q]);
+    const aqui = forca(b);
+    let fx = 0, fz = 0;
+    for (const [dx, dz] of H4) {
+      const n = this.bloco(x + dx, y, z + dz);
+      let f;
+      if (AGUA[n]) f = forca(n);
+      else if (LIVRE[n]) f = LIVRE[this.bloco(x + dx, y - 1, z + dz)] ? -2 : aqui - 1;
+      else continue;
+      fx += dx * (aqui - f); fz += dz * (aqui - f);
+    }
+    const l = Math.hypot(fx, fz);
+    return l > 0.01 ? [fx / l, fz / l] : [0, 0];
   }
 
   marcarSujo(cx, cz) {
@@ -164,7 +279,7 @@ export class Mundo {
       if (!this.edicoes.has(k)) this.edicoes.set(k, new Map());
       this.edicoes.get(k).set(idx(x - cx * CX, y, z - cz * CZ), b);
       const c = this.chunks.get(k);
-      if (c) { c.dados[idx(x - cx * CX, y, z - cz * CZ)] = b; c.sujo = true; }
+      if (c) { c.dados[idx(x - cx * CX, y, z - cz * CZ)] = b; c.sujo = true; this.agendarAgua(x, y, z); }
     }
   }
 
@@ -184,7 +299,7 @@ export class Mundo {
   construir(c) {
     const P = [], U = [], C = [], I = [], N = [], O = [], L = [];
     const luzes = [];
-    const PA = [], UA = [], CA = [], IA = [];
+    const PA = [], UA = [], CA = [], IA = [], FA = [];
     const d = c.dados;
     const ox = c.cx * CX, oz = c.cz * CZ;
     // vizinhos (para bordas)
@@ -200,6 +315,20 @@ export class Mundo {
       if (dx && dz) return this.bloco(ox + x, y, oz + z);
       return viz[dx + ',' + dz][idx(x - dx * CX, y, z - dz * CZ)];
     };
+
+    // altura da água num canto (média das águas que encostam nele), como nos jogos de blocos
+    const alturaCanto = (x, y, z) => {
+      let soma = 0, n = 0;
+      for (let i = -1; i <= 0; i++) for (let j = -1; j <= 0; j++) {
+        const q = get(x + i, y, z + j);
+        if (AGUA[q]) {
+          if (AGUA[get(x + i, y + 1, z + j)]) return 1;
+          soma += ALTURA_AGUA[q]; n++;
+        } else if (!SOLIDO[q]) n++; // ar puxa a borda para baixo
+      }
+      return n ? soma / n : 0.88;
+    };
+    const HC = [[0, 0], [0, 0]];
 
     let topo = 0;
     for (let i = d.length - 1; i >= 0; i--) if (d[i]) { topo = Math.floor(i / (CX * CZ)); break; }
@@ -225,10 +354,19 @@ export class Mundo {
         continue;
       }
       const agua = def.agua;
+      let fluxoX = 0, fluxoZ = 0, caindo = 0;
+      if (agua) {
+        if (AGUA[get(x, y + 1, z)]) { HC[0][0] = HC[0][1] = HC[1][0] = HC[1][1] = 1; }
+        else for (let a = 0; a < 2; a++) for (let c2 = 0; c2 < 2; c2++) HC[a][c2] = alturaCanto(x + a, y, z + c2);
+        // a água corre do canto alto para o baixo
+        fluxoX = (HC[0][0] + HC[0][1]) - (HC[1][0] + HC[1][1]);
+        fluxoZ = (HC[0][0] + HC[1][0]) - (HC[0][1] + HC[1][1]);
+        caindo = NIVEL[b] === 8 ? 1 : 0;
+      }
       for (const f of FACES) {
         const nb = get(x + f.n[0], y + f.n[1], z + f.n[2]);
         if (agua) {
-          if (nb === B.AGUA || OPACO[nb]) continue;
+          if (AGUA[nb] || OPACO[nb]) continue;
         } else {
           if (OPACO[nb] || nb === b) continue;
         }
@@ -238,7 +376,7 @@ export class Mundo {
         const aos = [];
         for (const cn of f.c) {
           let py = y + cn[1];
-          if (agua && cn[1] === 1 && get(x, y + 1, z) !== B.AGUA) py -= 0.12;
+          if (agua && cn[1] === 1) py = y + HC[cn[0]][cn[2]];
           PP.push(x + cn[0], py, z + cn[2]);
           let ao = 3;
           if (!agua) {
@@ -253,7 +391,7 @@ export class Mundo {
             ao = s1 && s2 ? 0 : 3 - (s1 + s2 + cc);
           }
           aos.push(ao);
-          if (agua) { CC.push(1, 1, 1); continue; }
+          if (agua) { CC.push(1, 1, 1); FA.push(fluxoX, fluxoZ, f.n[1] === 0 ? caindo : 0); continue; }
           const v = AO[ao];
           CC.push(v, v, v);
           N.push(f.n[0], f.n[1], f.n[2]);
@@ -267,7 +405,7 @@ export class Mundo {
       }
     }
 
-    const fazer = (P, U, C, I, mat, antiga, extra) => {
+    const fazer = (P, U, C, I, mat, antiga, extra, fluxo) => {
       if (antiga) { this.cena.remove(antiga); antiga.geometry.dispose(); }
       if (!I.length) return null;
       const g = new THREE.BufferGeometry();
@@ -279,6 +417,7 @@ export class Mundo {
         g.setAttribute('onda', new THREE.Float32BufferAttribute(O, 1));
         g.setAttribute('brilho', new THREE.Float32BufferAttribute(L, 1));
       }
+      if (fluxo) g.setAttribute('fluxo', new THREE.Float32BufferAttribute(fluxo, 3));
       g.setIndex(P.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(I, 1) : new THREE.Uint16BufferAttribute(I, 1));
       g.computeBoundingSphere();
       const m = new THREE.Mesh(g, mat);
@@ -291,7 +430,7 @@ export class Mundo {
     };
     c.malha = fazer(P, U, C, I, this.mat, c.malha, true);
     c.luzes = luzes;
-    c.agua = fazer(PA, UA, CA, IA, this.matAgua, c.agua);
+    c.agua = fazer(PA, UA, CA, IA, this.matAgua, c.agua, false, FA);
     if (c.agua) c.agua.renderOrder = 1;
     c.sujo = false;
     c.prioridade = false;
@@ -303,6 +442,7 @@ export class Mundo {
     const pcx = Math.floor(px / CX), pcz = Math.floor(pz / CZ);
     const R = this.raio;
     const ini = performance.now();
+    if (ini - this.ultimoPassoAgua >= TICK_AGUA) { this.ultimoPassoAgua = ini; this.passoAgua(); }
     // primeiro os pedaços editados (resposta imediata ao colocar/quebrar)
     for (const c of this.chunks.values()) {
       if (c.prioridade && c.temMalha) this.construir(c);
@@ -332,7 +472,7 @@ export class Mundo {
   }
 
   // raio (DDA) a partir da câmera: retorna bloco atingido e a face
-  raycast(o, dir, max = 6) {
+  raycast(o, dir, max = 6, pegaAgua = false) {
     let x = Math.floor(o.x), y = Math.floor(o.y), z = Math.floor(o.z);
     const sx = Math.sign(dir.x), sy = Math.sign(dir.y), sz = Math.sign(dir.z);
     const tdx = Math.abs(1 / dir.x), tdy = Math.abs(1 / dir.y), tdz = Math.abs(1 / dir.z);
@@ -342,7 +482,7 @@ export class Mundo {
     let n = [0, 0, 0], t = 0;
     while (t <= max) {
       const b = this.bloco(x, y, z);
-      if (b !== AR && b !== B.AGUA) return { x, y, z, b, n, t };
+      if (b !== AR && (pegaAgua ? true : !AGUA[b])) return { x, y, z, b, n, t };
       if (tx < ty && tx < tz) { x += sx; t = tx; tx += tdx; n = [-sx, 0, 0]; }
       else if (ty < tz) { y += sy; t = ty; ty += tdy; n = [0, -sy, 0]; }
       else { z += sz; t = tz; tz += tdz; n = [0, 0, -sz]; }

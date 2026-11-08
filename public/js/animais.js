@@ -1,7 +1,7 @@
 // Bichos pacíficos: aparecem perto do jogador, passeiam, e ganham carinho com um toque.
 import * as THREE from '../vendor/three.module.min.js';
 import { ESPECIES, montarBicho, texturaEmoji } from './modelos.js';
-import { SOLIDO, B } from './blocos.js';
+import { SOLIDO, AGUA, B } from './blocos.js';
 
 const MAX = 16;
 const LISTA = ['ovelha', 'ovelha', 'porquinho', 'galinha', 'galinha', 'vaca', 'cachorro', 'capivara', 'coelho', 'coelho'];
@@ -21,7 +21,7 @@ export class Bichos {
     let y = Math.floor(yRef) + 2;
     for (; y > yRef - 6 && y > 0; y--) {
       const b = m.bloco(bx, y - 1, bz);
-      if (SOLIDO[b] || b === B.AGUA) return { y, agua: b === B.AGUA };
+      if (SOLIDO[b] || AGUA[b]) return { y, agua: !!AGUA[b] };
     }
     return null;
   }

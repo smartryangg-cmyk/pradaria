@@ -41,11 +41,26 @@ def(B.PEDRISCO, 'Pedrisco', 21);
 def(B.LAMPIAO, 'Lampião', 22);
 def(B.FLOR_AZUL, 'Flor azul', 23, { solido: false, opaco: false, planta: true });
 
+// Água corrente: nasce das fontes (o bloco Água) e não é salva nem enviada pela rede;
+// cada aparelho recalcula sozinho a partir das fontes. Nível 1 = perto da fonte, 7 = a pontinha.
+export const AGUA_CORRENTE = [];
+for (let n = 1; n <= 7; n++) {
+  AGUA_CORRENTE[n] = 22 + n; // 23..29
+  def(AGUA_CORRENTE[n], 'Água corrente', 5, { solido: false, opaco: false, agua: true });
+}
+export const AGUA_CAINDO = 30; // cachoeira: água que desce
+def(AGUA_CAINDO, 'Cachoeira', 5, { solido: false, opaco: false, agua: true });
+
 // tabelas rápidas para o gerador de malha
 export const SOLIDO = new Uint8Array(256);
 export const OPACO = new Uint8Array(256);
 export const PLANTA = new Uint8Array(256);
-for (const b of BLOCOS) { SOLIDO[b.id] = b.solido ? 1 : 0; OPACO[b.id] = b.opaco ? 1 : 0; PLANTA[b.id] = b.planta ? 1 : 0; }
+export const AGUA = new Uint8Array(256); // qualquer água (fonte, corrente ou caindo)
+// nível do líquido: 0 = fonte, 1..7 = corrente, 8 = caindo
+export const NIVEL = new Uint8Array(256);
+for (const b of BLOCOS) { SOLIDO[b.id] = b.solido ? 1 : 0; OPACO[b.id] = b.opaco ? 1 : 0; PLANTA[b.id] = b.planta ? 1 : 0; AGUA[b.id] = b.agua ? 1 : 0; }
+for (let n = 1; n <= 7; n++) NIVEL[AGUA_CORRENTE[n]] = n;
+NIVEL[AGUA_CAINDO] = 8;
 
 // Ordem dos blocos no inventário (modo criativo)
 export const INVENTARIO = [

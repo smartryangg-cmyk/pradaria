@@ -71,8 +71,11 @@ export function criarGraficos(renderer, cena, camera, atlas) {
     },
     vertexShader: `
       uniform float uTempo;
+      attribute vec3 fluxo;
       varying vec3 vMundo;
+      varying vec3 vFluxo;
       void main() {
+        vFluxo = fluxo;
         vec4 wp = modelMatrix * vec4(position, 1.0);
         if (fract(position.y) > 0.5) wp.y += sin(uTempo * 1.4 + wp.x * 0.8 + wp.z * 0.6) * 0.04;
         vMundo = wp.xyz;
@@ -82,9 +85,14 @@ export function criarGraficos(renderer, cena, camera, atlas) {
       uniform float uTempo, uNoite, uPor, uNevoaPerto, uNevoaLonge, uOndas;
       uniform vec3 uSolDir, uSolCor, uZenite, uHorizonte, uNevoaCor;
       varying vec3 vMundo;
+      varying vec3 vFluxo;
       void main() {
-        vec2 p = vMundo.xz;
         float t = uTempo;
+        // água corrente: as ondinhas andam na direção em que ela corre
+        float corre = clamp(length(vFluxo.xy) * 1.5, 0.0, 1.0);
+        vec2 p = vMundo.xz - vFluxo.xy * t * 1.6;
+        // cachoeira: listras descendo
+        if (vFluxo.z > 0.5) p = vec2((vMundo.x + vMundo.z) * 1.3, vMundo.y * 0.5 + t * 3.0);
         // soma de ondinhas → normal
         vec2 d = vec2(0.0);
         d += vec2(cos(p.x * 0.9 + t * 1.3), cos(p.y * 0.7 + t * 1.1)) * 0.10;
@@ -100,7 +108,11 @@ export function criarGraficos(renderer, cena, camera, atlas) {
         vec3 cor = mix(funda, ceu, 0.25 + fres * 0.7);
         float brilho = pow(max(dot(r, uSolDir), 0.0), 120.0) * 2.5 + pow(max(dot(r, uSolDir), 0.0), 12.0) * 0.15;
         cor += uSolCor * brilho;
+        // espuminha onde a água corre ou cai
+        float espuma = max(corre * 0.5, vFluxo.z) * (0.5 + 0.5 * sin(p.x * 6.0 + p.y * 3.0 + t * 4.0));
+        cor = mix(cor, vec3(0.85, 0.93, 1.0) * (1.0 - uNoite * 0.6), espuma * 0.28);
         float a = mix(0.74, 0.95, fres);
+        a = mix(a, 0.9, vFluxo.z * 0.5);
         float dist = length(cameraPosition - vMundo);
         float nev = smoothstep(uNevoaPerto, uNevoaLonge, dist);
         cor = mix(cor, uNevoaCor, nev);
