@@ -17,7 +17,9 @@ async function jogador(nome) {
 }
 const est = (p) => p.evaluate(() => JSON.parse(JSON.stringify(window.__jogo.mercado.e)));
 const a = await jogador('Ana' + sfx);
-await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Feirinha'); await a.click('#m-novo button[type=submit]');
+await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Feirinha');
+await a.click('[data-opcao=sobrevivencia]'); // este teste é do mercado com blocos à vontade (o "Coletar e criar" tem o teste dele)
+await a.click('#m-novo button[type=submit]');
 await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 20000 });
 await a.waitForTimeout(2500);
 conferir(await a.evaluate(() => window.__jogo.mercado.op.mercado && window.__jogo.mercado.op.objetivos), 'mundo novo vem com mercado e missões');

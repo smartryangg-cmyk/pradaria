@@ -12,7 +12,7 @@
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icone-apple.png">
 <meta name="apple-mobile-web-app-title" content="Pradaria">
-<link rel="stylesheet" href="estilo.css?v=14">
+<link rel="stylesheet" href="estilo.css?v=16">
 </head>
 <body>
 <canvas id="tela"></canvas>
@@ -25,6 +25,7 @@
     <button id="bt-menu" class="redondo" aria-label="Menu"><span data-icone="menu"></span></button>
     <button id="bt-tela" class="redondo" aria-label="Tela cheia"><span data-icone="telacheia"></span></button>
     <button id="bt-comandos" class="redondo" aria-label="Comandos: teleportar, casa, amigos e hora"><span data-icone="bussola"></span></button>
+    <button id="bt-visao" class="redondo" aria-label="Câmera: ver o próprio boneco de trás ou de frente (tecla R)"><span data-icone="camera"></span></button>
     <button id="bt-mapa-ilha" class="redondo" aria-label="Mapa da ilha inteira" hidden><span data-icone="ilha"></span></button>
     <div id="status-linha"><div id="status"></div></div>
     <div id="emotes">
@@ -37,6 +38,7 @@
   <div id="vida" role="img" hidden></div>
   <button id="minimapa" aria-label="Abrir o mapa"><canvas id="minimapa-tela"></canvas><span class="norte">N</span></button>
   <div id="aviso"></div>
+  <div id="coleta" aria-live="polite"></div>
   <div id="pedido-tp" hidden>
     <span id="pedido-ic"></span>
     <span id="pedido-txt"></span>
@@ -59,9 +61,10 @@
 <div id="inventario" class="janela" hidden>
   <div class="caixa">
     <h2 id="inv-titulo">Blocos</h2>
-    <div id="abas-inv" class="abas"><button type="button" data-aba="blocos" class="sel"><span data-icone="tijolos"></span>Blocos</button><button type="button" data-aba="maquinas"><span data-icone="engrenagem"></span>Engenharia</button></div>
-    <p class="sub">Escolha um bloco para a mão</p>
+    <div id="abas-inv" class="abas"></div>
+    <p class="sub" id="inv-sub">Escolha um bloco para a mão</p>
     <p id="dica-maquinas" class="sub dica-maq" hidden><span data-icone="raio"></span> Toque na <b>Alavanca</b> para ligar. A energia corre pelo <b>Fio</b> e por tudo que encosta: lâmpada, portão, ventilador (elevador!), sino e confete. O <b>Sensor de noite</b> liga sozinho quando escurece e o <b>Pisca-pisca</b> liga e desliga sem parar.</p>
+    <p id="bancada-status" class="sub" hidden></p>
     <div id="grade"></div>
     <button class="bt" data-fechar>Fechar</button>
   </div>
@@ -202,6 +205,7 @@
     <button class="bt instalar" hidden><span data-icone="baixar"></span>Instalar o jogo</button>
     <button class="bt verde" data-fechar>Voltar a jogar</button>
     <button class="bt" id="bt-sair-mundo">Sair do mundo</button>
+    <p class="versao" id="versao-pausa"></p>
   </div>
 </div>
 
@@ -217,6 +221,7 @@
     <button class="bt amarelo" id="bt-sozinho"><span data-icone="casa"></span>Jogar sem conta</button>
     <button class="bt instalar" hidden><span data-icone="baixar"></span>Instalar o jogo</button>
     <a class="bt baixar-apk" href="https://github.com/smartryangg-cmyk/pradaria/releases/latest/download/pradaria.apk" hidden><span data-icone="celular"></span>Baixar app para Android</a>
+    <p class="versao" id="versao-inicio"></p>
   </div>
 
   <form class="caixa" id="m-conta" hidden>
@@ -281,6 +286,6 @@
 
 <div id="desmaio" hidden></div>
 <div id="fps" hidden></div>
-<script type="module" src="js/main.js?v=14"></script>
+<script type="module" src="js/main.js?v=18"></script>
 </body>
 </html>

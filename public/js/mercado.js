@@ -1,7 +1,7 @@
 // Mercado (moedas, loja dos aldeões, presentes) e objetivos: a parte da tela.
 // As regras ficam em economia.js. Online quem decide é a sala (servidor); sem internet, o próprio aparelho.
 import { icone, comIcone } from './icones.js';
-import { opcoesEcon, estadoNovo, normalizar, aplicar, liberado, LOJA, precoVenda, objetivosDoMundo, objetivosAtivos, OBJETIVOS } from './economia.js';
+import { opcoesEcon, econLigada, estadoNovo, normalizar, aplicar, liberado, LOJA, LOTE_LOJA, precoVenda, objetivosDoMundo, objetivosAtivos, OBJETIVOS } from './economia.js';
 
 const $ = (s) => document.querySelector(s);
 const CHAVE_LOCAL = 'pradaria.econ';
@@ -28,7 +28,9 @@ export class Mercado {
     this.montarTela();
   }
 
-  get ligado() { return this.op.mercado || this.op.objetivos; }
+  get ligado() { return econLigada(this.op); }
+  // quanto o jogador tem de um bloco/item (mochila do "Coletar e criar" e do mercado)
+  qtd(id) { return this.e.itens[id] || 0; }
 
   // começa um mundo. online: estado vem do servidor; local: do aparelho
   iniciar({ opcoes, estado, sala, novo }) {
@@ -59,7 +61,23 @@ export class Mercado {
   }
   evento(e, n = 1) { this.enviar({ t: 'ev', e, n }, true); }
   // só sem internet (online o servidor conta pela própria mensagem do bloco)
-  bloco(b, y, de, natural) { if (!this.sala) this.enviar({ t: 'bloco', b, y, de, natural }, true); }
+  // online, o "Coletar e criar" já mexe na mochila daqui na hora (a sala confere e manda a certa logo depois)
+  bloco(b, y, de, natural, x, z) {
+    const a = { t: 'bloco', b, x, y, z, de, natural };
+    if (!this.sala) this.enviar(a, true);
+    else if (this.op.sobrevivencia) this.otimista(a);
+  }
+  criar(r, bancada) {
+    const a = { t: 'criar', r, bancada };
+    if (!this.sala) { this.enviar(a); return; }
+    if (this.otimista(a)) this.sala.enviar(a);
+  }
+  otimista(a) {
+    const r = aplicar(this.e, this.op, a);
+    if (r.ok && r.mudou) { this.atualizarHud(); this.ui.aoMudar && this.ui.aoMudar(); }
+    else if (!r.ok) this.ui.aviso(r.erro, 2200, 'mochila');
+    return r.ok;
+  }
   podeColocar(b) { return liberado(this.e, b, this.op); }
   precoDe(b) { const x = LOJA.find((l) => l.b === b); return x ? x.preco : 0; }
 
@@ -85,6 +103,7 @@ export class Mercado {
     if (msg) this.ui.aviso(msg, 3000, 'moeda');
     if (this.e.moedas !== moedasAntes) this.pulsar();
     this.atualizarHud();
+    if (this.ui.aoMudar) this.ui.aoMudar();
     if (!$('#loja').hidden) this.desenharLoja();
     if (!$('#mochila').hidden) this.desenharMochila();
     if (!$('#objetivos').hidden) this.desenharObjetivos();
@@ -136,8 +155,8 @@ export class Mercado {
 
   atualizarHud() {
     const box = $('#econ');
-    box.hidden = !this.ligado;
-    if (!this.ligado) return;
+    box.hidden = !this.op.mercado && !this.op.objetivos;
+    if (box.hidden) return;
     this.chip.hidden = false;
     this.chip.innerHTML = comIcone(this.op.mercado ? 'moeda' : 'estrela', this.op.mercado ? this.e.moedas : this.e.estrelas);
     const at = objetivosAtivos(this.e, this.op)[0];
@@ -216,16 +235,16 @@ export class Mercado {
       }
     } else {
       for (const { b, preco } of LOJA) {
-        const tem = this.e.comprados.includes(b);
+        const tem = !this.op.sobrevivencia && this.e.comprados.includes(b);
         const bt = el('button', 'bt econ-bt' + (tem ? ' fraco' : this.e.moedas >= preco ? ' verde' : ''));
-        bt.innerHTML = tem ? 'Já é seu' : moedaHtml(preco);
+        bt.innerHTML = tem ? 'Já é seu' : (this.op.sobrevivencia ? `${LOTE_LOJA} por ` : '') + moedaHtml(preco);
         bt.disabled = tem;
         bt.addEventListener('click', () => {
           this.ui.som.clique();
           if (this.e.moedas < preco) { this.ui.aviso(`Faltam ${preco - this.e.moedas} moedas`, 1800, 'moeda'); return; }
           this.enviar({ t: 'comprar', b });
         });
-        lista.appendChild(this.linhaItem(b, null, bt));
+        lista.appendChild(this.linhaItem(b, this.op.sobrevivencia ? this.qtd(b) : null, bt));
       }
     }
     w.corpo.appendChild(lista);
