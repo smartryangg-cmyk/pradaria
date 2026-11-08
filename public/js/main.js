@@ -28,6 +28,7 @@ import { Mapa } from './mapa.js';
 import { Mercado } from './mercado.js';
 import { VERSAO } from './versao.js';
 import { preencherDono, contaModo, ligarApagarConta } from './dono.js';
+import { abrirEditarMundo, desenharListaOpcoes, marcarLista, baixarArquivo, escolherArquivo, montarArquivo } from './editar-mundo.js';
 
 const $ = (s) => document.querySelector(s);
 preencherIcones();
@@ -463,10 +464,13 @@ function abrirPausa() {
   $('#pausa-mundo').textContent = modo === 'online' ? `Mundo: ${mundoAtual.nome}` + (mundoAtual.dono ? ` · código ${mundoAtual.codigo}` : '') : 'Mundo sem internet (salvo neste aparelho)';
   preencherDono(modo === 'online' ? mundoAtual : null, () => abrirPausa());
   $('#pausa-opcoes').textContent = 'Neste mundo: ' + resumoOpcoes(opcoesMundo);
+  // editar o mundo: só o dono (no mundo sem internet, quem joga é o dono)
+  $('#bt-editar-mundo').hidden = !(modo === 'local' || (mundoAtual && mundoAtual.dono));
   $('#pausa').hidden = false;
   pausado = true;
 }
 function fecharJanelas() {
+  $('#editar-mundo').hidden = true;
   $('#inventario').hidden = true; $('#pausa').hidden = true; $('#mapa').hidden = true; $('#mapa-ilha').hidden = true; $('#garagem').hidden = true;
   if (cmd) cmd.fechar();
   mercado.fechar(true);
@@ -474,6 +478,28 @@ function fecharJanelas() {
 }
 document.querySelectorAll('[data-fechar]').forEach((b) => b.addEventListener('click', fecharJanelas));
 $('#bt-menu').addEventListener('click', abrirPausa);
+$('#bt-editar-mundo').addEventListener('click', () => {
+  som.clique();
+  if (modo === 'local') {
+    abrirEditarMundo({ opcoes: opcoesMundo, som: () => som.clique(), salvarLocal: (novas) => {
+      // mundo sem internet: guarda as opções novas e abre o mundo de novo no mesmo lugar
+      definirOpcoesMundo(novas); salvarLocal();
+      fecharJanelas(); jogarLocal(); aviso('Pronto! O mundo foi atualizado.', 2500, 'lapis');
+    }, local: {
+      exportar: () => { salvarLocal(); baixarArquivo(montarArquivo({ nome: 'Mundo sem internet', semente: mundo.semente, opcoes: opcoesMundo, edicoes: mundo.listarEdicoes() })); },
+      importar: (a) => { fecharJanelas(); jogarLocal({ opcoes: a.opcoes, semente: a.semente, edicoes: a.edicoes }); aviso('Mundo importado!', 2500, 'subir'); },
+      apagar: () => { sairDoMundo({ apagarLocal: true }); },
+    } });
+  } else if (mundoAtual && mundoAtual.dono) {
+    abrirEditarMundo({ mundo: mundoAtual, opcoes: opcoesMundo, som: () => som.clique(), aoSalvar: (m, mudou) => {
+      mundoAtual.nome = m.nome;
+      abrirPausa();
+      // a sala avisa todo mundo (inclusive aqui) e o jogo recarrega; se o aviso não chegar, recarrega mesmo assim
+      if (mudou.length) esperarEdicao = setTimeout(() => recarregarOnline({ ...mundoAtual, opcoes: m.opcoes }), 5000);
+      else aviso('Nome salvo!', 2000, 'lapis');
+    }, aoApagar: () => { /* a sala tira todo mundo (inclusive o dono) e o jogo volta para a lista */ } });
+  }
+});
 // ---------- Ilha de Aventura: mapa e nome dos lugares ----------
 const mapaIlha = new MapaIlha($('#mapa-ilha'));
 function abrirMapaIlha() {
@@ -551,6 +577,7 @@ document.querySelectorAll('.instalar').forEach((b) => b.addEventListener('click'
 }));
 addEventListener('keydown', (e) => {
   if (!jogando) return;
+  if (e.target.tagName === 'INPUT' && e.code !== 'Escape') return; // digitando (nome do mundo etc.)
   if (e.code === 'Escape' && pausado) fecharJanelas();
   else if (e.code === 'KeyP') abrirPausa();
   else if (e.code === 'KeyC' && !pausado && e.target.tagName !== 'INPUT') cmd.abrir();
@@ -1004,6 +1031,7 @@ function jogarLocal(novo = null) {
   tempoDia = salvo ? salvo.dia ?? 0.3 : 0.3;
   iniciarMundo({
     semente: salvo ? salvo.semente : novo.semente ?? Math.floor(Math.random() * 1e9), edicoes: salvo ? salvo.edicoes : [],
+    edicoes: salvo ? salvo.edicoes : novo.edicoes || [], // mundo importado de arquivo já vem com blocos
     pos: salvo && salvo.pos, yaw: salvo ? salvo.yaw : 0,
     // mundos salvos antes das opções existirem continuam do jeito que eram (sem monstros)
     opcoes: salvo ? salvo.opcoes || PADRAO_MUNDO : novo.opcoes,
@@ -1018,7 +1046,7 @@ function jogarLocal(novo = null) {
   aviso('Bem-vindo à Pradaria!', 2500, 'flor');
 }
 
-async function jogarOnline(m) {
+async function jogarOnline(m, volta = null) {
   $('#mundos-erro').textContent = '';
   modo = 'online'; mundoAtual = m;
   mostrarMenu('m-carregando');
@@ -1032,13 +1060,14 @@ async function jogarOnline(m) {
         primeiro = false;
         const s = sala; sala = null; // evita que iniciarMundo feche a sala
         tempoDia = msg.dia ?? 0.3;
-        iniciarMundo({ semente: msg.semente, edicoes: msg.edicoes, pos: msg.pos, yaw: 0, opcoes: msg.opcoes || m.opcoes, guardado: { barra: msg.barra } });
+        iniciarMundo({ semente: msg.semente, edicoes: msg.edicoes, pos: (volta && volta.pos) || msg.pos, yaw: volta ? volta.yaw : 0, opcoes: msg.opcoes || m.opcoes, guardado: { barra: msg.barra } });
         sala = s;
         cmd.entrouOnline(msg);
         mercado.iniciar({ opcoes: msg.opcoes, estado: msg.econ, sala: s });
         desenharBarra();
         $('#status').innerHTML = comIcone('globo', m.nome);
-        aviso(`Bem-vindo, ${conta.usuario.nome}!` + (m.dono ? ` Código do mundo: ${m.codigo}` : ''), 3500, 'flor');
+        if (volta) aviso(volta.msg, 3500, 'lapis');
+        else aviso(`Bem-vindo, ${conta.usuario.nome}!` + (m.dono ? ` Código do mundo: ${m.codigo}` : ''), 3500, 'flor');
       } else {
         mundo.carregarEdicoes(msg.edicoes);
       }
@@ -1065,14 +1094,38 @@ async function jogarOnline(m) {
     erro: (msg) => { aviso(msg.msg || 'Erro', 3000); },
     econ: (msg) => { mercado.recebeu(msg.s, msg.feitos, msg.msg); desenharBarra(); },
     'econ-erro': (msg) => mercado.erro(msg.msg),
+    // o dono editou o mundo: nome novo vale na hora; opções novas recarregam o mundo (no mesmo lugar)
+    'mundo-editado': (msg) => {
+      clearTimeout(esperarEdicao);
+      if (msg.nome) { mundoAtual.nome = msg.nome; $('#status').innerHTML = comIcone('globo', msg.nome); }
+      if (msg.recarregar) recarregarOnline({ ...mundoAtual, opcoes: msg.opcoes });
+      else if (!mundoAtual.dono && msg.nome) aviso(`O mundo agora se chama ${msg.nome}`, 2500, 'lapis');
+    },
     fim: (texto) => { sala = null; sairDoMundo(); $('#mundos-erro').textContent = texto || ''; },
     ...cmd.rede,
   });
 }
 
-function sairDoMundo() {
+let esperarEdicao = 0;
+function recarregarOnline(m) {
+  if (modo !== 'online' || !jogando) return;
+  clearTimeout(esperarEdicao);
+  const volta = { pos: [jog.pos.x, jog.pos.y + 0.05, jog.pos.z], yaw: jog.yaw, msg: m.dono ? 'Pronto! O mundo foi atualizado.' : 'O dono mudou as opções do mundo.' };
+  enviarBarra();
+  if (sala) sala.enviar({ t: 'pos', p: volta.pos, r: [jog.yaw, jog.pitch] });
+  cmd.saiu();
+  limparMundo();
+  jogando = false; pausado = false;
+  fecharJanelas();
+  $('#hud').hidden = true;
+  jogarOnline(m, volta);
+  $('#carregando-txt').textContent = 'Atualizando o mundo…';
+}
+
+function sairDoMundo(op = {}) {
   if (jogando) enviarBarra();
-  salvarLocal();
+  if (op.apagarLocal) { try { localStorage.removeItem('pradaria.local'); } catch {} } // apagado: não salva de novo
+  else salvarLocal();
   cmd.saiu();
   if (sala && jog) sala.enviar({ t: 'pos', p: [jog.pos.x, jog.pos.y, jog.pos.z], r: [jog.yaw, jog.pitch] });
   limparMundo();
@@ -1145,7 +1198,16 @@ async function abrirMundos() {
       b.querySelector('small').textContent = m.dono ? `código ${m.codigo}` : `de ${m.nome_dono}`;
       b.querySelector('small').insertAdjacentHTML('beforeend', `<span class="ops-mini">${iconesOpcoes(m.opcoes)}</span>`);
       b.addEventListener('click', () => { som.iniciar(); jogarOnline(m); });
-      l.appendChild(b);
+      if (!m.dono) { l.appendChild(b); continue; }
+      // dono: lápis ao lado para editar nome e opções
+      const linha = document.createElement('div');
+      linha.className = 'linha-mundo';
+      const ed = document.createElement('button');
+      ed.type = 'button'; ed.className = 'bt-editar'; ed.innerHTML = icone('lapis', 'ic-svg');
+      ed.setAttribute('aria-label', 'Editar ' + m.nome); ed.title = 'Editar o mundo';
+      ed.addEventListener('click', () => { som.iniciar(); som.clique(); abrirEditarMundo({ mundo: m, opcoes: m.opcoes, som: () => som.clique(), aoSalvar: () => abrirMundos(), aoApagar: () => abrirMundos() }); });
+      linha.append(b, ed);
+      l.appendChild(linha);
     }
     mostrarMenu('m-mundos');
   } catch (err) {
@@ -1188,26 +1250,7 @@ function desenharOpcoesNovo() {
     lt.appendChild(b);
   }
   marcarTamanho();
-  const l = $('#n-lista');
-  l.innerHTML = '';
-  for (const o of OPCOES_MUNDO) {
-    const b = document.createElement('button');
-    b.type = 'button'; b.className = 'opcao-mundo'; b.dataset.opcao = o.id;
-    b.setAttribute('aria-pressed', String(!!escolhaNovo[o.id]));
-    b.innerHTML = '<span class="ic"></span><span><b></b><small></small></span>';
-    b.querySelector('.ic').innerHTML = icone(o.icone);
-    b.querySelector('b').textContent = o.nome;
-    b.querySelector('small').textContent = o.desc;
-    b.addEventListener('click', () => {
-      escolhaNovo[o.id] = !escolhaNovo[o.id];
-      // "Monstros machucam" só faz sentido com monstrinhos: um liga/desliga o outro
-      if (o.id === 'monstrosMachucam' && escolhaNovo.monstrosMachucam) escolhaNovo.monstros = true;
-      if (o.id === 'monstros' && !escolhaNovo.monstros) escolhaNovo.monstrosMachucam = false;
-      for (const x of l.children) x.setAttribute('aria-pressed', String(!!escolhaNovo[x.dataset.opcao]));
-      som.iniciar(); som.clique();
-    });
-    l.appendChild(b);
-  }
+  desenharListaOpcoes($('#n-lista'), escolhaNovo, () => { som.iniciar(); som.clique(); });
   marcarTamanho();
 }
 function marcarTamanho() {
@@ -1216,12 +1259,7 @@ function marcarTamanho() {
   $('#n-tamanhos').hidden = fixo; $('#n-tamanhos-titulo').hidden = fixo;
   for (const b of $('#n-tamanhos').children) { const sel = b.dataset.tamanho === escolhaNovo.tamanho; b.setAttribute('aria-pressed', String(sel)); b.setAttribute('aria-checked', String(sel)); }
   for (const b of $('#n-tipos').children) { const sel = b.dataset.tipo === escolhaNovo.tipo; b.setAttribute('aria-pressed', String(sel)); b.setAttribute('aria-checked', String(sel)); }
-  // alguns tipos não têm monstrinhos (ex.: Linha do Tempo)
-  const sem = !!TIPOS[escolhaNovo.tipo].semMonstros;
-  for (const id of ['monstros', 'monstrosMachucam']) {
-    const mb = $(`#n-lista [data-opcao="${id}"]`);
-    if (mb) { mb.disabled = sem; if (sem) { escolhaNovo[id] = false; mb.setAttribute('aria-pressed', 'false'); } }
-  }
+  marcarLista($('#n-lista'), escolhaNovo); // alguns tipos não têm monstrinhos (ex.: Linha do Tempo)
 }
 let modoNovo = 'criar';
 // nome sugerido ao criar: "Mundo 01", "Mundo 02"... o primeiro número que o jogador ainda não usou
@@ -1247,6 +1285,22 @@ function abrirNovo(modoN) {
   mostrarMenu('m-novo');
 }
 $('#bt-novo-mundo').addEventListener('click', () => abrirNovo('criar'));
+// importar: o arquivo vira um mundo novo da conta (com código novo)
+$('#bt-importar').addEventListener('click', async () => {
+  som.iniciar();
+  $('#mundos-erro').textContent = '';
+  const a = await escolherArquivo();
+  if (!a) return;
+  if (a.erro) { $('#mundos-erro').textContent = a.erro; return; }
+  const bt = $('#bt-importar'); bt.disabled = true;
+  try {
+    const arquivo = montarArquivo(a);
+    const nome = /^[A-Za-zÀ-ÿ0-9 ]{2,24}$/.test(a.nome) && !nomesMeusMundos.includes(a.nome) ? a.nome : proximoNomeMundo(nomesMeusMundos);
+    await api('mundos/importar', { arquivo, nome });
+    await abrirMundos();
+  } catch (e) { $('#mundos-erro').textContent = e.message; }
+  bt.disabled = false;
+});
 $('#bt-codigo').addEventListener('click', () => abrirNovo('codigo'));
 $('#m-novo').addEventListener('submit', async (e) => {
   e.preventDefault();
