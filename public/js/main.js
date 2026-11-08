@@ -883,6 +883,7 @@ async function abrirMundos() {
   try {
     if (!conta.usuario) conta.usuario = (await api('eu')).usuario;
     const { mundos } = await api('mundos');
+    nomesMeusMundos = mundos.filter(m => m.dono).map(m => m.nome);
     $('#m-nome').textContent = conta.usuario.nome;
     const l = $('#lista-mundos');
     l.innerHTML = '';
@@ -974,6 +975,15 @@ function marcarTamanho() {
   }
 }
 let modoNovo = 'criar';
+// nome sugerido ao criar: "Mundo 01", "Mundo 02"... o primeiro número que o jogador ainda não usou
+let nomesMeusMundos = [];
+function proximoNomeMundo(nomes) {
+  const usados = new Set();
+  for (const n of nomes) { const r = /^\s*mundo\s+0*(\d{1,4})\s*$/i.exec(n || ''); if (r) usados.add(+r[1]); }
+  let i = 1;
+  while (usados.has(i) && i < 9999) i++; // no máximo 4 dígitos (o nome não aceita 5 números seguidos)
+  return 'Mundo ' + String(i).padStart(2, '0');
+}
 function abrirNovo(modoN) {
   modoNovo = modoN;
   const comOpcoes = modoN !== 'codigo';
@@ -981,7 +991,7 @@ function abrirNovo(modoN) {
   $('#novo-rotulo').firstChild.textContent = modoN === 'codigo' ? 'Código do mundo' : 'Nome do mundo';
   $('#novo-rotulo').hidden = modoN === 'local';
   $('#n-nome').required = modoN !== 'local';
-  $('#n-nome').value = ''; $('#n-nome').maxLength = modoN === 'codigo' ? 8 : 24; $('#n-erro').textContent = '';
+  $('#n-nome').value = modoN === 'criar' ? proximoNomeMundo(nomesMeusMundos) : ''; $('#n-nome').maxLength = modoN === 'codigo' ? 8 : 24; $('#n-erro').textContent = '';
   $('#m-novo button[type=submit]').textContent = modoN === 'codigo' ? 'Entrar' : 'Criar';
   $('#n-opcoes').hidden = !comOpcoes;
   if (comOpcoes) { escolhaNovo = { ...PADRAO_NOVO }; $('#n-semente').value = ''; desenharOpcoesNovo(); }
