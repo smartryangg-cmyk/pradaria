@@ -15,7 +15,7 @@ import { criarGraficos, QUALIDADES, PESSOAIS } from './graficos.js';
 import { icone, preencherIcones, comIcone, nomeEmote } from './icones.js';
 import { Escavacao } from './escavar.js';
 import { criarComandos } from './comandos.js';
-import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto } from './opcoes-mundo.js';
+import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto } from './opcoes-mundo.js';
 import { Monstros } from './monstros.js';
 
 const $ = (s) => document.querySelector(s);
@@ -743,16 +743,28 @@ async function abrirMundos() {
 }
 
 // ---------- criar mundo: nome + opções (o que vai ter no mundo) + semente ----------
-const iconesOpcoes = (o) => { const n = normalizarOpcoes(o); return icone(TAMANHOS[n.tamanho].icone, 'ic-svg ic-mini') + OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => icone(x.icone, 'ic-svg ic-mini')).join(''); };
+const iconesOpcoes = (o) => { const n = normalizarOpcoes(o); return (n.tipo !== 'normal' ? icone(TIPOS[n.tipo].icone, 'ic-svg ic-mini') : '') + icone(TAMANHOS[n.tamanho].icone, 'ic-svg ic-mini') + OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => icone(x.icone, 'ic-svg ic-mini')).join(''); };
 function resumoOpcoes(o) {
   const n = normalizarOpcoes(o);
   const t = TAMANHOS[n.tamanho];
   const com = OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => x.nome);
   const sem = OPCOES_MUNDO.filter((x) => !n[x.id]).map((x) => x.nome.toLowerCase());
-  return `Mundo ${t.nome.toLowerCase()} · ` + (com.join(', ') || 'só blocos') + (sem.length ? ' · sem ' + sem.join(', ') : '');
+  return (n.tipo !== 'normal' ? TIPOS[n.tipo].nome + ' · ' : '') + `Mundo ${t.nome.toLowerCase()} · ` + (com.join(', ') || 'só blocos') + (sem.length ? ' · sem ' + sem.join(', ') : '');
 }
 let escolhaNovo = { ...PADRAO_NOVO };
 function desenharOpcoesNovo() {
+  const tp = $('#n-tipos');
+  tp.innerHTML = '';
+  for (const [id, t] of Object.entries(TIPOS)) {
+    if (t.oculto && !location.hash.includes('teste')) continue;
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'opcao-mundo'; b.dataset.tipo = id; b.setAttribute('role', 'radio');
+    b.innerHTML = '<span class="ic"></span><b></b><small></small>';
+    b.querySelector('.ic').innerHTML = icone(t.icone); b.querySelector('b').textContent = t.nome; b.querySelector('small').textContent = t.desc;
+    b.addEventListener('click', () => { escolhaNovo.tipo = id; marcarTamanho(); som.iniciar(); som.clique(); });
+    tp.appendChild(b);
+  }
+  $('#n-tipos').hidden = $('#n-tipos-titulo').hidden = tp.childElementCount < 2;
   const lt = $('#n-tamanhos');
   lt.innerHTML = '';
   for (const [id, t] of Object.entries(TAMANHOS)) {
@@ -777,9 +789,14 @@ function desenharOpcoesNovo() {
     b.addEventListener('click', () => { escolhaNovo[o.id] = !escolhaNovo[o.id]; b.setAttribute('aria-pressed', String(escolhaNovo[o.id])); som.iniciar(); som.clique(); });
     l.appendChild(b);
   }
+  marcarTamanho();
 }
 function marcarTamanho() {
   for (const b of $('#n-tamanhos').children) { const sel = b.dataset.tamanho === escolhaNovo.tamanho; b.setAttribute('aria-pressed', String(sel)); b.setAttribute('aria-checked', String(sel)); }
+  for (const b of $('#n-tipos').children) { const sel = b.dataset.tipo === escolhaNovo.tipo; b.setAttribute('aria-pressed', String(sel)); b.setAttribute('aria-checked', String(sel)); }
+  // alguns tipos não têm monstrinhos (ex.: Linha do Tempo)
+  const mb = $('#n-lista [data-opcao="monstros"]');
+  if (mb) { const sem = !!TIPOS[escolhaNovo.tipo].semMonstros; mb.disabled = sem; if (sem) { escolhaNovo.monstros = false; mb.setAttribute('aria-pressed', 'false'); } }
 }
 let modoNovo = 'criar';
 function abrirNovo(modoN) {

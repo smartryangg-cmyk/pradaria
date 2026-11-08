@@ -269,3 +269,6 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 .pilula { display: inline-flex; align-items: center; gap: 8px; }
 .pilula .ic-svg { width: 26px; height: 26px; }
 .veiculo .ic .ic-svg { width: 44px; height: 44px; }
+/* tipo de mundo (Pradaria, Linha do Tempo...) */
+.tipos-mundo { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+.opcao-mundo:disabled { opacity: .3; cursor: default; }

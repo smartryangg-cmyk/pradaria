@@ -1,6 +1,7 @@
 // Definição dos blocos e geração procedural do atlas de texturas (arte original, feita em código).
 import * as THREE from '../vendor/three.module.min.js';
 import { rngSemente } from './ruido.js';
+import { DEFS_ERAS, PINTORES } from './blocos-eras.js';
 
 export const AR = 0;
 export const B = {
@@ -105,6 +106,10 @@ def(E.PISCA_LIGADO, 'Pisca-pisca', T.PISCA, { brilho: 0.8 });
 def(E.TRAMPOLIM, 'Trampolim', [T.TRAMP, T.METAL, T.METAL]);
 for (let d = 0; d < 4; d++) def(E.ESTEIRA + d, 'Esteira', [T.ESTEIRA, T.METAL, T.METAL], { forma: 'esteira' });
 
+
+// blocos das eras (mundo Linha do Tempo): IDs 128..175, veja blocos-eras.js
+for (const [id, nome, tiles, o] of DEFS_ERAS) def(id, nome, tiles, o);
+
 // tabelas rápidas para o gerador de malha
 export const SOLIDO = new Uint8Array(256);
 export const OPACO = new Uint8Array(256);
@@ -137,7 +142,7 @@ export const INVENTARIO_MAQUINAS = [
 
 export const TILE = 16;
 export const COLS = 8;
-export const LINHAS = 8;
+export const LINHAS = 16; // tiles 64..127: eras (blocos-eras.js)
 
 function hex(c) { return [(c >> 16) & 255, (c >> 8) & 255, c & 255]; }
 
@@ -253,6 +258,7 @@ export function criarAtlas() {
   pintarTile(img, 26, (x, y, r) => var_(r() < 0.2 ? hex(0xc99a2e) : hex(0xe6c056), r, 0.2));
   pintarTile(img, 27, (x, y, r) => var_(y === 4 || y === 11 ? hex(0x8a5a2b) : (x + y * 3) % 5 === 0 ? hex(0xc99a2e) : hex(0xe6c056), r, 0.15));
   pintarMaquinas(img);
+  for (const t in PINTORES) pintarTile(img, +t, PINTORES[t]);
   ctx.putImageData(img, 0, 0);
 
   const tex = new THREE.CanvasTexture(cv);
