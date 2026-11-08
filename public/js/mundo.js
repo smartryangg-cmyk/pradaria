@@ -319,6 +319,13 @@ export class Mundo {
     }
   }
 
+  // true se o bloco foi mudado por algum jogador (não é da geração do mundo)
+  editado(x, y, z) {
+    const cx = Math.floor(x / CX), cz = Math.floor(z / CZ);
+    const m = this.edicoes.get(chave(cx, cz));
+    return !!m && m.has(idx(x - cx * CX, y, z - cz * CZ));
+  }
+
   listarEdicoes() {
     const out = [];
     for (const [k, m] of this.edicoes) {
