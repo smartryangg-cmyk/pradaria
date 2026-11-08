@@ -56,10 +56,29 @@ export function criarRuido(seed) {
     return 70 * n; // ~[-1,1]
   }
 
+  // ruído de gradiente 3D (para cavernas): rápido e suave, ~[-1,1]
+  const G3 = [[1, 1, 0], [-1, 1, 0], [1, -1, 0], [-1, -1, 0], [1, 0, 1], [-1, 0, 1], [1, 0, -1], [-1, 0, -1],
+    [0, 1, 1], [0, -1, 1], [0, 1, -1], [0, -1, -1], [1, 1, 0], [-1, 1, 0], [0, -1, 1], [0, -1, -1]];
+  const suave = (t) => t * t * t * (t * (t * 6 - 15) + 10);
+  function ruido3(x, y, z) {
+    const X = Math.floor(x), Y = Math.floor(y), Z = Math.floor(z);
+    x -= X; y -= Y; z -= Z;
+    const xi = X & 255, yi = Y & 255, zi = Z & 255;
+    const u = suave(x), v = suave(y), w = suave(z);
+    const g = (h, a, b, c) => { const q = G3[h & 15]; return q[0] * a + q[1] * b + q[2] * c; };
+    const A = perm[xi] + yi, AA = perm[A & 511] + zi, AB = perm[(A + 1) & 511] + zi;
+    const Bq = perm[xi + 1] + yi, BA = perm[Bq & 511] + zi, BB = perm[(Bq + 1) & 511] + zi;
+    const l = (a, b, t) => a + t * (b - a);
+    return l(
+      l(l(g(perm[AA & 511], x, y, z), g(perm[BA & 511], x - 1, y, z), u), l(g(perm[AB & 511], x, y - 1, z), g(perm[BB & 511], x - 1, y - 1, z), u), v),
+      l(l(g(perm[(AA + 1) & 511], x, y, z - 1), g(perm[(BA + 1) & 511], x - 1, y, z - 1), u), l(g(perm[(AB + 1) & 511], x, y - 1, z - 1), g(perm[(BB + 1) & 511], x - 1, y - 1, z - 1), u), v),
+      w);
+  }
+
   function fbm(x, y, oit = 4) {
     let a = 1, f = 1, s = 0, n = 0;
     for (let o = 0; o < oit; o++) { s += a * ruido2(x * f, y * f); n += a; a *= 0.5; f *= 2; }
     return s / n;
   }
-  return { ruido2, fbm };
+  return { ruido2, ruido3, fbm };
 }

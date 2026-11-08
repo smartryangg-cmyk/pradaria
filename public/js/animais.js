@@ -3,6 +3,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { ESPECIES, montarBicho } from './modelos.js';
 import { texturaIcone, nomeEmote } from './icones.js';
 import { SOLIDO, AGUA, B } from './blocos.js';
+import { BE } from './blocos-eras.js';
 import { opcoesMundo } from './opcoes-mundo.js';
 
 const MAX = 16;
@@ -48,7 +49,7 @@ export class Bichos {
     const x = Math.floor(px + Math.cos(ang) * dist) + 0.5, z = Math.floor(pz + Math.sin(ang) * dist) + 0.5;
     const yTopo = this.mundo.chao(Math.floor(x), Math.floor(z));
     const topo = this.mundo.bloco(Math.floor(x), yTopo, Math.floor(z));
-    if (topo !== B.GRAMA && topo !== B.AREIA) return;
+    if (topo !== B.GRAMA && topo !== B.AREIA && topo !== BE.NEVE) return;
     if (Math.abs(yTopo - py) > 14) return;
     const esp = LISTA[Math.floor(Math.random() * LISTA.length)];
     const n = esp === 'galinha' || esp === 'coelho' || esp === 'ovelha' ? 1 + Math.floor(Math.random() * 3) : 1;

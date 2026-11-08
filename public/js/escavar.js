@@ -2,6 +2,7 @@
 // O bloco atingido é escondido da malha do pedaço e trocado por uma malha de 3x3x3 cubinhos.
 import * as THREE from '../vendor/three.module.min.js';
 import { AR, B, BLOCOS, OPACO, uvTile } from './blocos.js';
+import { BE } from './blocos-eras.js';
 
 const N = 3;               // cubinhos por lado
 const TOTAL = N * N * N;
@@ -13,6 +14,9 @@ const DUREZA = {
   [B.FOLHAS]: 2, [B.VIDRO]: 2, [B.AREIA]: 3, [B.TERRA]: 3, [B.GRAMA]: 3, [B.LAMPIAO]: 3,
   [B.LA_BRANCA]: 3, [B.LA_VERMELHA]: 3, [B.LA_AZUL]: 3, [B.LA_AMARELA]: 3, [B.LA_VERDE]: 3, [B.LA_ROSA]: 3,
   [B.TABUAS]: 4, [B.TRONCO]: 5, [B.PEDRISCO]: 5, [B.PEDRA]: 6, [B.TIJOLO]: 6,
+  [B.CACTO]: 2, [B.CASCALHO]: 3,
+  [B.FOLHAS_PINHEIRO]: 2, [B.FOLHAS_SELVA]: 2, [B.TRONCO_PINHEIRO]: 5, [B.TRONCO_BETULA]: 5,
+  [B.CARVAO]: 7, [B.FERRO]: 8, [B.OURO]: 8, [B.DIAMANTE]: 10, [B.ROCHA_MAE]: 9999,
 };
 export const toquesPara = (b) => (BLOCOS[b].planta || BLOCOS[b].forma && BLOCOS[b].forma !== 'esteira' ? 1 : DUREZA[b] ?? 3);
 
