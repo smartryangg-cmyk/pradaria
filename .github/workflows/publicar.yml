@@ -48,3 +48,11 @@ jobs:
         run: |
           npx wrangler pages project create pradaria --production-branch main 2>/dev/null || echo 'Projeto Pages já existe'
           npx wrangler pages deploy --branch main --commit-dirty=true
+      - name: Conferir o jogo no ar
+        run: |
+          sleep 20
+          curl -sf https://pradaria.pages.dev/ -o /dev/null && echo "site ok"
+          curl -sf https://pradaria.pages.dev/api/saude | tee /tmp/saude.json
+          grep -q '"banco":true' /tmp/saude.json && grep -q '"sala":true' /tmp/saude.json
+          # cria conta de teste? não: só confere que a API responde
+          curl -s -X POST https://pradaria.pages.dev/api/entrar -H 'content-type: application/json' -d '{"nome":"ninguem_teste","senha":"xxxx"}'
