@@ -1,8 +1,8 @@
 // API de contas e mundos.  /api/cadastrar  /api/entrar  /api/eu  /api/mundos  /api/mundos/entrar
-// Dono do mundo: /api/mundos/membros  /api/mundos/expulsar  /api/mundos/codigo-novo  /api/mundos/editar
+// Dono do mundo: /api/mundos/membros  /api/mundos/expulsar  /api/mundos/codigo-novo  /api/mundos/editar  /api/mundos/chat
 // /api/mundos/apagar  /api/mundos/exportar.  Importar (vira um mundo novo de quem importa): /api/mundos/importar.  Apagar conta: DELETE /api/eu
 import { json, erro, banco, criarToken, usuarioDa, hashSenha, iguais, limitar, codigoNovo, textoProibido } from '../../lib/base.js';
-import { normalizarOpcoes, sementeDeTexto, editarOpcoes, opcoesMudadas } from '../../public/js/opcoes-mundo.js';
+import { normalizarOpcoes, sementeDeTexto, editarOpcoes, opcoesMudadas, precisaRecarregar } from '../../public/js/opcoes-mundo.js';
 import { lerArquivo, montarArquivo } from '../../public/js/arquivo-mundo.js';
 import { normalizarSkin } from '../../public/js/skin.js';
 
@@ -182,7 +182,7 @@ async function editarMundo(request, env, u) {
   const mudou = opcoesMudadas(antes, opcoes);
   if (nome !== m.nome || mudou.length) {
     await db.prepare('UPDATE mundos SET nome = ?, opcoes = ? WHERE id = ?').bind(nome, JSON.stringify(opcoes), m.id).run();
-    await avisarSala(env, m, 'editar', { nome, opcoes, recarregar: mudou.length > 0 });
+    await avisarSala(env, m, 'editar', { nome, opcoes, recarregar: precisaRecarregar(mudou) });
   }
   return json({ mundo: { codigo: m.codigo, nome, dono: true, nome_dono: u.nome, opcoes }, mudou });
 }
@@ -240,6 +240,22 @@ async function trocarCodigo(request, env, u) {
     } catch (e) { if (!/UNIQUE/i.test(String(e))) throw e; }
   }
   return erro('Não consegui trocar agora, tente de novo.', 500);
+}
+
+// ligar/desligar o chat de texto e o de voz (opções do mundo) depois de criado; vale na hora para quem está jogando
+async function opcoesChat(request, env, u) {
+  const { resp, db, m, c } = await mundoDoDono(request, env, u);
+  if (resp) return resp;
+  const linha = await db.prepare('SELECT opcoes FROM mundos WHERE id = ?').bind(m.id).first();
+  let op = {};
+  try { op = JSON.parse(linha && linha.opcoes) || {}; } catch {}
+  if (typeof op !== 'object' || Array.isArray(op)) op = {};
+  if (typeof c.texto === 'boolean') op.chatTexto = c.texto;
+  if (typeof c.voz === 'boolean') op.chatVoz = c.voz;
+  await db.prepare('UPDATE mundos SET opcoes = ? WHERE id = ?').bind(JSON.stringify(op), m.id).run();
+  const n = normalizarOpcoes(op);
+  await avisarSala(env, m, 'chat-op', { texto: n.chatTexto, voz: n.chatVoz });
+  return json({ opcoes: n });
 }
 
 // apagar a conta: some o usuário, os mundos dele e as participações (pede a senha de novo)
@@ -300,6 +316,7 @@ export async function onRequest({ request, env, params }) {
     if (rota === 'mundos/apagar' && metodo === 'POST') return await apagarMundo(request, env, u);
     if (rota === 'mundos/exportar' && metodo === 'POST') return await exportarMundo(request, env, u);
     if (rota === 'mundos/importar' && metodo === 'POST') return await importarMundo(request, env, u);
+    if (rota === 'mundos/chat' && metodo === 'POST') return await opcoesChat(request, env, u);
     return erro('Rota não encontrada', 404);
   } catch (e) {
     console.error(e);
