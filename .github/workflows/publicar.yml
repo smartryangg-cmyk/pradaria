@@ -28,12 +28,16 @@ jobs:
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
             echo "::error::Faltam os segredos CLOUDFLARE_API_TOKEN e/ou CLOUDFLARE_ACCOUNT_ID em Settings > Secrets and variables > Actions"; exit 1
           fi
+      - name: Conferir acesso à Cloudflare
+        run: npx wrangler whoami
       - name: Banco D1 (cria se não existir)
         run: |
-          ID=$(npx wrangler d1 list --json | node -e 'const l=JSON.parse(require("fs").readFileSync(0,"utf8"));const d=l.find(x=>x.name==="pradaria-db");console.log(d?d.uuid:"")')
+          set -o pipefail
+          ID=$(npx wrangler d1 list --json 2>/dev/null | sed -n '/^\[/,$p' | node -e 'const l=JSON.parse(require("fs").readFileSync(0,"utf8"));const d=l.find(x=>x.name==="pradaria-db");console.log(d?d.uuid:"")')
           if [ -z "$ID" ]; then
             npx wrangler d1 create pradaria-db
-            ID=$(npx wrangler d1 list --json | node -e 'const l=JSON.parse(require("fs").readFileSync(0,"utf8"));console.log(l.find(x=>x.name==="pradaria-db").uuid)')
+            set -o pipefail
+          ID=$(npx wrangler d1 list --json 2>/dev/null | sed -n '/^\[/,$p' | node -e 'const l=JSON.parse(require("fs").readFileSync(0,"utf8"));console.log(l.find(x=>x.name==="pradaria-db").uuid)')
           fi
           echo "D1: $ID"
           sed -i "s/COLOCAR_ID_DO_D1/$ID/" wrangler.toml
