@@ -671,7 +671,7 @@ function jogarLocal(novo = null) {
   });
   if (novo) salvarLocal();
   cmd.entrouLocal();
-  mercado.iniciar({ opcoes: opcoesMundo });
+  mercado.iniciar({ opcoes: opcoesMundo, novo: !!novo });
   desenharBarra();
   $('#status').innerHTML = comIcone('casa', 'Sem internet');
   aviso('Bem-vindo à Pradaria!', 2500, 'flor');

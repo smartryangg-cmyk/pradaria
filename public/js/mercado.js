@@ -26,13 +26,13 @@ export class Mercado {
   get ligado() { return this.op.mercado || this.op.objetivos; }
 
   // começa um mundo. online: estado vem do servidor; local: do aparelho
-  iniciar({ opcoes, estado, sala }) {
+  iniciar({ opcoes, estado, sala, novo }) {
     this.op = opcoesEcon(opcoes);
     this.sala = sala || null;
     if (this.sala) this.e = normalizar(estado, this.op);
     else {
       let salvo = null;
-      try { salvo = JSON.parse(localStorage.getItem(CHAVE_LOCAL) || 'null'); } catch {}
+      if (!novo) try { salvo = JSON.parse(localStorage.getItem(CHAVE_LOCAL) || 'null'); } catch {}
       this.e = normalizar(salvo, this.op);
       if (!salvo) this.salvarLocal();
     }
