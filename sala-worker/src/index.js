@@ -2,6 +2,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { opcoesEcon, econLigada, normalizar, aplicar, dar, liberado } from '../../public/js/economia.js';
 import { lugarVazio, gastoDe, ULTIMO_ITEM } from '../../public/js/receitas.js';
+import { normalizarOpcoes } from '../../public/js/opcoes-mundo.js';
 
 const MAX_BLOCO = 255; // 0..63 base, 100..126 engenharia, 128..175 eras (blocos-eras.js)
 // o cliente ignora ids que não existem (antes um id desconhecido travava o mundo de todos); aqui só o intervalo
@@ -105,7 +106,7 @@ export class Sala extends DurableObject {
     }
   }
 
-  // pedidos da API (só chegam pelo binding, nunca do jogador): expulsar, esquecer alguém, apagar o mundo
+  // pedidos da API (só chegam pelo binding, nunca do jogador): expulsar, esquecer alguém, apagar o mundo, editar
   async admin(acao, d) {
     if (acao === 'expulsar') {
       const uids = new Set(Array.isArray(d.uids) ? d.uids : []);
@@ -116,6 +117,18 @@ export class Sala extends DurableObject {
         ws.serializeAttachment(null);
         try { ws.close(4004, 'expulso'); } catch {}
         this.enviarTodos({ t: 'saiu', id: j.id }, ws);
+      }
+    } else if (acao === 'editar') {
+      // o dono editou o mundo (nome/opções já salvos no banco): vale na hora para quem está aqui
+      const opcoes = normalizarOpcoes(d.opcoes);
+      if (this.info) { this.info.econ = opcoesEcon(opcoes); await this.ctx.storage.put('info', this.info); }
+      if (this.econ) this.econ.clear(); // a mochila/moedas de cada um é ajustada às opções novas
+      const nome = typeof d.nome === 'string' ? d.nome.slice(0, 24) : '';
+      for (const ws of this.ctx.getWebSockets()) {
+        const j = ws.deserializeAttachment();
+        if (!j) continue;
+        j.semVeiculos = opcoes.veiculos === false; ws.serializeAttachment(j);
+        try { ws.send(JSON.stringify({ t: 'mundo-editado', nome, opcoes, recarregar: d.recarregar === true })); } catch {}
       }
     } else if (acao === 'esquecer' && Number.isInteger(d.uid)) {
       await this.ctx.storage.delete(['p:' + d.uid, 'l:' + d.uid]);

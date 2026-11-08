@@ -397,3 +397,16 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 .bancada-status.ok { background: #e3f6d9; color: var(--verde-borda); }
 .bancada-status.longe { background: #fff1d6; color: #8a5a14; }
 .versao { margin: 8px 0 0; text-align: center; font-size: 12px; font-weight: 600; color: var(--txt2); opacity: .75; user-select: text; }
+
+/* ---------- editar um mundo já criado ---------- */
+.linha-mundo { display: flex; gap: 8px; align-items: stretch; flex: none; }
+.linha-mundo .mundo { flex: 1; min-width: 0; }
+.bt-editar { flex: none; width: 58px; display: grid; place-items: center; background: #fff7d6; border: 3px solid var(--txt); border-radius: 16px; box-shadow: 0 4px 0 var(--txt); cursor: pointer; font: inherit; }
+.bt-editar .ic-svg { width: 28px; height: 28px; }
+.bt-editar:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--txt); }
+#editar-mundo { z-index: 30; }
+#editar-mundo .caixa { max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; }
+#e-fixas { display: flex; gap: 6px; align-items: flex-start; text-align: left; font-size: 13px; }
+#e-fixas .ic-svg { flex: none; width: 20px; height: 20px; }
+.aviso-editar { margin: 0; padding: 8px 10px; border-radius: 12px; background: #fff3c4; border: 2px solid #e0b93a; font-weight: 700; font-size: 13.5px; }
+.opcao-mundo.mudou { border-style: dashed; }

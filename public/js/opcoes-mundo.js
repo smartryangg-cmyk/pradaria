@@ -11,7 +11,7 @@
 export const OPCOES_MUNDO = [
   { id: 'sobrevivencia', icone: 'martelo', nome: 'Coletar e criar', desc: 'Quebre para juntar e crie ferramentas na bancada. Desligado: blocos à vontade', padrao: true, antigos: false },
   { id: 'animais', icone: 'ovelha', nome: 'Bichinhos', desc: 'Ovelhas, porquinhos, coelhos e amigos', padrao: true },
-  { id: 'vilas', icone: 'vila', nome: 'Vilas', desc: 'Vilinhas com casas e moradores', padrao: true },
+  { id: 'vilas', icone: 'vila', nome: 'Vilas', desc: 'Vilinhas com casas e moradores', padrao: true, terreno: true },
   { id: 'veiculos', icone: 'carro', nome: 'Veículos', desc: 'Carrinhos e barcos para passear', padrao: true },
   { id: 'maquinas', icone: 'engrenagem', nome: 'Máquinas', desc: 'Engenhocas, alavancas e esteiras', padrao: true },
   { id: 'aguaCorre', icone: 'onda', nome: 'Água que corre', desc: 'A água escorre e faz cachoeiras', padrao: true },
@@ -22,6 +22,7 @@ export const OPCOES_MUNDO = [
   { id: 'monstrosMachucam', icone: 'coracao', nome: 'Monstros machucam', desc: 'Corações de vida. Luz e um toque espantam', padrao: false },
 ];
 // padrao = como vem marcado ao criar; antigos = valor nos mundos criados antes da opção existir (se faltar, usa padrao)
+// terreno = a opção muda o terreno gerado (ao editar um mundo já criado, o dono recebe um aviso)
 
 // tamanho do mundo: pequeno e médio são ilhas com mar em volta (mais leves: dá para ver mais longe);
 // grande não tem fim (como os mundos antigos, que ficam "grande").
@@ -66,6 +67,19 @@ export function normalizarOpcoes(o) {
   if (!r.monstros) r.monstrosMachucam = false;
   return r;
 }
+
+// ---------- editar um mundo já criado ----------
+// Tipo, tamanho e gerador fazem o terreno (junto com a semente): ficam como foram criados.
+// Todas as outras opções (as de OPCOES_MUNDO, inclusive as que forem acrescentadas depois) podem mudar.
+export const FIXAS_AO_CRIAR = ['tipo', 'tamanho', 'gerador'];
+export function editarOpcoes(atual, pedido) {
+  const base = normalizarOpcoes(atual);
+  const novo = normalizarOpcoes({ ...base, ...(pedido && typeof pedido === 'object' ? pedido : {}) });
+  for (const k of FIXAS_AO_CRIAR) novo[k] = base[k];
+  return normalizarOpcoes(novo);
+}
+// quais opções mudaram (ids de OPCOES_MUNDO)
+export const opcoesMudadas = (a, b) => { const x = normalizarOpcoes(a), y = normalizarOpcoes(b); return OPCOES_MUNDO.filter((o) => x[o.id] !== y[o.id]).map((o) => o.id); };
 
 // semente: número digitado vira ele mesmo; palavra vira um número (sempre igual para a mesma palavra)
 export function sementeDeTexto(t) {

@@ -127,6 +127,7 @@
     <h2>Pausa</h2>
     <p id="pausa-mundo" class="sub"></p>
     <p id="pausa-opcoes" class="sub"></p>
+    <button class="bt" type="button" id="bt-editar-mundo" hidden><span data-icone="lapis"></span>Editar o mundo</button>
     <details class="mais" id="pausa-dono" hidden>
       <summary>Quem pode entrar no meu mundo</summary>
       <p class="sub">Código: <b id="dono-codigo"></b>. Só passe o código para amigos que você conhece.</p>
@@ -282,6 +283,21 @@
     <p class="sub" id="carregando-txt">Preparando o mundo…</p>
     <div class="girando"></div>
   </div>
+</div>
+
+<!-- editar um mundo já criado (só o dono): na lista de mundos e na pausa -->
+<div id="editar-mundo" class="janela" hidden>
+  <form class="caixa larga" id="e-form">
+    <h2>Editar o mundo</h2>
+    <label class="campo" id="e-rotulo">Nome do mundo<input id="e-nome" maxlength="24" autocomplete="off"></label>
+    <p class="sub">O que tem no mundo? Toque para ligar ou desligar.</p>
+    <div class="opcoes-mundo" id="e-lista"></div>
+    <p class="sub fixas" id="e-fixas"></p>
+    <p class="aviso-editar" id="e-aviso" hidden></p>
+    <p id="e-erro" class="erro"></p>
+    <button class="bt verde grande" type="submit" id="e-salvar">Salvar</button>
+    <button class="bt" type="button" id="e-cancelar"><span data-icone="voltar"></span>Cancelar</button>
+  </form>
 </div>
 
 <div id="desmaio" hidden></div>

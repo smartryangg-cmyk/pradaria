@@ -1,7 +1,7 @@
 // API de contas e mundos.  /api/cadastrar  /api/entrar  /api/eu  /api/mundos  /api/mundos/entrar
-// Dono do mundo: /api/mundos/membros  /api/mundos/expulsar  /api/mundos/codigo-novo.  Apagar conta: DELETE /api/eu
+// Dono do mundo: /api/mundos/membros  /api/mundos/expulsar  /api/mundos/codigo-novo  /api/mundos/editar.  Apagar conta: DELETE /api/eu
 import { json, erro, banco, criarToken, usuarioDa, hashSenha, iguais, limitar, codigoNovo, textoProibido } from '../../lib/base.js';
-import { normalizarOpcoes, sementeDeTexto } from '../../public/js/opcoes-mundo.js';
+import { normalizarOpcoes, sementeDeTexto, editarOpcoes, opcoesMudadas } from '../../public/js/opcoes-mundo.js';
 
 const NOME_OK = /^[A-Za-zÀ-ÿ0-9_]{3,16}$/;
 const NOME_MUNDO_OK = /^[A-Za-zÀ-ÿ0-9 ]{2,24}$/;
@@ -58,14 +58,22 @@ async function listarMundos(env, u) {
   return results.map((m) => ({ ...m, dono: !!m.dono, opcoes: normalizarOpcoes(m.opcoes) }));
 }
 
+const limparNomeMundo = (nome) => texto(nome).trim().replace(/\s+/g, ' ');
+// o nome do mundo aparece para os amigos: mesmas regras ao criar e ao editar
+function nomeMundoRuim(n) {
+  if (n.length < 2) return 'Dê um nome para o mundo.';
+  if (!NOME_MUNDO_OK.test(n)) return 'O nome do mundo pode ter só letras, números e espaços (até 24).';
+  if (textoProibido(n)) return 'Escolha outro nome: sem números de telefone, redes sociais ou palavras feias.';
+  return null;
+}
+
 async function criarMundo(request, env, u) {
   const { nome = '', opcoes = null, semente: sementeTxt = '' } = await corpo(request);
-  const n = texto(nome).trim().replace(/\s+/g, ' ');
+  const n = limparNomeMundo(nome);
   const op = normalizarOpcoes(opcoes);
   const escolhida = sementeDeTexto(String(sementeTxt).slice(0, 40));
-  if (n.length < 2) return erro('Dê um nome para o mundo.');
-  if (!NOME_MUNDO_OK.test(n)) return erro('O nome do mundo pode ter só letras, números e espaços (até 24).');
-  if (textoProibido(n)) return erro('Escolha outro nome: sem números de telefone, redes sociais ou palavras feias.');
+  const ruim = nomeMundoRuim(n);
+  if (ruim) return erro(ruim);
   const db = await banco(env);
   const qtd = await db.prepare('SELECT COUNT(*) AS n FROM mundos WHERE dono_id = ?').bind(u.id).first();
   if (qtd.n >= 10) return erro('Você já tem 10 mundos. Esse é o máximo por enquanto.');
@@ -102,7 +110,7 @@ async function entrarMundo(request, env, u) {
 async function mundoDoDono(request, env, u) {
   const c = await corpo(request);
   const db = await banco(env);
-  const m = await db.prepare('SELECT id, codigo, dono_id, sala FROM mundos WHERE codigo = ?').bind(texto(c.codigo).toUpperCase().trim().slice(0, 12)).first();
+  const m = await db.prepare('SELECT id, codigo, nome, opcoes, dono_id, sala FROM mundos WHERE codigo = ?').bind(texto(c.codigo).toUpperCase().trim().slice(0, 12)).first();
   if (!m) return { resp: erro('Mundo não encontrado.', 404) };
   if (m.dono_id !== u.id) return { resp: erro('Só o dono do mundo pode fazer isso.', 403) };
   return { db, m, c };
@@ -134,6 +142,25 @@ async function expulsar(request, env, u) {
   await db.prepare('DELETE FROM membros WHERE mundo_id = ? AND usuario_id = ?').bind(m.id, uid).run();
   await avisarSala(env, m, 'expulsar', { uids: [uid] });
   return json({ ok: true });
+}
+
+// editar um mundo já criado (só o dono): nome e opções. Tipo, tamanho e gerador não mudam (fazem o terreno).
+// Quem estiver jogando recebe a mudança na hora (a sala avisa e o jogo recarrega o mundo com as opções novas).
+async function editarMundo(request, env, u) {
+  const { resp, db, m, c } = await mundoDoDono(request, env, u);
+  if (resp) return resp;
+  if (!(await limitar(env, 'edm:' + u.id, 30, 3600e3))) return erro('Muitas mudanças seguidas. Espere um pouco.', 429);
+  const nome = c.nome == null ? m.nome : limparNomeMundo(c.nome);
+  const ruim = nomeMundoRuim(nome);
+  if (ruim) return erro(ruim);
+  const antes = normalizarOpcoes(m.opcoes);
+  const opcoes = c.opcoes == null ? antes : editarOpcoes(antes, c.opcoes);
+  const mudou = opcoesMudadas(antes, opcoes);
+  if (nome !== m.nome || mudou.length) {
+    await db.prepare('UPDATE mundos SET nome = ?, opcoes = ? WHERE id = ?').bind(nome, JSON.stringify(opcoes), m.id).run();
+    await avisarSala(env, m, 'editar', { nome, opcoes, recarregar: mudou.length > 0 });
+  }
+  return json({ mundo: { codigo: m.codigo, nome, dono: true, nome_dono: u.nome, opcoes }, mudou });
 }
 
 // código novo: o antigo para de funcionar e todo mundo (menos o dono) precisa do código novo para voltar
@@ -196,6 +223,7 @@ export async function onRequest({ request, env, params }) {
     if (rota === 'mundos/membros' && metodo === 'POST') return await membros(request, env, u);
     if (rota === 'mundos/expulsar' && metodo === 'POST') return await expulsar(request, env, u);
     if (rota === 'mundos/codigo-novo' && metodo === 'POST') return await trocarCodigo(request, env, u);
+    if (rota === 'mundos/editar' && metodo === 'POST') return await editarMundo(request, env, u);
     return erro('Rota não encontrada', 404);
   } catch (e) {
     console.error(e);
