@@ -234,3 +234,8 @@ details.mais[open] { display: flex; flex-direction: column; gap: 10px; padding-b
 #m-novo { width: min(520px, 100%); }
 .tamanhos-mundo { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px; }
 .tamanhos-mundo .opcao-mundo { flex-direction: column; text-align: center; gap: 2px; }
+/* abas do inventário (Blocos / Engenharia) */
+.abas { display: flex; gap: 8px; margin: 4px 0 6px; }
+.abas button { flex: 1; font: inherit; font-size: 16px; font-weight: 700; padding: 10px; border-radius: 12px; border: 0; background: #fff; box-shadow: 0 3px 0 #e2d6bf; cursor: pointer; }
+.abas button.sel { background: var(--verde, #5cb83a); color: #fff; box-shadow: 0 3px 0 #3d8a25; }
+.dica-maq { font-size: 14px; line-height: 1.35; background: #fff7d6; border-radius: 12px; padding: 8px 10px; }

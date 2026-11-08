@@ -17,6 +17,7 @@ function def(id, nome, tiles, o = {}) {
   BLOCOS[id] = {
     id, nome, tiles: Array.isArray(tiles) ? tiles : [tiles, tiles, tiles],
     solido: o.solido ?? true, opaco: o.opaco ?? true, planta: !!o.planta, agua: !!o.agua,
+    forma: o.forma || null, chao: !!o.chao, brilho: o.brilho || 0, icone: o.icone ?? null,
   };
 }
 def(AR, 'Ar', 0, { solido: false, opaco: false });
@@ -56,6 +57,54 @@ for (let n = 1; n <= 7; n++) {
 export const AGUA_CAINDO = 30; // cachoeira: água que desce
 def(AGUA_CAINDO, 'Cachoeira', 5, { solido: false, opaco: false, agua: true });
 
+// ---------- engenharia: energia e máquinas ----------
+// Números a partir de 100 (longe dos blocos comuns). Os estados "_LIGADO" das máquinas não são
+// salvos nem enviados pela rede: cada aparelho recalcula a energia sozinho (veja energia.js).
+// Só a alavanca, o botão e a placa de pressão guardam o estado (são o que o jogador mexe).
+export const E = {
+  FIO: 100, FIO_LIGADO: 101,
+  ALAVANCA: 102, ALAVANCA_LIGADA: 103,
+  BOTAO: 104, BOTAO_LIGADO: 105,
+  PLACA: 106, PLACA_LIGADA: 107,
+  LAMPADA: 108, LAMPADA_LIGADA: 109,
+  PORTAO: 110, PORTAO_ABERTO: 111,
+  VENTILADOR: 112, VENTILADOR_LIGADO: 113,
+  SINO: 114, SINO_LIGADO: 115,
+  CONFETE: 116, CONFETE_LIGADO: 117,
+  SENSOR: 118, SENSOR_LIGADO: 119,
+  PISCA: 120, PISCA_LIGADO: 121,
+  TRAMPOLIM: 122,
+  ESTEIRA: 123, // 123..126: andando para +x, +z, -x, -z
+};
+export const ESTEIRA_DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+export const MAX_ID = 126;
+const T = { FIO: 48, FIO_LIG: 49, BOTAO: 50, LAMP: 51, LAMP_LIG: 52, PORTAO: 53, PORTAO_ABERTO: 54, METAL: 55, VENT: 56, TRAMP: 57, ESTEIRA: 58, SINO: 59, CONFETE: 60, SENSOR: 61, PISCA: 62, ALAVANCA: 63 };
+const fino = { solido: false, opaco: false, chao: true };
+def(E.FIO, 'Fio', T.FIO, { ...fino, forma: 'fio' });
+def(E.FIO_LIGADO, 'Fio', T.FIO_LIG, { ...fino, forma: 'fio', brilho: 1 });
+def(E.ALAVANCA, 'Alavanca', [T.FIO, 21, 9], { ...fino, forma: 'alavanca', icone: T.ALAVANCA });
+def(E.ALAVANCA_LIGADA, 'Alavanca', [T.FIO_LIG, 21, 9], { ...fino, forma: 'alavanca', icone: T.ALAVANCA });
+def(E.BOTAO, 'Botão', T.BOTAO, { ...fino, forma: 'botao', icone: T.BOTAO });
+def(E.BOTAO_LIGADO, 'Botão', T.BOTAO, { ...fino, forma: 'botao', icone: T.BOTAO, brilho: 0.6 });
+def(E.PLACA, 'Placa de pisar', 21, { ...fino, forma: 'placa' });
+def(E.PLACA_LIGADA, 'Placa de pisar', 21, { ...fino, forma: 'placa', brilho: 0.3 });
+def(E.LAMPADA, 'Lâmpada', T.LAMP);
+def(E.LAMPADA_LIGADA, 'Lâmpada', T.LAMP_LIG, { brilho: 1 });
+def(E.PORTAO, 'Portão', T.PORTAO, { opaco: false });
+def(E.PORTAO_ABERTO, 'Portão', T.PORTAO_ABERTO, { solido: false, opaco: false });
+def(E.VENTILADOR, 'Ventilador', [T.VENT, T.METAL, T.METAL]);
+def(E.VENTILADOR_LIGADO, 'Ventilador', [T.VENT, T.METAL, T.METAL], { brilho: 0.35 });
+def(E.SINO, 'Sino', [T.METAL, T.METAL, T.SINO]);
+def(E.SINO_LIGADO, 'Sino', [T.METAL, T.METAL, T.SINO], { brilho: 0.4 });
+def(E.CONFETE, 'Canhão de confete', [T.CONFETE, T.METAL, T.METAL]);
+def(E.CONFETE_LIGADO, 'Canhão de confete', [T.CONFETE, T.METAL, T.METAL], { brilho: 0.4 });
+def(E.SENSOR, 'Sensor de noite', [T.SENSOR, T.METAL, T.METAL]);
+def(E.SENSOR_LIGADO, 'Sensor de noite', [T.SENSOR, T.METAL, T.METAL], { brilho: 0.5 });
+def(E.PISCA, 'Pisca-pisca', T.PISCA);
+def(E.PISCA_LIGADO, 'Pisca-pisca', T.PISCA, { brilho: 0.8 });
+def(E.TRAMPOLIM, 'Trampolim', [T.TRAMP, T.METAL, T.METAL]);
+for (let d = 0; d < 4; d++) def(E.ESTEIRA + d, 'Esteira', [T.ESTEIRA, T.METAL, T.METAL], { forma: 'esteira' });
+
 // tabelas rápidas para o gerador de malha
 export const SOLIDO = new Uint8Array(256);
 export const OPACO = new Uint8Array(256);
@@ -63,7 +112,14 @@ export const PLANTA = new Uint8Array(256);
 export const AGUA = new Uint8Array(256); // qualquer água (fonte, corrente ou caindo)
 // nível do líquido: 0 = fonte, 1..7 = corrente, 8 = caindo
 export const NIVEL = new Uint8Array(256);
-for (const b of BLOCOS) { SOLIDO[b.id] = b.solido ? 1 : 0; OPACO[b.id] = b.opaco ? 1 : 0; PLANTA[b.id] = b.planta ? 1 : 0; AGUA[b.id] = b.agua ? 1 : 0; }
+export const BRILHO = new Float32Array(256); // quanto o bloco brilha sozinho (0..1)
+export const PRECISA_CHAO = new Uint8Array(256); // some se tirar o bloco de baixo
+for (const b of BLOCOS) {
+  if (!b) continue;
+  SOLIDO[b.id] = b.solido ? 1 : 0; OPACO[b.id] = b.opaco ? 1 : 0; PLANTA[b.id] = b.planta ? 1 : 0; AGUA[b.id] = b.agua ? 1 : 0;
+  BRILHO[b.id] = b.brilho; PRECISA_CHAO[b.id] = b.planta || b.chao ? 1 : 0;
+}
+BRILHO[B.LAMPIAO] = 1;
 for (let n = 1; n <= 7; n++) NIVEL[AGUA_CORRENTE[n]] = n;
 NIVEL[AGUA_CAINDO] = 8;
 
@@ -73,10 +129,15 @@ export const INVENTARIO = [
   B.LAMPIAO, B.FENO, B.TERRA_ARADA, B.LA_BRANCA, B.LA_VERMELHA, B.LA_AZUL, B.LA_AMARELA, B.LA_VERDE, B.LA_ROSA,
   B.FLOR_VERMELHA, B.FLOR_AMARELA, B.FLOR_AZUL, B.CAPIM, B.TRIGO, B.AGUA,
 ];
+// aba "Engenharia" do inventário
+export const INVENTARIO_MAQUINAS = [
+  E.ALAVANCA, E.BOTAO, E.PLACA, E.SENSOR, E.PISCA, E.FIO,
+  E.LAMPADA, E.PORTAO, E.VENTILADOR, E.SINO, E.CONFETE, E.TRAMPOLIM, E.ESTEIRA,
+];
 
 export const TILE = 16;
 export const COLS = 8;
-export const LINHAS = 4;
+export const LINHAS = 8;
 
 function hex(c) { return [(c >> 16) & 255, (c >> 8) & 255, c & 255]; }
 
@@ -191,6 +252,7 @@ export function criarAtlas() {
   // 26 feno (topo) e 27 feno (lado, com amarração)
   pintarTile(img, 26, (x, y, r) => var_(r() < 0.2 ? hex(0xc99a2e) : hex(0xe6c056), r, 0.2));
   pintarTile(img, 27, (x, y, r) => var_(y === 4 || y === 11 ? hex(0x8a5a2b) : (x + y * 3) % 5 === 0 ? hex(0xc99a2e) : hex(0xe6c056), r, 0.15));
+  pintarMaquinas(img);
   ctx.putImageData(img, 0, 0);
 
   const tex = new THREE.CanvasTexture(cv);
@@ -199,6 +261,105 @@ export function criarAtlas() {
   tex.generateMipmaps = false;
   tex.colorSpace = THREE.SRGBColorSpace;
   return { tex, canvas: cv };
+}
+
+// arte das peças de engenharia (tiles 48..63)
+function pintarMaquinas(img) {
+  const metalBase = hex(0x9aa3ad), metalEsc = hex(0x6d7680);
+  const metal = (x, y, r) => {
+    const borda = x === 0 || y === 0 || x === 15 || y === 15;
+    const rebite = (x === 2 || x === 13) && (y === 2 || y === 13);
+    return var_(borda ? metalEsc : rebite ? hex(0xd7dde3) : metalBase, r, 0.08);
+  };
+  // 48 fio (cobre apagado) / 49 fio ligado (vermelho brilhante)
+  pintarTile(img, 48, (x, y, r) => var_((x + y) % 4 === 0 ? hex(0x7a3b22) : hex(0x9b4f2c), r, 0.1));
+  pintarTile(img, 49, (x, y, r) => var_((x + y) % 4 === 0 ? hex(0xffb03a) : hex(0xff4a2a), r, 0.08));
+  // 50 botão vermelho
+  pintarTile(img, 50, (x, y, r) => {
+    const d = Math.hypot(x - 7.5, y - 7.5);
+    if (d < 4.2) return var_(d < 2 && x < 8 && y < 8 ? hex(0xff9a8a) : hex(0xe23a2a), r, 0.06);
+    if (d < 6.5) return var_(hex(0x5d6670), r, 0.08);
+    return [0, 0, 0, 0];
+  });
+  // 51 lâmpada apagada / 52 acesa
+  const lamp = (acesa) => (x, y, r) => {
+    const borda = x < 1 || y < 1 || x > 14 || y > 14;
+    if (borda) return var_(hex(0x5d6670), r, 0.08);
+    const grade = x % 5 === 0 || y % 5 === 0;
+    if (grade) return var_(acesa ? hex(0xffe9a8) : hex(0x7d868f), r, 0.05);
+    const d = Math.hypot(x - 7.5, y - 7.5);
+    return acesa ? [255, 245 - d * 4, 170 - d * 6, 255] : var_(hex(0xc7c2a8), r, 0.1);
+  };
+  pintarTile(img, 51, lamp(false));
+  pintarTile(img, 52, lamp(true));
+  // 53 portão fechado (tábuas com faixas de metal) / 54 aberto (só a moldura)
+  pintarTile(img, 53, (x, y, r) => {
+    if (y === 3 || y === 12) return var_(hex(0x4d5560), r, 0.08);
+    return var_(x % 4 === 0 ? hex(0x8a6236) : hex(0xb98a50), r, 0.12);
+  });
+  pintarTile(img, 54, (x, y, r) => (x < 2 || x > 13 || y < 1 || y > 14 ? var_(hex(0x8a6236), r, 0.12) : [0, 0, 0, 0]));
+  // 55 metal (lado das máquinas)
+  pintarTile(img, 55, metal);
+  // 56 ventilador (hélice vista de cima)
+  pintarTile(img, 56, (x, y, r) => {
+    const dx = x - 7.5, dy = y - 7.5, d = Math.hypot(dx, dy);
+    if (d > 7.3) return metal(x, y, r);
+    if (d < 1.6) return var_(hex(0xf2c72e), r, 0.05);
+    const a = Math.atan2(dy, dx);
+    const pa = Math.sin(a * 3 + d * 0.25) > 0.35;
+    return var_(pa ? hex(0x3fa7d9) : hex(0x2b3138), r, 0.08);
+  });
+  // 57 trampolim (lona listrada)
+  pintarTile(img, 57, (x, y, r) => {
+    if (x < 2 || y < 2 || x > 13 || y > 13) return var_(hex(0x3f6fd9), r, 0.08);
+    return var_(((x + y) >> 2) % 2 ? hex(0xf2c72e) : hex(0xe8433f), r, 0.06);
+  });
+  // 58 esteira (seta para cima da imagem)
+  pintarTile(img, 58, (x, y, r) => {
+    if (x < 2 || x > 13) return var_(hex(0x5d6670), r, 0.08);
+    const ay = (y + 16) % 8; // duas setas
+    const seta = Math.abs(x - 7.5) < 4.5 - ay * 0.0 && ay >= Math.abs(x - 7.5) - 0.5 && ay <= Math.abs(x - 7.5) + 2.5;
+    return var_(seta ? hex(0xf2c72e) : y % 2 ? hex(0x2b3138) : hex(0x3a424b), r, 0.06);
+  });
+  // 59 sino (sino dourado no metal)
+  pintarTile(img, 59, (x, y, r) => {
+    const larg = y < 3 ? 1 : y < 11 ? 2 + (y - 3) * 0.55 : y < 13 ? 6.5 : -1;
+    if (Math.abs(x - 7.5) < larg) return var_(y === 11 || y === 12 ? hex(0xc9962a) : hex(0xf2c72e), r, 0.08);
+    if (y === 14 && Math.abs(x - 7.5) < 1.5) return var_(hex(0xc9962a), r, 0.05);
+    return metal(x, y, r);
+  });
+  // 60 canhão de confete (pontinhos coloridos)
+  const cores = [0xe8433f, 0xf2c72e, 0x3f6fd9, 0x5cb83a, 0xf29ac2, 0xffffff];
+  pintarTile(img, 60, (x, y, r) => {
+    const d = Math.hypot(x - 7.5, y - 7.5);
+    if (d > 6.5) return metal(x, y, r);
+    if (d > 5) return var_(hex(0x2b3138), r, 0.05);
+    return r() < 0.45 ? [...hex(cores[Math.floor(r() * cores.length)]), 255] : var_(hex(0x1c2228), r, 0.05);
+  });
+  // 61 sensor de noite (lua e estrelinhas)
+  pintarTile(img, 61, (x, y, r) => {
+    if (x < 1 || y < 1 || x > 14 || y > 14) return var_(hex(0x5d6670), r, 0.08);
+    const d = Math.hypot(x - 7, y - 7), d2 = Math.hypot(x - 9.5, y - 5.5);
+    if (d < 4.5 && d2 > 3.6) return var_(hex(0xfff1b0), r, 0.05);
+    if ((x === 3 && y === 11) || (x === 12 && y === 12) || (x === 12 && y === 3)) return [255, 255, 255, 255];
+    return var_(hex(0x1d2a5a), r, 0.1);
+  });
+  // 62 pisca-pisca (luz em faixas)
+  pintarTile(img, 62, (x, y, r) => {
+    if (x < 1 || y < 1 || x > 14 || y > 14) return var_(hex(0x5d6670), r, 0.08);
+    const d = Math.hypot(x - 7.5, y - 7.5);
+    if (d < 3) return var_(hex(0x7dff8a), r, 0.05);
+    return var_(Math.floor(d) % 2 ? hex(0x2e7d3a) : hex(0x245f2d), r, 0.08);
+  });
+  // 63 alavanca (ícone)
+  pintarTile(img, 63, (x, y, r) => {
+    if (y >= 11 && y <= 14 && x >= 3 && x <= 12) return var_(hex(0x84868d), r, 0.1);
+    const t = (14 - y) / 12; const cx = 7.5 + (1 - t) * -3 + t * 3;
+    if (y < 11 && y > 3 && Math.abs(x - (5 + (11 - y) * 0.55)) < 1.1) return var_(hex(0x9a7040), r, 0.1);
+    void cx;
+    if (Math.hypot(x - 10, y - 3) < 2.2) return var_(hex(0xe23a2a), r, 0.06);
+    return [0, 0, 0, 0];
+  });
 }
 
 // coordenadas UV de um tile (com pequena margem para evitar sangramento)
@@ -217,8 +378,8 @@ export function iconeBloco(atlasCanvas, id, tam = 40) {
   const ctx = cv.getContext('2d');
   ctx.imageSmoothingEnabled = false;
   const src = (t) => [(t % COLS) * TILE, Math.floor(t / COLS) * TILE];
-  if (b.planta || id === B.AGUA) {
-    const [sx, sy] = src(b.tiles[2]);
+  if (b.planta || id === B.AGUA || b.icone !== null || b.forma === 'fio' || b.forma === 'placa') {
+    const [sx, sy] = src(b.icone ?? b.tiles[2]);
     ctx.drawImage(atlasCanvas, sx, sy, TILE, TILE, tam * 0.1, tam * 0.1, tam * 0.8, tam * 0.8);
     return cv;
   }

@@ -14,7 +14,7 @@ const DUREZA = {
   [B.LA_BRANCA]: 3, [B.LA_VERMELHA]: 3, [B.LA_AZUL]: 3, [B.LA_AMARELA]: 3, [B.LA_VERDE]: 3, [B.LA_ROSA]: 3,
   [B.TABUAS]: 4, [B.TRONCO]: 5, [B.PEDRISCO]: 5, [B.PEDRA]: 6, [B.TIJOLO]: 6,
 };
-export const toquesPara = (b) => (BLOCOS[b].planta ? 1 : DUREZA[b] ?? 3);
+export const toquesPara = (b) => (BLOCOS[b].planta || BLOCOS[b].forma && BLOCOS[b].forma !== 'esteira' ? 1 : DUREZA[b] ?? 3);
 
 // faces de um cubinho: normal, eixo, cantos (CCW de fora) e eixos U/V da textura (iguais aos da malha do mundo)
 const FACES = [

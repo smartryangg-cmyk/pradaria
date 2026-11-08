@@ -55,8 +55,10 @@
 <!-- inventário -->
 <div id="inventario" class="janela" hidden>
   <div class="caixa">
-    <h2>Blocos</h2>
+    <h2 id="inv-titulo">Blocos</h2>
+    <div id="abas-inv" class="abas"><button type="button" data-aba="blocos" class="sel">🧱 Blocos</button><button type="button" data-aba="maquinas">⚙️ Engenharia</button></div>
     <p class="sub">Escolha um bloco para a mão</p>
+    <p id="dica-maquinas" class="sub dica-maq" hidden>⚡ Toque na <b>Alavanca</b> para ligar. A energia corre pelo <b>Fio</b> e por tudo que encosta: lâmpada, portão, ventilador (elevador!), sino e confete. O <b>Sensor de noite</b> liga sozinho quando escurece e o <b>Pisca-pisca</b> liga e desliga sem parar.</p>
     <div id="grade"></div>
     <button class="bt" data-fechar>Fechar</button>
   </div>

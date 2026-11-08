@@ -1,5 +1,5 @@
 // Física do jogador: andar, pular, voar, nadar e colisão com blocos.
-import { SOLIDO, AGUA } from './blocos.js';
+import { SOLIDO, AGUA, E, ESTEIRA_DIRS } from './blocos.js';
 
 const LARG = 0.3; // meia largura
 const ALTURA = 1.7;
@@ -43,8 +43,13 @@ export class Jogador {
     let vel = this.voando ? 9 : this.naAgua ? 2.6 : 4.4;
     if (ent.correr && !this.naAgua) vel *= 1.45;
     const acel = this.noChao || this.voando ? 14 : 5;
-    v.x += (mx * vel - v.x) * Math.min(1, acel * dt);
-    v.z += (mz * vel - v.z) * Math.min(1, acel * dt);
+    // esteira: leva quem está em cima
+    let ex = 0, ez = 0;
+    const pe = this.mundo.bloco(bx, Math.floor(p.y - 0.05), bz);
+    if (this.noChao && pe >= E.ESTEIRA && pe < E.ESTEIRA + 4) [ex, ez] = ESTEIRA_DIRS[pe - E.ESTEIRA].map((d) => d * 3.2);
+    this.naEsteira = !!(ex || ez);
+    v.x += (mx * vel + ex - v.x) * Math.min(1, acel * dt);
+    v.z += (mz * vel + ez - v.z) * Math.min(1, acel * dt);
     // correnteza: a água que corre leva a gente devagarinho
     if (this.naAgua && !this.voando) {
       const [cx, cz] = this.mundo.correnteza(bx, by, bz);
@@ -62,7 +67,16 @@ export class Jogador {
       v.y -= 26 * dt;
       if (ent.pular && this.noChao) { v.y = 8.2; this.noChao = false; }
       v.y = Math.max(v.y, -40);
+      // ventilador ligado embaixo (até 10 blocos): sobe como num elevador
+      this.noVento = false;
+      for (let dy = 0; dy <= 10; dy++) {
+        const q = this.mundo.bloco(bx, Math.floor(p.y) - dy, bz);
+        if (q === E.VENTILADOR_LIGADO && dy > 0) { this.noVento = true; break; }
+        if (SOLIDO[q]) break;
+      }
+      if (this.noVento) { v.y = Math.min(6, v.y + 48 * dt); this.noChao = false; }
     }
+    const vyAntes = v.y;
 
     // movimento eixo a eixo
     const nx = p.x + v.x * dt;
@@ -76,6 +90,10 @@ export class Jogador {
     else {
       if (v.y < 0) { this.noChao = true; p.y = Math.floor(ny) + (this.colide(p.x, Math.floor(ny), p.z) ? 1 : 0); if (this.voando) this.voando = false; }
       v.y = 0;
+      // trampolim: quica (segurando "descer" para de quicar)
+      if (vyAntes < 0 && !ent.descer && this.mundo.bloco(Math.floor(p.x), Math.floor(p.y) - 1, Math.floor(p.z)) === E.TRAMPOLIM) {
+        v.y = Math.min(17, Math.max(11, -vyAntes * 0.92)); this.noChao = false; this.quicou = true;
+      }
     }
     // borda do mundo pequeno/médio: dá para nadar um pouquinho no mar, mas não passar
     const L = this.mundo.limite;
