@@ -1,0 +1,158 @@
+// Mercado e objetivos: regras puras (sem tela), usadas pelo jogo sem internet e pela sala online.
+// A sala online roda estas mesmas regras e é ela quem decide as moedas de cada jogador.
+// Não importe nada daqui que dependa do navegador (o servidor também usa este arquivo).
+
+// ids dos blocos (iguais aos de blocos.js)
+const G = 1, TE = 2, PE = 3, AR_ = 4, AG = 5, TR = 6, FO = 7, TA = 8, VI = 9, TJ = 10, FV = 11, FA = 12, CA = 13,
+  LB = 14, LV = 15, LZ = 16, LM = 17, LG = 18, LR = 19, PD = 20, LP = 21, FZ = 22, TAR = 31, TRI = 32, FE = 33;
+
+// blocos que todo mundo já tem desde o começo (os outros se compram na loja da vila)
+export const LIVRES = new Set([G, TE, PE, AR_, AG, TR, FO, TA, FV, FA, CA, PD]);
+
+// loja: preço para liberar o bloco para sempre neste mundo
+export const LOJA = [
+  [TJ, 12], [VI, 15], [LP, 20], [FE, 8], [TAR, 6], [TRI, 6], [FZ, 10],
+  [LB, 8], [LV, 10], [LZ, 10], [LM, 10], [LG, 10], [LR, 10],
+].map(([b, preco]) => ({ b, preco }));
+const PRECO_LOJA = new Map(LOJA.map((x) => [x.b, x.preco]));
+
+// quanto os aldeões pagam por cada coisa coletada (o que não está aqui vale 1)
+const VENDA = { [TR]: 2, [FV]: 3, [FA]: 3, [FZ]: 3, [TRI]: 3, [FE]: 3, [LP]: 4, [VI]: 2, [TJ]: 2 };
+export const precoVenda = (b) => VENDA[b] || 1;
+// só dá para coletar blocos de verdade (nada de água, ar ou ids estranhos)
+export const coletavel = (b) => Number.isInteger(b) && b > 0 && b !== AG && (b <= 22 || (b >= 31 && b <= 33));
+
+// objetivos, na ordem em que aparecem (ic = nome do ícone em icones.js). "conta" é o contador que faz andar a barrinha.
+// premio = moedas (com mercado) ou estrelas (sem mercado). "mercado: true" = só aparece com o mercado ligado.
+export const OBJETIVOS = [
+  { id: 'colocar10', ic: 'tijolos', txt: 'Coloque 10 blocos', conta: 'colocar', meta: 10, premio: 5 },
+  { id: 'carinho3', ic: 'ovelha', txt: 'Faça carinho em 3 bichinhos', conta: 'carinho', meta: 3, premio: 5 },
+  { id: 'conversa1', ic: 'pessoa', txt: 'Converse com um aldeão', conta: 'conversa', meta: 1, premio: 5 },
+  { id: 'quebrar10', ic: 'bloco', txt: 'Quebre 10 blocos', conta: 'quebrar', meta: 10, premio: 5 },
+  { id: 'vender5', ic: 'moeda', txt: 'Venda 5 coisas para um aldeão', conta: 'vender', meta: 5, premio: 5, mercado: true },
+  { id: 'voar1', ic: 'voar', txt: 'Voe bem alto', conta: 'voar', meta: 1, premio: 5 },
+  { id: 'flores5', ic: 'flor', txt: 'Plante 5 flores', conta: 'flor', meta: 5, premio: 8 },
+  { id: 'comprar1', ic: 'chave', txt: 'Compre um bloco novo na loja', conta: 'comprar', meta: 1, premio: 8, mercado: true },
+  { id: 'andar300', ic: 'mapa', txt: 'Ande 300 passos explorando', conta: 'andar', meta: 300, premio: 8 },
+  { id: 'carinho10', ic: 'coracao', txt: 'Faça carinho em 10 bichinhos', conta: 'carinho', meta: 10, premio: 10 },
+  { id: 'colocar100', ic: 'casa', txt: 'Construa com 100 blocos', conta: 'colocar', meta: 100, premio: 15 },
+  { id: 'conversa5', ic: 'vila', txt: 'Converse com 5 aldeões', conta: 'conversa', meta: 5, premio: 10 },
+  { id: 'alto1', ic: 'montanha', txt: 'Coloque um bloco lá no alto (altura 50)', conta: 'alto', meta: 1, premio: 10 },
+  { id: 'agua1', ic: 'gota', txt: 'Faça uma fonte de água', conta: 'agua', meta: 1, premio: 8 },
+  { id: 'emote3', ic: 'sorriso', txt: 'Mande 3 emotes', conta: 'emote', meta: 3, premio: 5 },
+  { id: 'vender50', ic: 'diamante', txt: 'Venda 50 coisas', conta: 'vender', meta: 50, premio: 20, mercado: true },
+  { id: 'flores30', ic: 'broto', txt: 'Faça um jardim com 30 flores', conta: 'flor', meta: 30, premio: 20 },
+  { id: 'andar2000', ic: 'bussola', txt: 'Ande 2000 passos pelo mundo', conta: 'andar', meta: 2000, premio: 25 },
+  { id: 'comprar5', ic: 'chave', txt: 'Compre 5 blocos novos', conta: 'comprar', meta: 5, premio: 25, mercado: true },
+  { id: 'colocar500', ic: 'castelo', txt: 'Construa com 500 blocos', conta: 'colocar', meta: 500, premio: 40 },
+  { id: 'carinho30', ic: 'coracao', txt: 'Faça carinho em 30 bichinhos', conta: 'carinho', meta: 30, premio: 30 },
+];
+export const ATIVOS = 3; // quantos objetivos aparecem por vez
+
+// eventos que o jogador pode contar (com o máximo aceito de uma vez)
+export const EVENTOS = { carinho: 1, conversa: 1, voar: 1, emote: 1, andar: 80 };
+const MAX_ITEM = 9999, MAX_MOEDAS = 999999;
+
+export function opcoesEcon(op) {
+  op = op || {};
+  return { mercado: !!op.mercado, objetivos: !!op.objetivos };
+}
+
+export function estadoNovo(op) {
+  return { moedas: op && op.mercado ? 10 : 0, estrelas: 0, itens: {}, comprados: [], cont: {}, feitos: [] };
+}
+
+// confere/repara um estado salvo (vindo do armazenamento)
+export function normalizar(e, op) {
+  const n = estadoNovo(op);
+  if (!e || typeof e !== 'object') return n;
+  n.moedas = Math.max(0, Math.min(MAX_MOEDAS, e.moedas | 0));
+  n.estrelas = Math.max(0, e.estrelas | 0);
+  for (const [k, v] of Object.entries(e.itens || {})) if (coletavel(+k) && v > 0) n.itens[k] = Math.min(MAX_ITEM, v | 0);
+  n.comprados = (e.comprados || []).filter((b) => PRECO_LOJA.has(b));
+  for (const [k, v] of Object.entries(e.cont || {})) if (typeof v === 'number') n.cont[k] = v;
+  n.feitos = (e.feitos || []).filter((id) => OBJETIVOS.some((o) => o.id === id));
+  return n;
+}
+
+export const liberado = (e, b, op) => !op.mercado || LIVRES.has(b) || !PRECO_LOJA.has(b) || e.comprados.includes(b);
+
+export function objetivosDoMundo(op) { return op.objetivos ? OBJETIVOS.filter((o) => !o.mercado || op.mercado) : []; }
+
+export function objetivosAtivos(e, op) {
+  return objetivosDoMundo(op).filter((o) => !e.feitos.includes(o.id)).slice(0, ATIVOS);
+}
+
+// soma num contador e entrega os objetivos que ficaram prontos. Devolve a lista dos que completou.
+function contar(e, op, k, n) {
+  e.cont[k] = (e.cont[k] || 0) + n;
+  const prontos = [];
+  if (!op.objetivos) return prontos;
+  // quando um objetivo sai da lista, entra outro que talvez já esteja pronto também
+  for (let mudou = true; mudou;) {
+    mudou = false;
+    for (const o of objetivosAtivos(e, op)) {
+      if ((e.cont[o.conta] || 0) >= o.meta) {
+        e.feitos.push(o.id);
+        if (op.mercado) e.moedas = Math.min(MAX_MOEDAS, e.moedas + o.premio); else e.estrelas += 1;
+        prontos.push(o.id); mudou = true;
+      }
+    }
+  }
+  return prontos;
+}
+
+// Aplica uma ação ao estado de um jogador. Devolve { ok, erro?, feitos: [ids], mudou }.
+//  { t:'ev', e, n }          um evento (carinho, conversa, voar, emote, andar)
+//  { t:'bloco', b, y, de, natural }   colocou (b>0) ou quebrou (b=0) um bloco; "natural" = o bloco era do mundo original
+//  { t:'vender', b, n }      vende n unidades do item b
+//  { t:'comprar', b }        libera o bloco b
+export function aplicar(e, op, a) {
+  const r = { ok: true, feitos: [], mudou: false };
+  const falha = (erro) => ({ ok: false, erro, feitos: [], mudou: false });
+  if (!a || typeof a !== 'object') return falha('?');
+  if (a.t === 'ev') {
+    const max = EVENTOS[a.e];
+    if (!max) return falha('?');
+    const n = Math.max(1, Math.min(max, a.n | 0 || 1));
+    r.feitos = contar(e, op, a.e, n); r.mudou = true;
+  } else if (a.t === 'bloco') {
+    if (a.b > 0) {
+      r.feitos.push(...contar(e, op, 'colocar', 1));
+      if ([FV, FA, FZ].includes(a.b)) r.feitos.push(...contar(e, op, 'flor', 1));
+      if (a.y >= 50) r.feitos.push(...contar(e, op, 'alto', 1));
+      if (a.b === AG) r.feitos.push(...contar(e, op, 'agua', 1));
+    } else {
+      r.feitos.push(...contar(e, op, 'quebrar', 1));
+      if (op.mercado && a.natural && coletavel(a.de)) e.itens[a.de] = Math.min(MAX_ITEM, (e.itens[a.de] || 0) + 1);
+    }
+    r.mudou = true;
+  } else if (a.t === 'vender') {
+    if (!op.mercado) return falha('O mercado está desligado neste mundo.');
+    const b = a.b | 0, tem = e.itens[b] || 0;
+    const n = Math.min(tem, Math.max(1, a.n | 0));
+    if (!coletavel(b) || n <= 0) return falha('Você não tem isso para vender.');
+    e.itens[b] = tem - n;
+    if (!e.itens[b]) delete e.itens[b];
+    e.moedas = Math.min(MAX_MOEDAS, e.moedas + n * precoVenda(b));
+    r.feitos = contar(e, op, 'vender', n); r.mudou = true;
+  } else if (a.t === 'comprar') {
+    if (!op.mercado) return falha('O mercado está desligado neste mundo.');
+    const preco = PRECO_LOJA.get(a.b);
+    if (!preco) return falha('Isso não está à venda.');
+    if (e.comprados.includes(a.b)) return falha('Você já tem esse bloco!');
+    if (e.moedas < preco) return falha(`Faltam ${preco - e.moedas} moedas.`);
+    e.moedas -= preco; e.comprados.push(a.b);
+    r.feitos = contar(e, op, 'comprar', 1); r.mudou = true;
+  } else return falha('?');
+  return r;
+}
+
+// presente de moedas entre jogadores (a sala chama com os dois estados)
+export function dar(de, para, n) {
+  n = n | 0;
+  if (n < 1 || n > 1000) return 'Quantidade estranha.';
+  if (de.moedas < n) return 'Você não tem tantas moedas.';
+  de.moedas -= n; para.moedas = Math.min(MAX_MOEDAS, para.moedas + n);
+  return null;
+}

@@ -305,3 +305,48 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 .mapa-zoom .redondo { width: 48px; height: 48px; font-size: 22px; }
 #mapa-coords { margin: 0; font-weight: 700; }
 .mapa-dica { margin: 0; font-size: 13px; }
+/* ---------- mercado e objetivos ---------- */
+#econ { position: absolute; top: calc(max(10px, env(safe-area-inset-top)) + 64px); left: 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; max-width: min(300px, 60vw); }
+.econ-chip { border: 0; border-radius: 16px; padding: 7px 12px; background: rgba(255,248,232,.92); font: inherit; font-weight: 900; font-size: 18px; color: var(--txt); box-shadow: var(--sombra); }
+.econ-chip.pula { animation: econPula .5s; }
+@keyframes econPula { 40% { transform: scale(1.25); background: #ffe066; } }
+.econ-alvo { position: relative; overflow: hidden; border: 0; border-radius: 14px; padding: 7px 10px 10px; background: rgba(0,0,0,.4); color: #fff; font: inherit; font-size: 13px; font-weight: 800; display: flex; align-items: center; gap: 6px; text-align: left; }
+.econ-alvo .ic { font-size: 18px; } .econ-alvo .tx { flex: 1; } .econ-alvo b { color: #ffe066; }
+.econ-alvo i { position: absolute; left: 0; bottom: 0; height: 4px; background: #ffe066; transition: width .3s; }
+#festa { position: absolute; left: 50%; top: 12%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.festa-card { background: var(--creme); border-radius: 18px; padding: 10px 18px; box-shadow: 0 6px 0 rgba(0,0,0,.15); display: flex; flex-direction: column; align-items: center; animation: festaEntra .45s cubic-bezier(.3,1.6,.5,1); transition: opacity .5s, transform .5s; }
+.festa-card b { font-size: 18px; } .festa-card span { font-size: 14px; } .festa-card em { font-style: normal; font-weight: 900; color: #c78a00; font-size: 18px; }
+.festa-card.sai { opacity: 0; transform: translateY(-20px); }
+@keyframes festaEntra { from { transform: scale(.4); opacity: 0; } }
+.econ-caixa { width: min(480px, 100%); }
+.econ-corpo { display: flex; flex-direction: column; gap: 8px; }
+.econ-corpo h3 { margin: 6px 0 0; font-size: 17px; }
+.econ-lista { display: flex; flex-direction: column; gap: 6px; max-height: 48vh; overflow-y: auto; padding: 2px; }
+.econ-linha { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 14px; padding: 6px 8px; box-shadow: 0 3px 0 #e2d6bf; }
+.econ-ic { width: 40px; height: 40px; display: grid; place-items: center; font-size: 24px; flex: none; }
+.econ-ic canvas { width: 36px; height: 36px; image-rendering: pixelated; }
+.econ-nome { flex: 1; font-weight: 800; display: flex; flex-direction: column; } .econ-nome small { font-weight: 700; opacity: .7; }
+.econ-dir { display: flex; gap: 6px; align-items: center; flex: none; font-weight: 800; }
+.econ-bt { padding: 9px 12px; font-size: 15px; }
+.econ-dica { margin: 0; font-size: 14px; opacity: .8; }
+.econ-abas .bt { padding: 10px; }
+.econ-barra { display: block; height: 6px; background: #eee3cf; border-radius: 3px; margin-top: 4px; overflow: hidden; }
+.econ-barra i { display: block; height: 100%; background: var(--verde); }
+.econ-linha.obj.feito { opacity: .65; } .econ-linha.obj.depois { opacity: .45; }
+.econ-linha.obj.ativo { box-shadow: 0 3px 0 #e2d6bf, inset 0 0 0 2px #ffe066; }
+#grade button.trancado, #barra .slot.trancado { position: relative; }
+#grade button.trancado canvas, #barra .slot.trancado canvas { filter: grayscale(1) brightness(.75); opacity: .6; }
+#grade button.trancado .preco { position: absolute; bottom: 2px; left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: 2px; font-size: 11px; font-weight: 900; }
+#grade button.trancado .preco .ic-svg { font-size: 12px; }
+#barra .slot.trancado .cad { position: absolute; display: grid; place-items: center; inset: 0; font-size: 18px; }
+.econ-chip, .econ-chip .ic-svg { display: flex; align-items: center; gap: 6px; } .econ-chip .ic-svg { font-size: 22px; }
+.econ-alvo .ic .ic-svg { font-size: 20px; } .econ-alvo .ic span:empty { display: none; }
+.econ-m { display: inline-flex; align-items: center; gap: 3px; vertical-align: middle; } .econ-m .ic-svg { font-size: 1.15em; }
+.econ-ic .ic-svg { font-size: 30px; } .econ-ic span:empty { display: none; }
+.econ-caixa h2.com-ic, .econ-corpo h3.com-ic { justify-content: center; } .econ-corpo h3.com-ic { justify-content: flex-start; }
+.econ-caixa h2 .ic-svg { width: 30px; height: 30px; } .econ-corpo h3 .ic-svg { width: 24px; height: 24px; }
+.bt.com-ic { justify-content: center; } .bt.com-ic .ic-svg { width: 24px; height: 24px; }
+.festa-card b.com-ic { gap: 6px; } .festa-card b .ic-svg { width: 26px; height: 26px; }
+.festa-card em { display: flex; align-items: center; gap: 4px; } .festa-card em .ic-svg { font-size: 22px; }
+.econ-dir .ic-svg { font-size: 18px; }
+@media (max-width: 640px) { #econ { top: calc(max(10px, env(safe-area-inset-top)) + 58px); } .econ-alvo { font-size: 12px; } }

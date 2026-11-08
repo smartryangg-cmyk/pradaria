@@ -190,9 +190,11 @@ export class Mundo {
     const lx = x - cx * CX, lz = z - cz * CZ;
     const i = idx(lx, y, lz);
     if (c.dados[i] === b) return false;
+    const antes = c.dados[i];
     c.dados[i] = b;
     const k = chave(cx, cz);
     if (!this.edicoes.has(k)) this.edicoes.set(k, new Map());
+    const natural = !this.edicoes.get(k).has(i); // ninguém tinha mexido aqui: bloco do mundo original
     this.edicoes.get(k).set(i, b);
     this.marcarSujo(cx, cz);
     if (lx === 0) this.marcarSujo(cx - 1, cz);
@@ -203,7 +205,7 @@ export class Mundo {
     if (!SOLIDO[b] && PRECISA_CHAO[this.bloco(x, y + 1, z)]) this.definir(x, y + 1, z, AR, daRede);
     this.agendarAgua(x, y, z);
     this.energia.agendar(x, y, z);
-    if (!daRede && this.aoMudarBloco) this.aoMudarBloco(x, y, z, b);
+    if (!daRede && this.aoMudarBloco) this.aoMudarBloco(x, y, z, b, antes, natural);
     return true;
   }
 
