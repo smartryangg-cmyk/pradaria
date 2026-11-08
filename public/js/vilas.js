@@ -3,11 +3,12 @@
 // e o servidor continua guardando só o que os jogadores mudaram.
 import { hash3, rngSemente } from './ruido.js';
 import { AR, B, PLANTA } from './blocos.js';
+import { BE } from './blocos-eras.js';
+import { BIOMA } from './gerador.js';
 import { opcoesMundo } from './opcoes-mundo.js';
 
 export const REGIAO = 96; // cada região de 96x96 blocos pode ter uma vila (pedaços de 16 cabem certinho)
-const NIVEL_AGUA = 20; // igual ao de mundo.js
-const ALT = 64;
+const ALT = 96; // igual ao de mundo.js (o nível do mar vem de mundo.nivelAgua)
 
 const NOMES_A = ['Vila', 'Aldeia', 'Vilarejo', 'Povoado', 'Arraial'];
 const NOMES_B = ['do Girassol', 'das Capivaras', 'Bem-te-vi', 'do Sabiá', 'Flor de Ipê', 'Pé de Moleque', 'do Arco-Íris',
@@ -19,6 +20,8 @@ export const ESTILOS = {
   campo: { nome: 'do campo', parede: B.TABUAS, canto: B.TRONCO, piso: B.TABUAS, rua: B.PEDRISCO, telhados: [B.LA_VERMELHA, B.LA_AMARELA, B.TABUAS, B.LA_VERDE] },
   tijolo: { nome: 'de tijolinho', parede: B.TIJOLO, canto: B.PEDRISCO, piso: B.TABUAS, rua: B.PEDRISCO, telhados: [B.LA_AZUL, B.TABUAS, B.LA_VERMELHA, B.LA_ROSA] },
   praia: { nome: 'da praia', parede: B.TABUAS, canto: B.TRONCO, piso: B.TABUAS, rua: B.TABUAS, telhados: [B.FENO] },
+  deserto: { nome: 'do deserto', parede: BE.ARENITO, canto: BE.ARENITO_ENTALHADO, piso: BE.ARENITO, rua: B.AREIA, telhados: [BE.TERRACOTA, B.LA_AMARELA, B.FENO] },
+  neve: { nome: 'das neves', parede: B.TRONCO_PINHEIRO, canto: B.PEDRISCO, piso: B.TABUAS, rua: B.CASCALHO, telhados: [B.LA_VERMELHA, B.TABUAS, B.LA_AZUL] },
   serra: { nome: 'da serra', parede: B.PEDRISCO, canto: B.TRONCO, piso: B.TABUAS, rua: B.PEDRISCO, telhados: [B.TABUAS, B.LA_VERMELHA, B.TIJOLO] },
 };
 
@@ -32,7 +35,9 @@ export class Vilas {
     this.cache = new Map();
   }
 
-  alt(x, z) { return Math.min(ALT - 10, Math.max(4, this.m.alturaEm(x, z))); }
+  get nivel() { return this.m.nivelAgua; }
+
+  alt(x, z) { return Math.min(this.m.tetoTerreno, Math.max(4, this.m.alturaEm(x, z))); }
 
   // vila da região (ou null)
   regiao(rx, rz) {
@@ -67,7 +72,7 @@ export class Vilas {
     for (let t = 0; t < 14 && !C; t++) {
       const x = rx * REGIAO + 30 + Math.floor(rng() * 36), z = rz * REGIAO + 30 + Math.floor(rng() * 36);
       const h = this.alt(x, z);
-      if (h <= NIVEL_AGUA + 1 || h > 44) continue;
+      if (h <= this.nivel + 1 || h > this.nivel + 24) continue;
       let dif = 0;
       for (const [dx, dz] of [[12, 0], [-12, 0], [0, 12], [0, -12], [8, 8], [-8, -8], [8, -8], [-8, 8]]) dif = Math.max(dif, Math.abs(this.alt(x + dx, z + dz) - h));
       if (dif <= (origem && t > 6 ? 8 : 4)) C = { x, z, h };
@@ -75,7 +80,8 @@ export class Vilas {
     if (!C) return null;
 
     const nome = NOMES_A[Math.floor(rng() * NOMES_A.length)] + ' ' + NOMES_B[Math.floor(rng() * NOMES_B.length)];
-    const estilo = C.h <= NIVEL_AGUA + 2 ? 'praia' : C.h >= 34 ? 'serra' : rng() < 0.5 ? 'campo' : 'tijolo';
+    const N = this.nivel, bio = this.m.biomaEm ? this.m.biomaEm(C.x, C.z) : -1;
+    const estilo = C.h <= N + 2 ? 'praia' : C.h >= N + 14 ? 'serra' : bio === BIOMA.DESERTO ? 'deserto' : bio === BIOMA.NEVE || bio === BIOMA.TAIGA ? 'neve' : rng() < 0.5 ? 'campo' : 'tijolo';
     const E = ESTILOS[estilo];
     const v = { nome, estilo, x: C.x, z: C.z, y: C.h, ruas: [], estruturas: [], casas: [], fazendas: [], raio: 8 };
     const ocupado = [[C.x - 5, C.z - 5, C.x + 5, C.z + 5]];
@@ -117,7 +123,7 @@ export class Vilas {
         if (!livre(folga)) continue;
         // altura do chão: a da rua na frente da porta
         const [px, pz] = this.ponto(C, rua.dx, rua.dz, t, 2 * lado);
-        const y = Math.max(this.alt(px, pz), NIVEL_AGUA + 1);
+        const y = Math.max(this.alt(px, pz), this.nivel + 1);
         let pior = 0;
         for (const [qx, qz] of [[ret[0], ret[1]], [ret[2], ret[1]], [ret[0], ret[3]], [ret[2], ret[3]]]) pior = Math.max(pior, Math.abs(this.alt(qx, qz) - y));
         if (pior > 6) continue;
@@ -203,7 +209,7 @@ export class Vilas {
     for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
       if (!dentro(x, z)) continue;
       const h = this.alt(x, z);
-      if (h <= NIVEL_AGUA) { put(x, NIVEL_AGUA, z, B.TABUAS); continue; } // pontezinha
+      if (h <= this.nivel) { put(x, this.nivel, z, B.TABUAS); continue; } // pontezinha
       put(x, h, z, e.mat);
       for (let yy = h + 1; yy <= h + 2; yy++) if (PLANTA[get(x, yy, z)]) put(x, yy, z, AR);
     }

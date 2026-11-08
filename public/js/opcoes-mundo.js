@@ -31,6 +31,13 @@ export const TAMANHOS = {
 };
 export const TAMANHO_NOVO = 'medio'; // já vem marcado ao criar
 
+// gerador do terreno: os mundos novos usam o clássico (biomas, rios, cavernas e minérios);
+// os mundos antigos continuam com o terreno de antes para as construções não ficarem flutuando.
+export const GERADORES = {
+  atual: { nome: 'Pradaria de antes' },
+  classico: { nome: 'Clássico: biomas, cavernas e minérios' },
+};
+
 // tipo do mundo: um campo só, compartilhado pelos modos especiais. Para um tipo novo, acrescente aqui.
 // historia = "Linha do Tempo": começa na era dos dinossauros e evolui com a experiência (eras-regras.js)
 export const TIPOS = {
@@ -41,8 +48,8 @@ export const TIPOS = {
 };
 
 // PADRAO_MUNDO: o que vale quando falta a opção (mundos antigos); PADRAO_NOVO: o que já vem marcado ao criar
-export const PADRAO_MUNDO = { ...Object.fromEntries(OPCOES_MUNDO.map((o) => [o.id, o.antigos ?? o.padrao])), tamanho: 'grande', tipo: 'normal' };
-export const PADRAO_NOVO = { ...Object.fromEntries(OPCOES_MUNDO.map((o) => [o.id, o.padrao])), tamanho: TAMANHO_NOVO, tipo: 'normal' };
+export const PADRAO_MUNDO = { ...Object.fromEntries(OPCOES_MUNDO.map((o) => [o.id, o.antigos ?? o.padrao])), tamanho: 'grande', tipo: 'normal', gerador: 'atual' };
+export const PADRAO_NOVO = { ...Object.fromEntries(OPCOES_MUNDO.map((o) => [o.id, o.padrao])), tamanho: TAMANHO_NOVO, tipo: 'normal', gerador: 'classico' };
 
 // aceita qualquer coisa (texto JSON, objeto, nada) e devolve só opções conhecidas, sempre true/false (+ tamanho)
 export function normalizarOpcoes(o) {
@@ -51,6 +58,7 @@ export function normalizarOpcoes(o) {
   if (o && typeof o === 'object') {
     for (const k of Object.keys(r)) if (typeof o[k] === 'boolean' && typeof r[k] === 'boolean') r[k] = o[k];
     if (typeof o.tamanho === 'string' && Object.prototype.hasOwnProperty.call(TAMANHOS, o.tamanho)) r.tamanho = o.tamanho;
+    if (typeof o.gerador === 'string' && Object.prototype.hasOwnProperty.call(GERADORES, o.gerador)) r.gerador = o.gerador;
     if (typeof o.tipo === 'string' && Object.prototype.hasOwnProperty.call(TIPOS, o.tipo)) r.tipo = o.tipo;
   }
   if (TIPOS[r.tipo].semMonstros) r.monstros = false;

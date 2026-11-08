@@ -10,6 +10,11 @@ export const B = {
   LA_AZUL: 16, LA_AMARELA: 17, LA_VERDE: 18, LA_ROSA: 19, PEDRISCO: 20, LAMPIAO: 21, FLOR_AZUL: 22,
   // 23..30 são as águas correntes (veja abaixo)
   TERRA_ARADA: 31, TRIGO: 32, FENO: 33,
+  // mundo clássico (biomas, cavernas e minérios): 60..79, tiles 28..40
+  // (neve, grama com neve, gelo e arenito são os blocos das eras: BE.BLOCO_NEVE, BE.NEVE, BE.GELO, BE.ARENITO)
+  CACTO: 63, CASCALHO: 65,
+  CARVAO: 66, FERRO: 67, OURO: 68, DIAMANTE: 69, ROCHA_MAE: 70,
+  TRONCO_PINHEIRO: 71, FOLHAS_PINHEIRO: 72, TRONCO_BETULA: 73, FOLHAS_SELVA: 74, ARBUSTO_SECO: 75,
 };
 
 // tiles: [cima, baixo, lados]
@@ -47,6 +52,18 @@ def(B.FLOR_AZUL, 'Flor azul', 23, { solido: false, opaco: false, planta: true })
 def(B.TERRA_ARADA, 'Terra de plantar', 24);
 def(B.TRIGO, 'Trigo', 25, { solido: false, opaco: false, planta: true });
 def(B.FENO, 'Feno', [26, 26, 27]);
+def(B.CACTO, 'Cacto', [29, 29, 28]);
+def(B.CASCALHO, 'Cascalho', 30);
+def(B.CARVAO, 'Minério de carvão', 31);
+def(B.FERRO, 'Minério de ferro', 32);
+def(B.OURO, 'Minério de ouro', 33);
+def(B.DIAMANTE, 'Diamante', 34);
+def(B.ROCHA_MAE, 'Rocha-mãe', 35);
+def(B.TRONCO_PINHEIRO, 'Tronco de pinheiro', [6, 6, 36]);
+def(B.FOLHAS_PINHEIRO, 'Folhas de pinheiro', 37);
+def(B.TRONCO_BETULA, 'Tronco de bétula', [6, 6, 38]);
+def(B.FOLHAS_SELVA, 'Folhas da selva', 39);
+def(B.ARBUSTO_SECO, 'Arbusto seco', 40, { solido: false, opaco: false, planta: true });
 
 // Água corrente: nasce das fontes (o bloco Água) e não é salva nem enviada pela rede;
 // cada aparelho recalcula sozinho a partir das fontes. Nível 1 = perto da fonte, 7 = a pontinha.
@@ -115,6 +132,8 @@ export const SOLIDO = new Uint8Array(256);
 export const OPACO = new Uint8Array(256);
 export const PLANTA = new Uint8Array(256);
 export const AGUA = new Uint8Array(256); // qualquer água (fonte, corrente ou caindo)
+export const FOLHAGEM = new Uint8Array(256); // folhas que balançam com o vento
+FOLHAGEM[B.FOLHAS] = FOLHAGEM[B.FOLHAS_PINHEIRO] = FOLHAGEM[B.FOLHAS_SELVA] = 1;
 // nível do líquido: 0 = fonte, 1..7 = corrente, 8 = caindo
 export const NIVEL = new Uint8Array(256);
 export const BRILHO = new Float32Array(256); // quanto o bloco brilha sozinho (0..1)
@@ -133,6 +152,8 @@ export const INVENTARIO = [
   B.GRAMA, B.TERRA, B.PEDRA, B.PEDRISCO, B.AREIA, B.TRONCO, B.TABUAS, B.FOLHAS, B.VIDRO, B.TIJOLO,
   B.LAMPIAO, B.FENO, B.TERRA_ARADA, B.LA_BRANCA, B.LA_VERMELHA, B.LA_AZUL, B.LA_AMARELA, B.LA_VERDE, B.LA_ROSA,
   B.FLOR_VERMELHA, B.FLOR_AMARELA, B.FLOR_AZUL, B.CAPIM, B.TRIGO, B.AGUA,
+  B.CACTO, B.CASCALHO, B.CARVAO, B.FERRO, B.OURO, B.DIAMANTE,
+  B.TRONCO_PINHEIRO, B.FOLHAS_PINHEIRO, B.TRONCO_BETULA, B.FOLHAS_SELVA, B.ARBUSTO_SECO,
 ];
 // aba "Engenharia" do inventário
 export const INVENTARIO_MAQUINAS = [
@@ -257,6 +278,46 @@ export function criarAtlas() {
   // 26 feno (topo) e 27 feno (lado, com amarração)
   pintarTile(img, 26, (x, y, r) => var_(r() < 0.2 ? hex(0xc99a2e) : hex(0xe6c056), r, 0.2));
   pintarTile(img, 27, (x, y, r) => var_(y === 4 || y === 11 ? hex(0x8a5a2b) : (x + y * 3) % 5 === 0 ? hex(0xc99a2e) : hex(0xe6c056), r, 0.15));
+  // ---------- mundo clássico (tiles 28..40) ----------
+  // cacto: lado com listras e espinhos, topo com miolo
+  pintarTile(img, 28, (x, y, r) => {
+    if (x === 0 || x === 15) return var_(hex(0x2f6b2a), r, 0.1);
+    if ((x === 3 || x === 8 || x === 12) && y % 4 === 1) return [236, 236, 200, 255];
+    return var_(x % 5 === 2 ? hex(0x3d8a35) : hex(0x4ea443), r, 0.12);
+  });
+  pintarTile(img, 29, (x, y, r) => {
+    const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5));
+    return var_(d > 6.5 ? hex(0x2f6b2a) : d < 3 ? hex(0x7cc56a) : hex(0x4ea443), r, 0.1);
+  });
+  // cascalho
+  pintarTile(img, 30, (x, y, r) => { const t = r(); return var_(t < 0.25 ? hex(0x6f6c6a) : t < 0.5 ? hex(0x9a9592) : t < 0.6 ? hex(0x5a5654) : hex(0x868280), r, 0.1); });
+  // minérios: pedra com pedrinhas coloridas
+  const minerio = (cor, brilho) => (x, y, r) => {
+    const m = ((x * 7 + y * 13) % 17 < 3 && (x + y) % 3 !== 0) || (Math.abs(x - 5) < 2 && Math.abs(y - 10) < 2) || (Math.abs(x - 11) < 2 && Math.abs(y - 4) < 2);
+    if (m) return var_(r() < 0.3 ? hex(brilho) : hex(cor), r, 0.12);
+    return var_(r() < 0.12 ? hex(0x767980) : pedra, r, 0.18);
+  };
+  pintarTile(img, 31, minerio(0x2b2b2e, 0x4a4a50));
+  pintarTile(img, 32, minerio(0xc9906a, 0xe8b894));
+  pintarTile(img, 33, minerio(0xf2c72e, 0xfff2a0));
+  pintarTile(img, 34, minerio(0x45d6d0, 0xb8fffb));
+  // rocha-mãe
+  pintarTile(img, 35, (x, y, r) => { const t = r(); return var_(t < 0.3 ? hex(0x2a2a2e) : t < 0.6 ? hex(0x55565c) : hex(0x3d3e44), r, 0.1); });
+  // pinheiro (casca escura) e folhas escuras
+  pintarTile(img, 36, (x, y, r) => var_(x % 3 === 0 ? hex(0x3b2716) : hex(0x55391f), r, 0.18));
+  pintarTile(img, 37, (x, y, r) => var_(r() < 0.3 ? hex(0x2a5a32) : hex(0x386e40), r, 0.25));
+  // bétula: casca branca com manchas
+  pintarTile(img, 38, (x, y, r) => {
+    const mancha = (y * 5 + (x >> 2) * 3) % 7 === 0 && x % 4 !== 3;
+    return var_(mancha ? hex(0x3a3a36) : hex(0xe6e2d6), r, 0.08);
+  });
+  // folhas da selva (verde vivo)
+  pintarTile(img, 39, (x, y, r) => var_(r() < 0.25 ? hex(0x2f9a2a) : hex(0x46b83a), r, 0.3));
+  // arbusto seco (fundo transparente)
+  pintarTile(img, 40, (x, y, r) => {
+    const galho = (x === 7 && y > 6) || (Math.abs(x - 7 - (12 - y) * 0.6) < 0.7 && y > 3 && y < 12) || (Math.abs(x - 7 + (13 - y) * 0.7) < 0.7 && y > 5 && y < 13);
+    return galho ? var_(hex(0x8a6a3a), r, 0.2) : [0, 0, 0, 0];
+  });
   pintarMaquinas(img);
   for (const t in PINTORES) pintarTile(img, +t, PINTORES[t]);
   ctx.putImageData(img, 0, 0);
