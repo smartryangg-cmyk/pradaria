@@ -11,7 +11,11 @@ concurrency:
   group: publicar
   cancel-in-progress: false
 jobs:
+  # só publica se os testes do jogo passarem
+  testes:
+    uses: ./.github/workflows/testes.yml
   publicar:
+    needs: testes
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:

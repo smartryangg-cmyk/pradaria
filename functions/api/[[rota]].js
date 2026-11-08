@@ -11,7 +11,12 @@ const NOME_MUNDO_OK = /^[A-Za-zÀ-ÿ0-9 ]{2,24}$/;
 const ipDe = (request) => request.headers.get('cf-connecting-ip') || 'local';
 const texto = (v) => (typeof v === 'string' ? v : '');
 
-async function corpo(request) { try { return await request.json(); } catch { return {}; } }
+// corpo JSON com tamanho máximo (um arquivo de mundo cheio tem uns 4 MB; 100 MB travariam o servidor)
+const MAX_CORPO = 8 * 1024 * 1024;
+async function corpo(request) {
+  if (Number(request.headers.get('content-length') || 0) > MAX_CORPO) return {};
+  try { const t = await request.text(); return t.length > MAX_CORPO ? {} : JSON.parse(t); } catch { return {}; }
+}
 const publico = (u) => ({ id: u.id, nome: u.nome, cor: u.cor, skin: normalizarSkin(u.skin, u.cor), skinSalva: !!u.skin, idade16: u.idade16 == null ? null : !!u.idade16 });
 const MSG_16 = 'Este mundo tem temas para quem tem 16 anos ou mais.';
 // resposta da pergunta "Você tem 16 anos ou mais?" guardada na conta (null = ainda não respondeu)
@@ -220,7 +225,9 @@ async function exportarMundo(request, env, u) {
 
 // importar: o arquivo vira um mundo NOVO de quem importou (código novo; ninguém mais entra sem ele)
 async function importarMundo(request, env, u) {
-  if (!(await limitar(env, 'imp:' + u.id, 10, 3600e3))) return erro('Muitas importações seguidas. Espere um pouco.', 429);
+  // cada importação pode gravar até 200 mil blocos na sala: poucas por dia, por conta e por aparelho
+  if (!(await limitar(env, 'imp:' + u.id, 10, 3600e3)) || !(await limitar(env, 'impdia:' + u.id, 20, 86400e3)) || !(await limitar(env, 'impip:' + ipDe(request), 30, 86400e3)))
+    return erro('Muitas importações seguidas. Espere um pouco.', 429);
   const c = await corpo(request);
   const a = lerArquivo(c.arquivo);
   if (a.erro) return erro(a.erro);

@@ -105,6 +105,24 @@ for (let i = 0; i < 12; i++) await api('entrar', { nome: 'Amigo' + sfx, senha: '
 ok((await api('entrar', { nome: 'Amigo' + sfx, senha: 'errada' }, null, null, '10.9.9.9')).status === 429, 'quem erra muito é barrado');
 ok((await api('entrar', { nome: 'Amigo' + sfx, senha: 'senha123' }, null, null, '10.1.2.3')).token, 'a dona da conta ainda entra de outro aparelho');
 
+// importar arquivo de mundo feito para atacar: só entra o que é válido
+const ataque = {
+  formato: 'pradaria-mundo', versao: 1, nome: 'Mundo Ruim', semente: 1234,
+  opcoes: JSON.parse('{"__proto__": {"admin": true}, "armas": true, "mercado": "sim", "moedas": 99999, "tamanho": "infinito"}'),
+  edicoes: [[1, 30, 1, 3], [2, 500, 2, 3], [3, 30, 3, 999], [4, 30, 4, -1], [5, 30.5, 5, 3], ['x', 1, 1, 1], [6, 30, 6], { a: 1 }, [7, 90, 7, 1]],
+};
+const imp = await api('mundos/importar', { arquivo: ataque }, dono.token);
+ok(imp.mundo && imp.mundo.codigo, 'arquivo com lixo importa só o que vale (' + imp.status + ')');
+if (imp.mundo) {
+  const arq = await api('mundos/exportar', { codigo: imp.mundo.codigo }, dono.token);
+  const blocos = (arq.edicoes || []).map((e) => e.join(',')).sort().join(' ');
+  ok(blocos === '1,30,1,3 7,90,7,1', 'blocos inválidos descartados e o alto (y 90) guardado: ' + blocos);
+  ok(arq.opcoes && !('armas' in arq.opcoes) && !('moedas' in arq.opcoes) && !('admin' in arq.opcoes) && arq.opcoes.mercado !== 'sim' && arq.opcoes.tamanho !== 'infinito', 'opções desconhecidas ou erradas ignoradas');
+}
+ok((await api('mundos/importar', { arquivo: { ...ataque, nome: 'liga 11 98765 4321' }, nome: 'liga 11 98765 4321' }, dono.token)).status === 400, 'arquivo com telefone no nome barrado');
+const enorme = await fetch(BASE + '/api/mundos/importar', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + dono.token, 'cf-connecting-ip': ipx() }, body: '{"arquivo":{"edicoes":[' + '[1,30,1,3],'.repeat(900000) + '[1,30,1,3]]}}' });
+ok(enorme.status === 400, 'arquivo gigante (10 MB) recusado sem travar (' + enorme.status + ')');
+
 // apagar conta
 ok((await api('eu', { senha: 'errada' }, dono.token, 'DELETE')).status === 401, 'apagar conta pede a senha certa');
 ok((await api('eu', { senha: 'senha123' }, dono.token, 'DELETE')).ok, 'conta apagada');
