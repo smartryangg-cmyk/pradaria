@@ -1,5 +1,6 @@
 // Sala de um mundo: guarda as edições de blocos e repassa posições/emotes entre os jogadores.
 import { DurableObject } from 'cloudflare:workers';
+import { opcoesEcon, normalizar, aplicar, dar, liberado } from '../../public/js/economia.js';
 
 const MAX_BLOCO = 255; // 0..63 base, 100..126 engenharia, 128..175 eras (blocos-eras.js)
 const MAX_JOGADORES = 12;
@@ -69,6 +70,8 @@ export class Sala extends DurableObject {
     }
     // as opções do mundo vêm do banco (D1) a cada entrada
     const opcoes = mundo.opcoes && typeof mundo.opcoes === 'object' ? mundo.opcoes : {};
+    const op = opcoesEcon(opcoes);
+    if (JSON.stringify(op) !== JSON.stringify(this.info.econ)) { this.info.econ = op; await this.ctx.storage.put('info', this.info); }
     const par = new WebSocketPair();
     const [cliente, servidor] = Object.values(par);
     // o mesmo login em outro aparelho/aba: a conexão antiga sai
@@ -93,6 +96,7 @@ export class Sala extends DurableObject {
     this.ctx.acceptWebSocket(servidor);
     servidor.serializeAttachment(eu);
 
+    const econ = await this.econDe(u.id);
     const ed = await this.carregarEdicoes();
     const edicoes = [];
     for (const [k, b] of ed) { const [x, y, z] = k.split(',').map(Number); edicoes.push([x, y, z, b]); }
@@ -100,7 +104,7 @@ export class Sala extends DurableObject {
     const dia = opcoes.cicloDia === false ? 0.3 : this.diaAgora();
     const lugares = (await this.ctx.storage.get('l:' + u.id)) || { casa: null, lista: [] };
     servidor.send(JSON.stringify({
-      t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia, dono: eu.dono, lugares, opcoes,
+      t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia, dono: eu.dono, lugares, opcoes, econ,
       jogadores: this.jogadores().filter((j) => j.id !== id).map(({ id, nome, cor, p, r }) => ({ id, nome, cor, p, r })),
     }));
     this.enviarTodos({ t: 'entrou', j: { id, nome: u.nome, cor: u.cor, p: eu.p, r: eu.r } }, servidor);
@@ -173,6 +177,10 @@ export class Sala extends DurableObject {
       const { x, y, z, b } = m;
       if (![x, y, z, b].every(Number.isInteger) || y < 1 || y > 63 || b < 0 || b > MAX_BLOCO) return;
       if (Math.abs(x) > LONGE || Math.abs(z) > LONGE) return;
+      const op = this.op();
+      const econ = (op.mercado || op.objetivos) ? await this.econDe(eu.uid) : null;
+      // com o mercado, só dá para colocar os blocos que a pessoa já tem
+      if (econ && b > 0 && !liberado(econ, b, op)) return;
       // limite: 25 blocos por segundo por jogador
       const agora = Date.now();
       if (agora - eu.janela > 1000) { eu.janela = agora; eu.cota = 0; }
@@ -181,9 +189,11 @@ export class Sala extends DurableObject {
       const ed = await this.carregarEdicoes();
       const k = x + ',' + y + ',' + z;
       if (!ed.has(k) && ed.size >= MAX_EDICOES) return;
+      const natural = !ed.has(k); // ninguém mexeu aqui ainda: é um bloco do mundo original
       ed.set(k, b);
       await this.ctx.storage.put('b:' + k, b);
       this.enviarTodos({ t: 'bloco', x, y, z, b }, ws);
+      if (econ && m.j) await this.econAplicar(ws, eu, econ, { t: 'bloco', b, y, de: m.de | 0, natural }, true); // só o que o jogador fez com as mãos
     } else if (m.t === 'emote' && EMOTES.has(m.e)) {
       this.enviarTodos({ t: 'emote', id: eu.id, e: m.e }, ws);
     } else if (m.t === 'tp-pedir' && typeof m.para === 'string') {
@@ -203,7 +213,49 @@ export class Sala extends DurableObject {
       this.info.inicio = Date.now() - (v - 0.3) * 600000;
       await this.ctx.storage.put('info', this.info);
       this.enviarTodos({ t: 'dia', v, nome: eu.nome });
+    } else if (m.t === 'ev' || m.t === 'vender' || m.t === 'comprar') {
+      const op = this.op();
+      if (!op.mercado && !op.objetivos) return;
+      // no máximo 10 por segundo
+      const agora = Date.now();
+      if (!eu.jeco || agora - eu.jeco > 1000) { eu.jeco = agora; eu.neco = 0; }
+      if (++eu.neco > 10) return;
+      ws.serializeAttachment(eu);
+      const econ = await this.econDe(eu.uid);
+      await this.econAplicar(ws, eu, econ, m, m.t === 'ev');
+    } else if (m.t === 'dar') {
+      if (!this.op().mercado) return;
+      const agora = Date.now();
+      if (eu.dadoEm && agora - eu.dadoEm < 500) return;
+      eu.dadoEm = agora; ws.serializeAttachment(eu);
+      const alvo = this.ctx.getWebSockets().find((w) => { const j = w.deserializeAttachment(); return j && j.id === m.para; });
+      const ja = alvo && alvo.deserializeAttachment();
+      if (!ja || ja.uid === eu.uid) return ws.send(JSON.stringify({ t: 'econ-erro', msg: 'Essa pessoa não está mais aqui.' }));
+      const de = await this.econDe(eu.uid), para = await this.econDe(ja.uid);
+      const falha = dar(de, para, m.n);
+      if (falha) return ws.send(JSON.stringify({ t: 'econ-erro', msg: falha }));
+      await this.ctx.storage.put({ ['e:' + eu.uid]: de, ['e:' + ja.uid]: para });
+      ws.send(JSON.stringify({ t: 'econ', s: de, msg: `Você deu ${m.n | 0} 🪙 para ${ja.nome}!` }));
+      alvo.send(JSON.stringify({ t: 'econ', s: para, msg: `${eu.nome} te deu ${m.n | 0} 🪙 de presente! 🎁` }));
     }
+  }
+
+  op() { return (this.info && this.info.econ) || { mercado: false, objetivos: false }; }
+
+  // moedas, coleta e objetivos de cada jogador (por conta), guardados aqui na sala
+  async econDe(uid) {
+    if (!this.econ) this.econ = new Map();
+    let e = this.econ.get(uid);
+    if (!e) { e = normalizar(await this.ctx.storage.get('e:' + uid), this.op()); this.econ.set(uid, e); }
+    return e;
+  }
+
+  async econAplicar(ws, eu, econ, acao, quieto) {
+    const r = aplicar(econ, this.op(), acao);
+    if (!r.ok) { if (!quieto) ws.send(JSON.stringify({ t: 'econ-erro', msg: r.erro })); return; }
+    if (!r.mudou) return;
+    await this.ctx.storage.put('e:' + eu.uid, econ);
+    ws.send(JSON.stringify({ t: 'econ', s: econ, feitos: r.feitos }));
   }
 
   async webSocketClose(ws) { await this.sair(ws); }
