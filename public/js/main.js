@@ -18,6 +18,7 @@ import { criarComandos } from './comandos.js';
 import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto } from './opcoes-mundo.js';
 import { Monstros } from './monstros.js';
 import { vida } from './vida.js';
+import { Mapa } from './mapa.js';
 
 const $ = (s) => document.querySelector(s);
 preencherIcones();
@@ -26,7 +27,7 @@ const CORES = [0x3f6fd9, 0xe8433f, 0x4caf50, 0xf2c72e, 0x9c5bd9, 0xf29ac2, 0xff8
 // ---------- ajustes salvos ----------
 const ehToque = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 if (ehToque) document.body.classList.add('toque');
-const AJ_PADRAO = { dist: ehToque ? 3 : 4, qual: ehToque ? 0.8 : 1, graf: ehToque ? 'media' : 'alta', gopc: null, ...PESSOAIS, auto: true, sens: 0.0055, som: true, fps: false };
+const AJ_PADRAO = { dist: ehToque ? 3 : 4, qual: ehToque ? 0.8 : 1, graf: ehToque ? 'media' : 'alta', gopc: null, ...PESSOAIS, auto: true, sens: 0.0055, som: true, fps: false, minimapa: true };
 let ajustes = { ...AJ_PADRAO };
 try { Object.assign(ajustes, JSON.parse(localStorage.getItem('pradaria.ajustes') || '{}')); } catch {}
 if (!QUALIDADES[ajustes.graf] && !(ajustes.graf === 'personalizado' && ajustes.gopc)) ajustes.graf = AJ_PADRAO.graf;
@@ -62,6 +63,16 @@ redimensionar();
 const { tex: atlas, canvas: atlasCanvas } = criarAtlas();
 const graf = criarGraficos(renderer, cena, camera, atlas);
 const { matBlocos, matAgua } = graf;
+
+// minimapa e mapa grande
+const mapa = new Mapa({
+  atlasCanvas,
+  mini: $('#minimapa-tela'),
+  grande: { janela: $('#mapa'), canvas: $('#mapa-tela'), coords: $('#mapa-coords'), fechar: $('#mapa-fechar'), mais: $('#mapa-mais'), menos: $('#mapa-menos'), centrar: $('#mapa-centro'), limpar: $('#mapa-limpar') },
+  aoAbrir: () => { if (document.pointerLockElement) document.exitPointerLock(); pausado = true; },
+  aoFechar: () => { pausado = false; },
+});
+function aplicarMinimapa() { mapa.ligado = !!ajustes.minimapa; $('#minimapa').hidden = !ajustes.minimapa; }
 
 // nuvens
 const nuvens = (() => {
@@ -167,14 +178,14 @@ function abrirInventario() {
 function abrirPausa() {
   if (document.pointerLockElement) document.exitPointerLock();
   $('#aj-dist').value = ajustes.dist; $('#aj-qual').value = ajustes.qual; preencherGraficos(); $('#aj-sens').value = ajustes.sens;
-  $('#aj-som').checked = ajustes.som; $('#aj-fps').checked = ajustes.fps;
+  $('#aj-som').checked = ajustes.som; $('#aj-fps').checked = ajustes.fps; $('#aj-minimapa').checked = ajustes.minimapa;
   $('#pausa-mundo').textContent = modo === 'online' ? `Mundo: ${mundoAtual.nome} · código ${mundoAtual.codigo}` : 'Mundo sem internet (salvo neste aparelho)';
   $('#pausa-opcoes').textContent = 'Neste mundo: ' + resumoOpcoes(opcoesMundo);
   $('#pausa').hidden = false;
   pausado = true;
 }
 function fecharJanelas() {
-  $('#inventario').hidden = true; $('#pausa').hidden = true;
+  $('#inventario').hidden = true; $('#pausa').hidden = true; $('#mapa').hidden = true;
   if (cmd) cmd.fechar();
   pausado = false;
 }
@@ -235,6 +246,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Escape' && pausado) fecharJanelas();
   else if (e.code === 'KeyP') abrirPausa();
   else if (e.code === 'KeyC' && !pausado && e.target.tagName !== 'INPUT') cmd.abrir();
+  else if (e.code === 'KeyM') { if (!$('#mapa').hidden) fecharJanelas(); else if (!pausado) mapa.abrir(); }
 });
 // mundo pequeno/médio: como acaba no mar, dá para enxergar mais longe sem pesar
 const raioVisao = () => Math.min(9, ajustes.dist + TAMANHOS[opcoesMundo.tamanho].raioExtra);
@@ -274,6 +286,9 @@ $('#aj-auto').addEventListener('change', (e) => { ajustes.auto = e.target.checke
 $('#aj-qual').addEventListener('input', (e) => { ajustes.qual = +e.target.value; salvarAjustes(); redimensionar(); });
 $('#aj-sens').addEventListener('input', (e) => { ajustes.sens = +e.target.value; if (ctrl) ctrl.sensToque = ajustes.sens; salvarAjustes(); });
 $('#aj-som').addEventListener('change', (e) => { ajustes.som = e.target.checked; som.ligado = ajustes.som; salvarAjustes(); });
+$('#aj-minimapa').addEventListener('change', (e) => { ajustes.minimapa = e.target.checked; salvarAjustes(); aplicarMinimapa(); });
+$('#minimapa').addEventListener('click', () => { som.clique(); mapa.abrir(); });
+$('#bt-abrir-mapa').addEventListener('click', () => { $('#pausa').hidden = true; mapa.abrir(); });
 $('#aj-fps').addEventListener('change', (e) => { ajustes.fps = e.target.checked; $('#fps').hidden = !ajustes.fps; salvarAjustes(); });
 $('#bt-sair-mundo').addEventListener('click', sairDoMundo);
 
@@ -490,7 +505,7 @@ function adicionarOutro(j) {
   const p = j.p || [0, 60, 0];
   b.grupo.position.set(p[0], p[1], p[2]);
   cena.add(b.grupo);
-  outros.set(j.id, { ...b, nome: j.nome, alvo: new THREE.Vector3(...p), yaw: 0, alvoYaw: (j.r && j.r[0]) || 0, fase: 0 });
+  outros.set(j.id, { ...b, nome: j.nome, corCss: '#' + (CORES[j.cor % CORES.length] ?? CORES[0]).toString(16).padStart(6, '0'), alvo: new THREE.Vector3(...p), yaw: 0, alvoYaw: (j.r && j.r[0]) || 0, fase: 0 });
 }
 function removerOutro(id) {
   const o = outros.get(id);
@@ -532,6 +547,8 @@ function salvarLocal() {
 function limparMundo() {
   if (sala) { sala.fechar(); sala = null; }
   for (const id of [...outros.keys()]) removerOutro(id);
+  mapa.usarMundo(null);
+  mapa.fechar();
   if (mundo) {
     for (const c of mundo.chunks.values()) for (const m of [c.malha, c.agua]) if (m) { cena.remove(m); m.geometry.dispose(); }
   }
@@ -588,6 +605,8 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
     else aviso('Buu! Toque no monstrinho para espantar', 1800, 'sorriso');
   };
   vida.reiniciar();
+  mapa.usarMundo(mundo, 'pradaria.mapa.' + (modo === 'online' && mundoAtual ? mundoAtual.codigo : 'local'));
+  aplicarMinimapa();
   som.ligado = ajustes.som;
   ajustarNevoa();
   desenharBarra();
@@ -873,6 +892,7 @@ function laco(agora) {
   aldeoes.atualizar(dt, jog, Math.sin(tempoDia * Math.PI * 2));
   monstros.atualizar(pausado ? 0 : dt, jog, tempoDia);
   if (!pausado) vida.atualizar(dt);
+  mapa.atualizar(dt, jog, outros, bichos);
 
   // contorno do bloco mirado
   if (!ehToque || miraToque) {
@@ -967,4 +987,4 @@ camera.position.set(0, 40, 0);
 if (conta.token) abrirMundos(); else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, camera, graf, renderer, ajustes, jogarLocal, usar, quebrar, cmd }; }
+if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, camera, graf, renderer, ajustes, jogarLocal, usar, quebrar, cmd, mapa }; }
