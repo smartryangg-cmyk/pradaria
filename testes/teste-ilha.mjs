@@ -68,6 +68,12 @@ await p.waitForSelector('#mapa-ilha:not([hidden])');
 await p.screenshot({ path: SAIDA + '/ilha-mapa.png' });
 await p.click('#mapa-ilha [data-fechar]');
 conferir(await p.isHidden('#mapa-ilha'), 'mapa fecha');
+// mapa grande (tecla M) também mostra os lugares da ilha
+await p.keyboard.press('KeyM');
+await p.waitForSelector('#mapa:not([hidden])');
+await p.waitForTimeout(800);
+await p.screenshot({ path: SAIDA + '/ilha-mapa-grande.png' });
+await p.keyboard.press('Escape');
 const fps = await p.evaluate(() => document.querySelector('#fps')?.textContent);
 console.log('fps', fps);
 conferir(erros.length === 0, 'sem erros no console ' + erros.join(' | '));
