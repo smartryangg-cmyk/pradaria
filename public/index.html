@@ -10,7 +10,9 @@
 <title>Pradaria</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icone.svg" type="image/svg+xml">
-<link rel="stylesheet" href="estilo.css?v=3">
+<link rel="apple-touch-icon" href="icone-apple.png">
+<meta name="apple-mobile-web-app-title" content="Pradaria">
+<link rel="stylesheet" href="estilo.css?v=6">
 </head>
 <body>
 <canvas id="tela"></canvas>
@@ -21,6 +23,7 @@
   <div id="mira"></div>
   <div id="topo">
     <button id="bt-menu" class="redondo" aria-label="Menu">☰</button>
+    <button id="bt-tela" class="redondo" aria-label="Tela cheia">⛶</button>
     <div id="status"></div>
     <div id="emotes">
       <button data-emote="👋" aria-label="Acenar">👋</button>
@@ -57,13 +60,59 @@
     <p id="pausa-mundo" class="sub"></p>
     <label class="campo">Gráficos
       <select id="aj-graf">
+        <option value="ultra">💎 Ultra (computador forte)</option>
         <option value="alta">✨ Linda (sombras e luzes completas)</option>
         <option value="media">🌤️ Bonita (sombras mais leves)</option>
         <option value="baixa">🍃 Leve (para aparelhos fracos)</option>
+        <option value="personalizado">🎛️ Personalizado</option>
       </select>
     </label>
+    <details class="mais" id="mais-graf">
+      <summary>Mais opções de gráficos</summary>
+      <label class="campo">Sombras do sol
+        <select id="aj-sombra">
+          <option value="0">Sem sombras</option>
+          <option value="1024">Suaves</option>
+          <option value="2048">Nítidas</option>
+          <option value="4096">Ultra nítidas</option>
+        </select>
+      </label>
+      <label class="campo">Alcance das sombras <span class="val" id="v-area"></span>
+        <input id="aj-area" type="range" min="16" max="80" step="4">
+      </label>
+      <label class="campo">Lampiões que iluminam em volta
+        <input id="aj-luzes" type="range" min="0" max="4" step="1">
+      </label>
+      <label class="campo">Nitidez máxima da tela
+        <select id="aj-teto">
+          <option value="0.6">Econômica</option>
+          <option value="0.8">Leve</option>
+          <option value="1.3">Normal</option>
+          <option value="2.4">Alta</option>
+          <option value="4">Máxima</option>
+        </select>
+      </label>
+      <label class="campo linha"><input id="aj-vento" type="checkbox"> Folhas e flores balançando</label>
+      <label class="campo linha"><input id="aj-ondas" type="checkbox"> Água com ondas e reflexo</label>
+      <label class="campo linha"><input id="aj-nuvens" type="checkbox"> Nuvens</label>
+      <label class="campo linha"><input id="aj-vinheta" type="checkbox"> Cantos da tela escurecidos (efeito de câmera)</label>
+      <label class="campo">Campo de visão <span class="val" id="v-fov"></span>
+        <input id="aj-fov" type="range" min="55" max="100" step="1">
+      </label>
+      <label class="campo">Brilho <span class="val" id="v-brilho"></span>
+        <input id="aj-brilho" type="range" min="0.6" max="1.5" step="0.05">
+      </label>
+      <label class="campo">Limite de quadros por segundo
+        <select id="aj-fpsmax">
+          <option value="0">Sem limite</option>
+          <option value="60">60 (liso)</option>
+          <option value="30">30 (economiza bateria)</option>
+        </select>
+      </label>
+      <label class="campo linha"><input id="aj-auto" type="checkbox"> Deixar mais leve sozinho se ficar lento</label>
+    </details>
     <label class="campo">Distância de visão
-      <input id="aj-dist" type="range" min="2" max="6" step="1">
+      <input id="aj-dist" type="range" min="2" max="8" step="1">
     </label>
     <label class="campo">Qualidade da imagem
       <input id="aj-qual" type="range" min="0.5" max="1.5" step="0.1">
@@ -73,6 +122,8 @@
     </label>
     <label class="campo linha"><input id="aj-som" type="checkbox"> Sons</label>
     <label class="campo linha"><input id="aj-fps" type="checkbox"> Mostrar FPS</label>
+    <button class="bt" id="bt-tela2">⛶ Tela cheia</button>
+    <button class="bt instalar" hidden>📲 Instalar o jogo</button>
     <button class="bt verde" data-fechar>Voltar a jogar</button>
     <button class="bt" id="bt-sair-mundo">Sair do mundo</button>
   </div>
@@ -86,6 +137,7 @@
     <button class="bt verde grande" id="bt-entrar">Entrar</button>
     <button class="bt" id="bt-criar-conta">Criar conta</button>
     <button class="bt" id="bt-sozinho">Jogar sem conta</button>
+    <button class="bt instalar" hidden>📲 Instalar o jogo</button>
   </div>
 
   <form class="caixa" id="m-conta" hidden>
@@ -108,6 +160,7 @@
       <button class="bt" id="bt-codigo">Entrar com código</button>
     </div>
     <button class="bt" id="bt-sozinho2">Jogar sem internet</button>
+    <button class="bt instalar" hidden>📲 Instalar o jogo</button>
     <button class="bt fraco" id="bt-sair-conta">Sair da conta</button>
   </div>
 
@@ -127,6 +180,6 @@
 </div>
 
 <div id="fps" hidden></div>
-<script type="module" src="js/main.js?v=3"></script>
+<script type="module" src="js/main.js?v=6"></script>
 </body>
 </html>

@@ -1,3 +1,21 @@
-{ "name": "Pradaria", "short_name": "Pradaria", "start_url": "/", "display": "fullscreen", "orientation": "landscape",
-  "background_color": "#8fd3ff", "theme_color": "#5bb0e8",
-  "icons": [{ "src": "icone.svg", "sizes": "any", "type": "image/svg+xml" }] }
+{
+  "name": "Pradaria",
+  "short_name": "Pradaria",
+  "description": "Construa, explore e faça carinho nos bichinhos. Jogo de blocos pacífico.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#8fd3ff",
+  "theme_color": "#5bb0e8",
+  "lang": "pt-BR",
+  "categories": ["games", "kids"],
+  "icons": [
+    { "src": "icone-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icone-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icone-mascara.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icone.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

@@ -3,11 +3,16 @@
 import * as THREE from '../vendor/three.module.min.js';
 
 // sombra: tamanho do mapa de sombra · area: metros cobertos · luzes: lampiões acesos · pular: quadros entre atualizações da sombra
+// vento: folhas balançando · ondas: água com ondinhas e reflexo · nuvens · vinheta · fov: campo de visão
+// brilho: exposição · teto: milhões de pixels no máximo · fpsMax: 0 = sem limite
 export const QUALIDADES = {
-  baixa: { nome: 'Leve', sombra: 0, area: 0, luzes: 0, pular: 0 },
-  media: { nome: 'Bonita', sombra: 1024, area: 30, luzes: 2, pular: 1 },
-  alta: { nome: 'Linda', sombra: 2048, area: 44, luzes: 4, pular: 0 },
+  baixa: { nome: 'Leve', sombra: 0, area: 0, luzes: 0, pular: 0, vento: false, ondas: false, nuvens: true, vinheta: false, teto: 0.8 },
+  media: { nome: 'Bonita', sombra: 1024, area: 30, luzes: 2, pular: 1, vento: true, ondas: true, nuvens: true, vinheta: true, teto: 1.3 },
+  alta: { nome: 'Linda', sombra: 2048, area: 44, luzes: 4, pular: 0, vento: true, ondas: true, nuvens: true, vinheta: true, teto: 2.4 },
+  ultra: { nome: 'Ultra', sombra: 4096, area: 64, luzes: 4, pular: 0, vento: true, ondas: true, nuvens: true, vinheta: true, teto: 4 },
 };
+// opções que não mudam com o preset (preferência pessoal)
+export const PESSOAIS = { fov: 72, brilho: 1, fpsMax: 0 };
 
 const tmp = new THREE.Color(), tmp2 = new THREE.Color();
 const C = (h) => new THREE.Color(h);
@@ -31,18 +36,22 @@ export function criarGraficos(renderer, cena, camera, atlas) {
     uHorizonte: { value: new THREE.Color() },
     uNoite: { value: 0 },
     uPor: { value: 0 },
+    uVento: { value: 1 },
+    uOndas: { value: 1 },
   };
+  let brilhoUsuario = 1;
 
   // ---------- blocos: luz de verdade + folhas balançando + lampião aceso ----------
   const matBlocos = new THREE.MeshLambertMaterial({ map: atlas, vertexColors: true, alphaTest: 0.5 });
   matBlocos.onBeforeCompile = (sh) => {
     sh.uniforms.uTempo = U.uTempo;
     sh.uniforms.uNoite = U.uNoite;
+    sh.uniforms.uVento = U.uVento;
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute float onda;\nattribute float brilho;\nuniform float uTempo;\nvarying float vBrilho;')
+      .replace('#include <common>', '#include <common>\nattribute float onda;\nattribute float brilho;\nuniform float uTempo;\nuniform float uVento;\nvarying float vBrilho;')
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         vBrilho = brilho;
-        if (onda > 0.0) {
+        if (onda * uVento > 0.0) {
           vec4 wpO = modelMatrix * vec4(transformed, 1.0);
           float fase = uTempo * 1.6 + wpO.x * 0.55 + wpO.z * 0.4;
           transformed.x += sin(fase) * 0.07 * onda;
@@ -70,7 +79,7 @@ export function criarGraficos(renderer, cena, camera, atlas) {
         gl_Position = projectionMatrix * viewMatrix * wp;
       }`,
     fragmentShader: `
-      uniform float uTempo, uNoite, uPor, uNevoaPerto, uNevoaLonge;
+      uniform float uTempo, uNoite, uPor, uNevoaPerto, uNevoaLonge, uOndas;
       uniform vec3 uSolDir, uSolCor, uZenite, uHorizonte, uNevoaCor;
       varying vec3 vMundo;
       void main() {
@@ -81,7 +90,7 @@ export function criarGraficos(renderer, cena, camera, atlas) {
         d += vec2(cos(p.x * 0.9 + t * 1.3), cos(p.y * 0.7 + t * 1.1)) * 0.10;
         d += vec2(cos(p.x * 2.3 - p.y * 1.7 + t * 2.1), cos(p.y * 2.1 + p.x * 1.3 - t * 1.7)) * 0.05;
         d += vec2(cos((p.x + p.y) * 4.7 + t * 3.0), cos((p.x - p.y) * 5.1 - t * 2.6)) * 0.025;
-        vec3 n = normalize(vec3(d.x, 1.0, d.y));
+        vec3 n = normalize(vec3(d.x * uOndas, 1.0, d.y * uOndas));
         vec3 v = normalize(cameraPosition - vMundo);
         if (v.y < 0.0) n.y = -n.y;
         float fres = pow(1.0 - max(dot(n, v), 0.0), 3.0);
@@ -162,8 +171,15 @@ export function criarGraficos(renderer, cena, camera, atlas) {
   }
 
   let q = QUALIDADES.media, pulos = 0;
-  function aplicarQualidade(nome) {
-    q = QUALIDADES[nome] || QUALIDADES.media;
+  // o: objeto com as opções (de um preset ou personalizadas)
+  function aplicar(o) {
+    const antes = q;
+    q = { ...QUALIDADES.media, ...o };
+    U.uVento.value = q.vento ? 1 : 0;
+    U.uOndas.value = q.ondas ? 1 : 0;
+    brilhoUsuario = q.brilho || 1;
+    // só recompila os materiais quando muda algo que exige (sombra, nº de lampiões)
+    if (antes && antes !== QUALIDADES.media && antes.sombra === q.sombra && antes.area === q.area && antes.luzes === q.luzes) return q;
     const comSombra = q.sombra > 0;
     renderer.shadowMap.enabled = comSombra;
     renderer.shadowMap.autoUpdate = false;
@@ -211,7 +227,7 @@ export function criarGraficos(renderer, cena, camera, atlas) {
     hemi.color.copy(U.uZenite.value).lerp(tmp.setRGB(1, 1, 1), 0.3 + dia * 0.25);
     hemi.groundColor.setRGB(0.42, 0.36, 0.28).multiplyScalar(0.5 + dia * 0.5);
     hemi.intensity = 0.55 + dia * 0.4;
-    renderer.toneMappingExposure = 0.95 + noite * 0.2;
+    renderer.toneMappingExposure = (0.95 + noite * 0.2) * brilhoUsuario;
 
     // sombra segue o jogador, "grudada" em pixels para não tremer
     const R = q.area || 30;
@@ -255,5 +271,5 @@ export function criarGraficos(renderer, cena, camera, atlas) {
     if (cor) matAgua.uniforms.uNevoaCor.value.copy(cor);
   }
 
-  return { matBlocos, matAgua, atualizar, aplicarQualidade, ajustarNevoa, U, get q() { return q; } };
+  return { matBlocos, matAgua, atualizar, aplicar, ajustarNevoa, U, get q() { return q; } };
 }

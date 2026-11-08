@@ -8,7 +8,7 @@ import { Bichos } from './animais.js';
 import { Som } from './som.js';
 import { montarBoneco, etiqueta, matModelo, caixa, juntar } from './modelos.js';
 import { conta, api, Sala } from './rede.js';
-import { criarGraficos, QUALIDADES } from './graficos.js';
+import { criarGraficos, QUALIDADES, PESSOAIS } from './graficos.js';
 
 const $ = (s) => document.querySelector(s);
 const CORES = [0x3f6fd9, 0xe8433f, 0x4caf50, 0xf2c72e, 0x9c5bd9, 0xf29ac2, 0xff8a3d, 0x2bb3b3];
@@ -16,10 +16,15 @@ const CORES = [0x3f6fd9, 0xe8433f, 0x4caf50, 0xf2c72e, 0x9c5bd9, 0xf29ac2, 0xff8
 // ---------- ajustes salvos ----------
 const ehToque = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 if (ehToque) document.body.classList.add('toque');
-const AJ_PADRAO = { dist: ehToque ? 3 : 4, qual: ehToque ? 0.8 : 1, graf: ehToque ? 'media' : 'alta', sens: 0.0055, som: true, fps: false };
+const AJ_PADRAO = { dist: ehToque ? 3 : 4, qual: ehToque ? 0.8 : 1, graf: ehToque ? 'media' : 'alta', gopc: null, ...PESSOAIS, auto: true, sens: 0.0055, som: true, fps: false };
 let ajustes = { ...AJ_PADRAO };
 try { Object.assign(ajustes, JSON.parse(localStorage.getItem('pradaria.ajustes') || '{}')); } catch {}
-if (!QUALIDADES[ajustes.graf]) ajustes.graf = AJ_PADRAO.graf;
+if (!QUALIDADES[ajustes.graf] && !(ajustes.graf === 'personalizado' && ajustes.gopc)) ajustes.graf = AJ_PADRAO.graf;
+// opções gráficas valendo agora: as do preset (ou as personalizadas) + as pessoais
+function opcoesGraficas() {
+  const base = ajustes.graf === 'personalizado' ? { ...QUALIDADES.alta, ...ajustes.gopc, nome: 'Personalizado' } : QUALIDADES[ajustes.graf];
+  return { ...base, fov: ajustes.fov, brilho: ajustes.brilho, fpsMax: ajustes.fpsMax };
+}
 const salvarAjustes = () => { try { localStorage.setItem('pradaria.ajustes', JSON.stringify(ajustes)); } catch {} };
 
 // ---------- renderização ----------
@@ -32,12 +37,13 @@ cena.fog = new THREE.Fog(0x8fd3ff, 30, 60);
 
 function redimensionar() {
   // limite de pixels por nível (tablet com tela enorme não precisa desenhar 4 milhões de pixels)
-  const tetoMP = { baixa: 0.8, media: 1.3, alta: 2.4 }[ajustes.graf] || 1.3;
+  const tetoMP = opcoesGraficas().teto || 1.3;
   const maxPr = Math.sqrt((tetoMP * 1e6) / (innerWidth * innerHeight));
   const pr = Math.min(window.devicePixelRatio || 1, 2, maxPr) * ajustes.qual;
   renderer.setPixelRatio(Math.max(0.4, pr));
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight;
+  camera.fov = ajustes.fov || 72;
   camera.updateProjectionMatrix();
 }
 addEventListener('resize', redimensionar);
@@ -46,7 +52,6 @@ redimensionar();
 const { tex: atlas, canvas: atlasCanvas } = criarAtlas();
 const graf = criarGraficos(renderer, cena, camera, atlas);
 const { matBlocos, matAgua } = graf;
-graf.aplicarQualidade(ajustes.graf);
 
 // nuvens
 const nuvens = (() => {
@@ -63,6 +68,15 @@ const nuvens = (() => {
   cena.add(m);
   return m;
 })();
+
+function aplicarGraficos() {
+  const o = graf.aplicar(opcoesGraficas());
+  nuvens.visible = o.nuvens;
+  $('#vinheta').hidden = !o.vinheta;
+  redimensionar();
+  return o;
+}
+aplicarGraficos();
 
 // contorno do bloco mirado
 const contorno = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1.004, 1.004, 1.004)), new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.55 }));
@@ -134,7 +148,7 @@ function abrirInventario() {
 
 function abrirPausa() {
   if (document.pointerLockElement) document.exitPointerLock();
-  $('#aj-dist').value = ajustes.dist; $('#aj-qual').value = ajustes.qual; $('#aj-graf').value = ajustes.graf; $('#aj-sens').value = ajustes.sens;
+  $('#aj-dist').value = ajustes.dist; $('#aj-qual').value = ajustes.qual; preencherGraficos(); $('#aj-sens').value = ajustes.sens;
   $('#aj-som').checked = ajustes.som; $('#aj-fps').checked = ajustes.fps;
   $('#pausa-mundo').textContent = modo === 'online' ? `Mundo: ${mundoAtual.nome} · código ${mundoAtual.codigo}` : 'Mundo sem internet (salvo neste aparelho)';
   $('#pausa').hidden = false;
@@ -146,13 +160,91 @@ function fecharJanelas() {
 }
 document.querySelectorAll('[data-fechar]').forEach((b) => b.addEventListener('click', fecharJanelas));
 $('#bt-menu').addEventListener('click', abrirPausa);
+// ---------- tela cheia ----------
+const el = document.documentElement;
+const pedirTela = el.requestFullscreen || el.webkitRequestFullscreen;
+const emTelaCheia = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+const ehApp = matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone || new URLSearchParams(location.search).get('app') === 'android';
+function alternarTela() {
+  som.iniciar();
+  if (emTelaCheia()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+  if (pedirTela) {
+    Promise.resolve(pedirTela.call(el, { navigationUI: 'hide' }))
+      .then(() => { try { screen.orientation.lock('landscape').catch(() => {}); } catch {} })
+      .catch(() => aviso('Não deu para abrir em tela cheia aqui 😕', 2500));
+  } else {
+    // iPhone não deixa sites ficarem em tela cheia: o jeito é instalar na tela de início
+    aviso('No iPhone: toque em Compartilhar ⬆️ e depois em "Adicionar à Tela de Início". O jogo abre em tela cheia por lá!', 6000);
+  }
+}
+function atualizarBotaoTela() {
+  const cheia = emTelaCheia();
+  $('#bt-tela').textContent = cheia ? '🗗' : '⛶';
+  $('#bt-tela2').textContent = cheia ? '🗗 Sair da tela cheia' : '⛶ Tela cheia';
+}
+$('#bt-tela').hidden = !!ehApp;
+$('#bt-tela2').hidden = !!ehApp;
+$('#bt-tela').addEventListener('click', alternarTela);
+$('#bt-tela2').addEventListener('click', alternarTela);
+document.addEventListener('fullscreenchange', atualizarBotaoTela);
+document.addEventListener('webkitfullscreenchange', atualizarBotaoTela);
+
+// ---------- instalar o app ----------
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('/sw.js').catch(() => {});
+let pedidoInstalar = null;
+const ehIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function mostrarInstalar(sim) { document.querySelectorAll('.instalar').forEach((b) => { b.hidden = !sim || !!ehApp; }); }
+addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); pedidoInstalar = e; mostrarInstalar(true); });
+addEventListener('appinstalled', () => { pedidoInstalar = null; mostrarInstalar(false); aviso('Pronto! O Pradaria está na sua tela de início 🎉', 3500); });
+if (ehIOS) mostrarInstalar(true); // no iPhone/iPad não tem pedido automático: mostramos o passo a passo
+document.querySelectorAll('.instalar').forEach((b) => b.addEventListener('click', async () => {
+  if (pedidoInstalar) {
+    pedidoInstalar.prompt();
+    const r = await pedidoInstalar.userChoice.catch(() => null);
+    if (r && r.outcome === 'accepted') mostrarInstalar(false);
+    pedidoInstalar = null;
+  } else if (ehIOS) {
+    alert('Para instalar no iPhone ou iPad:\n\n1. Abra este site no Safari\n2. Toque em Compartilhar (o quadrado com a setinha ⬆️)\n3. Toque em "Adicionar à Tela de Início"\n\nDepois é só abrir pelo ícone, em tela cheia!');
+  }
+}));
 addEventListener('keydown', (e) => {
   if (!jogando) return;
   if (e.code === 'Escape' && pausado) fecharJanelas();
   else if (e.code === 'KeyP') abrirPausa();
 });
 $('#aj-dist').addEventListener('input', (e) => { ajustes.dist = +e.target.value; if (mundo) mundo.raio = ajustes.dist; salvarAjustes(); ajustarNevoa(); });
-$('#aj-graf').addEventListener('change', (e) => { ajustes.graf = e.target.value; salvarAjustes(); graf.aplicarQualidade(ajustes.graf); segundosLentos = 0; redimensionar(); });
+$('#aj-graf').addEventListener('change', (e) => {
+  ajustes.graf = e.target.value;
+  if (ajustes.graf === 'personalizado' && !ajustes.gopc) ajustes.gopc = { ...QUALIDADES.alta };
+  salvarAjustes(); aplicarGraficos(); preencherGraficos(); segundosLentos = 0;
+});
+// opções avançadas: mexer em qualquer uma vira "Personalizado"
+const OPC = [
+  ['aj-sombra', 'sombra', 'num'], ['aj-area', 'area', 'num'], ['aj-luzes', 'luzes', 'num'], ['aj-teto', 'teto', 'num'],
+  ['aj-vento', 'vento', 'bool'], ['aj-ondas', 'ondas', 'bool'], ['aj-nuvens', 'nuvens', 'bool'], ['aj-vinheta', 'vinheta', 'bool'],
+];
+const PESS = [['aj-fov', 'fov'], ['aj-brilho', 'brilho'], ['aj-fpsmax', 'fpsMax']];
+function preencherGraficos() {
+  const o = opcoesGraficas();
+  $('#aj-graf').value = ajustes.graf;
+  for (const [id, k, t] of OPC) { const el = $('#' + id); if (t === 'bool') el.checked = !!o[k]; else el.value = o[k]; }
+  for (const [id, k] of PESS) $('#' + id).value = ajustes[k];
+  $('#aj-auto').checked = ajustes.auto;
+  $('#v-fov').textContent = ajustes.fov + '°';
+  $('#v-brilho').textContent = Math.round(ajustes.brilho * 100) + '%';
+  $('#v-area').textContent = o.sombra ? o.area + ' m' : '—';
+  $('#aj-area').disabled = !o.sombra;
+}
+for (const [id, k, t] of OPC) $('#' + id).addEventListener(t === 'bool' ? 'change' : 'input', (e) => {
+  const o = opcoesGraficas();
+  ajustes.gopc = { sombra: o.sombra, area: o.area, luzes: o.luzes, pular: 0, vento: o.vento, ondas: o.ondas, nuvens: o.nuvens, vinheta: o.vinheta, teto: o.teto };
+  ajustes.gopc[k] = t === 'bool' ? e.target.checked : +e.target.value;
+  if (k === 'sombra' && ajustes.gopc.sombra && !ajustes.gopc.area) ajustes.gopc.area = 32;
+  ajustes.graf = 'personalizado';
+  salvarAjustes(); aplicarGraficos(); preencherGraficos();
+});
+for (const [id, k] of PESS) $('#' + id).addEventListener('input', (e) => { ajustes[k] = +e.target.value; salvarAjustes(); aplicarGraficos(); preencherGraficos(); });
+$('#aj-auto').addEventListener('change', (e) => { ajustes.auto = e.target.checked; salvarAjustes(); });
 $('#aj-qual').addEventListener('input', (e) => { ajustes.qual = +e.target.value; salvarAjustes(); redimensionar(); });
 $('#aj-sens').addEventListener('input', (e) => { ajustes.sens = +e.target.value; if (ctrl) ctrl.sensToque = ajustes.sens; salvarAjustes(); });
 $('#aj-som').addEventListener('change', (e) => { ajustes.som = e.target.checked; som.ligado = ajustes.som; salvarAjustes(); });
@@ -497,6 +589,8 @@ const corTmp = new THREE.Color();
 
 function laco(agora) {
   requestAnimationFrame(laco);
+  // limite de FPS (economiza bateria); a folga de 2 ms evita pular quadro à toa
+  if (jogando && ajustes.fpsMax && agora - ultimo < 1000 / ajustes.fpsMax - 2) return;
   const dt = Math.min(0.1, (agora - ultimo) / 1000);
   ultimo = agora;
   if (!jogando) { renderer.render(cena, camera); return; }
@@ -513,7 +607,16 @@ function laco(agora) {
   mundo.atualizar(jog.pos.x, jog.pos.z, ehToque ? 5 : 8);
   bichos.atualizar(dt, jog, tempoTotal);
 
-  // contorno do bloco mirado
+  function aplicarGraficos() {
+  const o = graf.aplicar(opcoesGraficas());
+  nuvens.visible = o.nuvens;
+  $('#vinheta').hidden = !o.vinheta;
+  redimensionar();
+  return o;
+}
+aplicarGraficos();
+
+// contorno do bloco mirado
   if (!ehToque || miraToque) {
     const h = mundo.raycast(camera.position, direcaoDe(miraToque), 6);
     if (h && h.t > 0.05) { contorno.visible = true; contorno.position.set(h.x + 0.5, h.y + 0.5, h.z + 0.5); } else contorno.visible = false;
@@ -567,7 +670,7 @@ function laco(agora) {
   renderer.render(cena, camera);
   quadros++; tempoFps += dt;
   if (tempoFps > 1) {
-    if (ajustes.fps) $('#fps').textContent = `${quadros} fps · ${renderer.info.render.calls} draws · ${QUALIDADES[ajustes.graf].nome}`;
+    if (ajustes.fps) $('#fps').textContent = `${quadros} fps · ${renderer.info.render.calls} draws · ${opcoesGraficas().nome}`;
     vigiarDesempenho(quadros / tempoFps);
     quadros = 0; tempoFps = 0;
   }
@@ -575,17 +678,17 @@ function laco(agora) {
 // se o aparelho sofrer, deixa os gráficos mais leves sozinho (uma vez por nível)
 let segundosLentos = 0, segundosJogando = 0;
 function vigiarDesempenho(fps) {
-  if (!jogando || pausado || document.hidden || window.__semAuto) return;
+  if (!jogando || pausado || document.hidden || window.__semAuto || !ajustes.auto) return;
   segundosJogando++;
   if (segundosJogando < 6) return; // espera o mundo carregar
   segundosLentos = fps < 24 ? segundosLentos + 1 : 0;
   if (segundosLentos >= 5) {
     segundosLentos = 0;
-    const ordem = ['baixa', 'media', 'alta'];
-    const i = ordem.indexOf(ajustes.graf);
+    const ordem = ['baixa', 'media', 'alta', 'ultra'];
+    let i = ordem.indexOf(ajustes.graf);
+    if (i < 0) i = opcoesGraficas().sombra > 1024 ? 2 : 1; // personalizado: desce para o preset logo abaixo
     if (i > 0) {
-      ajustes.graf = ordem[i - 1]; salvarAjustes(); graf.aplicarQualidade(ajustes.graf); redimensionar();
-      $('#aj-graf').value = ajustes.graf;
+      ajustes.graf = ordem[i - 1]; salvarAjustes(); aplicarGraficos(); preencherGraficos();
       aviso('Deixei os gráficos mais leves para rodar liso ✨', 2500);
     } else if (ajustes.qual > 0.6) {
       ajustes.qual = Math.max(0.6, +(ajustes.qual - 0.1).toFixed(1)); salvarAjustes(); redimensionar();

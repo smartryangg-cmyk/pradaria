@@ -86,3 +86,10 @@ body:not(.toque) #botoes-toque, body:not(.toque) #dica-toque { display: none; }
 /* v3: vinheta suave (efeito de câmera, de graça) e seletor de gráficos */
 #vinheta { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(10,20,40,.28) 100%); }
 .campo select { font: inherit; font-size: 16px; padding: 10px; border-radius: 12px; border: 2px solid #e2d6bf; background: #fff; }
+#bt-tela { font-size: 26px; }
+#aviso { max-width: min(560px, 90vw); }
+details.mais { background: #fff; border-radius: 14px; padding: 4px 12px; box-shadow: 0 3px 0 #e2d6bf; }
+details.mais summary { font-weight: 800; padding: 8px 0; cursor: pointer; }
+details.mais[open] { display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; }
+.campo .val { font-weight: 600; opacity: .7; margin-left: 4px; }
+.campo input[type=range]:disabled { opacity: .4; }
