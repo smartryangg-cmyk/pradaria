@@ -298,7 +298,10 @@ function pintarLegado(img) {
     return galho ? var_(hex(0x8a6a3a), r, 0.2) : [0, 0, 0, 0];
   });
   pintarMaquinas(img);
-  pintarCriacao(img);
+  // tiles 64..127 (blocos das eras): neve, grama com neve, gelo e arenito do mundo clássico também vêm daqui.
+  // Sem eles esses blocos ficam invisíveis e o terreno parece cheio de buracos.
+  for (const t in PINTORES) pintarTile(img, +t, PINTORES[t]);
+  pintarCriacao(img); // depois: se usar algum tile livre das eras, a arte nova vale
 }
 
 // Pinta o atlas com tiles de T pixels. Os desenhos são pensados em "unidades de 16" (u,v = 0..16),
