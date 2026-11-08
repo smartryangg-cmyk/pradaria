@@ -69,6 +69,7 @@ const pa = await a.evaluate(() => { const v = window.__jogo.garagem.dentro.v; re
 const pbV = await bb.evaluate((id) => { const v = window.__jogo.garagem.veic.mapa.get(id); return [v.x, v.z]; }, vid);
 const pbJ = await bb.evaluate(() => { const j = window.__jogo.jog.pos; return [j.x, j.z]; });
 const andou = Math.hypot(pa[0] - pv[0], pa[1] - pv[2]);
+if (andou <= 2) console.log('debug', JSON.stringify(await a.evaluate(() => { const J = window.__jogo, v = J.garagem.dentro.v, m = J.mundo; const f = []; for (let d = 1; d < 5; d++) { const x = Math.floor(v.x - Math.sin(v.yaw) * (d + 1.7)), z = Math.floor(v.z - Math.cos(v.yaw) * (d + 1.7)); f.push([0, 1, 2].map((k) => m.bloco(x, Math.floor(v.y) + k, z)).join('/')); } return { y: v.y, yaw: v.yaw, f, al: J.aldeoes.lista.map((a) => [a.x - v.x, a.z - v.z].map((n) => +n.toFixed(1))).filter(([x, z]) => Math.hypot(x, z) < 8), bi: J.bichos.lista.map((a) => [a.x - v.x, a.z - v.z].map((n) => +n.toFixed(1))).filter(([x, z]) => Math.hypot(x, z) < 8) }; })));
 ok(andou > 2, 'carro andou ' + andou.toFixed(1));
 ok(Math.hypot(pa[0] - pbV[0], pa[1] - pbV[1]) < 1, 'B vê o carro no mesmo lugar');
 ok(Math.hypot(pa[0] - pbJ[0], pa[1] - pbJ[1]) < 3, 'B foi junto no carro');
@@ -92,8 +93,7 @@ await bb.waitForFunction((id) => window.__jogo && window.__jogo.garagem.veic && 
 ok(await bb.evaluate((id) => window.__jogo.garagem.veic.mapa.get(id).ocup[0] !== null, vid), 'depois de recarregar, B vê A dirigindo');
 // A guarda o carro
 await a.evaluate(() => window.__jogo.garagem.guardar());
-await bb.waitForTimeout(800);
-ok(await bb.evaluate((id) => !window.__jogo.garagem.veic.mapa.has(id), vid), 'carro guardado sumiu para B');
+ok(await bb.waitForFunction((id) => !window.__jogo.garagem.veic.mapa.has(id), vid, { timeout: 5000 }).then(() => true, () => false), 'carro guardado sumiu para B');
 ok(await a.evaluate(() => !window.__jogo.garagem.dentro), 'A desceu ao guardar');
 console.log(erros.join('\n') || 'sem erros');
 await b.close();

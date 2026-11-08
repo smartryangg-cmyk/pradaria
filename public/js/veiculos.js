@@ -408,7 +408,8 @@ export class Veiculos {
 
   // ent: { frente, lado, subir, descer }; obst: [{x,z}] (bichos e pessoas: o veículo freia antes)
   dirigir(v, dt, ent, obst) {
-    dt = Math.min(dt, 0.05);
+    // passos de no máximo 0,05 s: num tablet lento (poucos quadros) o veículo anda na mesma velocidade
+    if (dt > 0.05) { const n = Math.min(4, Math.ceil(dt / 0.05)); for (let i = 0; i < n; i++) this.dirigir(v, dt / n, ent, obst); return; }
     const d = v.d;
     const agua = this.naAgua(v);
     const voa = d.meio === 'ar' || d.meio === 'helice';
@@ -506,7 +507,7 @@ export class Veiculos {
 
   // veículo sem motorista: só cai/boia até parar
   assentar(v, dt) {
-    dt = Math.min(dt, 0.05);
+    if (dt > 0.05) { const n = Math.min(4, Math.ceil(dt / 0.05)); for (let i = 0; i < n; i++) this.assentar(v, dt / n); return; }
     const agua = this.naAgua(v);
     if (v.d.meio === 'helice' || v.d.meio === 'ar') v.vy += (-4 - v.vy) * Math.min(1, dt * 2); // desce devagar, de paraquedas
     else if (agua) this.boiar(v, dt);
