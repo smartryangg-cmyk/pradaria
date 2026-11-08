@@ -9,6 +9,7 @@
 // Para criar uma opção nova: acrescente em OPCOES_MUNDO abaixo (o servidor e a tela já usam a lista).
 
 export const OPCOES_MUNDO = [
+  { id: 'sobrevivencia', icone: 'martelo', nome: 'Coletar e criar', desc: 'Quebre para juntar e crie ferramentas na bancada. Desligado: blocos à vontade', padrao: true, antigos: false },
   { id: 'animais', icone: 'ovelha', nome: 'Bichinhos', desc: 'Ovelhas, porquinhos, coelhos e amigos', padrao: true },
   { id: 'vilas', icone: 'vila', nome: 'Vilas', desc: 'Vilinhas com casas e moradores', padrao: true },
   { id: 'veiculos', icone: 'carro', nome: 'Veículos', desc: 'Carrinhos e barcos para passear', padrao: true },

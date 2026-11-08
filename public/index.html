@@ -12,7 +12,7 @@
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icone-apple.png">
 <meta name="apple-mobile-web-app-title" content="Pradaria">
-<link rel="stylesheet" href="estilo.css?v=13">
+<link rel="stylesheet" href="estilo.css?v=14">
 </head>
 <body>
 <canvas id="tela"></canvas>
@@ -37,6 +37,7 @@
   <div id="vida" role="img" hidden></div>
   <button id="minimapa" aria-label="Abrir o mapa"><canvas id="minimapa-tela"></canvas><span class="norte">N</span></button>
   <div id="aviso"></div>
+  <div id="coleta" aria-live="polite"></div>
   <div id="pedido-tp" hidden>
     <span id="pedido-ic"></span>
     <span id="pedido-txt"></span>
@@ -59,9 +60,10 @@
 <div id="inventario" class="janela" hidden>
   <div class="caixa">
     <h2 id="inv-titulo">Blocos</h2>
-    <div id="abas-inv" class="abas"><button type="button" data-aba="blocos" class="sel"><span data-icone="tijolos"></span>Blocos</button><button type="button" data-aba="maquinas"><span data-icone="engrenagem"></span>Engenharia</button></div>
-    <p class="sub">Escolha um bloco para a mão</p>
+    <div id="abas-inv" class="abas"></div>
+    <p class="sub" id="inv-sub">Escolha um bloco para a mão</p>
     <p id="dica-maquinas" class="sub dica-maq" hidden><span data-icone="raio"></span> Toque na <b>Alavanca</b> para ligar. A energia corre pelo <b>Fio</b> e por tudo que encosta: lâmpada, portão, ventilador (elevador!), sino e confete. O <b>Sensor de noite</b> liga sozinho quando escurece e o <b>Pisca-pisca</b> liga e desliga sem parar.</p>
+    <p id="bancada-status" class="sub" hidden></p>
     <div id="grade"></div>
     <button class="bt" data-fechar>Fechar</button>
   </div>
@@ -281,6 +283,6 @@
 
 <div id="desmaio" hidden></div>
 <div id="fps" hidden></div>
-<script type="module" src="js/main.js?v=13"></script>
+<script type="module" src="js/main.js?v=15"></script>
 </body>
 </html>
