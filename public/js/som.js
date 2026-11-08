@@ -70,6 +70,37 @@ export class Som {
   boing() { this.tom(180, 0.3, { tipo: 'sine', vol: 0.35, ate: 520 }); }
   oi() { this.tom(660, 0.12, { tipo: 'sine', vol: 0.3 }); this.tom(990, 0.18, { tipo: 'sine', vol: 0.3, atraso: 0.1 }); }
 
+  // buzinas de cada veículo (vol 0..1 diminui com a distância)
+  buzina(tipo, vol = 1) {
+    const v = Math.max(0.02, vol);
+    switch (tipo) {
+      case 'caminhao': this.tom(220, 0.6, { tipo: 'sawtooth', vol: 0.12 * v }); this.tom(277, 0.6, { tipo: 'sawtooth', vol: 0.1 * v }); break;
+      case 'campainha': this.tom(1800, 0.12, { tipo: 'triangle', vol: 0.25 * v }); this.tom(1800, 0.2, { tipo: 'triangle', vol: 0.25 * v, atraso: 0.16 }); break;
+      case 'barco': this.tom(140, 1.1, { tipo: 'sawtooth', vol: 0.14 * v }); this.tom(210, 1.1, { tipo: 'triangle', vol: 0.1 * v }); break;
+      case 'apito': this.tom(900, 0.25, { tipo: 'sine', vol: 0.3 * v, ate: 1500 }); this.tom(1500, 0.2, { tipo: 'sine', vol: 0.25 * v, ate: 1100, atraso: 0.26 }); break;
+      default: this.tom(392, 0.35, { tipo: 'square', vol: 0.12 * v }); this.tom(494, 0.35, { tipo: 'square', vol: 0.1 * v });
+    }
+  }
+  porta() { this.ruido(0.08, { vol: 0.35, freq: 600 }); this.tom(160, 0.08, { tipo: 'triangle', vol: 0.2 }); }
+
+  // ronco do motor contínuo (v 0..1, grave muda o tom); null desliga
+  motor(v, grave = 1, tipo = 'motor') {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    if (v === null || !this.ligado || tipo === 'pedal') { if (this.mo) this.mg.gain.setTargetAtTime(0, t, 0.1); return; }
+    if (!this.mo) {
+      this.mo = this.ctx.createOscillator(); this.mo.type = 'sawtooth';
+      this.mf = this.ctx.createBiquadFilter(); this.mf.type = 'lowpass'; this.mf.frequency.value = 420;
+      this.mg = this.ctx.createGain(); this.mg.gain.value = 0;
+      this.mo.connect(this.mf); this.mf.connect(this.mg); this.mg.connect(this.mestre); this.mo.start();
+    }
+    if (tipo === 'skate') { this.mo.frequency.setTargetAtTime(30 + v * 20, t, 0.1); this.mf.frequency.value = 200; this.mg.gain.setTargetAtTime(v > 0.05 ? 0.05 : 0, t, 0.1); return; }
+    if (tipo === 'helice') { this.mo.frequency.setTargetAtTime(22 + v * 6, t, 0.1); this.mf.frequency.value = 300; this.mg.gain.setTargetAtTime(0.14, t, 0.1); return; }
+    this.mf.frequency.value = 420;
+    this.mo.frequency.setTargetAtTime((48 + v * 120) * grave, t, 0.1);
+    this.mg.gain.setTargetAtTime(0.06 + v * 0.06, t, 0.1);
+  }
+
   bicho(tipo) {
     switch (tipo) {
       case 'bee': this.tom(330, 0.5, { tipo: 'sawtooth', vol: 0.18, vibrato: 18, ate: 300 }); break;

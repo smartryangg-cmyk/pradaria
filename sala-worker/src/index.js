@@ -8,7 +8,12 @@ const MAX_JOGADORES = 12;
 const EMOTES = new Set(['acenar', 'coracao', 'sorriso', 'estrela', '👋', '❤️', '😄', '⭐']);
 const MAX_EDICOES = 200000; // por mundo
 const LONGE = 100000; // ninguém precisa ir mais longe que isso
-const MSG_POR_SEG = 20;
+const MSG_POR_SEG = 30;
+// veículos: tipo -> número de lugares (igual ao public/js/veiculos.js)
+const LUGARES = { carro: 4, jipe: 4, esportivo: 2, quadriciclo: 2, moto: 2, bicicleta: 1, skate: 1, trator: 2, caminhao: 6, onibus: 9, barco: 4, aviao: 2, helicoptero: 4 };
+const MAX_VEICULOS = 40; // por mundo
+const MAX_VEICULOS_POR_JOGADOR = 6;
+const arrV = (v, k = 100) => Math.round(v * k) / k;
 const MAX_LUGARES = 8;
 const ICONES_LUGAR = new Set(['⭐', '🌳', '🏰', '🌊', '⛰️', '🌸', '🐑', '🍎', '💎', '🌻']);
 const TP_ESPERA = 30000; // um pedido de teleporte vale por 30 s
@@ -33,6 +38,7 @@ export class Sala extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.edicoes = null; // Map "x,y,z" -> b
+    this.veiculos = null; // Map id -> { id, tipo, cor, p, r, dono, t }
     this.info = null;
     this.ctx.blockConcurrencyWhile(async () => {
       this.info = (await this.ctx.storage.get('info')) || null;
@@ -46,6 +52,35 @@ export class Sala extends DurableObject {
     for (const [k, v] of lista) m.set(k.slice(2), v);
     this.edicoes = m;
     return m;
+  }
+
+  async carregarVeiculos() {
+    if (this.veiculos) return this.veiculos;
+    const m = new Map();
+    const lista = await this.ctx.storage.list({ prefix: 'v:' });
+    for (const [, v] of lista) m.set(v.id, v);
+    this.veiculos = m;
+    return m;
+  }
+
+  // quem está sentado em cada veículo (fica guardado na conexão de cada jogador)
+  ocupacao() {
+    const o = new Map();
+    for (const j of this.jogadores()) if (j.v) {
+      if (!o.has(j.v[0])) o.set(j.v[0], []);
+      o.get(j.v[0])[j.v[1]] = j.id;
+    }
+    return o;
+  }
+
+  async descer(ws, eu) {
+    if (!eu.v) return;
+    const [id, a] = eu.v;
+    eu.v = null;
+    ws.serializeAttachment(eu);
+    this.enviarTodos({ t: 'vassento', id, a, j: null });
+    const v = (await this.carregarVeiculos()).get(id);
+    if (v) await this.ctx.storage.put('v:' + id, v);
   }
 
   jogadores() {
@@ -92,7 +127,7 @@ export class Sala extends DurableObject {
     }
     const id = u.id + '-' + Math.random().toString(36).slice(2, 7);
     const pos = (await this.ctx.storage.get('p:' + u.id)) || null;
-    const eu = { id, uid: u.id, nome: u.nome, cor: u.cor, dono: !!u.dono, p: pos || [0, 60, 0], r: [0, 0], cota: 0, janela: 0 };
+    const eu = { id, uid: u.id, nome: u.nome, cor: u.cor, dono: !!u.dono, p: pos || [0, 60, 0], r: [0, 0], cota: 0, janela: 0, semVeiculos: opcoes.veiculos === false };
     this.ctx.acceptWebSocket(servidor);
     servidor.serializeAttachment(eu);
 
@@ -102,9 +137,12 @@ export class Sala extends DurableObject {
     for (const [k, b] of ed) { const [x, y, z] = k.split(',').map(Number); edicoes.push([x, y, z, b]); }
     // sem ciclo de dia e noite: sempre de manhã clarinha
     const dia = opcoes.cicloDia === false ? 0.3 : this.diaAgora();
+    const vs = await this.carregarVeiculos();
+    const ocup = this.ocupacao();
+    const veiculos = [...vs.values()].map(({ id, tipo, cor, p, r }) => ({ id, tipo, cor, p, r, ocup: ocup.get(id) || [] }));
     const lugares = (await this.ctx.storage.get('l:' + u.id)) || { casa: null, lista: [] };
     servidor.send(JSON.stringify({
-      t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia, dono: eu.dono, lugares, opcoes, econ,
+      t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia, dono: eu.dono, lugares, opcoes, econ, veiculos,
       jogadores: this.jogadores().filter((j) => j.id !== id).map(({ id, nome, cor, p, r }) => ({ id, nome, cor, p, r })),
     }));
     this.enviarTodos({ t: 'entrou', j: { id, nome: u.nome, cor: u.cor, p: eu.p, r: eu.r } }, servidor);
@@ -157,7 +195,7 @@ export class Sala extends DurableObject {
     let m; try { m = JSON.parse(dados); } catch { return; }
     const eu = ws.deserializeAttachment();
     if (!eu) return;
-    if (m.t === 'pos' || m.t === 'emote') {
+    if (m.t === 'pos' || m.t === 'emote' || m.t === 'vmov' || m.t === 'buzina') {
       // balde simples por conexão (fica na memória)
       if (!this.taxa) this.taxa = new Map();
       const agora = Date.now();
@@ -194,6 +232,65 @@ export class Sala extends DurableObject {
       await this.ctx.storage.put('b:' + k, b);
       this.enviarTodos({ t: 'bloco', x, y, z, b }, ws);
       if (econ && m.j) await this.econAplicar(ws, eu, econ, { t: 'bloco', b, y, de: m.de | 0, natural }, true); // só o que o jogador fez com as mãos
+    } else if (m.t === 'vnovo') {
+      if (eu.semVeiculos || !LUGARES[m.tipo] || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
+      const cor = Number.isInteger(m.cor) && m.cor >= 0 && m.cor < 8 ? m.cor : 0;
+      const agora = Date.now();
+      if (eu.ultimoVeiculo && agora - eu.ultimoVeiculo < 1500) return;
+      eu.ultimoVeiculo = agora; ws.serializeAttachment(eu);
+      const vs = await this.carregarVeiculos();
+      const ocup = this.ocupacao();
+      const vazio = (v) => !(ocup.get(v.id) || []).some(Boolean);
+      // limite: some o mais antigo (e vazio) do próprio jogador, ou do mundo
+      const meus = [...vs.values()].filter((v) => v.dono === eu.uid).sort((a, b) => a.t - b.t);
+      const cheio = meus.length >= MAX_VEICULOS_POR_JOGADOR || vs.size >= MAX_VEICULOS;
+      const tirar = meus.length >= MAX_VEICULOS_POR_JOGADOR ? meus.find(vazio) : vs.size >= MAX_VEICULOS ? [...vs.values()].sort((a, b) => a.t - b.t).find(vazio) : null;
+      if (cheio && !tirar) { ws.send(JSON.stringify({ t: 'erro', msg: 'Tem veículos demais aqui. Guarde algum!' })); return; }
+      if (tirar) { vs.delete(tirar.id); await this.ctx.storage.delete('v:' + tirar.id); this.enviarTodos({ t: 'vfim', id: tirar.id }); }
+      const seq = ((await this.ctx.storage.get('vseq')) || 0) + 1;
+      await this.ctx.storage.put('vseq', seq);
+      const v = { id: 'v' + seq, tipo: m.tipo, cor, p: m.p.map((x) => arrV(x)), r: arrV(m.r, 1000), dono: eu.uid, t: agora };
+      vs.set(v.id, v);
+      await this.ctx.storage.put('v:' + v.id, v);
+      const pub = { id: v.id, tipo: v.tipo, cor: v.cor, p: v.p, r: v.r };
+      this.enviarTodos({ t: 'vnovo', v: pub }, ws);
+      ws.send(JSON.stringify({ t: 'vnovo', v: pub, n: Number.isFinite(m.n) ? m.n : 0 }));
+    } else if (m.t === 'ventrar') {
+      const v = (await this.carregarVeiculos()).get(m.id);
+      if (!v) return;
+      const atual = this.ocupacao().get(v.id) || [];
+      let a = -1;
+      for (let i = 0; i < LUGARES[v.tipo]; i++) if (!atual[i]) { a = i; break; }
+      if (a < 0) { ws.send(JSON.stringify({ t: 'erro', msg: 'Está cheio!' })); return; }
+      if (eu.v) await this.descer(ws, eu);
+      eu.v = [v.id, a];
+      ws.serializeAttachment(eu);
+      this.enviarTodos({ t: 'vassento', id: v.id, a, j: eu.id });
+    } else if (m.t === 'vsair') {
+      await this.descer(ws, eu);
+    } else if (m.t === 'vmov') {
+      if (!eu.v || eu.v[0] !== m.id || eu.v[1] !== 0 || !posOk(m.p) || m.p.length !== 3 || !Array.isArray(m.r)) return;
+      const v = (await this.carregarVeiculos()).get(m.id);
+      if (!v) return;
+      v.p = m.p.map((x) => arrV(x));
+      v.r = Number.isFinite(m.r[0]) ? arrV(m.r[0], 1000) : 0;
+      const r = m.r.slice(0, 3).map((x) => (Number.isFinite(x) ? arrV(x, 1000) : 0));
+      this.enviarTodos({ t: 'vmov', id: v.id, p: v.p, r, s: Number.isFinite(m.s) ? arrV(m.s, 10) : 0 }, ws);
+      const agora = Date.now();
+      if (!v.salvoEm || agora - v.salvoEm > 5000) { v.salvoEm = agora; await this.ctx.storage.put('v:' + v.id, v); }
+    } else if (m.t === 'vguardar') {
+      const vs = await this.carregarVeiculos();
+      const v = vs.get(m.id);
+      if (!v) return;
+      const atual = this.ocupacao().get(v.id) || [];
+      if (atual.some((j) => j && j !== eu.id)) return;
+      if (eu.v && eu.v[0] === v.id) { eu.v = null; ws.serializeAttachment(eu); }
+      vs.delete(v.id);
+      await this.ctx.storage.delete('v:' + v.id);
+      this.enviarTodos({ t: 'vfim', id: v.id });
+    } else if (m.t === 'buzina') {
+      if (!eu.v || eu.v[0] !== m.id) return;
+      this.enviarTodos({ t: 'buzina', id: m.id }, ws);
     } else if (m.t === 'emote' && EMOTES.has(m.e)) {
       this.enviarTodos({ t: 'emote', id: eu.id, e: m.e }, ws);
     } else if (m.t === 'tp-pedir' && typeof m.para === 'string') {
@@ -266,6 +363,7 @@ export class Sala extends DurableObject {
     if (eu && this.taxa) this.taxa.delete(eu.id);
     try { ws.close(1000, 'tchau'); } catch {}
     if (!eu) return;
+    if (eu.v) { const [id, a] = eu.v; this.enviarTodos({ t: 'vassento', id, a, j: null }, ws); }
     await this.ctx.storage.put('p:' + eu.uid, eu.p);
     this.enviarTodos({ t: 'saiu', id: eu.id }, ws);
   }
