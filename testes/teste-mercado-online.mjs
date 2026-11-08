@@ -26,7 +26,9 @@ conferir((await est(a)).moedas === 10, 'servidor deu 10 moedas iniciais');
 await a.evaluate(() => {
   const { mundo, jog } = window.__jogo; const x = Math.floor(jog.pos.x) + 3, z = Math.floor(jog.pos.z);
   for (let i = 0; i < 10; i++) mundo.definir(x, 40 + i, z, 1);
-  for (let i = 0; i < 3; i++) { const h = mundo.alturaEm(x + 2 + i, z + 2); mundo.definir(x + 2 + i, h, z + 2, 0); }
+  // 3 blocos sólidos do chão que ninguém mexeu ainda
+  let n = 0;
+  for (let i = 0; n < 3 && i < 40; i++) { const bx = x + 2 + i, h = mundo.alturaEm(bx, z + 2); const bl = mundo.bloco(bx, h, z + 2); if (bl > 0 && bl !== 5 && bl < 23) { mundo.definir(bx, h, z + 2, 0); n++; } }
 });
 await a.waitForTimeout(1500);
 let e = await est(a);
@@ -40,14 +42,14 @@ for (const [bid, qtd] of Object.entries(e.itens)) await a.evaluate(([bid, qtd]) 
 await a.waitForTimeout(800);
 e = await est(a);
 conferir(e.moedas > 15 && !Object.keys(e.itens).length, 'vendeu no servidor (' + e.moedas + ')');
-await a.evaluate(() => window.__jogo.mercado.enviar({ t: 'comprar', b: 21 }));
-await a.waitForTimeout(800);
-e = await est(a);
-conferir(!e.comprados.includes(21), 'sem moedas suficientes não compra o lampião');
 await a.evaluate(() => window.__jogo.mercado.enviar({ t: 'comprar', b: 10 }));
 await a.waitForTimeout(800);
 e = await est(a);
-conferir(e.comprados.includes(10), 'comprou o tijolo');
+conferir(e.comprados.includes(10), 'comprou o tijolo (' + e.moedas + ' sobrando)');
+const podia = e.moedas >= 20;
+await a.evaluate(() => window.__jogo.mercado.enviar({ t: 'comprar', b: 21 }));
+await a.waitForTimeout(800);
+conferir((await est(a)).comprados.includes(21) === podia, 'lampião só sai se tiver 20 moedas');
 // amigo entra e recebe presente
 const codigo = await a.evaluate(() => window.__jogo.sala.codigo);
 const bb = await jogador('Beto' + sfx);
