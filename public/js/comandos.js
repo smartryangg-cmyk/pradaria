@@ -259,6 +259,7 @@ export function criarComandos(j) {
 
   return {
     abrir, fechar, teleportar,
+    casa: () => lugares.casa, // [x, y, z, yaw] ou null
     // ao entrar num mundo
     entrouLocal() {
       dono = true; voltar = null; pedidoAtual = null; $('#pedido-tp').hidden = true;

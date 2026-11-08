@@ -1,9 +1,10 @@
 // Monstrinhos (opção do mundo, desligada por padrão): aparecem só de noite, chegam perto,
-// dão um sustinho ("Buu!") e um empurrãozinho, mas nunca machucam. Um toque espanta (vira brilho),
+// dão um sustinho ("Buu!") e um empurrãozinho. Com a opção "Monstros machucam", o Buu tira meio coração
+// (ver vida.js). Um toque espanta (vira brilho), luz (lampião, lâmpada acesa) afasta,
 // e quando o sol nasce todos somem.
 import * as THREE from '../vendor/three.module.min.js';
 import { matModelo, caixa, juntar } from './modelos.js';
-import { SOLIDO, AGUA, B } from './blocos.js';
+import { SOLIDO, AGUA, B, BRILHO } from './blocos.js';
 import { opcoesMundo } from './opcoes-mundo.js';
 
 const MAX = 5;
@@ -85,8 +86,21 @@ export class Monstros {
     const topo = this.mundo.bloco(Math.floor(x), y, Math.floor(z));
     if (topo !== B.GRAMA && topo !== B.AREIA && topo !== B.PEDRA && topo !== B.TERRA) return false;
     if (Math.abs(y - p.y) > 12) return false;
+    if (this.luzPerto(x, y + 1, z, 8)) return false; // perto de luz não nasce monstrinho
     this.criar(NOMES[Math.floor(Math.random() * NOMES.length)], x, y + 1, z);
     return true;
+  }
+
+  // procura um bloco que brilha (lampião, lâmpada acesa) perto; devolve onde está
+  luzPerto(x, y, z, r) {
+    const bx = Math.floor(x), by = Math.floor(y), bz = Math.floor(z);
+    let melhor = null, md = r * r + 1;
+    for (let dy = -2; dy <= 3; dy++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+      const d = dx * dx + dz * dz;
+      if (d >= md) continue;
+      if (BRILHO[this.mundo.bloco(bx + dx, by + dy, bz + dz)] > 0) { md = d; melhor = { x: bx + dx + 0.5, z: bz + dz + 0.5 }; }
+    }
+    return melhor;
   }
 
   piso(x, z, yRef) {
@@ -113,12 +127,16 @@ export class Monstros {
       if (!noite && Math.random() < dt * 0.8) { this.espantar(m, false); continue; }
       if (dist > 50) { this.remover(i); continue; }
       m.susto -= dt; m.foge -= dt; m.timer -= dt;
+      // de vez em quando confere se tem luz perto (a luz afasta)
+      m.olhaLuz = (m.olhaLuz || 0) - dt;
+      if (m.olhaLuz <= 0) { m.olhaLuz = 0.5; m.luz = this.luzPerto(m.x, m.y, m.z, 6); }
       let andando = true;
-      if (m.foge > 0) m.dir = Math.atan2(-dx, -dz); // depois do sustinho, sai correndo rindo
+      if (m.luz) { m.dir = Math.atan2(m.x - m.luz.x, m.z - m.luz.z); m.susto = Math.max(m.susto, 0.6); }
+      else if (m.foge > 0) m.dir = Math.atan2(-dx, -dz); // depois do sustinho, sai correndo rindo
       else if (dist < 16) m.dir = Math.atan2(dx, dz);
       else if (m.timer <= 0) { m.timer = 2 + Math.random() * 3; m.dir += (Math.random() - 0.5) * 2; }
-      if (dist < 0.9 && m.foge <= 0) andando = false;
-      // Buu! (só um empurrãozinho e um pulinho, sem dano)
+      if (dist < 0.9 && m.foge <= 0 && !m.luz) andando = false;
+      // Buu! (empurrãozinho e pulinho; se o mundo deixar, tira meio coração)
       if (dist < 1.3 && Math.abs(p.y - m.y) < 1.8 && m.susto <= 0) {
         m.susto = 4; m.foge = 2.5;
         const n = dist || 1;
@@ -127,10 +145,10 @@ export class Monstros {
         this.som.tom(330, 0.18, { tipo: 'square', vol: 0.18, ate: 160 });
         this.som.tom(520, 0.12, { tipo: 'triangle', vol: 0.15, atraso: 0.12 });
         this.bichos.icone('sorriso', m.x, m.y + m.t.alt + 0.4, m.z, 1.4, 0.6);
-        if (this.aoSusto) this.aoSusto();
+        if (this.aoSusto) this.aoSusto(m);
       }
       if (andando) {
-        const vel = m.t.vel * (m.foge > 0 ? 1.6 : 1);
+        const vel = m.t.vel * (m.foge > 0 || m.luz ? 1.6 : 1);
         const nx = m.x + Math.sin(m.dir) * vel * dt, nz = m.z + Math.cos(m.dir) * vel * dt;
         const s = this.piso(nx, nz, m.y);
         const alt = s ? s.y - m.y : -99;

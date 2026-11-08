@@ -14,9 +14,12 @@ import { conta, api, Sala } from './rede.js';
 import { criarGraficos, QUALIDADES, PESSOAIS } from './graficos.js';
 import { icone, preencherIcones, comIcone, nomeEmote } from './icones.js';
 import { Escavacao } from './escavar.js';
+import { Fisica } from './fisica.js';
 import { criarComandos } from './comandos.js';
 import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto } from './opcoes-mundo.js';
 import { Monstros } from './monstros.js';
+import { vida } from './vida.js';
+import { Mapa } from './mapa.js';
 
 const $ = (s) => document.querySelector(s);
 preencherIcones();
@@ -25,7 +28,7 @@ const CORES = [0x3f6fd9, 0xe8433f, 0x4caf50, 0xf2c72e, 0x9c5bd9, 0xf29ac2, 0xff8
 // ---------- ajustes salvos ----------
 const ehToque = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 if (ehToque) document.body.classList.add('toque');
-const AJ_PADRAO = { dist: ehToque ? 3 : 4, qual: ehToque ? 0.8 : 1, graf: ehToque ? 'media' : 'alta', gopc: null, ...PESSOAIS, auto: true, sens: 0.0055, som: true, fps: false };
+const AJ_PADRAO = { dist: ehToque ? 3 : 4, qual: ehToque ? 0.8 : 1, graf: ehToque ? 'media' : 'alta', gopc: null, ...PESSOAIS, auto: true, sens: 0.0055, som: true, fps: false, minimapa: true };
 let ajustes = { ...AJ_PADRAO };
 try { Object.assign(ajustes, JSON.parse(localStorage.getItem('pradaria.ajustes') || '{}')); } catch {}
 if (!QUALIDADES[ajustes.graf] && !(ajustes.graf === 'personalizado' && ajustes.gopc)) ajustes.graf = AJ_PADRAO.graf;
@@ -62,6 +65,16 @@ const { tex: atlas, canvas: atlasCanvas } = criarAtlas();
 const graf = criarGraficos(renderer, cena, camera, atlas);
 const { matBlocos, matAgua } = graf;
 
+// minimapa e mapa grande
+const mapa = new Mapa({
+  atlasCanvas,
+  mini: $('#minimapa-tela'),
+  grande: { janela: $('#mapa'), canvas: $('#mapa-tela'), coords: $('#mapa-coords'), fechar: $('#mapa-fechar'), mais: $('#mapa-mais'), menos: $('#mapa-menos'), centrar: $('#mapa-centro'), limpar: $('#mapa-limpar') },
+  aoAbrir: () => { if (document.pointerLockElement) document.exitPointerLock(); pausado = true; },
+  aoFechar: () => { pausado = false; },
+});
+function aplicarMinimapa() { mapa.ligado = !!ajustes.minimapa; $('#minimapa').hidden = !ajustes.minimapa; }
+
 // nuvens
 const nuvens = (() => {
   const g = [];
@@ -94,7 +107,7 @@ cena.add(contorno);
 
 // ---------- estado do jogo ----------
 const som = new Som();
-let mundo = null, jog = null, ctrl = null, bichos = null, aldeoes = null, monstros = null, sala = null, escav = null;
+let mundo = null, jog = null, ctrl = null, bichos = null, aldeoes = null, monstros = null, sala = null, escav = null, fisica = null;
 let jogando = false, pausado = false;
 let modo = 'local', mundoAtual = null;
 let barra = [B.GRAMA, B.TERRA, B.PEDRA, B.TABUAS, B.TRONCO, B.VIDRO, B.TIJOLO, B.LA_VERMELHA, B.FLOR_AMARELA];
@@ -173,14 +186,14 @@ function abrirInventario() {
 function abrirPausa() {
   if (document.pointerLockElement) document.exitPointerLock();
   $('#aj-dist').value = ajustes.dist; $('#aj-qual').value = ajustes.qual; preencherGraficos(); $('#aj-sens').value = ajustes.sens;
-  $('#aj-som').checked = ajustes.som; $('#aj-fps').checked = ajustes.fps;
+  $('#aj-som').checked = ajustes.som; $('#aj-fps').checked = ajustes.fps; $('#aj-minimapa').checked = ajustes.minimapa;
   $('#pausa-mundo').textContent = modo === 'online' ? `Mundo: ${mundoAtual.nome} · código ${mundoAtual.codigo}` : 'Mundo sem internet (salvo neste aparelho)';
   $('#pausa-opcoes').textContent = 'Neste mundo: ' + resumoOpcoes(opcoesMundo);
   $('#pausa').hidden = false;
   pausado = true;
 }
 function fecharJanelas() {
-  $('#inventario').hidden = true; $('#pausa').hidden = true; $('#garagem').hidden = true;
+  $('#inventario').hidden = true; $('#pausa').hidden = true; $('#mapa').hidden = true; $('#garagem').hidden = true;
   if (cmd) cmd.fechar();
   pausado = false;
 }
@@ -241,6 +254,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Escape' && pausado) fecharJanelas();
   else if (e.code === 'KeyP') abrirPausa();
   else if (e.code === 'KeyC' && !pausado && e.target.tagName !== 'INPUT') cmd.abrir();
+  else if (e.code === 'KeyM') { if (!$('#mapa').hidden) fecharJanelas(); else if (!pausado) mapa.abrir(); }
 });
 // mundo pequeno/médio: como acaba no mar, dá para enxergar mais longe sem pesar
 const raioVisao = () => Math.min(9, ajustes.dist + TAMANHOS[opcoesMundo.tamanho].raioExtra);
@@ -280,10 +294,28 @@ $('#aj-auto').addEventListener('change', (e) => { ajustes.auto = e.target.checke
 $('#aj-qual').addEventListener('input', (e) => { ajustes.qual = +e.target.value; salvarAjustes(); redimensionar(); });
 $('#aj-sens').addEventListener('input', (e) => { ajustes.sens = +e.target.value; if (ctrl) ctrl.sensToque = ajustes.sens; salvarAjustes(); });
 $('#aj-som').addEventListener('change', (e) => { ajustes.som = e.target.checked; som.ligado = ajustes.som; salvarAjustes(); });
+$('#aj-minimapa').addEventListener('change', (e) => { ajustes.minimapa = e.target.checked; salvarAjustes(); aplicarMinimapa(); });
+$('#minimapa').addEventListener('click', () => { som.clique(); mapa.abrir(); });
+$('#bt-abrir-mapa').addEventListener('click', () => { $('#pausa').hidden = true; mapa.abrir(); });
 $('#aj-fps').addEventListener('change', (e) => { ajustes.fps = e.target.checked; $('#fps').hidden = !ajustes.fps; salvarAjustes(); });
 $('#bt-sair-mundo').addEventListener('click', sairDoMundo);
 
 // ---------- comandos visuais (teleporte, casa, amigos, hora) ----------
+// sem corações: desmaia, os monstrinhos vão embora e acorda em casa (ou no começo), sem perder nada
+vida.aoDesmaiar = () => {
+  if (!jogando) return;
+  if (monstros) monstros.limpar();
+  const el = $('#desmaio');
+  el.hidden = false; el.classList.remove('vai'); void el.offsetWidth; el.classList.add('vai');
+  setTimeout(() => {
+    if (!jogando) return;
+    const c = cmd.casa();
+    if (c) cmd.teleportar(c[0], c[1], c[2], c[3], 'Você desmaiou e acordou em casa');
+    else { const p = acharInicio(); cmd.teleportar(p.x, p.y, p.z, 0, 'Você desmaiou e acordou no começo do mundo'); }
+    vida.reiniciar(); vida.protegido = 6;
+  }, 900);
+  setTimeout(() => { el.hidden = true; }, 2200);
+};
 const cmd = criarComandos({
   aviso, som, outros, acharInicio: () => acharInicio(),
   jog: () => (jogando ? jog : null), mundo: () => mundo, sala: () => sala, modo: () => modo, mundoAtual: () => mundoAtual,
@@ -487,7 +519,7 @@ function adicionarOutro(j) {
   const p = j.p || [0, 60, 0];
   b.grupo.position.set(p[0], p[1], p[2]);
   cena.add(b.grupo);
-  outros.set(j.id, { ...b, nome: j.nome, alvo: new THREE.Vector3(...p), yaw: 0, alvoYaw: (j.r && j.r[0]) || 0, fase: 0 });
+  outros.set(j.id, { ...b, nome: j.nome, corCss: '#' + (CORES[j.cor % CORES.length] ?? CORES[0]).toString(16).padStart(6, '0'), alvo: new THREE.Vector3(...p), yaw: 0, alvoYaw: (j.r && j.r[0]) || 0, fase: 0 });
 }
 function removerOutro(id) {
   const o = outros.get(id);
@@ -531,14 +563,17 @@ function limparMundo() {
   garagem.parar();
   if (sala) { sala.fechar(); sala = null; }
   for (const id of [...outros.keys()]) removerOutro(id);
+  mapa.usarMundo(null);
+  mapa.fechar();
   if (mundo) {
     for (const c of mundo.chunks.values()) for (const m of [c.malha, c.agua]) if (m) { cena.remove(m); m.geometry.dispose(); }
   }
+  if (fisica) fisica.limpar();
   if (escav) { for (const k of [...escav.blocos.keys()]) escav.soltar(k); escav.atualizar(10, 0, 0); }
   if (bichos) for (let i = bichos.lista.length - 1; i >= 0; i--) bichos.remover(i);
   if (aldeoes) aldeoes.limpar();
   if (monstros) monstros.limpar();
-  mundo = null; bichos = null; aldeoes = null; monstros = null; escav = null;
+  mundo = null; bichos = null; aldeoes = null; monstros = null; escav = null; fisica = null;
 }
 
 function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = null, veiculos = [] }) {
@@ -548,10 +583,14 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   mundo = new Mundo(cena, matBlocos, matAgua, semente);
   mundo.raio = raioVisao();
   escav = new Escavacao(cena, mundo, matBlocos, atlasCanvas);
+  fisica = new Fisica(cena, mundo, matBlocos);
+  fisica.aoCair = (x, y, z) => { if (Math.abs(x - jog.pos.x) + Math.abs(z - jog.pos.z) < 24) som.passo(); };
+  fisica.aoFolha = (x, y, z) => escav.estilhacar(x, y, z, B.FOLHAS, null, null);
   mundo.carregarEdicoes(edicoes);
   mundo.aoMudarBloco = (x, y, z, b) => {
     edicoesPendentes = true;
     if (sala) sala.enviar({ t: 'bloco', x, y, z, b });
+    if (fisica) fisica.mudou(x, y, z, b);
   };
   mundo.energia.aoEvento = eventoEnergia;
   minhaPlaca = null;
@@ -577,7 +616,13 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   aldeoes = new Aldeoes(cena, mundo, som, (...a) => bichos.icone(...a));
   aldeoes.aoEntrarVila = (v) => aviso(v.nome, 2600, 'vila');
   monstros = new Monstros(cena, mundo, som, bichos);
-  monstros.aoSusto = () => aviso('Buu! Toque no monstrinho para espantar', 1800, 'sorriso');
+  monstros.aoSusto = () => {
+    if (vida.dano(1)) { som.tom(200, 0.15, { tipo: 'sine', vol: 0.3, ate: 120 }); aviso('Ai! Toque no monstrinho ou acenda uma luz', 1800, 'coracao'); }
+    else aviso('Buu! Toque no monstrinho para espantar', 1800, 'sorriso');
+  };
+  vida.reiniciar();
+  mapa.usarMundo(mundo, 'pradaria.mapa.' + (modo === 'online' && mundoAtual ? mundoAtual.codigo : 'local'));
+  aplicarMinimapa();
   garagem.comecar(mundo, veiculos);
   som.ligado = ajustes.som;
   ajustarNevoa();
@@ -786,7 +831,14 @@ function desenharOpcoesNovo() {
     b.querySelector('.ic').innerHTML = icone(o.icone);
     b.querySelector('b').textContent = o.nome;
     b.querySelector('small').textContent = o.desc;
-    b.addEventListener('click', () => { escolhaNovo[o.id] = !escolhaNovo[o.id]; b.setAttribute('aria-pressed', String(escolhaNovo[o.id])); som.iniciar(); som.clique(); });
+    b.addEventListener('click', () => {
+      escolhaNovo[o.id] = !escolhaNovo[o.id];
+      // "Monstros machucam" só faz sentido com monstrinhos: um liga/desliga o outro
+      if (o.id === 'monstrosMachucam' && escolhaNovo.monstrosMachucam) escolhaNovo.monstros = true;
+      if (o.id === 'monstros' && !escolhaNovo.monstros) escolhaNovo.monstrosMachucam = false;
+      for (const x of l.children) x.setAttribute('aria-pressed', String(!!escolhaNovo[x.dataset.opcao]));
+      som.iniciar(); som.clique();
+    });
     l.appendChild(b);
   }
   marcarTamanho();
@@ -795,8 +847,11 @@ function marcarTamanho() {
   for (const b of $('#n-tamanhos').children) { const sel = b.dataset.tamanho === escolhaNovo.tamanho; b.setAttribute('aria-pressed', String(sel)); b.setAttribute('aria-checked', String(sel)); }
   for (const b of $('#n-tipos').children) { const sel = b.dataset.tipo === escolhaNovo.tipo; b.setAttribute('aria-pressed', String(sel)); b.setAttribute('aria-checked', String(sel)); }
   // alguns tipos não têm monstrinhos (ex.: Linha do Tempo)
-  const mb = $('#n-lista [data-opcao="monstros"]');
-  if (mb) { const sem = !!TIPOS[escolhaNovo.tipo].semMonstros; mb.disabled = sem; if (sem) { escolhaNovo.monstros = false; mb.setAttribute('aria-pressed', 'false'); } }
+  const sem = !!TIPOS[escolhaNovo.tipo].semMonstros;
+  for (const id of ['monstros', 'monstrosMachucam']) {
+    const mb = $(`#n-lista [data-opcao="${id}"]`);
+    if (mb) { mb.disabled = sem; if (sem) { escolhaNovo[id] = false; mb.setAttribute('aria-pressed', 'false'); } }
+  }
 }
 let modoNovo = 'criar';
 function abrirNovo(modoN) {
@@ -860,6 +915,8 @@ function laco(agora) {
   bichos.atualizar(dt, jog, tempoTotal);
   aldeoes.atualizar(dt, jog, Math.sin(tempoDia * Math.PI * 2));
   monstros.atualizar(pausado ? 0 : dt, jog, tempoDia);
+  if (!pausado) vida.atualizar(dt);
+  mapa.atualizar(dt, jog, outros, bichos);
 
   // contorno do bloco mirado
   if (garagem.dentro) contorno.visible = false;
@@ -869,6 +926,7 @@ function laco(agora) {
   } else contorno.visible = false;
 
   escav.atualizar(dt, jog.pos.x, jog.pos.z);
+  fisica.atualizar(dt);
   // partículas de quebra
   for (let i = partQ.length - 1; i >= 0; i--) {
     const q = partQ[i];
@@ -955,4 +1013,4 @@ camera.position.set(0, 40, 0);
 if (conta.token) abrirMundos(); else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, garagem, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, camera, graf, renderer, ajustes, jogarLocal, usar, quebrar, cmd }; }
+if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, garagem, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, camera, graf, renderer, ajustes, jogarLocal, usar, quebrar, cmd, mapa }; }
