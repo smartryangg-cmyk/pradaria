@@ -135,9 +135,14 @@ export class Garagem {
     if (!TIPOS[tipo] || !this.permitido(tipo)) return;
     const jog = this.J.jog(), d = TIPOS[tipo];
     if (this.dentro) this.sair();
-    const fx = -Math.sin(jog.yaw), fz = -Math.cos(jog.yaw);
-    const yaw = Math.round(jog.yaw / (Math.PI / 2)) * (Math.PI / 2);
-    const lugar = this.acharLugar(d, jog.pos, fx, fz, yaw);
+    // tenta na frente; se não couber (penhasco, parede), dos lados e atrás
+    let yaw = 0, lugar = null;
+    for (const giro of [0, -Math.PI / 2, Math.PI / 2, Math.PI]) {
+      const olhar = jog.yaw + giro;
+      yaw = Math.round(olhar / (Math.PI / 2)) * (Math.PI / 2);
+      lugar = this.acharLugar(d, jog.pos, -Math.sin(olhar), -Math.cos(olhar), yaw);
+      if (lugar) break;
+    }
     if (!lugar) { this.J.aviso(d.meio === 'agua' ? 'O barco precisa de água bem pertinho' : 'Não cabe aqui. Tente num lugar mais aberto', 2600, d.meio === 'agua' ? 'gota' : tipo); return; }
     if (this.J.sala()) {
       this.pedido = Math.floor(Math.random() * 1e9);
