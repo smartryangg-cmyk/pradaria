@@ -378,7 +378,7 @@ function dicaEnergia(novo, x, y, z) {
     if (!mundo || dicasDadas.has('energia')) return;
     if (mundo.bloco(x, y, z) === novo) { // continua desligado
       dicasDadas.add('energia');
-      aviso('⚡ Essa máquina precisa de energia! Coloque uma Alavanca encostada (ou ligue com Fio) e toque nela.', 5000);
+      aviso('Essa máquina precisa de energia! Coloque uma Alavanca encostada (ou ligue com Fio) e toque nela.', 5000, 'raio');
     }
   }, 400);
 }
@@ -412,7 +412,7 @@ function soltarConfete(x, y, z) {
 }
 function eventoEnergia(tipo, x, y, z) {
   if (!jog || (jog.pos.x - x) ** 2 + (jog.pos.y - y) ** 2 + (jog.pos.z - z) ** 2 > 40 * 40) return;
-  if (tipo === E.SINO) { som.sino(y); bichos && bichos.emoji('🎵', x + 0.5, y + 1.6, z + 0.5, 1.2, 0.5); }
+  if (tipo === E.SINO) { som.sino(y); bichos && bichos.icone('nota', x + 0.5, y + 1.6, z + 0.5, 1.2, 0.5); }
   else if (tipo === E.CONFETE) { som.confete(); soltarConfete(x, y, z); }
 }
 
@@ -710,7 +710,8 @@ async function abrirMundos() {
       b.className = 'mundo';
       b.innerHTML = `<span class="ic ${m.dono ? 'meu' : 'amigo'}">${icone(m.dono ? 'casa' : 'amigos')}</span><span class="txt"><b></b><small></small></span>${icone('entrar', 'ic-svg seta')}`;
       b.querySelector('b').textContent = m.nome;
-      b.querySelector('small').textContent = `código ${m.codigo}` + (m.dono ? '' : ` · de ${m.nome_dono}`) + ' · ' + iconesOpcoes(m.opcoes);
+      b.querySelector('small').textContent = `código ${m.codigo}` + (m.dono ? '' : ` · de ${m.nome_dono}`);
+      b.querySelector('small').insertAdjacentHTML('beforeend', `<span class="ops-mini">${iconesOpcoes(m.opcoes)}</span>`);
       b.addEventListener('click', () => { som.iniciar(); jogarOnline(m); });
       l.appendChild(b);
     }
@@ -722,13 +723,13 @@ async function abrirMundos() {
 }
 
 // ---------- criar mundo: nome + opções (o que vai ter no mundo) + semente ----------
-const iconesOpcoes = (o) => { const n = normalizarOpcoes(o); return TAMANHOS[n.tamanho].nome + ' ' + OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => x.emoji).join(''); };
+const iconesOpcoes = (o) => { const n = normalizarOpcoes(o); return icone(TAMANHOS[n.tamanho].icone, 'ic-svg ic-mini') + OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => icone(x.icone, 'ic-svg ic-mini')).join(''); };
 function resumoOpcoes(o) {
   const n = normalizarOpcoes(o);
   const t = TAMANHOS[n.tamanho];
-  const com = OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => x.emoji + ' ' + x.nome);
+  const com = OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => x.nome);
   const sem = OPCOES_MUNDO.filter((x) => !n[x.id]).map((x) => x.nome.toLowerCase());
-  return `${t.emoji} mundo ${t.nome.toLowerCase()} · ` + (com.join(', ') || 'só blocos') + (sem.length ? ' · sem ' + sem.join(', ') : '');
+  return `Mundo ${t.nome.toLowerCase()} · ` + (com.join(', ') || 'só blocos') + (sem.length ? ' · sem ' + sem.join(', ') : '');
 }
 let escolhaNovo = { ...PADRAO_NOVO };
 function desenharOpcoesNovo() {
@@ -738,7 +739,7 @@ function desenharOpcoesNovo() {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'opcao-mundo'; b.dataset.tamanho = id; b.setAttribute('role', 'radio');
     b.innerHTML = '<span class="ic"></span><b></b><small></small>';
-    b.querySelector('.ic').textContent = t.emoji; b.querySelector('b').textContent = t.nome; b.querySelector('small').textContent = t.desc;
+    b.querySelector('.ic').innerHTML = icone(t.icone); b.querySelector('b').textContent = t.nome; b.querySelector('small').textContent = t.desc;
     b.addEventListener('click', () => { escolhaNovo.tamanho = id; marcarTamanho(); som.iniciar(); som.clique(); });
     lt.appendChild(b);
   }
@@ -750,7 +751,7 @@ function desenharOpcoesNovo() {
     b.type = 'button'; b.className = 'opcao-mundo'; b.dataset.opcao = o.id;
     b.setAttribute('aria-pressed', String(!!escolhaNovo[o.id]));
     b.innerHTML = '<span class="ic"></span><span><b></b><small></small></span>';
-    b.querySelector('.ic').textContent = o.emoji;
+    b.querySelector('.ic').innerHTML = icone(o.icone);
     b.querySelector('b').textContent = o.nome;
     b.querySelector('small').textContent = o.desc;
     b.addEventListener('click', () => { escolhaNovo[o.id] = !escolhaNovo[o.id]; b.setAttribute('aria-pressed', String(escolhaNovo[o.id])); som.iniciar(); som.clique(); });

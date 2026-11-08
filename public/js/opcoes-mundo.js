@@ -9,24 +9,24 @@
 // Para criar uma opção nova: acrescente em OPCOES_MUNDO abaixo (o servidor e a tela já usam a lista).
 
 export const OPCOES_MUNDO = [
-  { id: 'animais', emoji: '🐑', nome: 'Bichinhos', desc: 'Ovelhas, porquinhos, coelhos e amigos', padrao: true },
-  { id: 'vilas', emoji: '🏘️', nome: 'Vilas', desc: 'Vilinhas com casas e moradores', padrao: true },
-  { id: 'veiculos', emoji: '🚗', nome: 'Veículos', desc: 'Carrinhos e barcos para passear', padrao: true },
-  { id: 'maquinas', emoji: '⚙️', nome: 'Máquinas', desc: 'Engenhocas, alavancas e esteiras', padrao: true },
-  { id: 'aguaCorre', emoji: '🌊', nome: 'Água que corre', desc: 'A água escorre e faz cachoeiras', padrao: true },
-  { id: 'cicloDia', emoji: '🌙', nome: 'Dia e noite', desc: 'Desligado: é sempre de dia', padrao: true },
-  { id: 'mercado', emoji: '🪙', nome: 'Mercado', desc: 'Moedas e lojinha com os moradores', padrao: true, antigos: false },
-  { id: 'objetivos', emoji: '🎯', nome: 'Missões', desc: 'Desafios com prêmios', padrao: true, antigos: false },
-  { id: 'monstros', emoji: '👾', nome: 'Monstrinhos', desc: 'Aparecem de noite e dão sustinho (sem machucar)', padrao: false },
+  { id: 'animais', icone: 'ovelha', nome: 'Bichinhos', desc: 'Ovelhas, porquinhos, coelhos e amigos', padrao: true },
+  { id: 'vilas', icone: 'vila', nome: 'Vilas', desc: 'Vilinhas com casas e moradores', padrao: true },
+  { id: 'veiculos', icone: 'carro', nome: 'Veículos', desc: 'Carrinhos e barcos para passear', padrao: true },
+  { id: 'maquinas', icone: 'engrenagem', nome: 'Máquinas', desc: 'Engenhocas, alavancas e esteiras', padrao: true },
+  { id: 'aguaCorre', icone: 'onda', nome: 'Água que corre', desc: 'A água escorre e faz cachoeiras', padrao: true },
+  { id: 'cicloDia', icone: 'lua', nome: 'Dia e noite', desc: 'Desligado: é sempre de dia', padrao: true },
+  { id: 'mercado', icone: 'moeda', nome: 'Mercado', desc: 'Moedas e lojinha com os moradores', padrao: true, antigos: false },
+  { id: 'objetivos', icone: 'alvo', nome: 'Missões', desc: 'Desafios com prêmios', padrao: true, antigos: false },
+  { id: 'monstros', icone: 'monstro', nome: 'Monstrinhos', desc: 'Aparecem de noite e dão sustinho (sem machucar)', padrao: false },
 ];
 // padrao = como vem marcado ao criar; antigos = valor nos mundos criados antes da opção existir (se faltar, usa padrao)
 
 // tamanho do mundo: pequeno e médio são ilhas com mar em volta (mais leves: dá para ver mais longe);
 // grande não tem fim (como os mundos antigos, que ficam "grande").
 export const TAMANHOS = {
-  pequeno: { emoji: '🏝️', nome: 'Pequeno', desc: 'Ilha de 256 blocos. Mais leve e bonito', limite: 128, raioExtra: 2 },
-  medio: { emoji: '🗺️', nome: 'Médio', desc: 'Ilha de 640 blocos', limite: 320, raioExtra: 1 },
-  grande: { emoji: '🌍', nome: 'Grande', desc: 'Sem fim. Pesa mais em aparelho fraco', limite: null, raioExtra: 0 },
+  pequeno: { icone: 'ilha', nome: 'Pequeno', desc: 'Ilha de 256 blocos. Mais leve e bonito', limite: 128, raioExtra: 2 },
+  medio: { icone: 'mapa', nome: 'Médio', desc: 'Ilha de 640 blocos', limite: 320, raioExtra: 1 },
+  grande: { icone: 'globo', nome: 'Grande', desc: 'Sem fim. Pesa mais em aparelho fraco', limite: null, raioExtra: 0 },
 };
 export const TAMANHO_NOVO = 'medio'; // já vem marcado ao criar
 

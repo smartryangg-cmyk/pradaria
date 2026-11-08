@@ -204,7 +204,7 @@ details.mais[open] { display: flex; flex-direction: column; gap: 10px; padding-b
 .cmd.mini .ic { font-size: 20px; }
 .icones { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; background: #fff; border-radius: 16px; padding: 10px; box-shadow: 0 4px 0 #e2d6bf; }
 .icones .sub { width: 100%; margin: 0; }
-.icones button { width: 52px; height: 52px; border-radius: 14px; border: 0; background: #f6efe0; font-size: 28px; }
+.icones button { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px; border: 0; background: #f6efe0; font-size: 28px; }
 #cmd-amigos { display: flex; flex-direction: column; gap: 8px; }
 .amigo { display: flex; align-items: center; gap: 8px; background: #fff; border-radius: 14px; padding: 8px 10px; box-shadow: 0 4px 0 #e2d6bf; }
 .amigo > span { flex: 1; min-width: 0; } .amigo b { display: block; font-size: 17px; overflow: hidden; text-overflow: ellipsis; } .amigo small { opacity: .65; }
@@ -239,3 +239,10 @@ details.mais[open] { display: flex; flex-direction: column; gap: 10px; padding-b
 .abas button { flex: 1; font: inherit; font-size: 16px; font-weight: 700; padding: 10px; border-radius: 12px; border: 0; background: #fff; box-shadow: 0 3px 0 #e2d6bf; cursor: pointer; }
 .abas button.sel { background: var(--verde, #5cb83a); color: #fff; box-shadow: 0 3px 0 #3d8a25; }
 .dica-maq { font-size: 14px; line-height: 1.35; background: #fff7d6; border-radius: 12px; padding: 8px 10px; }
+.ops-mini { display: inline-flex; gap: 3px; vertical-align: middle; margin-left: 6px; }
+.ops-mini .ic-svg { width: 16px; height: 16px; }
+.opcao-mundo .ic .ic-svg { width: 30px; height: 30px; }
+#comandos .icones button .ic-svg { width: 30px; height: 30px; }
+.abas button { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.abas button .ic-svg { width: 24px; height: 24px; }
+.dica-maq .ic-svg { display: inline-block; width: 18px; height: 18px; vertical-align: -3px; }

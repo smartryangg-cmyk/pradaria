@@ -1,18 +1,18 @@
 // Comandos visuais: teleportar (casa, começo, lugares salvos, amigos), mudar a hora e voltar.
 // Tudo com botões grandes, sem precisar digitar nada.
 import { NIVEL_AGUA } from './mundo.js';
-import { icone, NOMES_ICONES } from './icones.js';
+import { icone, NOMES_ICONES, nomeLugar } from './icones.js';
 
 const $ = (s) => document.querySelector(s);
-const ICONES = ['⭐', '🌳', '🏰', '🌊', '⛰️', '🌸', '🐑', '🍎', '💎', '🌻'];
+const ICONES = ['estrela', 'arvore', 'castelo', 'onda', 'montanha', 'flor', 'ovelha', 'maca', 'diamante', 'casa'];
 const MAX_LUGARES = 8;
 const CHAVE_LOCAL = 'pradaria.lugares.local';
 const CHAVE_RECUSAR = 'pradaria.tp.recusar';
 const HORAS = [
-  { v: 0.2, ic: '🌅', nome: 'Manhã' },
-  { v: 0.27, ic: '☀️', nome: 'Meio-dia' },
-  { v: 0.47, ic: '🌇', nome: 'Pôr do sol' },
-  { v: 0.72, ic: '🌙', nome: 'Noite' },
+  { v: 0.2, ic: 'manha', nome: 'Manhã' },
+  { v: 0.27, ic: 'sol', nome: 'Meio-dia' },
+  { v: 0.47, ic: 'porsol', nome: 'Pôr do sol' },
+  { v: 0.72, ic: 'lua', nome: 'Noite' },
 ];
 
 // j: { aviso, som, jog(), mundo(), sala(), modo(), mundoAtual(), outros, acharInicio(), definirDia(v), pausar(sim) }
@@ -69,9 +69,9 @@ export function criarComandos(j) {
       const x = Math.floor(jog.pos.x + Math.cos(a) * d), z = Math.floor(jog.pos.z + Math.sin(a) * d);
       if (Math.abs(x) > 90000 || Math.abs(z) > 90000) continue;
       const h = mundo.chao(x, z);
-      if (h > NIVEL_AGUA + 1 && h < 50) { teleportar(x + 0.5, h + 1.2, z + 0.5, a, 'Uau, um lugar novo para explorar! 🗺️'); return; }
+      if (h > NIVEL_AGUA + 1 && h < 50) { teleportar(x + 0.5, h + 1.2, z + 0.5, a, 'Uau, um lugar novo para explorar!', 'mapa'); return; }
     }
-    j.aviso('Não achei terra firme agora, tente de novo 🌊', 1800);
+    j.aviso('Não achei terra firme agora, tente de novo', 1800, 'onda');
   }
 
   // ---------- casa e lugares salvos ----------
@@ -95,7 +95,7 @@ export function criarComandos(j) {
     lugares.lista.push({ ic, p: posAtual() });
     guardarLugares();
     j.som.colocar();
-    j.aviso(`Lugar ${ic} guardado!`, 1500);
+    j.aviso('Lugar guardado!', 1500, ic);
     escolhendoIcone = false;
     desenhar();
   }
@@ -114,7 +114,7 @@ export function criarComandos(j) {
     clearTimeout(esperando && esperando.timer);
     esperando = { nome: o.nome, timer: setTimeout(() => { esperando = null; j.aviso(`${o.nome} não respondeu agora`, 2200); }, 31000) };
     j.som.clique();
-    j.aviso(tipo === 'ir' ? `Perguntei para ${o.nome} se você pode ir até lá… ⏳` : `Chamei ${o.nome} para vir até você… ⏳`, 2600);
+    j.aviso(tipo === 'ir' ? `Perguntei para ${o.nome} se você pode ir até lá…` : `Chamei ${o.nome} para vir até você…`, 2600, 'ampulheta');
     fechar();
   }
 
@@ -142,11 +142,11 @@ export function criarComandos(j) {
   // ---------- hora do dia ----------
   function mudarHora(h) {
     if (online()) {
-      if (!dono) { j.aviso('Só o dono do mundo muda a hora 🙂', 1800); return; }
+      if (!dono) { j.aviso('Só o dono do mundo muda a hora', 1800, 'cadeado'); return; }
       j.sala().enviar({ t: 'dia', v: h.v });
     } else j.definirDia(h.v);
     j.som.clique();
-    j.aviso(`${h.ic} ${h.nome}!`, 1400);
+    j.aviso(`${h.nome}!`, 1400, h.ic);
     fechar();
   }
 
@@ -174,17 +174,17 @@ export function criarComandos(j) {
     const g = $('#cmd-lugares');
     g.innerHTML = '';
     if (lugares.casa) g.appendChild(botao('casa', 'Ir para casa', () => irPara(lugares.casa, 'Chegou em casa!'), 'verde'));
-    g.appendChild(botao('📍', lugares.casa ? 'Mudar casa para cá' : 'Marcar casa aqui', marcarCasa));
+    g.appendChild(botao('pino', lugares.casa ? 'Mudar casa para cá' : 'Marcar casa aqui', marcarCasa));
     g.appendChild(botao('broto', 'Começo do mundo', irComeco));
-    g.appendChild(botao('🗺️', 'Lugar novo bem longe', irLonge));
-    if (voltar) g.appendChild(botao('voltar', 'Voltar para onde eu estava', () => irPara(voltar, 'Voltou! ↩️')));
+    g.appendChild(botao('mapa', 'Lugar novo bem longe', irLonge));
+    if (voltar) g.appendChild(botao('voltar', 'Voltar para onde eu estava', () => irPara(voltar, 'Voltou!')));
 
     const s = $('#cmd-salvos');
     s.innerHTML = '';
     lugares.lista.forEach((l, i) => {
-      const b = botao(l.ic, passos(l.p), () => irPara(l.p, `Chegou no lugar ${l.ic}`), 'salvo');
+      const b = botao(nomeLugar(l.ic), passos(l.p), () => irPara(l.p, 'Chegou no lugar!'), 'salvo');
       const x = document.createElement('span');
-      x.className = 'apagar'; x.textContent = '✕'; x.setAttribute('role', 'button'); x.setAttribute('aria-label', 'Apagar lugar');
+      x.className = 'apagar'; x.innerHTML = icone('fechar'); x.setAttribute('role', 'button'); x.setAttribute('aria-label', 'Apagar lugar');
       x.addEventListener('click', (e) => { e.stopPropagation(); apagarLugar(i); });
       b.appendChild(x);
       s.appendChild(b);
@@ -195,7 +195,7 @@ export function criarComandos(j) {
       const t = document.createElement('p'); t.className = 'sub'; t.textContent = 'Escolha um desenho para este lugar:';
       esc.appendChild(t);
       for (const ic of ICONES) {
-        const b = document.createElement('button'); b.textContent = ic; b.setAttribute('aria-label', 'Desenho ' + ic);
+        const b = document.createElement('button'); b.innerHTML = icone(ic); b.setAttribute('aria-label', 'Desenho ' + ic);
         b.addEventListener('click', () => salvarLugar(ic));
         esc.appendChild(b);
       }
@@ -210,7 +210,7 @@ export function criarComandos(j) {
     if (!online()) {
       a.innerHTML = '<p class="vazio">Jogando sem internet. Entre num mundo com código para jogar com amigos!</p>';
     } else if (!j.outros.size) {
-      a.innerHTML = '<p class="vazio">Nenhum amigo neste mundo agora. Passe o código do mundo para eles! 🤝</p>';
+      a.innerHTML = '<p class="vazio">Nenhum amigo neste mundo agora. Passe o código do mundo para eles!</p>';
     } else {
       for (const [id, o] of j.outros) {
         const l = document.createElement('div');
@@ -231,7 +231,7 @@ export function criarComandos(j) {
     const pode = !online() || dono;
     for (const x of HORAS) h.appendChild(botao(x.ic, x.nome, () => mudarHora(x), pode ? '' : 'trancado'));
     const dn = j.mundoAtual() && j.mundoAtual().nome_dono;
-    $('#cmd-hora-aviso').textContent = pode ? (online() ? 'Muda a hora para todo mundo neste mundo.' : '') : `Só ${dn || 'o dono do mundo'} pode mudar a hora aqui 🔒`;
+    $('#cmd-hora-aviso').textContent = pode ? (online() ? 'Muda a hora para todo mundo neste mundo.' : '') : `Só ${dn || 'o dono do mundo'} pode mudar a hora aqui.`;
 
     const p = j.jog().pos;
     $('#cmd-onde').textContent = `Você está em ${Math.floor(p.x)}, ${Math.floor(p.y)}, ${Math.floor(p.z)}`;
@@ -277,8 +277,8 @@ export function criarComandos(j) {
       'tp-pedido': mostrarPedido,
       'tp-resp': (m) => {
         clearTimeout(esperando && esperando.timer); esperando = null;
-        if (!m.ok) j.aviso(`${m.nome} disse "agora não" 🙂`, 2200);
-        else if (m.tipo === 'chamar') j.aviso(`${m.nome} está vindo! ✨`, 2000);
+        if (!m.ok) j.aviso(`${m.nome} disse "agora não"`, 2200, 'sorriso');
+        else if (m.tipo === 'chamar') j.aviso(`${m.nome} está vindo!`, 2000, 'brilho');
       },
       'tp-ir': (m) => {
         if (!Array.isArray(m.p)) return;
@@ -287,7 +287,7 @@ export function criarComandos(j) {
       'tp-erro': (m) => { clearTimeout(esperando && esperando.timer); esperando = null; j.aviso(m.msg || 'Não deu certo', 2200); },
       dia: (m) => {
         j.definirDia(m.v);
-        if (m.nome && j.mundoAtual() && m.nome !== j.nomeEu()) j.aviso(`${m.nome} mudou a hora ⏰`, 1600);
+        if (m.nome && j.mundoAtual() && m.nome !== j.nomeEu()) j.aviso(`${m.nome} mudou a hora`, 1600, 'relogio');
       },
     },
   };
