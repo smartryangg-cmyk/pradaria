@@ -221,6 +221,7 @@ function pintarTile(img, idx, fn) {
 }
 // tiles que ainda não têm versão detalhada (desenhados em 16px com pintarTile)
 function pintarLegado(img) {
+  const verde = hex(0x6cc04a), terra = hex(0x8a5a3b), pedra = hex(0x8c8f96), areia = hex(0xecd9a0); // cores base usadas pelos tiles antigos
   // 24 terra de plantar (sulcos)
   pintarTile(img, 24, (x, y, r) => var_(y % 4 < 2 ? hex(0x5e3a22) : hex(0x7a4d2e), r, 0.18));
   // 25 trigo (fundo transparente): talos com espigas douradas
