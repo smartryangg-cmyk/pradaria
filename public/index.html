@@ -12,7 +12,7 @@
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icone-apple.png">
 <meta name="apple-mobile-web-app-title" content="Pradaria">
-<link rel="stylesheet" href="estilo.css?v=6">
+<link rel="stylesheet" href="estilo.css?v=7">
 </head>
 <body>
 <canvas id="tela"></canvas>
@@ -22,22 +22,22 @@
 <div id="hud" hidden>
   <div id="mira"></div>
   <div id="topo">
-    <button id="bt-menu" class="redondo" aria-label="Menu">☰</button>
-    <button id="bt-tela" class="redondo" aria-label="Tela cheia">⛶</button>
-    <div id="status"></div>
+    <button id="bt-menu" class="redondo" aria-label="Menu"><span data-icone="menu"></span></button>
+    <button id="bt-tela" class="redondo" aria-label="Tela cheia"><span data-icone="telacheia"></span></button>
+    <div id="status-linha"><div id="status"></div></div>
     <div id="emotes">
-      <button data-emote="👋" aria-label="Acenar">👋</button>
-      <button data-emote="❤️" aria-label="Coração">❤️</button>
-      <button data-emote="😄" aria-label="Sorriso">😄</button>
-      <button data-emote="⭐" aria-label="Estrela">⭐</button>
+      <button data-emote="acenar" aria-label="Acenar"><span data-icone="acenar"></span></button>
+      <button data-emote="coracao" aria-label="Coração"><span data-icone="coracao"></span></button>
+      <button data-emote="sorriso" aria-label="Sorriso"><span data-icone="sorriso"></span></button>
+      <button data-emote="estrela" aria-label="Estrela"><span data-icone="estrela"></span></button>
     </div>
   </div>
   <div id="aviso"></div>
   <div id="barra"></div>
   <div id="botoes-toque">
-    <button id="bt-voar" class="redondo" aria-label="Voar">🕊️</button>
-    <button id="bt-descer" class="redondo" aria-label="Descer" hidden>⬇</button>
-    <button id="bt-pular" class="redondo grande" aria-label="Pular">⬆</button>
+    <button id="bt-voar" class="redondo" aria-label="Voar"><span data-icone="voar"></span></button>
+    <button id="bt-descer" class="redondo" aria-label="Descer" hidden><span data-icone="descer"></span></button>
+    <button id="bt-pular" class="redondo grande" aria-label="Pular"><span data-icone="pular"></span></button>
   </div>
   <div id="dica-toque">Toque: colocar bloco ou fazer carinho · Segure: quebrar</div>
   <div id="joy"><div id="joy-pino"></div></div>
@@ -60,11 +60,11 @@
     <p id="pausa-mundo" class="sub"></p>
     <label class="campo">Gráficos
       <select id="aj-graf">
-        <option value="ultra">💎 Ultra (computador forte)</option>
-        <option value="alta">✨ Linda (sombras e luzes completas)</option>
-        <option value="media">🌤️ Bonita (sombras mais leves)</option>
-        <option value="baixa">🍃 Leve (para aparelhos fracos)</option>
-        <option value="personalizado">🎛️ Personalizado</option>
+        <option value="ultra">Ultra (computador forte)</option>
+        <option value="alta">Linda (sombras e luzes completas)</option>
+        <option value="media">Bonita (sombras mais leves)</option>
+        <option value="baixa">Leve (para aparelhos fracos)</option>
+        <option value="personalizado">Personalizado</option>
       </select>
     </label>
     <details class="mais" id="mais-graf">
@@ -122,8 +122,8 @@
     </label>
     <label class="campo linha"><input id="aj-som" type="checkbox"> Sons</label>
     <label class="campo linha"><input id="aj-fps" type="checkbox"> Mostrar FPS</label>
-    <button class="bt" id="bt-tela2">⛶ Tela cheia</button>
-    <button class="bt instalar" hidden>📲 Instalar o jogo</button>
+    <button class="bt" id="bt-tela2"><span data-icone="telacheia"></span>Tela cheia</button>
+    <button class="bt instalar" hidden><span data-icone="baixar"></span>Instalar o jogo</button>
     <button class="bt verde" data-fechar>Voltar a jogar</button>
     <button class="bt" id="bt-sair-mundo">Sair do mundo</button>
   </div>
@@ -131,14 +131,16 @@
 
 <!-- menus -->
 <div id="menu" class="janela fundo">
+  <div class="nuvens" aria-hidden="true"><i></i><i></i><i></i></div>
   <div class="caixa" id="m-inicio">
-    <div class="logo">Pradaria</div>
-    <p class="sub">Construa, explore e faça carinho nos bichinhos 🐑🐷🐔</p>
-    <button class="bt verde grande" id="bt-entrar">Entrar</button>
-    <button class="bt" id="bt-criar-conta">Criar conta</button>
-    <button class="bt" id="bt-sozinho">Jogar sem conta</button>
-    <button class="bt instalar" hidden>📲 Instalar o jogo</button>
-    <a class="bt baixar-apk" href="https://github.com/smartryangg-cmyk/pradaria/releases/latest/download/pradaria.apk" hidden>🤖 Baixar app para Android</a>
+    <div class="logo"><span class="logo-bloco" data-icone="bloco"></span><span class="logo-txt">Pradaria</span></div>
+    <p class="sub centro">Construa, explore e faça carinho nos bichinhos</p>
+    <div class="enfeites" aria-hidden="true"><span data-icone="flor"></span><span data-icone="pata"></span><span data-icone="coracao"></span><span data-icone="broto"></span><span data-icone="estrela"></span></div>
+    <button class="bt verde grande" id="bt-entrar"><span data-icone="entrar"></span>Entrar</button>
+    <button class="bt" id="bt-criar-conta"><span data-icone="pessoa"></span>Criar conta</button>
+    <button class="bt amarelo" id="bt-sozinho"><span data-icone="casa"></span>Jogar sem conta</button>
+    <button class="bt instalar" hidden><span data-icone="baixar"></span>Instalar o jogo</button>
+    <a class="bt baixar-apk" href="https://github.com/smartryangg-cmyk/pradaria/releases/latest/download/pradaria.apk" hidden><span data-icone="celular"></span>Baixar app para Android</a>
   </div>
 
   <form class="caixa" id="m-conta" hidden>
@@ -148,7 +150,7 @@
     <div id="c-cores" class="cores" hidden></div>
     <p id="c-erro" class="erro"></p>
     <button class="bt verde grande" type="submit" id="c-ok">Entrar</button>
-    <button class="bt" type="button" data-voltar>Voltar</button>
+    <button class="bt" type="button" data-voltar><span data-icone="voltar"></span>Voltar</button>
   </form>
 
   <div class="caixa" id="m-mundos" hidden>
@@ -157,13 +159,13 @@
     <p id="mundos-erro" class="erro"></p>
     <div id="lista-mundos"></div>
     <div class="linha-bts">
-      <button class="bt verde" id="bt-novo-mundo">+ Novo mundo</button>
-      <button class="bt" id="bt-codigo">Entrar com código</button>
+      <button class="bt verde" id="bt-novo-mundo"><span data-icone="mais"></span>Novo mundo</button>
+      <button class="bt" id="bt-codigo"><span data-icone="chave"></span>Entrar com código</button>
     </div>
-    <button class="bt" id="bt-sozinho2">Jogar sem internet</button>
-    <button class="bt instalar" hidden>📲 Instalar o jogo</button>
-    <a class="bt baixar-apk" href="https://github.com/smartryangg-cmyk/pradaria/releases/latest/download/pradaria.apk" hidden>🤖 Baixar app para Android</a>
-    <button class="bt fraco" id="bt-sair-conta">Sair da conta</button>
+    <button class="bt amarelo" id="bt-sozinho2"><span data-icone="casa"></span>Jogar sem internet</button>
+    <button class="bt instalar" hidden><span data-icone="baixar"></span>Instalar o jogo</button>
+    <a class="bt baixar-apk" href="https://github.com/smartryangg-cmyk/pradaria/releases/latest/download/pradaria.apk" hidden><span data-icone="celular"></span>Baixar app para Android</a>
+    <button class="bt fraco" id="bt-sair-conta"><span data-icone="sair"></span>Sair da conta</button>
   </div>
 
   <form class="caixa" id="m-novo" hidden>
@@ -171,17 +173,17 @@
     <label class="campo" id="novo-rotulo">Nome do mundo<input id="n-nome" maxlength="24" required></label>
     <p id="n-erro" class="erro"></p>
     <button class="bt verde grande" type="submit">Criar</button>
-    <button class="bt" type="button" data-voltar-mundos>Voltar</button>
+    <button class="bt" type="button" data-voltar-mundos><span data-icone="voltar"></span>Voltar</button>
   </form>
 
   <div class="caixa" id="m-carregando" hidden>
-    <div class="logo pequeno">Pradaria</div>
+    <div class="logo pequeno"><span class="logo-bloco" data-icone="bloco"></span><span class="logo-txt">Pradaria</span></div>
     <p class="sub" id="carregando-txt">Preparando o mundo…</p>
     <div class="girando"></div>
   </div>
 </div>
 
 <div id="fps" hidden></div>
-<script type="module" src="js/main.js?v=6"></script>
+<script type="module" src="js/main.js?v=7"></script>
 </body>
 </html>

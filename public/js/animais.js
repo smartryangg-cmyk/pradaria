@@ -1,6 +1,7 @@
 // Bichos pacíficos: aparecem perto do jogador, passeiam, e ganham carinho com um toque.
 import * as THREE from '../vendor/three.module.min.js';
-import { ESPECIES, montarBicho, texturaEmoji } from './modelos.js';
+import { ESPECIES, montarBicho } from './modelos.js';
+import { texturaIcone, nomeEmote } from './icones.js';
 import { SOLIDO, AGUA, B } from './blocos.js';
 
 const MAX = 16;
@@ -151,14 +152,21 @@ export class Bichos {
     this.som.bicho(b.e.som);
     b.andando = false; b.timer = 2; b.vy = 3.5;
     if (b.e.segue) b.segue = 90;
-    for (let k = 0; k < 4; k++) this.emoji('❤️', b.x + (Math.random() - 0.5) * 0.8, b.y + b.e.alt + 0.2 + k * 0.25, b.z + (Math.random() - 0.5) * 0.8, 1.2 + k * 0.2);
+    for (let k = 0; k < 4; k++) this.icone('coracao', b.x + (Math.random() - 0.5) * 0.8, b.y + b.e.alt + 0.2 + k * 0.25, b.z + (Math.random() - 0.5) * 0.8, 1.2 + k * 0.2);
   }
 
-  emoji(e, x, y, z, vida = 1.6, escala = 0.45) {
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: texturaEmoji(e), transparent: true, depthWrite: false }));
+  // ícone flutuante (coração do carinho, emotes dos jogadores)
+  icone(nome, x, y, z, vida = 1.6, escala = 0.45) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: texturaIcone(nome), transparent: true, depthWrite: false }));
     s.position.set(x, y, z);
     s.scale.set(escala, escala, 1);
     this.cena.add(s);
     this.particulas.push({ s, vida });
+  }
+
+  // compatibilidade: aceita nome de ícone ou emoji antigo; ignora o que não conhece
+  emoji(e, x, y, z, vida, escala) {
+    const nome = nomeEmote(e);
+    if (nome) this.icone(nome, x, y, z, vida, escala);
   }
 }

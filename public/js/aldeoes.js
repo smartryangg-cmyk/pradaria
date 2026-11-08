@@ -13,18 +13,18 @@ const ROUPAS = [0xe06b5a, 0x5aa0e0, 0x6cc04a, 0xf2c72e, 0xb07ad9, 0xf29ac2, 0x4f
 const CALCAS = [0x3a4a6a, 0x5a3d22, 0x4a4a4a, 0x2f5d8a, 0x6b5a3a];
 
 const FALAS = {
-  geral: ['Bom dia! ☀️', 'Que dia lindo!', 'Já fez carinho numa capivara hoje?', 'Bem-vindo à {vila}!', 'Adoro morar aqui na {vila}.',
-    'Cuidado com as flores! 🌼', 'Você constrói muito bem!', 'O Caramelo passou por aqui agora há pouco 🐶', 'Olha que nuvem bonita! ☁️',
-    'Vamos ser amigos? 😊', 'Já bebeu água do poço da praça?', 'Aqui a noite é clarinha, não precisa ter medo 🌙',
-    'Que tal construir uma casa aqui do lado?', 'Oi, oi! 👋'],
-  fazendeiro: ['O trigo está crescendo bonito! 🌾', 'Hoje vou colher trigo para fazer pão 🍞', 'As galinhas botaram muitos ovos! 🥚', 'Plantar é muito legal! Quer tentar?'],
-  padeiro: ['Acabei de fazer pão quentinho! 🍞', 'Bolo de fubá saindo do forno! 🍰', 'Quer um pãozinho de queijo? 🧀'],
-  pescador: ['O mar está calminho hoje 🌊', 'Vi um peixinho colorido! 🐟', 'Adoro o barulho das ondas 🐚'],
-  artesao: ['Estou fazendo uma cadeira nova 🪑', 'Tábua por tábua se faz uma casa!', 'Gostou do telhado da minha casa?'],
-  florista: ['Essas flores são para você! 🌷', 'Flor azul é a minha preferida 💙', 'Plantei flores na praça 🌻'],
-  noite: ['Boa noite! Hora de dormir 😴', 'Zzz... 💤', 'Amanhã a gente brinca mais! 🌙'],
+  geral: ['Bom dia!', 'Que dia lindo!', 'Já fez carinho numa capivara hoje?', 'Bem-vindo à {vila}!', 'Adoro morar aqui na {vila}.',
+    'Cuidado com as flores!', 'Você constrói muito bem!', 'O Caramelo passou por aqui agora há pouco', 'Olha que nuvem bonita!',
+    'Vamos ser amigos?', 'Já bebeu água do poço da praça?', 'Aqui a noite é clarinha, não precisa ter medo',
+    'Que tal construir uma casa aqui do lado?', 'Oi, oi!'],
+  fazendeiro: ['O trigo está crescendo bonito!', 'Hoje vou colher trigo para fazer pão', 'As galinhas botaram muitos ovos!', 'Plantar é muito legal! Quer tentar?'],
+  padeiro: ['Acabei de fazer pão quentinho!', 'Bolo de fubá saindo do forno!', 'Quer um pãozinho de queijo?'],
+  pescador: ['O mar está calminho hoje', 'Vi um peixinho colorido!', 'Adoro o barulho das ondas'],
+  artesao: ['Estou fazendo uma cadeira nova', 'Tábua por tábua se faz uma casa!', 'Gostou do telhado da minha casa?'],
+  florista: ['Essas flores são para você!', 'Flor azul é a minha preferida', 'Plantei flores na praça'],
+  noite: ['Boa noite! Hora de dormir', 'Zzz...', 'Amanhã a gente brinca mais!'],
 };
-const PRESENTES = ['🍎', '🌽', '🥕', '🍞', '🌻', '🍓', '🥚', '🍰'];
+const PRESENTES = ['maca', 'milho', 'cenoura', 'pao', 'flor', 'morango', 'ovo', 'bolo']; // nomes de ícones (icones.js)
 
 function malha(geo) { const m = new THREE.Mesh(geo, matModelo); m.castShadow = true; return m; }
 function membro(geos, x, y, z) { const m = malha(juntar(geos)); m.position.set(x, y, z); return m; }
@@ -298,7 +298,7 @@ export class Aldeoes {
       } else {
         a.espera -= dt;
         if (a.espera <= 0) { this.escolherDestino(a, noite); a.espera = 3; }
-        if (noite && a.no.dentro && dist < 22) { a.zzz -= dt; if (a.zzz <= 0) { a.zzz = 3; this.emoji('💤', a.x, a.y + 2, a.z, 1.6, 0.45); } }
+        if (noite && a.no.dentro && dist < 22) { a.zzz -= dt; if (a.zzz <= 0) { a.zzz = 3; this.emoji('sono', a.x, a.y + 2, a.z, 1.6, 0.45); } }
       }
       // gravidade
       const s = this.solo(a.x, a.z, a.y);

@@ -3,7 +3,8 @@ import { DurableObject } from 'cloudflare:workers';
 
 const MAX_BLOCO = 23;
 const MAX_JOGADORES = 12;
-const EMOTES = new Set(['👋', '❤️', '😄', '⭐']);
+// emotes por nome de ícone (v4); os emojis ficam para quem ainda está com a versão antiga aberta
+const EMOTES = new Set(['acenar', 'coracao', 'sorriso', 'estrela', '👋', '❤️', '😄', '⭐']);
 const MAX_EDICOES = 200000; // por mundo
 const LONGE = 100000; // ninguém precisa ir mais longe que isso
 const MSG_POR_SEG = 20;

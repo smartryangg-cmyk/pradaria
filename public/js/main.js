@@ -10,9 +10,11 @@ import { Som } from './som.js';
 import { montarBoneco, etiqueta, matModelo, caixa, juntar } from './modelos.js';
 import { conta, api, Sala } from './rede.js';
 import { criarGraficos, QUALIDADES, PESSOAIS } from './graficos.js';
+import { icone, preencherIcones, comIcone, nomeEmote } from './icones.js';
 import { Escavacao } from './escavar.js';
 
 const $ = (s) => document.querySelector(s);
+preencherIcones();
 const CORES = [0x3f6fd9, 0xe8433f, 0x4caf50, 0xf2c72e, 0x9c5bd9, 0xf29ac2, 0xff8a3d, 0x2bb3b3];
 
 // ---------- ajustes salvos ----------
@@ -103,9 +105,9 @@ function mostrarMenu(id) {
   for (const c of document.querySelectorAll('#menu > .caixa')) c.hidden = c.id !== id;
 }
 let timerAviso;
-function aviso(txt, ms = 1800) {
+function aviso(txt, ms = 1800, ic = null) {
   const el = $('#aviso');
-  el.textContent = txt; el.classList.add('mostra');
+  el.innerHTML = comIcone(ic, txt); el.classList.add('mostra');
   clearTimeout(timerAviso);
   timerAviso = setTimeout(() => el.classList.remove('mostra'), ms);
 }
@@ -122,7 +124,7 @@ function desenharBarra() {
     el.appendChild(b);
   });
   const mais = document.createElement('button');
-  mais.className = 'slot mais'; mais.textContent = '＋'; mais.setAttribute('aria-label', 'Todos os blocos');
+  mais.className = 'slot mais'; mais.innerHTML = icone('mais'); mais.setAttribute('aria-label', 'Todos os blocos');
   mais.addEventListener('click', abrirInventario);
   el.appendChild(mais);
 }
@@ -173,16 +175,16 @@ function alternarTela() {
   if (pedirTela) {
     Promise.resolve(pedirTela.call(el, { navigationUI: 'hide' }))
       .then(() => { try { screen.orientation.lock('landscape').catch(() => {}); } catch {} })
-      .catch(() => aviso('Não deu para abrir em tela cheia aqui 😕', 2500));
+      .catch(() => aviso('Não deu para abrir em tela cheia aqui', 2500, 'telacheia'));
   } else {
     // iPhone não deixa sites ficarem em tela cheia: o jeito é instalar na tela de início
-    aviso('No iPhone: toque em Compartilhar ⬆️ e depois em "Adicionar à Tela de Início". O jogo abre em tela cheia por lá!', 6000);
+    aviso('No iPhone: toque em Compartilhar e depois em "Adicionar à Tela de Início". O jogo abre em tela cheia por lá!', 6000);
   }
 }
 function atualizarBotaoTela() {
   const cheia = emTelaCheia();
-  $('#bt-tela').textContent = cheia ? '🗗' : '⛶';
-  $('#bt-tela2').textContent = cheia ? '🗗 Sair da tela cheia' : '⛶ Tela cheia';
+  $('#bt-tela').innerHTML = icone(cheia ? 'sairtela' : 'telacheia');
+  $('#bt-tela2').innerHTML = icone(cheia ? 'sairtela' : 'telacheia') + (cheia ? 'Sair da tela cheia' : 'Tela cheia');
 }
 $('#bt-tela').hidden = !!ehApp;
 $('#bt-tela2').hidden = !!ehApp;
@@ -197,7 +199,7 @@ let pedidoInstalar = null;
 const ehIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 function mostrarInstalar(sim) { document.querySelectorAll('.instalar').forEach((b) => { b.hidden = !sim || !!ehApp; }); }
 addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); pedidoInstalar = e; mostrarInstalar(true); });
-addEventListener('appinstalled', () => { pedidoInstalar = null; mostrarInstalar(false); aviso('Pronto! O Pradaria está na sua tela de início 🎉', 3500); });
+addEventListener('appinstalled', () => { pedidoInstalar = null; mostrarInstalar(false); aviso('Pronto! O Pradaria está na sua tela de início!', 3500, 'estrela'); });
 // no Android (fora do app) oferece baixar o APK, que abre o jogo em tela cheia
 if (/Android/i.test(navigator.userAgent) && !ehApp) document.querySelectorAll('.baixar-apk').forEach((b) => { b.hidden = false; });
 if (ehIOS) mostrarInstalar(true); // no iPhone/iPad não tem pedido automático: mostramos o passo a passo
@@ -208,7 +210,7 @@ document.querySelectorAll('.instalar').forEach((b) => b.addEventListener('click'
     if (r && r.outcome === 'accepted') mostrarInstalar(false);
     pedidoInstalar = null;
   } else if (ehIOS) {
-    alert('Para instalar no iPhone ou iPad:\n\n1. Abra este site no Safari\n2. Toque em Compartilhar (o quadrado com a setinha ⬆️)\n3. Toque em "Adicionar à Tela de Início"\n\nDepois é só abrir pelo ícone, em tela cheia!');
+    alert('Para instalar no iPhone ou iPad:\n\n1. Abra este site no Safari\n2. Toque em Compartilhar (o quadrado com a setinha para cima)\n3. Toque em "Adicionar à Tela de Início"\n\nDepois é só abrir pelo ícone, em tela cheia!');
   }
 }));
 addEventListener('keydown', (e) => {
@@ -256,10 +258,10 @@ $('#aj-fps').addEventListener('change', (e) => { ajustes.fps = e.target.checked;
 $('#bt-sair-mundo').addEventListener('click', sairDoMundo);
 $('#bt-voar').addEventListener('click', () => alternarVoo());
 document.querySelectorAll('[data-emote]').forEach((b) => b.addEventListener('click', () => {
-  const e = b.dataset.emote;
+  const e = b.dataset.emote; // nome do ícone: 'acenar', 'coracao', 'sorriso', 'estrela'
   som.oi();
   if (sala) sala.enviar({ t: 'emote', e });
-  if (bichos) bichos.emoji(e, jog.pos.x + Math.sin(-jog.yaw) * -1.2, jog.pos.y + 1.9, jog.pos.z - Math.cos(jog.yaw) * 1.2, 1.4, 0.5);
+  if (bichos) bichos.icone(e, jog.pos.x + Math.sin(-jog.yaw) * -1.2, jog.pos.y + 1.9, jog.pos.z - Math.cos(jog.yaw) * 1.2, 1.4, 0.5);
 }));
 
 function ajustarNevoa() {
@@ -274,7 +276,7 @@ function alternarVoo() {
   jog.vel.y = jog.voando ? 2 : 0;
   $('#bt-voar').classList.toggle('ligado', jog.voando);
   $('#bt-descer').hidden = !jog.voando;
-  aviso(jog.voando ? 'Voando! 🕊️' : 'Andando', 900);
+  aviso(jog.voando ? 'Voando!' : 'Andando', 900, jog.voando ? 'voar' : null);
 }
 
 // ---------- ações ----------
@@ -342,7 +344,7 @@ function recolherAgua(ponto) {
       if (mundo.bloco(h.x + dx, h.y + dy, h.z + dz) === B.AGUA) alvo = { x: h.x + dx, y: h.y + dy, z: h.z + dz };
     }
   }
-  if (!alvo) { aviso('Essa água vem de longe 💧', 1500); return true; }
+  if (!alvo) { aviso('Essa água vem de longe', 1500, 'gota'); return true; }
   mundo.definir(alvo.x, alvo.y, alvo.z, AR);
   som.quebrar();
   return true;
@@ -450,8 +452,8 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0 }) {
   ctrl.jog = jog;
   ctrl.sensToque = ajustes.sens;
   bichos = new Bichos(cena, mundo, som);
-  aldeoes = new Aldeoes(cena, mundo, som, (...a) => bichos.emoji(...a));
-  aldeoes.aoEntrarVila = (v) => aviso(`🏘️ ${v.nome}`, 2600);
+  aldeoes = new Aldeoes(cena, mundo, som, (...a) => bichos.icone(...a));
+  aldeoes.aoEntrarVila = (v) => aviso(v.nome, 2600, 'vila');
   som.ligado = ajustes.som;
   ajustarNevoa();
   desenharBarra();
@@ -472,8 +474,8 @@ function jogarLocal() {
   if (salvo && salvo.barra) barra = salvo.barra;
   if (salvo) tempoDia = salvo.dia ?? 0.3;
   iniciarMundo({ semente: salvo ? salvo.semente : Math.floor(Math.random() * 1e9), edicoes: salvo ? salvo.edicoes : [], pos: salvo && salvo.pos, yaw: salvo ? salvo.yaw : 0 });
-  $('#status').textContent = '🏡 Sem internet';
-  aviso('Bem-vindo à Pradaria! 🌼', 2500);
+  $('#status').innerHTML = comIcone('casa', 'Sem internet');
+  aviso('Bem-vindo à Pradaria!', 2500, 'flor');
 }
 
 async function jogarOnline(m) {
@@ -483,7 +485,7 @@ async function jogarOnline(m) {
   $('#carregando-txt').textContent = `Entrando em "${m.nome}"…`;
   let primeiro = true;
   sala = new Sala(m.codigo, {
-    status: (s) => { if (jogando) $('#status').textContent = s === 'online' ? `🌍 ${m.nome}` : '⏳ Reconectando…'; },
+    status: (s) => { if (jogando) $('#status').innerHTML = s === 'online' ? comIcone('globo', m.nome) : comIcone('ampulheta', 'Reconectando…'); },
     ola: (msg) => {
       euId = msg.eu;
       if (primeiro) {
@@ -492,15 +494,15 @@ async function jogarOnline(m) {
         tempoDia = msg.dia ?? 0.3;
         iniciarMundo({ semente: msg.semente, edicoes: msg.edicoes, pos: msg.pos, yaw: 0 });
         sala = s;
-        $('#status').textContent = `🌍 ${m.nome}`;
-        aviso(`Bem-vindo, ${conta.usuario.nome}! Código do mundo: ${m.codigo}`, 3500);
+        $('#status').innerHTML = comIcone('globo', m.nome);
+        aviso(`Bem-vindo, ${conta.usuario.nome}! Código do mundo: ${m.codigo}`, 3500, 'flor');
       } else {
         mundo.carregarEdicoes(msg.edicoes);
       }
       for (const id of [...outros.keys()]) removerOutro(id);
       for (const j of msg.jogadores) adicionarOutro(j);
     },
-    entrou: (msg) => { adicionarOutro(msg.j); aviso(`${msg.j.nome} entrou no mundo 👋`); som.oi(); },
+    entrou: (msg) => { adicionarOutro(msg.j); aviso(`${msg.j.nome} entrou no mundo`, 1800, 'acenar'); som.oi(); },
     saiu: (msg) => { const o = outros.get(msg.id); if (o) aviso(`${o.nome} saiu`); removerOutro(msg.id); },
     pos: (msg) => {
       const o = outros.get(msg.id);
@@ -511,7 +513,8 @@ async function jogarOnline(m) {
     bloco: (msg) => { if (mundo) mundo.definir(msg.x, msg.y, msg.z, msg.b, true); },
     emote: (msg) => {
       const o = outros.get(msg.id);
-      if (o && bichos) bichos.emoji(msg.e, o.grupo.position.x, o.grupo.position.y + 2.7, o.grupo.position.z, 2, 0.6);
+      const nome = nomeEmote(msg.e); // aceita nome novo ou emoji de versão antiga
+      if (o && bichos && nome) bichos.icone(nome, o.grupo.position.x, o.grupo.position.y + 2.7, o.grupo.position.z, 2, 0.6);
     },
     erro: (msg) => { aviso(msg.msg || 'Erro', 3000); },
     fim: (texto) => { sala = null; sairDoMundo(); $('#mundos-erro').textContent = texto || ''; },
@@ -579,11 +582,11 @@ async function abrirMundos() {
     $('#m-nome').textContent = conta.usuario.nome;
     const l = $('#lista-mundos');
     l.innerHTML = '';
-    if (!mundos.length) l.innerHTML = '<div class="vazio">Você ainda não tem mundos. Crie um! 🌱</div>';
+    if (!mundos.length) l.innerHTML = `<div class="vazio">${icone('broto')}<span>Você ainda não tem mundos. Crie um!</span></div>`;
     for (const m of mundos) {
       const b = document.createElement('button');
       b.className = 'mundo';
-      b.innerHTML = `<span class="ic">${m.dono ? '🏡' : '🤝'}</span><span><b></b><small></small></span>`;
+      b.innerHTML = `<span class="ic ${m.dono ? 'meu' : 'amigo'}">${icone(m.dono ? 'casa' : 'amigos')}</span><span class="txt"><b></b><small></small></span>${icone('entrar', 'ic-svg seta')}`;
       b.querySelector('b').textContent = m.nome;
       b.querySelector('small').textContent = `código ${m.codigo}` + (m.dono ? '' : ` · de ${m.nome_dono}`);
       b.addEventListener('click', () => { som.iniciar(); jogarOnline(m); });
@@ -731,7 +734,7 @@ function vigiarDesempenho(fps) {
     if (i < 0) i = opcoesGraficas().sombra > 1024 ? 2 : 1; // personalizado: desce para o preset logo abaixo
     if (i > 0) {
       ajustes.graf = ordem[i - 1]; salvarAjustes(); aplicarGraficos(); preencherGraficos();
-      aviso('Deixei os gráficos mais leves para rodar liso ✨', 2500);
+      aviso('Deixei os gráficos mais leves para rodar liso', 2500, 'brilho');
     } else if (ajustes.qual > 0.6) {
       ajustes.qual = Math.max(0.6, +(ajustes.qual - 0.1).toFixed(1)); salvarAjustes(); redimensionar();
     }
