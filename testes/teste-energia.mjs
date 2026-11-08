@@ -14,7 +14,11 @@ await p.reload();
 await p.waitForTimeout(600);
 await p.click('#bt-sozinho');
 await p.waitForTimeout(400);
-if (await p.isVisible('#m-novo')) await p.click('#m-novo button[type=submit]'); // mundo novo: opções padrão
+if (await p.isVisible('#m-novo')) {
+  // mundo novo: opções padrão, mas no modo criativo (com a aba Engenharia de blocos à vontade)
+  if (await p.getAttribute('[data-opcao=sobrevivencia]', 'aria-pressed') === 'true') await p.click('[data-opcao=sobrevivencia]');
+  await p.click('#m-novo button[type=submit]');
+}
 await p.waitForTimeout(3000);
 
 const r = await p.evaluate(async () => {

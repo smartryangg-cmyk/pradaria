@@ -13,7 +13,7 @@ const LONGE = 24;          // longe disso o bloco volta inteiro
 const DUREZA = {
   [B.FOLHAS]: 2, [B.VIDRO]: 2, [B.AREIA]: 3, [B.TERRA]: 3, [B.GRAMA]: 3, [B.LAMPIAO]: 3,
   [B.LA_BRANCA]: 3, [B.LA_VERMELHA]: 3, [B.LA_AZUL]: 3, [B.LA_AMARELA]: 3, [B.LA_VERDE]: 3, [B.LA_ROSA]: 3,
-  [B.TABUAS]: 4, [B.TRONCO]: 5, [B.PEDRISCO]: 5, [B.PEDRA]: 6, [B.TIJOLO]: 6,
+  [B.TABUAS]: 4, [B.BANCADA]: 4, [B.TRONCO]: 5, [B.PEDRISCO]: 5, [B.PEDRA]: 6, [B.TIJOLO]: 6,
   [B.CACTO]: 2, [B.CASCALHO]: 3,
   [B.FOLHAS_PINHEIRO]: 2, [B.FOLHAS_SELVA]: 2, [B.TRONCO_PINHEIRO]: 5, [B.TRONCO_BETULA]: 5,
   [B.CARVAO]: 7, [B.FERRO]: 8, [B.OURO]: 8, [B.DIAMANTE]: 10, [B.ROCHA_MAE]: 9999,
@@ -45,11 +45,11 @@ export class Escavacao {
   }
 
   // um toque no bloco h (do raycast). p = ponto atingido no mundo. Retorna true se o bloco quebrou de vez.
-  bater(h, p) {
+  // total = quantos toques ele aguenta (menos com a ferramenta certa na mão; veja criacao.js)
+  bater(h, p, total = toquesPara(h.b)) {
     const k = h.x + ',' + h.y + ',' + h.z;
     let e = this.blocos.get(k);
     if (e && e.b !== h.b) { this.soltar(k); e = null; }
-    const total = toquesPara(h.b);
     if (!e) {
       if (total <= 1) { this.estilhacar(h.x, h.y, h.z, h.b, null, h.n); return true; }
       if (this.blocos.size >= MAX_ESCAVADOS) this.soltar(this.maisAntigo());

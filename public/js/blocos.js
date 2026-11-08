@@ -9,7 +9,7 @@ export const B = {
   TIJOLO: 10, FLOR_VERMELHA: 11, FLOR_AMARELA: 12, CAPIM: 13, LA_BRANCA: 14, LA_VERMELHA: 15,
   LA_AZUL: 16, LA_AMARELA: 17, LA_VERDE: 18, LA_ROSA: 19, PEDRISCO: 20, LAMPIAO: 21, FLOR_AZUL: 22,
   // 23..30 são as águas correntes (veja abaixo)
-  TERRA_ARADA: 31, TRIGO: 32, FENO: 33,
+  TERRA_ARADA: 31, TRIGO: 32, FENO: 33, BANCADA: 34,
   // mundo clássico (biomas, cavernas e minérios): 60..79, tiles 28..40
   // (neve, grama com neve, gelo e arenito são os blocos das eras: BE.BLOCO_NEVE, BE.NEVE, BE.GELO, BE.ARENITO)
   CACTO: 63, CASCALHO: 65,
@@ -64,6 +64,28 @@ def(B.FOLHAS_PINHEIRO, 'Folhas de pinheiro', 37);
 def(B.TRONCO_BETULA, 'Tronco de bétula', [6, 6, 38]);
 def(B.FOLHAS_SELVA, 'Folhas da selva', 39);
 def(B.ARBUSTO_SECO, 'Arbusto seco', 40, { solido: false, opaco: false, planta: true });
+def(B.BANCADA, 'Bancada', [128, 9, 129]);
+
+// ---------- itens (não são blocos: não vão para o mundo) ----------
+// Números a partir de 1000, longe de todos os blocos (0..255). Receitas e força das ferramentas: receitas.js.
+export const ITEM = {
+  GRAVETO: 1000,
+  PICARETA_MADEIRA: 1001, PICARETA_PEDRA: 1002,
+  MACHADO_MADEIRA: 1003, MACHADO_PEDRA: 1004,
+  PA_MADEIRA: 1005, PA_PEDRA: 1006,
+};
+export const ITENS = {
+  [ITEM.GRAVETO]: { nome: 'Graveto', tile: 130 },
+  [ITEM.PICARETA_MADEIRA]: { nome: 'Picareta de madeira', tile: 131 },
+  [ITEM.PICARETA_PEDRA]: { nome: 'Picareta de pedra', tile: 132 },
+  [ITEM.MACHADO_MADEIRA]: { nome: 'Machado de madeira', tile: 133 },
+  [ITEM.MACHADO_PEDRA]: { nome: 'Machado de pedra', tile: 134 },
+  [ITEM.PA_MADEIRA]: { nome: 'Pá de madeira', tile: 135 },
+  [ITEM.PA_PEDRA]: { nome: 'Pá de pedra', tile: 136 },
+};
+export const ehItem = (id) => id >= 1000;
+// nome de qualquer coisa que cabe na mão (bloco ou item)
+export const nomeDe = (id) => (ehItem(id) ? ITENS[id] && ITENS[id].nome : BLOCOS[id] && BLOCOS[id].nome) || '?';
 
 // Água corrente: nasce das fontes (o bloco Água) e não é salva nem enviada pela rede;
 // cada aparelho recalcula sozinho a partir das fontes. Nível 1 = perto da fonte, 7 = a pontinha.
@@ -150,7 +172,7 @@ NIVEL[AGUA_CAINDO] = 8;
 // Ordem dos blocos no inventário (modo criativo)
 export const INVENTARIO = [
   B.GRAMA, B.TERRA, B.PEDRA, B.PEDRISCO, B.AREIA, B.TRONCO, B.TABUAS, B.FOLHAS, B.VIDRO, B.TIJOLO,
-  B.LAMPIAO, B.FENO, B.TERRA_ARADA, B.LA_BRANCA, B.LA_VERMELHA, B.LA_AZUL, B.LA_AMARELA, B.LA_VERDE, B.LA_ROSA,
+  B.LAMPIAO, B.FENO, B.BANCADA, B.TERRA_ARADA, B.LA_BRANCA, B.LA_VERMELHA, B.LA_AZUL, B.LA_AMARELA, B.LA_VERDE, B.LA_ROSA,
   B.FLOR_VERMELHA, B.FLOR_AMARELA, B.FLOR_AZUL, B.CAPIM, B.TRIGO, B.AGUA,
   B.CACTO, B.CASCALHO, B.CARVAO, B.FERRO, B.OURO, B.DIAMANTE,
   B.TRONCO_PINHEIRO, B.FOLHAS_PINHEIRO, B.TRONCO_BETULA, B.FOLHAS_SELVA, B.ARBUSTO_SECO,
@@ -163,7 +185,7 @@ export const INVENTARIO_MAQUINAS = [
 
 export const TILE = 16;
 export const COLS = 8;
-export const LINHAS = 16; // tiles 64..127: eras (blocos-eras.js)
+export const LINHAS = 32; // tiles 64..127: eras (blocos-eras.js); 128..: bancada e itens (pintarCriacao)
 
 function hex(c) { return [(c >> 16) & 255, (c >> 8) & 255, c & 255]; }
 
@@ -276,6 +298,7 @@ function pintarLegado(img) {
     return galho ? var_(hex(0x8a6a3a), r, 0.2) : [0, 0, 0, 0];
   });
   pintarMaquinas(img);
+  pintarCriacao(img);
 }
 
 // Pinta o atlas com tiles de T pixels. Os desenhos são pensados em "unidades de 16" (u,v = 0..16),
@@ -644,6 +667,68 @@ function pintarMaquinas(img) {
   });
 }
 
+// bancada (128 topo, 129 lado) e itens (130..136): graveto e ferramentas, desenhados na diagonal
+function pintarCriacao(img) {
+  const mad = hex(0xc89a5a), madEsc = hex(0x7a5634), cabo = hex(0x9a7040), caboEsc = hex(0x5a3d22);
+  // 128 bancada topo: tampo de tábuas com grade de trabalho no meio
+  pintarTile(img, 128, (x, y, r) => {
+    const borda = x === 0 || y === 0 || x === 15 || y === 15;
+    if (borda) return var_(madEsc, r, 0.1);
+    const grade = x > 3 && x < 12 && y > 3 && y < 12;
+    if (grade) return var_((x - 4) % 3 === 2 || (y - 4) % 3 === 2 ? madEsc : hex(0xb08955), r, 0.08);
+    return var_(y % 4 === 3 ? hex(0x9a7040) : mad, r, 0.1);
+  });
+  // 129 bancada lado: pernas, gaveta e ferramentas penduradas
+  pintarTile(img, 129, (x, y, r) => {
+    if (y < 3) return var_(y === 2 ? madEsc : mad, r, 0.1);
+    if (x < 2 || x > 13) return var_(madEsc, r, 0.1);
+    if (y > 4 && y < 8 && x > 3 && x < 12) return var_(y === 6 && x > 6 && x < 9 ? hex(0xe6c056) : hex(0xa77a45), r, 0.08);
+    if (x === 5 && y > 8 && y < 14) return var_(cabo, r, 0.1);
+    if (y === 9 && x > 3 && x < 7) return var_(hex(0x8c8f96), r, 0.08);
+    if (x === 10 && y > 9 && y < 14) return var_(cabo, r, 0.1);
+    if (y > 8 && y < 11 && x > 9 && x < 13) return var_(hex(0x8c8f96), r, 0.08);
+    return var_(y % 4 === 1 ? hex(0x8a6236) : hex(0xa77a45), r, 0.12);
+  });
+  // cabo diagonal (de baixo-esquerda até o meio) comum a todas as ferramentas
+  const caboEm = (x, y) => (x + y === 15 || x + y === 16) && x >= 2 && x <= 10;
+  const ferramenta = (cabeca) => (x, y, r) => {
+    const c = cabeca(x, y);
+    if (c) return var_(c, r, 0.08);
+    if (caboEm(x, y)) return var_(x + y === 16 ? caboEsc : cabo, r, 0.08);
+    return [0, 0, 0, 0];
+  };
+  const pedraC = hex(0x8c8f96), pedraE = hex(0x5f6166);
+  // 130 graveto
+  pintarTile(img, 130, (x, y, r) => {
+    if (x + y === 15 && x >= 3 && x <= 12) return var_(cabo, r, 0.08);
+    if (x + y === 16 && x >= 3 && x <= 12) return var_(caboEsc, r, 0.08);
+    return [0, 0, 0, 0];
+  });
+  // picareta: arco no alto
+  const picareta = (c, e) => (x, y) => {
+    const d = Math.hypot(x - 4, y - 11.5);
+    if (d > 9.6 && d < 11.8 && x >= 3 && y <= 9) return d > 11 ? e : c;
+    return null;
+  };
+  pintarTile(img, 131, ferramenta(picareta(mad, madEsc)));
+  pintarTile(img, 132, ferramenta(picareta(pedraC, pedraE)));
+  // machado: lâmina larga no alto, de um lado do cabo
+  const machado = (c, e) => (x, y) => {
+    if (x >= 7 && x <= 13 && y >= 1 && y <= 7 && (x - 7) + (7 - y) >= 2 && x + y >= 9 && x + y <= 18) return x === 13 || y === 1 ? e : c;
+    return null;
+  };
+  pintarTile(img, 133, ferramenta(machado(mad, madEsc)));
+  pintarTile(img, 134, ferramenta(machado(pedraC, pedraE)));
+  // pá: lâmina arredondada na ponta
+  const pa = (c, e) => (x, y) => {
+    const d = Math.hypot(x - 11.5, y - 4.5);
+    if (d < 3.4) return d > 2.6 ? e : c;
+    return null;
+  };
+  pintarTile(img, 135, ferramenta(pa(mad, madEsc)));
+  pintarTile(img, 136, ferramenta(pa(pedraC, pedraE)));
+}
+
 // coordenadas UV de um tile (com pequena margem para evitar sangramento)
 export function uvTile(idx) {
   const e = 0.02 / TILE;
@@ -654,12 +739,24 @@ export function uvTile(idx) {
 
 // desenha o ícone de um bloco em um canvas pequeno (para a barra e o inventário)
 export function iconeBloco(atlasCanvas, id, tam = 40) {
-  const b = BLOCOS[id];
   const cv = document.createElement('canvas');
   cv.width = cv.height = tam;
   const ctx = cv.getContext('2d');
   ctx.imageSmoothingEnabled = false;
   const src = (t) => [(t % COLS) * TILE, Math.floor(t / COLS) * TILE];
+  if (!id) return cv; // mão vazia
+  if (ehItem(id)) {
+    const it = ITENS[id];
+    if (it) {
+      // copia o tile 1:1 antes de aumentar (senão o navegador puxa pixels do tile vizinho do atlas)
+      const t = document.createElement('canvas'); t.width = t.height = TILE;
+      const [sx, sy] = src(it.tile);
+      t.getContext('2d').drawImage(atlasCanvas, sx, sy, TILE, TILE, 0, 0, TILE, TILE);
+      ctx.drawImage(t, 0, 0, TILE, TILE, Math.round(tam * 0.08), Math.round(tam * 0.08), Math.round(tam * 0.84), Math.round(tam * 0.84));
+    }
+    return cv;
+  }
+  const b = BLOCOS[id];
   if (b.planta || id === B.AGUA || b.icone !== null || b.forma === 'fio' || b.forma === 'placa') {
     const [sx, sy] = src(b.icone ?? b.tiles[2]);
     ctx.drawImage(atlasCanvas, sx, sy, TILE, TILE, tam * 0.1, tam * 0.1, tam * 0.8, tam * 0.8);
