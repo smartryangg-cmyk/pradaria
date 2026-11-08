@@ -148,7 +148,7 @@ function desenharBarra() {
     b.className = 'slot' + (i === slotSel ? ' sel' : '');
     b.setAttribute('aria-label', BLOCOS[id].nome);
     b.appendChild(iconeBloco(atlasCanvas, id, 48));
-    if (!mercado.podeColocar(id)) { b.classList.add('trancado'); b.title = 'Compre na loja de uma vila'; }
+    if (!mercado.podeColocar(id)) { b.classList.add('trancado'); b.title = 'Compre na loja de uma vila'; b.insertAdjacentHTML('beforeend', `<span class="cad">${icone('cadeado')}</span>`); }
     b.addEventListener('click', () => { slotSel = i; som.clique(); desenharBarra(); aviso(BLOCOS[id].nome, 900); });
     el.appendChild(b);
   });
@@ -174,9 +174,9 @@ function abrirInventario() {
       b.title = BLOCOS[id].nome;
       b.appendChild(iconeBloco(atlasCanvas, id, 48));
       const trancado = !mercado.podeColocar(id);
-      if (trancado) { b.classList.add('trancado'); b.dataset.preco = '🪙' + mercado.precoDe(id); }
+      if (trancado) { b.classList.add('trancado'); b.insertAdjacentHTML('beforeend', `<span class="preco">${icone('cadeado')}${mercado.precoDe(id)}</span>`); }
       b.addEventListener('click', () => {
-        if (trancado) { som.clique(); aviso(`${BLOCOS[id].nome}: compre na loja de uma vila por ${mercado.precoDe(id)} 🪙 (toque num aldeão)`, 2800); return; }
+        if (trancado) { som.clique(); aviso(`${BLOCOS[id].nome}: compre na loja de uma vila por ${mercado.precoDe(id)} moedas (toque num aldeão)`, 2800, 'cadeado'); return; }
         const ja = barra.indexOf(id);
         if (ja >= 0) slotSel = ja; else barra[slotSel] = id;
         som.clique(); desenharBarra(); fecharJanelas(); aviso(BLOCOS[id].nome, 900);
@@ -396,7 +396,7 @@ function usar(ponto) {
   const x = h.x + h.n[0], y = h.y + h.n[1], z = h.z + h.n[2];
   let novo = barra[slotSel];
   if (y < 1 || y >= ALT) return;
-  if (!mercado.podeColocar(novo)) { aviso(`${BLOCOS[novo].nome}: compre na loja de uma vila por ${mercado.precoDe(novo)} 🪙`, 2500); return; }
+  if (!mercado.podeColocar(novo)) { aviso(`${BLOCOS[novo].nome}: compre na loja de uma vila por ${mercado.precoDe(novo)} moedas`, 2500, 'cadeado'); return; }
   const atual = mundo.bloco(x, y, z);
   if (atual !== AR && !AGUA[atual] && !BLOCOS[atual].planta) return;
   if (novo === B.AGUA && atual === B.AGUA) return;

@@ -314,6 +314,17 @@ details.mais[open] { display: flex; flex-direction: column; gap: 10px; padding-b
 .econ-linha.obj.ativo { box-shadow: 0 3px 0 #e2d6bf, inset 0 0 0 2px #ffe066; }
 #grade button.trancado, #barra .slot.trancado { position: relative; }
 #grade button.trancado canvas, #barra .slot.trancado canvas { filter: grayscale(1) brightness(.75); opacity: .6; }
-#grade button.trancado::after { content: "🔒 " attr(data-preco); position: absolute; bottom: 2px; left: 0; right: 0; font-size: 11px; font-weight: 900; text-align: center; }
-#barra .slot.trancado::after { content: "🔒"; position: absolute; font-size: 16px; }
+#grade button.trancado .preco { position: absolute; bottom: 2px; left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: 2px; font-size: 11px; font-weight: 900; }
+#grade button.trancado .preco .ic-svg { font-size: 12px; }
+#barra .slot.trancado .cad { position: absolute; display: grid; place-items: center; inset: 0; font-size: 18px; }
+.econ-chip, .econ-chip .ic-svg { display: flex; align-items: center; gap: 6px; } .econ-chip .ic-svg { font-size: 22px; }
+.econ-alvo .ic .ic-svg { font-size: 20px; } .econ-alvo .ic span:empty { display: none; }
+.econ-m { display: inline-flex; align-items: center; gap: 3px; vertical-align: middle; } .econ-m .ic-svg { font-size: 1.15em; }
+.econ-ic .ic-svg { font-size: 30px; } .econ-ic span:empty { display: none; }
+.econ-caixa h2.com-ic, .econ-corpo h3.com-ic { justify-content: center; } .econ-corpo h3.com-ic { justify-content: flex-start; }
+.econ-caixa h2 .ic-svg { width: 30px; height: 30px; } .econ-corpo h3 .ic-svg { width: 24px; height: 24px; }
+.bt.com-ic { justify-content: center; } .bt.com-ic .ic-svg { width: 24px; height: 24px; }
+.festa-card b.com-ic { gap: 6px; } .festa-card b .ic-svg { width: 26px; height: 26px; }
+.festa-card em { display: flex; align-items: center; gap: 4px; } .festa-card em .ic-svg { font-size: 22px; }
+.econ-dir .ic-svg { font-size: 18px; }
 @media (max-width: 640px) { #econ { top: calc(max(10px, env(safe-area-inset-top)) + 58px); } .econ-alvo { font-size: 12px; } }

@@ -235,8 +235,8 @@ export class Sala extends DurableObject {
       const falha = dar(de, para, m.n);
       if (falha) return ws.send(JSON.stringify({ t: 'econ-erro', msg: falha }));
       await this.ctx.storage.put({ ['e:' + eu.uid]: de, ['e:' + ja.uid]: para });
-      ws.send(JSON.stringify({ t: 'econ', s: de, msg: `Você deu ${m.n | 0} 🪙 para ${ja.nome}!` }));
-      alvo.send(JSON.stringify({ t: 'econ', s: para, msg: `${eu.nome} te deu ${m.n | 0} 🪙 de presente! 🎁` }));
+      ws.send(JSON.stringify({ t: 'econ', s: de, msg: `Você deu ${m.n | 0} moedas para ${ja.nome}!` }));
+      alvo.send(JSON.stringify({ t: 'econ', s: para, msg: `${eu.nome} te deu ${m.n | 0} moedas de presente!` }));
     }
   }
 

@@ -22,30 +22,30 @@ export const precoVenda = (b) => VENDA[b] || 1;
 // só dá para coletar blocos de verdade (nada de água, ar ou ids estranhos)
 export const coletavel = (b) => Number.isInteger(b) && b > 0 && b !== AG && (b <= 22 || (b >= 31 && b <= 33));
 
-// objetivos, na ordem em que aparecem. "conta" é o contador que faz andar a barrinha.
+// objetivos, na ordem em que aparecem (ic = nome do ícone em icones.js). "conta" é o contador que faz andar a barrinha.
 // premio = moedas (com mercado) ou estrelas (sem mercado). "mercado: true" = só aparece com o mercado ligado.
 export const OBJETIVOS = [
-  { id: 'colocar10', ic: '🧱', txt: 'Coloque 10 blocos', conta: 'colocar', meta: 10, premio: 5 },
-  { id: 'carinho3', ic: '🐑', txt: 'Faça carinho em 3 bichinhos', conta: 'carinho', meta: 3, premio: 5 },
-  { id: 'conversa1', ic: '👋', txt: 'Converse com um aldeão', conta: 'conversa', meta: 1, premio: 5 },
-  { id: 'quebrar10', ic: '⛏️', txt: 'Quebre 10 blocos', conta: 'quebrar', meta: 10, premio: 5 },
-  { id: 'vender5', ic: '🪙', txt: 'Venda 5 coisas para um aldeão', conta: 'vender', meta: 5, premio: 5, mercado: true },
-  { id: 'voar1', ic: '🕊️', txt: 'Voe bem alto', conta: 'voar', meta: 1, premio: 5 },
-  { id: 'flores5', ic: '🌼', txt: 'Plante 5 flores', conta: 'flor', meta: 5, premio: 8 },
-  { id: 'comprar1', ic: '🛒', txt: 'Compre um bloco novo na loja', conta: 'comprar', meta: 1, premio: 8, mercado: true },
-  { id: 'andar300', ic: '👣', txt: 'Ande 300 passos explorando', conta: 'andar', meta: 300, premio: 8 },
-  { id: 'carinho10', ic: '🐷', txt: 'Faça carinho em 10 bichinhos', conta: 'carinho', meta: 10, premio: 10 },
-  { id: 'colocar100', ic: '🏠', txt: 'Construa com 100 blocos', conta: 'colocar', meta: 100, premio: 15 },
-  { id: 'conversa5', ic: '🏘️', txt: 'Converse com 5 aldeões', conta: 'conversa', meta: 5, premio: 10 },
-  { id: 'alto1', ic: '🗼', txt: 'Coloque um bloco lá no alto (altura 50)', conta: 'alto', meta: 1, premio: 10 },
-  { id: 'agua1', ic: '💧', txt: 'Faça uma fonte de água', conta: 'agua', meta: 1, premio: 8 },
-  { id: 'emote3', ic: '😄', txt: 'Mande 3 emotes', conta: 'emote', meta: 3, premio: 5 },
-  { id: 'vender50', ic: '💰', txt: 'Venda 50 coisas', conta: 'vender', meta: 50, premio: 20, mercado: true },
-  { id: 'flores30', ic: '🌷', txt: 'Faça um jardim com 30 flores', conta: 'flor', meta: 30, premio: 20 },
-  { id: 'andar2000', ic: '🗺️', txt: 'Ande 2000 passos pelo mundo', conta: 'andar', meta: 2000, premio: 25 },
-  { id: 'comprar5', ic: '🎨', txt: 'Compre 5 blocos novos', conta: 'comprar', meta: 5, premio: 25, mercado: true },
-  { id: 'colocar500', ic: '🏰', txt: 'Construa com 500 blocos', conta: 'colocar', meta: 500, premio: 40 },
-  { id: 'carinho30', ic: '💖', txt: 'Faça carinho em 30 bichinhos', conta: 'carinho', meta: 30, premio: 30 },
+  { id: 'colocar10', ic: 'tijolos', txt: 'Coloque 10 blocos', conta: 'colocar', meta: 10, premio: 5 },
+  { id: 'carinho3', ic: 'ovelha', txt: 'Faça carinho em 3 bichinhos', conta: 'carinho', meta: 3, premio: 5 },
+  { id: 'conversa1', ic: 'pessoa', txt: 'Converse com um aldeão', conta: 'conversa', meta: 1, premio: 5 },
+  { id: 'quebrar10', ic: 'bloco', txt: 'Quebre 10 blocos', conta: 'quebrar', meta: 10, premio: 5 },
+  { id: 'vender5', ic: 'moeda', txt: 'Venda 5 coisas para um aldeão', conta: 'vender', meta: 5, premio: 5, mercado: true },
+  { id: 'voar1', ic: 'voar', txt: 'Voe bem alto', conta: 'voar', meta: 1, premio: 5 },
+  { id: 'flores5', ic: 'flor', txt: 'Plante 5 flores', conta: 'flor', meta: 5, premio: 8 },
+  { id: 'comprar1', ic: 'chave', txt: 'Compre um bloco novo na loja', conta: 'comprar', meta: 1, premio: 8, mercado: true },
+  { id: 'andar300', ic: 'mapa', txt: 'Ande 300 passos explorando', conta: 'andar', meta: 300, premio: 8 },
+  { id: 'carinho10', ic: 'coracao', txt: 'Faça carinho em 10 bichinhos', conta: 'carinho', meta: 10, premio: 10 },
+  { id: 'colocar100', ic: 'casa', txt: 'Construa com 100 blocos', conta: 'colocar', meta: 100, premio: 15 },
+  { id: 'conversa5', ic: 'vila', txt: 'Converse com 5 aldeões', conta: 'conversa', meta: 5, premio: 10 },
+  { id: 'alto1', ic: 'montanha', txt: 'Coloque um bloco lá no alto (altura 50)', conta: 'alto', meta: 1, premio: 10 },
+  { id: 'agua1', ic: 'gota', txt: 'Faça uma fonte de água', conta: 'agua', meta: 1, premio: 8 },
+  { id: 'emote3', ic: 'sorriso', txt: 'Mande 3 emotes', conta: 'emote', meta: 3, premio: 5 },
+  { id: 'vender50', ic: 'diamante', txt: 'Venda 50 coisas', conta: 'vender', meta: 50, premio: 20, mercado: true },
+  { id: 'flores30', ic: 'broto', txt: 'Faça um jardim com 30 flores', conta: 'flor', meta: 30, premio: 20 },
+  { id: 'andar2000', ic: 'bussola', txt: 'Ande 2000 passos pelo mundo', conta: 'andar', meta: 2000, premio: 25 },
+  { id: 'comprar5', ic: 'chave', txt: 'Compre 5 blocos novos', conta: 'comprar', meta: 5, premio: 25, mercado: true },
+  { id: 'colocar500', ic: 'castelo', txt: 'Construa com 500 blocos', conta: 'colocar', meta: 500, premio: 40 },
+  { id: 'carinho30', ic: 'coracao', txt: 'Faça carinho em 30 bichinhos', conta: 'carinho', meta: 30, premio: 30 },
 ];
 export const ATIVOS = 3; // quantos objetivos aparecem por vez
 
@@ -141,7 +141,7 @@ export function aplicar(e, op, a) {
     const preco = PRECO_LOJA.get(a.b);
     if (!preco) return falha('Isso não está à venda.');
     if (e.comprados.includes(a.b)) return falha('Você já tem esse bloco!');
-    if (e.moedas < preco) return falha(`Faltam ${preco - e.moedas} moedas 🪙`);
+    if (e.moedas < preco) return falha(`Faltam ${preco - e.moedas} moedas.`);
     e.moedas -= preco; e.comprados.push(a.b);
     r.feitos = contar(e, op, 'comprar', 1); r.mudou = true;
   } else return falha('?');

@@ -1,9 +1,14 @@
 // Mercado (moedas, loja dos aldeões, presentes) e objetivos: a parte da tela.
 // As regras ficam em economia.js. Online quem decide é a sala (servidor); sem internet, o próprio aparelho.
+import { icone, comIcone } from './icones.js';
 import { opcoesEcon, estadoNovo, normalizar, aplicar, liberado, LOJA, precoVenda, objetivosDoMundo, objetivosAtivos, OBJETIVOS } from './economia.js';
 
 const $ = (s) => document.querySelector(s);
 const CHAVE_LOCAL = 'pradaria.econ';
+
+// elemento com ícone + texto (sem emojis: os ícones são os desenhos de icones.js)
+function elIc(tag, cls, ic, txt) { const e = el(tag, cls); e.innerHTML = comIcone(ic, txt == null ? '' : txt); return e; }
+const moedaHtml = (n) => `<span class="econ-m">${icone('moeda')}<span>${n}</span></span>`;
 
 function el(tag, cls, txt) {
   const e = document.createElement(tag);
@@ -48,7 +53,7 @@ export class Mercado {
     if (!this.ligado) return;
     if (this.sala) { this.sala.enviar(acao); return; }
     const r = aplicar(this.e, this.op, acao);
-    if (!r.ok) { if (!quieto) this.ui.aviso(r.erro, 2200); return; }
+    if (!r.ok) { if (!quieto) this.ui.aviso(r.erro, 2200, 'moeda'); return; }
     this.salvarLocal();
     this.recebeu(this.e, r.feitos);
   }
@@ -75,16 +80,16 @@ export class Mercado {
       const o = OBJETIVOS.find((x) => x.id === id);
       if (!o) continue;
       this.ui.som.oi && this.ui.som.oi();
-      this.comemorar(`${o.ic} Objetivo cumprido!`, o.txt, this.op.mercado ? `+${o.premio} 🪙` : '+1 ⭐');
+      this.comemorar(o.ic, 'Missão cumprida!', o.txt, this.op.mercado ? `+${o.premio}` : '+1', this.op.mercado ? 'moeda' : 'estrela');
     }
-    if (msg) this.ui.aviso(msg, 3000);
+    if (msg) this.ui.aviso(msg, 3000, 'moeda');
     if (this.e.moedas !== moedasAntes) this.pulsar();
     this.atualizarHud();
     if (!$('#loja').hidden) this.desenharLoja();
     if (!$('#mochila').hidden) this.desenharMochila();
     if (!$('#objetivos').hidden) this.desenharObjetivos();
   }
-  erro(msg) { this.ui.aviso(msg, 2200); }
+  erro(msg) { this.ui.aviso(msg, 2200, 'moeda'); }
 
   // ---------- tela ----------
   montarTela() {
@@ -92,23 +97,23 @@ export class Mercado {
     const box = el('div', '', null); box.id = 'econ'; box.hidden = true;
     this.chip = el('button', 'econ-chip'); this.chip.setAttribute('aria-label', 'Mochila e moedas');
     this.chip.addEventListener('click', () => this.abrirMochila());
-    this.alvo = el('button', 'econ-alvo'); this.alvo.setAttribute('aria-label', 'Objetivos');
+    this.alvo = el('button', 'econ-alvo'); this.alvo.setAttribute('aria-label', 'Missões');
     this.alvo.addEventListener('click', () => this.abrirObjetivos());
     box.append(this.chip, this.alvo);
     hud.appendChild(box);
     this.festa = el('div', ''); this.festa.id = 'festa'; hud.appendChild(this.festa);
 
-    const janela = (id, titulo) => {
+    const janela = (id, ic, titulo) => {
       const j = el('div', 'janela'); j.id = id; j.hidden = true;
       const c = el('div', 'caixa econ-caixa');
-      const h = el('h2', '', titulo); const sub = el('p', 'sub'); const corpo = el('div', 'econ-corpo');
+      const h = elIc('h2', 'com-ic', ic, titulo); const sub = el('p', 'sub'); const corpo = el('div', 'econ-corpo');
       const f = el('button', 'bt', 'Fechar'); f.addEventListener('click', () => this.fechar());
       c.append(h, sub, corpo, f); j.appendChild(c); document.body.appendChild(j);
       return { j, h, sub, corpo };
     };
-    this.wLoja = janela('loja', '🛒 Loja');
-    this.wMochila = janela('mochila', '🎒 Mochila');
-    this.wObj = janela('objetivos', '🎯 Objetivos');
+    this.wLoja = janela('loja', 'vila', 'Loja da vila');
+    this.wMochila = janela('mochila', 'moeda', 'Mochila');
+    this.wObj = janela('objetivos', 'alvo', 'Missões');
     this.abaLoja = 'vender';
   }
 
@@ -117,23 +122,23 @@ export class Mercado {
     box.hidden = !this.ligado;
     if (!this.ligado) return;
     this.chip.hidden = false;
-    this.chip.textContent = this.op.mercado ? `🪙 ${this.e.moedas}` : `⭐ ${this.e.estrelas}`;
+    this.chip.innerHTML = comIcone(this.op.mercado ? 'moeda' : 'estrela', this.op.mercado ? this.e.moedas : this.e.estrelas);
     const at = objetivosAtivos(this.e, this.op)[0];
     this.alvo.hidden = !this.op.objetivos;
     if (this.op.objetivos) {
       this.alvo.innerHTML = '';
       if (at) {
         const v = Math.min(at.meta, this.e.cont[at.conta] || 0);
-        this.alvo.append(el('span', 'ic', at.ic), el('span', 'tx', at.txt), el('b', '', `${v}/${at.meta}`));
+        this.alvo.append(elIc('span', 'ic', at.ic), el('span', 'tx', at.txt), el('b', '', `${v}/${at.meta}`));
         const barra = el('i', ''); barra.style.width = (100 * v / at.meta) + '%'; this.alvo.appendChild(barra);
-      } else this.alvo.append(el('span', 'ic', '🏆'), el('span', 'tx', 'Você cumpriu todos os objetivos!'));
+      } else this.alvo.append(elIc('span', 'ic', 'estrela'), el('span', 'tx', 'Você cumpriu todas as missões!'));
     }
   }
   pulsar() { this.chip.classList.remove('pula'); void this.chip.offsetWidth; this.chip.classList.add('pula'); }
 
-  comemorar(titulo, txt, premio) {
+  comemorar(ic, titulo, txt, premio, icPremio) {
     const c = el('div', 'festa-card');
-    c.append(el('b', '', titulo), el('span', '', txt), el('em', '', premio));
+    c.append(elIc('b', 'com-ic', ic, titulo), el('span', '', txt), elIc('em', '', icPremio, premio));
     this.festa.appendChild(c);
     setTimeout(() => c.classList.add('sai'), 3200);
     setTimeout(() => c.remove(), 3800);
@@ -167,12 +172,13 @@ export class Mercado {
   }
   desenharLoja() {
     const w = this.wLoja;
-    w.h.textContent = '🛒 Loja da vila';
-    w.sub.textContent = `${this.vendedor} · Você tem 🪙 ${this.e.moedas}`;
+    w.sub.innerHTML = '';
+    w.sub.append(el('span', '', (this.vendedor ? this.vendedor + ' · ' : '') + 'Você tem '));
+    w.sub.insertAdjacentHTML('beforeend', moedaHtml(this.e.moedas));
     w.corpo.innerHTML = '';
     const abas = el('div', 'linha-bts econ-abas');
-    for (const [k, t] of [['vender', '💰 Vender'], ['comprar', '🧱 Comprar']]) {
-      const b = el('button', 'bt' + (this.abaLoja === k ? ' verde' : ''), t);
+    for (const [k, ic, t] of [['vender', 'moeda', 'Vender'], ['comprar', 'tijolos', 'Comprar']]) {
+      const b = elIc('button', 'bt com-ic' + (this.abaLoja === k ? ' verde' : ''), ic, t);
       b.addEventListener('click', () => { this.abaLoja = k; this.ui.som.clique(); this.desenharLoja(); });
       abas.appendChild(b);
     }
@@ -180,13 +186,13 @@ export class Mercado {
     const lista = el('div', 'econ-lista');
     if (this.abaLoja === 'vender') {
       const itens = Object.entries(this.e.itens).filter(([, n]) => n > 0);
-      if (!itens.length) lista.appendChild(el('div', 'vazio', 'Sua mochila está vazia. Quebre blocos pelo mundo (terra, troncos, flores…) e traga aqui para vender! ⛏️'));
+      if (!itens.length) lista.appendChild(el('div', 'vazio', 'Sua mochila está vazia. Quebre blocos pelo mundo (terra, troncos, flores…) e traga aqui para vender!'));
       for (const [k, n] of itens) {
         const b = +k, p = precoVenda(b);
-        const bt = el('button', 'bt verde econ-bt', `+${p * n} 🪙`);
+        const bt = el('button', 'bt verde econ-bt'); bt.innerHTML = moedaHtml('+' + p * n);
         bt.title = `Vender tudo (${p} cada)`;
         bt.addEventListener('click', () => { this.ui.som.clique(); this.enviar({ t: 'vender', b, n }); });
-        const um = el('button', 'bt econ-bt', `1 → ${p}🪙`);
+        const um = el('button', 'bt econ-bt'); um.innerHTML = '1 → ' + moedaHtml(p);
         um.addEventListener('click', () => { this.ui.som.clique(); this.enviar({ t: 'vender', b, n: 1 }); });
         const d = el('span', 'econ-dir'); d.append(um, bt);
         lista.appendChild(this.linhaItem(b, n, d));
@@ -194,11 +200,12 @@ export class Mercado {
     } else {
       for (const { b, preco } of LOJA) {
         const tem = this.e.comprados.includes(b);
-        const bt = el('button', 'bt econ-bt' + (tem ? ' fraco' : this.e.moedas >= preco ? ' verde' : ''), tem ? '✓ Seu' : `🪙 ${preco}`);
+        const bt = el('button', 'bt econ-bt' + (tem ? ' fraco' : this.e.moedas >= preco ? ' verde' : ''));
+        bt.innerHTML = tem ? 'Já é seu' : moedaHtml(preco);
         bt.disabled = tem;
         bt.addEventListener('click', () => {
           this.ui.som.clique();
-          if (this.e.moedas < preco) { this.ui.aviso(`Faltam ${preco - this.e.moedas} moedas 🪙`, 1800); return; }
+          if (this.e.moedas < preco) { this.ui.aviso(`Faltam ${preco - this.e.moedas} moedas`, 1800, 'moeda'); return; }
           this.enviar({ t: 'comprar', b });
         });
         lista.appendChild(this.linhaItem(b, null, bt));
@@ -211,10 +218,10 @@ export class Mercado {
   abrirMochila() { this.abrir(this.wMochila); this.desenharMochila(); }
   desenharMochila() {
     const w = this.wMochila;
-    w.sub.textContent = this.op.mercado ? `Você tem 🪙 ${this.e.moedas} moedas` + (this.op.objetivos ? '' : '') : `Você tem ⭐ ${this.e.estrelas} estrelas dos objetivos`;
+    w.sub.textContent = this.op.mercado ? `Você tem ${this.e.moedas} moedas` : `Você tem ${this.e.estrelas} estrelas das missões`;
     w.corpo.innerHTML = '';
     if (this.op.objetivos) {
-      const b = el('button', 'bt', `🎯 Ver objetivos (${this.e.feitos.length}/${objetivosDoMundo(this.op).length})`);
+      const b = elIc('button', 'bt com-ic', 'alvo', `Ver missões (${this.e.feitos.length}/${objetivosDoMundo(this.op).length})`);
       b.addEventListener('click', () => this.abrirObjetivos());
       w.corpo.appendChild(b);
     }
@@ -222,21 +229,21 @@ export class Mercado {
     w.corpo.appendChild(el('p', 'econ-dica', 'Toque num aldeão para abrir a loja da vila: lá você vende o que coletou e compra blocos novos.'));
     const lista = el('div', 'econ-lista');
     const itens = Object.entries(this.e.itens).filter(([, n]) => n > 0);
-    if (!itens.length) lista.appendChild(el('div', 'vazio', 'Nada coletado ainda. Quebre blocos pelo mundo! ⛏️'));
-    for (const [k, n] of itens) lista.appendChild(this.linhaItem(+k, n, el('small', 'econ-dir', `${precoVenda(+k)} 🪙 cada`)));
+    if (!itens.length) lista.appendChild(el('div', 'vazio', 'Nada coletado ainda. Quebre blocos pelo mundo!'));
+    for (const [k, n] of itens) { const d = el('small', 'econ-dir'); d.innerHTML = moedaHtml(precoVenda(+k)) + ' cada'; lista.appendChild(this.linhaItem(+k, n, d)); }
     w.corpo.appendChild(lista);
     if (this.sala) {
       const amigos = this.ui.outros();
-      w.corpo.appendChild(el('h3', '', '🎁 Dar moedas para um amigo'));
+      w.corpo.appendChild(elIc('h3', 'com-ic', 'amigos', 'Dar moedas para um amigo'));
       if (!amigos.length) w.corpo.appendChild(el('p', 'econ-dica', 'Quando um amigo estiver no mundo, ele aparece aqui.'));
       for (const a of amigos) {
         const d = el('span', 'econ-dir');
         for (const n of [1, 5, 10]) {
-          const b = el('button', 'bt econ-bt', `${n} 🪙`);
-          b.addEventListener('click', () => { this.ui.som.clique(); if (this.e.moedas < n) return this.ui.aviso('Você não tem tantas moedas.', 1800); this.sala.enviar({ t: 'dar', para: a.id, n }); });
+          const b = el('button', 'bt econ-bt'); b.innerHTML = moedaHtml(n);
+          b.addEventListener('click', () => { this.ui.som.clique(); if (this.e.moedas < n) return this.ui.aviso('Você não tem tantas moedas.', 1800, 'moeda'); this.sala.enviar({ t: 'dar', para: a.id, n }); });
           d.appendChild(b);
         }
-        const l = el('div', 'econ-linha'); l.append(el('span', 'econ-ic', '🙂'), el('span', 'econ-nome', a.nome), d);
+        const l = el('div', 'econ-linha'); l.append(elIc('span', 'econ-ic', 'pessoa'), el('span', 'econ-nome', a.nome), d);
         w.corpo.appendChild(l);
       }
     }
@@ -248,7 +255,7 @@ export class Mercado {
     const w = this.wObj;
     const todos = objetivosDoMundo(this.op);
     const ativos = new Set(objetivosAtivos(this.e, this.op).map((o) => o.id));
-    w.sub.textContent = `${this.e.feitos.length} de ${todos.length} cumpridos` + (this.op.mercado ? '' : ` · ⭐ ${this.e.estrelas}`);
+    w.sub.textContent = `${this.e.feitos.length} de ${todos.length} cumpridas` + (this.op.mercado ? '' : ` · ${this.e.estrelas} estrelas`);
     w.corpo.innerHTML = '';
     const lista = el('div', 'econ-lista');
     for (const o of todos) {
@@ -257,8 +264,9 @@ export class Mercado {
       const v = Math.min(o.meta, this.e.cont[o.conta] || 0);
       const nm = el('span', 'econ-nome', feito || ativo ? o.txt : '???');
       if (ativo) { const bar = el('span', 'econ-barra'); const i = el('i'); i.style.width = (100 * v / o.meta) + '%'; bar.appendChild(i); nm.appendChild(bar); }
-      l.append(el('span', 'econ-ic', feito ? '✅' : ativo ? o.ic : '🔒'), nm,
-        el('small', 'econ-dir', feito ? 'feito!' : (ativo ? `${v}/${o.meta} · ` : '') + (this.op.mercado ? `🪙 ${o.premio}` : '⭐')));
+      const dir = el('small', 'econ-dir');
+      dir.innerHTML = feito ? 'feito!' : (ativo ? `${v}/${o.meta} · ` : '') + (this.op.mercado ? moedaHtml(o.premio) : icone('estrela'));
+      l.append(elIc('span', 'econ-ic', feito ? 'estrela' : ativo ? o.ic : 'cadeado'), nm, dir);
       lista.appendChild(l);
     }
     w.corpo.appendChild(lista);
