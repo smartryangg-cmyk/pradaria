@@ -7,6 +7,7 @@ const BASICO = [
   '/js/main.js', '/js/graficos.js', '/js/mundo.js', '/js/blocos.js', '/js/jogador.js', '/js/controles.js',
   '/js/animais.js', '/js/modelos.js', '/js/som.js', '/js/rede.js', '/js/ruido.js', '/js/vilas.js', '/js/aldeoes.js', '/js/escavar.js', '/js/fisica.js', '/js/icones.js', '/js/comandos.js',
   '/js/opcoes-mundo.js', '/js/monstros.js', '/js/vida.js', '/js/energia.js', '/js/mapa.js', '/js/economia.js', '/js/mercado.js', '/js/receitas.js', '/js/ilha-aventura.js', '/js/mapa-ilha.js', '/js/gerador.js', '/js/gerador-worker.js', '/js/veiculos.js', '/js/garagem.js', '/js/posefeitos.js', '/js/dono.js', '/js/versao.js', '/js/visao.js', '/js/skin.js', '/js/personagem.js', '/js/editar-mundo.js', '/js/arquivo-mundo.js', '/js/mecanismos.js', '/js/blocos-mecanismos.js', '/js/blocos-eras.js', '/js/chat.js', '/js/chat-filtro.js', '/js/voz.js',
+  '/js/formas.js', '/js/formas-defs.js',
 ];
 
 self.addEventListener('install', (e) => {

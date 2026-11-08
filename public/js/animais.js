@@ -24,6 +24,8 @@ export class Bichos {
     let y = Math.floor(yRef) + 2;
     for (; y > yRef - 6 && y > 0; y--) {
       const b = m.bloco(bx, y - 1, bz);
+      // cerca e vidro fino são altos (1,5): bicho não pula por cima
+      if (b === 84 || b === 85) return { y: y + 1, agua: false };
       if (SOLIDO[b] || AGUA[b]) return { y, agua: !!AGUA[b] };
     }
     return null;

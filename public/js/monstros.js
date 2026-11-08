@@ -107,6 +107,8 @@ export class Monstros {
     const bx = Math.floor(x), bz = Math.floor(z);
     for (let y = Math.floor(yRef) + 2; y > yRef - 6 && y > 0; y--) {
       const b = this.mundo.bloco(bx, y - 1, bz);
+      // cerca e vidro fino são altos (1,5): bicho não pula por cima
+      if (b === 84 || b === 85) return { y: y + 1, agua: false };
       if (SOLIDO[b] || AGUA[b]) return { y, agua: !!AGUA[b] };
     }
     return null;

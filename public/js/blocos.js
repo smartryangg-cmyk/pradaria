@@ -4,6 +4,8 @@ import { rngSemente } from './ruido.js';
 import { DEFS_ERAS, PINTORES } from './blocos-eras.js';
 import { M, DEFS_MEC, PINTORES_MEC } from './blocos-mecanismos.js';
 export { M };
+import { DEFS_FORMAS, INVENTARIO_FORMAS } from './formas-defs.js';
+export { INVENTARIO_FORMAS };
 
 export const AR = 0;
 export const B = {
@@ -150,6 +152,8 @@ for (let d = 0; d < 4; d++) def(E.ESTEIRA + d, 'Esteira', [T.ESTEIRA, T.METAL, T
 
 // mecanismos das construções (portas, catavento, mó, forno...): IDs 47..59, veja blocos-mecanismos.js
 for (const [id, nome, tiles, o] of DEFS_MEC) def(id, nome, tiles, o);
+// formas que não são cubos (80..99): veja formas-defs.js e formas.js
+for (const [id, nome, tiles, o] of DEFS_FORMAS) def(id, nome, tiles, o);
 
 // blocos das eras (mundo Linha do Tempo): IDs 128..175, veja blocos-eras.js
 for (const [id, nome, tiles, o] of DEFS_ERAS) def(id, nome, tiles, o);
@@ -749,12 +753,16 @@ export function uvTile(idx) {
   return [u0, v0, u1, v1];
 }
 
+// ícones feitos à mão (formas redondas): formas.js registra aqui ICONES_ESPECIAIS.fn(ctx, id, tam, atlas)
+export const ICONES_ESPECIAIS = { fn: null };
+
 // desenha o ícone de um bloco em um canvas pequeno (para a barra e o inventário)
 export function iconeBloco(atlasCanvas, id, tam = 40) {
   const cv = document.createElement('canvas');
   cv.width = cv.height = tam;
   const ctx = cv.getContext('2d');
   ctx.imageSmoothingEnabled = false;
+  if (ICONES_ESPECIAIS.fn && ICONES_ESPECIAIS.fn(ctx, id, tam, atlasCanvas)) return cv;
   const src = (t) => [(t % COLS) * TILE, Math.floor(t / COLS) * TILE];
   if (!id) return cv; // mão vazia
   if (ehItem(id)) {

@@ -12,6 +12,8 @@ export const G = {
   NEVE: 140, GRAMA_NEVE: 137, GELO: 138, ARENITO: 146, CACTO: 63, CASCALHO: 65,
   CARVAO: 66, FERRO: 67, OURO: 68, DIAMANTE: 69, ROCHA_MAE: 70,
   TRONCO_PINHEIRO: 71, FOLHAS_PINHEIRO: 72, TRONCO_BETULA: 73, FOLHAS_SELVA: 74, ARBUSTO_SECO: 75,
+  // troncos redondos das árvores (formas-defs.js)
+  TRONCO_R: 80, TRONCO_R_PINHEIRO: 81, TRONCO_R_BETULA: 82,
 };
 
 export const BIOMA = {
@@ -271,7 +273,7 @@ function folha(d, x, y, z, b, ALT) {
 function tronco(d, x, y, z, n, b) { for (let i = 0; i < n; i++) d[idx(x, y + i, z)] = b; }
 
 const ARVORES = {
-  carvalho(d, x, y, z, r, ALT, tr = G.TRONCO, fo = G.FOLHAS) {
+  carvalho(d, x, y, z, r, ALT, tr = G.TRONCO_R, fo = G.FOLHAS) {
     const alt = 4 + Math.floor(r * 3);
     tronco(d, x, y, z, alt, tr);
     const topo = y + alt;
@@ -284,10 +286,10 @@ const ARVORES = {
       }
     }
   },
-  betula(d, x, y, z, r, ALT) { ARVORES.carvalho(d, x, y, z, 0.4 + r * 0.6, ALT, G.TRONCO_BETULA, G.FOLHAS); },
+  betula(d, x, y, z, r, ALT) { ARVORES.carvalho(d, x, y, z, 0.4 + r * 0.6, ALT, G.TRONCO_R_BETULA, G.FOLHAS); },
   pinheiro(d, x, y, z, r, ALT) {
     const alt = 6 + Math.floor(r * 4);
-    tronco(d, x, y, z, alt, G.TRONCO_PINHEIRO);
+    tronco(d, x, y, z, alt, G.TRONCO_R_PINHEIRO);
     const topo = y + alt;
     folha(d, x, topo, z, G.FOLHAS_PINHEIRO, ALT);
     folha(d, x, topo + 1, z, G.FOLHAS_PINHEIRO, ALT);
@@ -305,9 +307,9 @@ const ARVORES = {
   acacia(d, x, y, z, r, ALT) {
     const alt = 4 + Math.floor(r * 2);
     const dx = r < 0.5 ? 1 : -1;
-    tronco(d, x, y, z, alt - 1, G.TRONCO);
+    tronco(d, x, y, z, alt - 1, G.TRONCO_R);
     const tx = x + dx, ty = y + alt - 1;
-    d[idx(tx, ty, z)] = G.TRONCO;
+    d[idx(tx, ty, z)] = G.TRONCO_R;
     for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) {
       if (Math.abs(a) === 2 && Math.abs(b) === 2) continue;
       folha(d, tx + a, ty + 1, z + b, G.FOLHAS, ALT);
@@ -316,7 +318,7 @@ const ARVORES = {
   },
   selva(d, x, y, z, r, ALT) {
     const alt = Math.min(ALT - y - 5, 9 + Math.floor(r * 6));
-    tronco(d, x, y, z, alt, G.TRONCO);
+    tronco(d, x, y, z, alt, G.TRONCO_R);
     const topo = y + alt;
     for (let dy = -2; dy <= 1; dy++) {
       const rad = dy <= -1 ? 3 : dy === 0 ? 2 : 1;

@@ -35,9 +35,13 @@ export function baseDe(b) {
   if (b >= 100 && b <= 121) return b - ((b - 100) % 2);
   if (b >= 123 && b <= 126) return I.ESTEIRA;
   if (b >= 47 && b <= 56) return b - ((b - 47) % 2); // porta aberta, catavento girando, forno aceso...
+  // formas viradas (formas-defs.js): rampa 91..94 e escada 95..98
+  if (b >= 91 && b <= 94) return 91;
+  if (b >= 95 && b <= 98) return 95;
   return b;
 }
-const VIRA = { [I.GRAMA]: I.TERRA, [I.TERRA_ARADA]: I.TERRA };
+// o tronco redondo das árvores dá o tronco comum (dá para refazer o redondo no livro, 1 por 1)
+const VIRA = { [I.GRAMA]: I.TERRA, [I.TERRA_ARADA]: I.TERRA, 80: I.TRONCO, 81: 71, 82: 73 };
 // extras: [chance em %, item]; sorteio fixo pela posição (o jogo e o servidor tiram o mesmo resultado)
 const EXTRA = { [I.FOLHAS]: [35, I.GRAVETO], [I.CAPIM]: [30, I.TRIGO] };
 const sorteio = (x, y, z) => (((Math.imul(x | 0, 73856093) ^ Math.imul(y | 0, 19349663) ^ Math.imul(z | 0, 83492791)) >>> 0) % 100);
@@ -66,6 +70,9 @@ for (const b of [I.PEDRA, I.PEDRISCO, I.TIJOLO, I.LAMPIAO, I.VIDRO, 108, 109, 11
 for (const b of [I.TRONCO, I.TABUAS, I.FOLHAS, I.FENO, I.BANCADA, 110, 111, 47, 48, 49, 50, 53, 54]) TIPO_DO_BLOCO[b] = 'machado';
 for (const b of [51, 52, 55, 56]) TIPO_DO_BLOCO[b] = 'picareta';
 for (const b of [I.TERRA, I.GRAMA, I.AREIA, I.TERRA_ARADA]) TIPO_DO_BLOCO[b] = 'pa';
+// formas (80..99): madeira com machado, pedra/vidro com picareta
+for (const b of [80, 81, 82, 84, 95, 96, 97, 98, 99]) TIPO_DO_BLOCO[b] = 'machado';
+for (const b of [83, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94]) TIPO_DO_BLOCO[b] = 'picareta';
 
 // quantos toques o bloco b precisa com `naMao` na mão (base = toques sem ferramenta)
 export function toquesCom(base, b, naMao) {
@@ -81,6 +88,7 @@ export const GRUPOS = [
   { id: 'ferramentas', nome: 'Ferramentas', icone: 'martelo' },
   { id: 'construir', nome: 'Construção', icone: 'tijolos' },
   { id: 'cores', nome: 'Cores e enfeites', icone: 'flor' },
+  { id: 'formas', nome: 'Formas redondas', icone: 'bloco' },
   { id: 'maquinas', nome: 'Engenharia', icone: 'engrenagem', opcao: 'maquinas' },
 ];
 export const RECEITAS = [
@@ -111,6 +119,21 @@ export const RECEITAS = [
   { id: 'la-azul', faz: [I.LA_AZUL, 1], usa: [[I.LA_BRANCA, 1], [I.FLOR_AZUL, 1]], grupo: 'cores' },
   { id: 'la-verde', faz: [I.LA_VERDE, 1], usa: [[I.LA_BRANCA, 1], [I.CAPIM, 1]], grupo: 'cores' },
   { id: 'la-rosa', faz: [I.LA_ROSA, 2], usa: [[I.LA_BRANCA, 1], [I.LA_VERMELHA, 1]], grupo: 'cores' },
+  // formas que não são cubos (formas-defs.js: 80..99)
+  { id: 'tronco-redondo', faz: [80, 1], usa: [[I.TRONCO, 1]], grupo: 'formas' },
+  { id: 'tronco-redondo-pinheiro', faz: [81, 1], usa: [[71, 1]], grupo: 'formas' },
+  { id: 'tronco-redondo-betula', faz: [82, 1], usa: [[73, 1]], grupo: 'formas' },
+  { id: 'cerca', faz: [84, 3], usa: [[I.TABUAS, 2], [I.GRAVETO, 2]], grupo: 'formas' },
+  { id: 'meio-bloco', faz: [90, 2], usa: [[I.PEDRA, 1]], grupo: 'formas' },
+  { id: 'rampa', faz: [91, 2], usa: [[I.PEDRISCO, 3]], grupo: 'formas' },
+  { id: 'escada', faz: [95, 4], usa: [[I.TABUAS, 6]], bancada: true, grupo: 'formas' },
+  { id: 'coluna', faz: [83, 2], usa: [[I.PEDRA, 2]], bancada: true, grupo: 'formas' },
+  { id: 'bola', faz: [87, 1], usa: [[I.PEDRA, 1]], bancada: true, grupo: 'formas' },
+  { id: 'cupula', faz: [88, 2], usa: [[I.TIJOLO, 3]], bancada: true, grupo: 'formas' },
+  { id: 'vidro-fino', faz: [85, 4], usa: [[I.VIDRO, 1]], bancada: true, grupo: 'formas' },
+  { id: 'cupula-vidro', faz: [89, 2], usa: [[I.VIDRO, 3]], bancada: true, grupo: 'formas' },
+  { id: 'cano', faz: [86, 4], usa: [[I.PEDRA, 2], [I.PEDRISCO, 1]], bancada: true, grupo: 'formas' },
+  { id: 'roda', faz: [99, 1], usa: [[I.TABUAS, 2], [I.GRAVETO, 1]], bancada: true, grupo: 'formas' },
   // engenharia (bancada; só nos mundos com máquinas)
   { id: 'fio', faz: [I.FIO, 6], usa: [[I.LA_VERMELHA, 1], [I.GRAVETO, 1]], bancada: true, grupo: 'maquinas' },
   { id: 'alavanca', faz: [I.ALAVANCA, 1], usa: [[I.GRAVETO, 1], [I.PEDRISCO, 1]], bancada: true, grupo: 'maquinas' },
