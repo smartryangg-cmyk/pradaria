@@ -20,9 +20,9 @@ export function desenharListaOpcoes(l, escolha, aoMudar) {
     b.querySelector('small').textContent = o.desc;
     b.addEventListener('click', () => {
       escolha[o.id] = !escolha[o.id];
-      // "Monstros machucam" só faz sentido com monstrinhos: um liga/desliga o outro
-      if (o.id === 'monstrosMachucam' && escolha.monstrosMachucam) escolha.monstros = true;
-      if (o.id === 'monstros' && !escolha.monstros) escolha.monstrosMachucam = false;
+      // "Animais podem machucar" só faz sentido com bichos selvagens: um liga/desliga o outro
+      if (o.id === 'selvagensMachucam' && escolha.selvagensMachucam) escolha.selvagens = true;
+      if (o.id === 'selvagens' && !escolha.selvagens) escolha.selvagensMachucam = false;
       marcarLista(l, escolha);
       aoMudar && aoMudar(o.id);
     });
@@ -31,12 +31,12 @@ export function desenharListaOpcoes(l, escolha, aoMudar) {
   marcarLista(l, escolha);
 }
 export function marcarLista(l, escolha) {
-  // alguns tipos não têm monstrinhos (ex.: Linha do Tempo)
-  const sem = !!(TIPOS[escolha.tipo] && TIPOS[escolha.tipo].semMonstros);
+  // alguns tipos têm os próprios bichos (ex.: Linha do Tempo)
+  const sem = !!(TIPOS[escolha.tipo] && TIPOS[escolha.tipo].semSelvagens);
   for (const b of l.children) {
     const id = b.dataset.opcao;
-    if (sem && (id === 'monstros' || id === 'monstrosMachucam')) escolha[id] = false;
-    b.disabled = sem && (id === 'monstros' || id === 'monstrosMachucam');
+    if (sem && (id === 'selvagens' || id === 'selvagensMachucam')) escolha[id] = false;
+    b.disabled = sem && (id === 'selvagens' || id === 'selvagensMachucam');
     b.setAttribute('aria-pressed', String(!!escolha[id]));
   }
 }

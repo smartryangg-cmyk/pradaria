@@ -20,8 +20,8 @@ export const OPCOES_MUNDO = [
   { id: 'objetivos', icone: 'alvo', nome: 'Missões', desc: 'Desafios com prêmios', padrao: true, antigos: false },
   { id: 'chatTexto', icone: 'balao', nome: 'Chat de texto', desc: 'Mensagens escritas, com filtro de palavrões e contatos', padrao: true, semRecarregar: true },
   { id: 'chatVoz', icone: 'microfone', nome: 'Chat de voz', desc: 'Falar com os amigos segurando o botão do microfone', padrao: true, semRecarregar: true },
-  { id: 'monstros', icone: 'monstro', nome: 'Monstrinhos', desc: 'Aparecem de noite e dão sustinho', padrao: false },
-  { id: 'monstrosMachucam', icone: 'coracao', nome: 'Monstros machucam', desc: 'Corações de vida. Luz e um toque espantam', padrao: false },
+  { id: 'selvagens', icone: 'pata', nome: 'Animais selvagens', desc: 'Lobos, raposas, ursos, onças, cobras e veados com instintos de verdade', padrao: true },
+  { id: 'selvagensMachucam', icone: 'coracao', nome: 'Animais podem machucar', desc: 'Corações de vida. Bicho provocado morde. Luz e um toque espantam', padrao: false },
 ];
 // padrao = como vem marcado ao criar; antigos = valor nos mundos criados antes da opção existir (se faltar, usa padrao)
 // terreno = a opção muda o terreno gerado (ao editar um mundo já criado, o dono recebe um aviso)
@@ -46,7 +46,7 @@ export const GERADORES = {
 // historia = "Linha do Tempo": começa na era dos dinossauros e evolui com a experiência (eras-regras.js)
 export const TIPOS = {
   normal: { icone: 'flor', nome: 'Pradaria', desc: 'O mundo de sempre, com vilas e bichinhos' },
-  historia: { icone: 'ampulheta', nome: 'Linha do Tempo', desc: 'Começa com os dinossauros e evolui pela história', semMonstros: true, oculto: true }, // oculto até as eras ficarem prontas
+  historia: { icone: 'ampulheta', nome: 'Linha do Tempo', desc: 'Começa com os dinossauros e evolui pela história', semSelvagens: true, oculto: true }, // os bichos de cada era vêm de eras-regras.js; oculto até as eras ficarem prontas
   // Ilha de Aventura (ilha-aventura.js): mapa como os de jogos de ação, mas sem armas. Tamanho fixo (limite/raioExtra valem no lugar do tamanho).
   aventura: { icone: 'ilha', nome: 'Ilha de Aventura', desc: 'Cidades, estradas, porto, farol e lugares com nome', limite: 256, raioExtra: 1 },
 };
@@ -65,8 +65,10 @@ export function normalizarOpcoes(o) {
     if (typeof o.gerador === 'string' && Object.prototype.hasOwnProperty.call(GERADORES, o.gerador)) r.gerador = o.gerador;
     if (typeof o.tipo === 'string' && Object.prototype.hasOwnProperty.call(TIPOS, o.tipo)) r.tipo = o.tipo;
   }
-  if (TIPOS[r.tipo].semMonstros) r.monstros = false;
-  if (!r.monstros) r.monstrosMachucam = false;
+  // mundos que ligaram "Monstros machucam" antes dos monstros virarem bichos selvagens continuam com corações
+  if (o && typeof o === 'object' && typeof o.selvagensMachucam !== 'boolean' && o.monstrosMachucam === true) r.selvagensMachucam = true;
+  if (TIPOS[r.tipo].semSelvagens) r.selvagens = false;
+  if (!r.selvagens) r.selvagensMachucam = false;
   return r;
 }
 
