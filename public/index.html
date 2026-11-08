@@ -12,7 +12,7 @@
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icone-apple.png">
 <meta name="apple-mobile-web-app-title" content="Pradaria">
-<link rel="stylesheet" href="estilo.css?v=8">
+<link rel="stylesheet" href="estilo.css?v=11">
 </head>
 <body>
 <canvas id="tela"></canvas>
@@ -34,6 +34,7 @@
     </div>
   </div>
   <div id="vida" role="img" hidden></div>
+  <button id="minimapa" aria-label="Abrir o mapa"><canvas id="minimapa-tela"></canvas><span class="norte">N</span></button>
   <div id="aviso"></div>
   <div id="pedido-tp" hidden>
     <span id="pedido-ic"></span>
@@ -84,6 +85,27 @@
   </div>
 </div>
 <div id="flash-tp"></div>
+<!-- mapa grande -->
+<div id="mapa" class="janela" hidden>
+  <div class="caixa mapa-caixa">
+    <div class="mapa-topo">
+      <h2><span data-icone="globo"></span> Mapa</h2>
+      <button class="bt" id="mapa-fechar">Fechar</button>
+    </div>
+    <div class="mapa-area">
+      <canvas id="mapa-tela"></canvas>
+      <div class="mapa-zoom">
+        <button class="redondo" id="mapa-mais" aria-label="Aproximar">＋</button>
+        <button class="redondo" id="mapa-menos" aria-label="Afastar">－</button>
+        <button class="redondo" id="mapa-centro" aria-label="Voltar para mim"><span data-icone="pessoa"></span></button>
+      </div>
+      <span class="norte">N</span>
+    </div>
+    <p class="sub" id="mapa-coords"></p>
+    <p class="sub mapa-dica">Arraste para passear · toque para marcar um ponto</p>
+    <button class="bt" id="mapa-limpar" hidden>Tirar o ponto marcado</button>
+  </div>
+</div>
 
 <!-- pausa / ajustes -->
 <div id="pausa" class="janela" hidden>
@@ -154,6 +176,8 @@
       <input id="aj-sens" type="range" min="0.002" max="0.01" step="0.0005">
     </label>
     <label class="campo linha"><input id="aj-som" type="checkbox"> Sons</label>
+    <label class="campo linha"><input id="aj-minimapa" type="checkbox"> Minimapa no canto da tela</label>
+    <button class="bt" id="bt-abrir-mapa"><span data-icone="globo"></span>Abrir o mapa</button>
     <label class="campo linha"><input id="aj-fps" type="checkbox"> Mostrar FPS</label>
     <button class="bt" id="bt-tela2"><span data-icone="telacheia"></span>Tela cheia</button>
     <button class="bt instalar" hidden><span data-icone="baixar"></span>Instalar o jogo</button>
@@ -232,6 +256,6 @@
 
 <div id="desmaio" hidden></div>
 <div id="fps" hidden></div>
-<script type="module" src="js/main.js?v=8"></script>
+<script type="module" src="js/main.js?v=11"></script>
 </body>
 </html>

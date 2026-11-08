@@ -1,0 +1,28 @@
+// Minimapa: aparece, desenha o terreno, abre o mapa grande, marca ponto e pode ser desligado.
+import { createRequire } from 'module'; const { chromium } = createRequire(import.meta.url)('playwright');
+const SAIDA = process.env.SAIDA || '/tmp', URL = (process.env.URL || 'http://localhost:8788') + '/#teste';
+const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const p = await (await b.newContext({ viewport: { width: 1024, height: 700 }, hasTouch: true })).newPage();
+const erros = []; p.on('pageerror', (e) => erros.push('PAGEERROR ' + e.message)); p.on('console', (m) => { if (m.type() === 'error') erros.push(m.text()); });
+await p.addInitScript(() => { window.__semAuto = true; });
+await p.goto(URL); await p.evaluate(() => localStorage.clear()); await p.reload();
+await p.click('#bt-sozinho'); await p.waitForTimeout(5000);
+const mini = await p.evaluate(() => ({ visivel: !document.querySelector('#minimapa').hidden, pedacos: window.__jogo.mapa.pedacos.size }));
+console.log('minimapa', JSON.stringify(mini));
+await p.screenshot({ path: SAIDA + '/mapa-jogo.png' });
+await p.click('#minimapa'); await p.waitForTimeout(600);
+const box = await p.locator('#mapa-tela').boundingBox();
+await p.mouse.click(box.x + box.width / 2 + 120, box.y + box.height / 2 - 60); await p.waitForTimeout(400);
+const marca = await p.evaluate(() => ({ marca: window.__jogo.mapa.marca, salvo: localStorage.getItem('pradaria.mapa.local'), aberto: !document.querySelector('#mapa').hidden }));
+console.log('marca', JSON.stringify(marca));
+await p.screenshot({ path: SAIDA + '/mapa-grande.png' });
+await p.click('#mapa-fechar'); await p.waitForTimeout(400);
+await p.screenshot({ path: SAIDA + '/mapa-com-marca.png' });
+await p.click('#bt-menu'); await p.uncheck('#aj-minimapa'); await p.click('#pausa [data-fechar]');
+const desl = await p.evaluate(() => ({ escondido: document.querySelector('#minimapa').hidden, salvo: JSON.parse(localStorage.getItem('pradaria.ajustes')).minimapa }));
+console.log('desligado', JSON.stringify(desl));
+await p.reload(); await p.click('#bt-sozinho'); await p.waitForTimeout(2500);
+console.log('depois de recarregar, escondido =', await p.evaluate(() => document.querySelector('#minimapa').hidden));
+await b.close();
+console.log(erros.length ? erros.join('\n') : 'sem erros');
+if (erros.length || !mini.visivel || !mini.pedacos || !marca.marca || !desl.escondido) process.exit(1);
