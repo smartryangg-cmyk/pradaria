@@ -149,8 +149,14 @@ export class Bichos {
   }
 
   carinho(b) {
+    // segurar o dedo/botão repete o toque a cada 260 ms: sem esse intervalo
+    // (e sem exigir o pé no chão) cada toque somava outro pulo e o bicho saía voando
+    const agora = performance.now();
+    if (b.ultimoCarinho && agora - b.ultimoCarinho < 700) return;
+    b.ultimoCarinho = agora;
     this.som.bicho(b.e.som);
-    b.andando = false; b.timer = 2; b.vy = 3.5;
+    b.andando = false; b.timer = 2;
+    if (b.vy === 0) b.vy = 3.5; // pulinho de alegria só saindo do chão
     if (b.e.segue) b.segue = 90;
     for (let k = 0; k < 4; k++) this.icone('coracao', b.x + (Math.random() - 0.5) * 0.8, b.y + b.e.alt + 0.2 + k * 0.25, b.z + (Math.random() - 0.5) * 0.8, 1.2 + k * 0.2);
   }
