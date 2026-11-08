@@ -51,7 +51,7 @@ await p.evaluate(() => {
 await p.waitForTimeout(250);
 await p.screenshot({ path: SAIDA + '/monstrinhos.png' });
 // sustinho: chega pertinho e empurra
-const antes = await p.evaluate(() => { const j = window.__jogo.jog, m = window.__jogo.monstros.lista[0]; m.susto = 0; m.x = j.pos.x + 0.6; m.z = j.pos.z; return j.pos.x; });
+const antes = await p.evaluate(() => { const j = window.__jogo.jog, m = window.__jogo.monstros.lista[0]; m.susto = 0; m.luz = null; m.olhaLuz = 9; m.x = j.pos.x + 0.6; m.z = j.pos.z; return j.pos.x; });
 await p.waitForTimeout(400);
 const depois = await p.evaluate(() => window.__jogo.jog.pos.x);
 conferir(Math.abs(depois - antes) > 0.2, 'sustinho empurra o jogador (' + (depois - antes).toFixed(2) + ')');

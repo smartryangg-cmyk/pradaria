@@ -17,7 +17,8 @@ export const OPCOES_MUNDO = [
   { id: 'cicloDia', icone: 'lua', nome: 'Dia e noite', desc: 'Desligado: é sempre de dia', padrao: true },
   { id: 'mercado', icone: 'moeda', nome: 'Mercado', desc: 'Moedas e lojinha com os moradores', padrao: true, antigos: false },
   { id: 'objetivos', icone: 'alvo', nome: 'Missões', desc: 'Desafios com prêmios', padrao: true, antigos: false },
-  { id: 'monstros', icone: 'monstro', nome: 'Monstrinhos', desc: 'Aparecem de noite e dão sustinho (sem machucar)', padrao: false },
+  { id: 'monstros', icone: 'monstro', nome: 'Monstrinhos', desc: 'Aparecem de noite e dão sustinho', padrao: false },
+  { id: 'monstrosMachucam', icone: 'coracao', nome: 'Monstros machucam', desc: 'Corações de vida. Luz e um toque espantam', padrao: false },
 ];
 // padrao = como vem marcado ao criar; antigos = valor nos mundos criados antes da opção existir (se faltar, usa padrao)
 
