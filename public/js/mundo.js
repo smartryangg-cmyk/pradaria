@@ -1,12 +1,15 @@
 // Mundo em pedaços (chunks) de 16x16x96: geração do terreno, edições e montagem das malhas.
 import * as THREE from '../vendor/three.module.min.js';
 import { criarRuido, hash3 } from './ruido.js';
-import { AR, B, E, SOLIDO, OPACO, PLANTA, BLOCOS, AGUA, NIVEL, AGUA_CORRENTE, AGUA_CAINDO, BRILHO, PRECISA_CHAO, FOLHAGEM, uvTile } from './blocos.js';
+import { AR, B, E, M, SOLIDO, OPACO, PLANTA, BLOCOS, AGUA, NIVEL, AGUA_CORRENTE, AGUA_CAINDO, BRILHO, PRECISA_CHAO, FOLHAGEM, uvTile } from './blocos.js';
 import { criarGerador } from './gerador.js';
 import { Vilas } from './vilas.js';
 import { IlhaAventura } from './ilha-aventura.js';
 import { opcoesMundo, limiteMundo } from './opcoes-mundo.js';
-import { Energia, desenharForma } from './energia.js';
+import { Energia, desenharForma, ELETRICO } from './energia.js';
+import { ESPECIAL } from './mecanismos.js';
+const ELET = new Uint8Array(256);
+for (let b = 1; b < 256; b++) ELET[b] = ELETRICO(b) ? 1 : 0;
 
 export const CX = 16, CZ = 16, ALT = 96;
 export const NIVEL_AGUA = 20; // mar do terreno de antes (o clássico usa mundo.nivelAgua = 40)
@@ -239,11 +242,15 @@ export class Mundo {
       this.chunks.set(k, c);
       // a água corrente não é salva: perto de cada edição ela é recalculada
       const ed = this.edicoes.get(k);
-      // (e as máquinas também recalculam a energia)
-      if (ed) for (const [i, b] of ed) {
+      if (ed) for (const [i] of ed) {
         const x = cx * CX + i % CX, y = Math.floor(i / (CX * CZ)), z = cz * CZ + Math.floor(i / CX) % CZ;
         this.agendarAgua(x, y, z);
-        if (b >= 100) this.energia.agendar(x, y, z, true);
+      }
+      // as máquinas (as do jogador e as das construções geradas) recalculam a energia
+      const d = c.dados;
+      for (let i = 0; i < d.length; i++) {
+        if (!ELET[d[i]]) continue;
+        this.energia.agendar(cx * CX + i % CX, Math.floor(i / (CX * CZ)), cz * CZ + Math.floor(i / CX) % CZ, true);
       }
     }
     return c;
@@ -444,6 +451,7 @@ export class Mundo {
   construirMalha(c) {
     const P = [], U = [], C = [], I = [], N = [], O = [], L = [], BD = [];
     const luzes = [];
+    const especiais = []; // catavento, mó girando, forno aceso (animados em mecanismos.js)
     const PA = [], UA = [], CA = [], IA = [], FA = [];
     const d = c.dados;
     const ox = c.cx * CX, oz = c.cz * CZ;
@@ -516,7 +524,8 @@ export class Mundo {
       if (b === AR) continue;
       const def = BLOCOS[b];
       if (!def) continue;
-      if (b === B.LAMPIAO || b === E.LAMPADA_LIGADA) luzes.push([ox + x + 0.5, y + 0.5, oz + z + 0.5]);
+      if (b === B.LAMPIAO || b === E.LAMPADA_LIGADA || b === M.FORNO_ACESO) luzes.push([ox + x + 0.5, y + 0.5, oz + z + 0.5]);
+      if (ESPECIAL[b]) especiais.push([ox + x, y, oz + z, b]);
       if (def.forma) { desenharForma(FORMA_A, get, x, y, z, b); continue; }
       if (def.planta) {
         const [u0, v0, u1, v1] = uvTile(def.tiles[0]);
@@ -642,6 +651,7 @@ export class Mundo {
     };
     c.malha = fazer(P, U, C, I, this.mat, c.malha, true);
     c.luzes = luzes;
+    c.especiais = especiais;
     c.agua = fazer(PA, UA, CA, IA, this.matAgua, c.agua, false, FA);
     if (c.agua) c.agua.renderOrder = 1;
     c.sujo = false;

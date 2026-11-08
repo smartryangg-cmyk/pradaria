@@ -28,6 +28,7 @@ import { Mapa } from './mapa.js';
 import { Mercado } from './mercado.js';
 import { VERSAO } from './versao.js';
 import { preencherDono, contaModo, ligarApagarConta } from './dono.js';
+import { Mecanismos } from './mecanismos.js';
 
 const $ = (s) => document.querySelector(s);
 preencherIcones();
@@ -210,6 +211,14 @@ const mercado = new Mercado({
 });
 
 const qtd = (id) => mercado.qtd(id);
+
+// mecanismos das construções (portas, catavento, moinho, forno, poço)
+const mecanismos = new Mecanismos(cena, {
+  aviso, som, mercado,
+  emoji: (...a) => bichos && bichos.icone(...a),
+  // balde de água do poço: vai para a mão (no espaço da Água, se já tiver, ou no escolhido)
+  pegarAgua: () => { const ja = barra.indexOf(B.AGUA); if (ja >= 0) slotSel = ja; else barra[slotSel] = B.AGUA; desenharBarra(); },
+});
 
 function desenharBarra() {
   const el = $('#barra');
@@ -701,6 +710,8 @@ function usar(ponto) {
     return;
   }
   if (BASE[h.b] === E.BOTAO) { apertarBotao(h.x, h.y, h.z); return; }
+  // portas, forno, pedra de moinho e manivela do poço (com Porta/Forno... na mão, coloca em vez de mexer)
+  if (naMao() !== h.b && mecanismos.tocar(h)) return; // (não conta como colocar bloco nas missões)
   const x = h.x + h.n[0], y = h.y + h.n[1], z = h.z + h.n[2];
   let novo = naMao();
   if (!novo || ehItem(novo)) return; // mão vazia ou ferramenta: não coloca nada
@@ -753,7 +764,13 @@ function vigiarPlaca() {
     const [px, py, pz] = minhaPlaca;
     let alguem = false;
     for (const o of outros.values()) if (Math.floor(o.alvo.x) === px && Math.floor(o.alvo.y + 0.05) === py && Math.floor(o.alvo.z) === pz) alguem = true;
-    if (!alguem && mundo.bloco(px, py, pz) === E.PLACA_LIGADA) mundo.definir(px, py, pz, E.PLACA);
+    // solta um pouquinho depois (dá tempo de passar pelo portão antes de ele fechar)
+    const m = mundo;
+    if (!alguem) setTimeout(() => {
+      if (mundo !== m || (minhaPlaca && minhaPlaca.join() === [px, py, pz].join())) return;
+      for (const o of outros.values()) if (Math.floor(o.alvo.x) === px && Math.floor(o.alvo.y + 0.05) === py && Math.floor(o.alvo.z) === pz) return;
+      if (m.bloco(px, py, pz) === E.PLACA_LIGADA) m.definir(px, py, pz, E.PLACA);
+    }, 1800);
   }
   minhaPlaca = aqui;
 }
@@ -909,6 +926,7 @@ function limparMundo() {
   if (bichos) for (let i = bichos.lista.length - 1; i >= 0; i--) bichos.remover(i);
   if (aldeoes) aldeoes.limpar();
   if (monstros) monstros.limpar();
+  mecanismos.usarMundo(null);
   mundo = null; bichos = null; aldeoes = null; monstros = null; escav = null; fisica = null;
   mercado.parar();
 }
@@ -967,6 +985,8 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   bichos = new Bichos(cena, mundo, som);
   aldeoes = new Aldeoes(cena, mundo, som, (...a) => bichos.icone(...a));
   aldeoes.aoEntrarVila = (v) => aviso(v.nome, 2600, 'vila');
+  aldeoes.aoPorta = (x, y, z) => mecanismos.abrirParaMorador(x, y, z);
+  mecanismos.usarMundo(mundo);
   monstros = new Monstros(cena, mundo, som, bichos);
   monstros.aoSusto = () => {
     if (vida.dano(1)) { som.tom(200, 0.15, { tipo: 'sine', vol: 0.3, ate: 120 }); aviso('Ai! Toque no monstrinho ou acenda uma luz', 1800, 'coracao'); }
@@ -1295,6 +1315,7 @@ function laco(agora) {
   if (jog.quicou) { jog.quicou = false; som.boing(); }
   bichos.atualizar(dt, jog, tempoTotal);
   aldeoes.atualizar(dt, jog, Math.sin(tempoDia * Math.PI * 2));
+  mecanismos.atualizar(pausado ? 0 : dt, jog, graf.U.uVento.value === 0);
   monstros.atualizar(pausado ? 0 : dt, jog, tempoDia);
   if (!pausado) vida.atualizar(dt);
   mapa.atualizar(dt, jog, outros, bichos);
@@ -1428,4 +1449,4 @@ camera.position.set(0, 40, 0);
 if (conta.token) abrirMundos(); else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, garagem, visao, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa }; }
+if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, garagem, visao, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos }; }

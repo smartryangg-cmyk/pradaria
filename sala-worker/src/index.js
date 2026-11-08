@@ -374,7 +374,7 @@ export class Sala extends DurableObject {
       this.info.inicio = Date.now() - (v - 0.3) * 600000;
       await this.ctx.storage.put('info', this.info);
       this.enviarTodos({ t: 'dia', v, nome: eu.nome });
-    } else if (m.t === 'ev' || m.t === 'vender' || m.t === 'comprar' || m.t === 'criar') {
+    } else if (m.t === 'ev' || m.t === 'vender' || m.t === 'comprar' || m.t === 'criar' || m.t === 'moer' || m.t === 'assar') {
       const op = this.op();
       if (!econLigada(op)) return;
       // a bancada quem confere é a sala: alguma bancada colocada perto de onde o jogador está
