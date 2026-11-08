@@ -8,7 +8,7 @@ const erros = [], falhas = [];
 const conferir = (ok, msg) => { console.log((ok ? 'OK   ' : 'FALHA ') + msg); if (!ok) falhas.push(msg); };
 const ipx = () => '10.' + Math.floor(Math.random() * 250) + '.' + Math.floor(Math.random() * 250) + '.' + Math.floor(Math.random() * 250);
 async function pagina(tablet) {
-  const ctx = await b.newContext({ ...(tablet ? devices['Galaxy Tab S4'] : { viewport: { width: 1280, height: 760 } }), extraHTTPHeaders: { 'cf-connecting-ip': ipx() } });
+  const ctx = await b.newContext({ ...(tablet ? devices['Galaxy Tab S4'] : { viewport: { width: 1280, height: 760 } }), ...(BASE.includes('localhost') ? { extraHTTPHeaders: { 'cf-connecting-ip': ipx() } } : {}) });
   const p = await ctx.newPage();
   p.on('pageerror', (e) => erros.push('PAGEERROR ' + e.message));
   p.on('console', (m) => { if (m.type() === 'error' && !/WebSocket|favicon|Failed to load resource/.test(m.text())) erros.push(m.text()); });
