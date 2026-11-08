@@ -10,14 +10,13 @@
 <title>Pradaria</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icone.svg" type="image/svg+xml">
-<link rel="stylesheet" href="estilo.css?v=1">
+<link rel="stylesheet" href="estilo.css?v=2">
 </head>
 <body>
 <canvas id="tela"></canvas>
 
 <!-- HUD do jogo -->
 <div id="hud" hidden>
-  <div id="mira"></div>
   <div id="topo">
     <button id="bt-menu" class="redondo" aria-label="Menu">☰</button>
     <div id="status"></div>
@@ -29,24 +28,16 @@
     </div>
   </div>
   <div id="aviso"></div>
-  <div id="barra"></div>
+  <div id="velo" hidden><b>0</b><small>km/h</small></div>
+  <div id="botoes-acao">
+    <button id="bt-carro" class="pilula" hidden>🚗 Entrar</button>
+    <button id="bt-buzina" class="redondo" aria-label="Buzina" hidden>📯</button>
+  </div>
   <div id="botoes-toque">
-    <button id="bt-voar" class="redondo" aria-label="Voar">🕊️</button>
-    <button id="bt-descer" class="redondo" aria-label="Descer" hidden>⬇</button>
     <button id="bt-pular" class="redondo grande" aria-label="Pular">⬆</button>
   </div>
-  <div id="dica-toque">Toque: colocar bloco ou fazer carinho · Segure: quebrar</div>
+  <div id="dica-toque">Esquerda: andar · Direita: girar a câmera · Toque nos bichos e nos carros</div>
   <div id="joy"><div id="joy-pino"></div></div>
-</div>
-
-<!-- inventário -->
-<div id="inventario" class="janela" hidden>
-  <div class="caixa">
-    <h2>Blocos</h2>
-    <p class="sub">Escolha um bloco para a mão</p>
-    <div id="grade"></div>
-    <button class="bt" data-fechar>Fechar</button>
-  </div>
 </div>
 
 <!-- pausa / ajustes -->
@@ -55,7 +46,7 @@
     <h2>Pausa</h2>
     <p id="pausa-mundo" class="sub"></p>
     <label class="campo">Distância de visão
-      <input id="aj-dist" type="range" min="2" max="6" step="1">
+      <input id="aj-dist" type="range" min="2" max="5" step="1">
     </label>
     <label class="campo">Qualidade da imagem
       <input id="aj-qual" type="range" min="0.5" max="1.5" step="0.1">
@@ -74,7 +65,7 @@
 <div id="menu" class="janela fundo">
   <div class="caixa" id="m-inicio">
     <div class="logo">Pradaria</div>
-    <p class="sub">Construa, explore e faça carinho nos bichinhos 🐑🐷🐔</p>
+    <p class="sub">Passeie pela cidade, dirija, explore o campo e faça carinho nos bichos 🚗🏡🐶</p>
     <button class="bt verde grande" id="bt-entrar">Entrar</button>
     <button class="bt" id="bt-criar-conta">Criar conta</button>
     <button class="bt" id="bt-sozinho">Jogar sem conta</button>
@@ -118,6 +109,6 @@
 </div>
 
 <div id="fps" hidden></div>
-<script type="module" src="js/main.js?v=1"></script>
+<script type="module" src="js/main.js?v=2"></script>
 </body>
 </html>

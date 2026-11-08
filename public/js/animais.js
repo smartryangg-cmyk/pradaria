@@ -1,29 +1,23 @@
 // Bichos pacíficos: aparecem perto do jogador, passeiam, e ganham carinho com um toque.
 import * as THREE from '../vendor/three.module.min.js';
 import { ESPECIES, montarBicho, texturaEmoji } from './modelos.js';
-import { SOLIDO, B } from './blocos.js';
+import { NIVEL_AGUA } from './terreno.js';
 
-const MAX = 16;
+const MAX = 18;
 const LISTA = ['ovelha', 'ovelha', 'porquinho', 'galinha', 'galinha', 'vaca', 'cachorro', 'capivara', 'coelho', 'coelho'];
 
 export class Bichos {
-  constructor(cena, mundo, som) {
-    this.cena = cena; this.mundo = mundo; this.som = som;
+  constructor(cena, terreno, som) {
+    this.cena = cena; this.terreno = terreno; this.som = som;
     this.lista = [];
     this.particulas = [];
     this.tempoSpawn = 0;
   }
 
-  chao(x, z, yRef) {
-    const m = this.mundo;
-    const bx = Math.floor(x), bz = Math.floor(z);
-    // procura a superfície perto de yRef
-    let y = Math.floor(yRef) + 2;
-    for (; y > yRef - 6 && y > 0; y--) {
-      const b = m.bloco(bx, y - 1, bz);
-      if (SOLIDO[b] || b === B.AGUA) return { y, agua: b === B.AGUA };
-    }
-    return null;
+  // altura onde o bicho fica (na água, boia)
+  chao(x, z) {
+    const h = this.terreno.chao(x, z);
+    return { y: Math.max(h, NIVEL_AGUA - 0.35), agua: h < NIVEL_AGUA - 0.35 };
   }
 
   criar(especie, x, y, z) {
@@ -42,28 +36,31 @@ export class Bichos {
 
   tentarSpawn(px, py, pz) {
     if (this.lista.length >= MAX) return;
-    const ang = Math.random() * Math.PI * 2, dist = 14 + Math.random() * 18;
-    const x = Math.floor(px + Math.cos(ang) * dist) + 0.5, z = Math.floor(pz + Math.sin(ang) * dist) + 0.5;
-    const yTopo = this.mundo.chao(Math.floor(x), Math.floor(z));
-    const topo = this.mundo.bloco(Math.floor(x), yTopo, Math.floor(z));
-    if (topo !== B.GRAMA && topo !== B.AREIA) return;
-    if (Math.abs(yTopo - py) > 14) return;
-    const esp = LISTA[Math.floor(Math.random() * LISTA.length)];
+    const ang = Math.random() * Math.PI * 2, dist = 22 + Math.random() * 30;
+    const x = px + Math.cos(ang) * dist, z = pz + Math.sin(ang) * dist;
+    const h = this.terreno.chao(x, z);
+    if (h < 0.5 || h > 34 || !this.terreno.pronto(x, z)) return;
+    const b = this.terreno.bioma(x, z, h);
+    let lista = LISTA;
+    if (this.terreno.naCidade(x, z)) lista = ['cachorro', 'gato', 'gato'];
+    else if (b === 'praia') lista = ['capivara', 'capivara', 'galinha'];
+    else if (b === 'floresta') lista = ['coelho', 'coelho', 'capivara', 'cachorro', 'porquinho'];
+    const esp = lista[Math.floor(Math.random() * lista.length)];
     const n = esp === 'galinha' || esp === 'coelho' || esp === 'ovelha' ? 1 + Math.floor(Math.random() * 3) : 1;
-    for (let i = 0; i < n; i++) this.criar(esp, x + (i % 2) * 1.2, yTopo + 1, z + Math.floor(i / 2) * 1.2);
+    for (let i = 0; i < n; i++) { const xx = x + (i % 2) * 1.4, zz = z + Math.floor(i / 2) * 1.4; this.criar(esp, xx, this.terreno.chao(xx, zz), zz); }
   }
 
   atualizar(dt, jog, tempo) {
     const p = jog.pos;
     this.tempoSpawn -= dt;
-    if (this.tempoSpawn <= 0) { this.tempoSpawn = 1.5; this.tentarSpawn(p.x, p.y, p.z); }
+    if (this.tempoSpawn <= 0) { this.tempoSpawn = 1.2; this.tentarSpawn(p.x, p.y, p.z); }
 
     for (let i = this.lista.length - 1; i >= 0; i--) {
       const b = this.lista[i];
       const dx = p.x - b.x, dz = p.z - b.z;
       const dist = Math.hypot(dx, dz);
-      if (dist > 60) { this.remover(i); continue; }
-      if (dist > 40) { b.grupo.visible = false; continue; }
+      if (dist > 110) { this.remover(i); continue; }
+      if (dist > 80) { b.grupo.visible = false; continue; }
       b.grupo.visible = true;
 
       b.timer -= dt;
@@ -79,22 +76,21 @@ export class Bichos {
       const vel = b.e.vel * (b.segue > 0 && dist > 6 ? 2.4 : 1);
       if (b.andando) {
         const nx = b.x + Math.sin(b.dir) * vel * dt, nz = b.z + Math.cos(b.dir) * vel * dt;
-        const s = this.chao(nx, nz, b.y);
-        const altura = s ? s.y - b.y : -99;
+        const s = this.chao(nx, nz);
+        const subida = (s.y - b.y) / Math.max(0.001, vel * dt);
         const podeAgua = b.e.nada || b.segue > 0;
-        if (s && altura <= 1.05 && altura > -3 && (!s.agua || podeAgua) && !SOLIDO[this.mundo.bloco(Math.floor(nx), Math.floor(s.y), Math.floor(nz))]
-          && !SOLIDO[this.mundo.bloco(Math.floor(nx), Math.floor(s.y) + (b.e.alt > 1 ? 1 : 0), Math.floor(nz))]) {
-          b.x = nx; b.z = nz;
-          if (altura > 0.05 && b.vy <= 0 && b.y <= Math.floor(b.y) + 0.01) b.vy = 6;
+        if (subida < 1.3 && (!s.agua || podeAgua)) {
+          const pos = { x: nx, z: nz };
+          this.terreno.resolverColisao(pos, b.e.raio * 0.8);
+          b.x = pos.x; b.z = pos.z;
         } else if (b.segue <= 0) { b.dir += Math.PI * (0.5 + Math.random()); b.timer = 1 + Math.random() * 2; }
-        if (b.e.pula && b.vy === 0) b.vy = 4;
+        if (b.e.pula && b.vy === 0 && b.y <= this.chao(b.x, b.z).y + 0.01) b.vy = 3.5;
       }
       // gravidade
-      const s = this.chao(b.x, b.z, b.y);
-      const piso = s ? s.y - (s.agua ? 0.45 : 0) : 0;
+      const s = this.chao(b.x, b.z);
       b.vy -= 20 * dt;
       b.y += b.vy * dt;
-      if (b.y <= piso) { b.y = piso; b.vy = 0; }
+      if (b.y <= s.y) { b.y = s.y; b.vy = 0; }
 
       // animação
       b.fase += dt * (b.andando ? 9 : 0);

@@ -1,24 +1,25 @@
-# Pradaria 🌼
+# Pradaria 🚗🏡🐶
 
-Jogo de construir e explorar, **pacífico** (só bichinhos, nada de monstros), que roda no navegador e foi pensado para tablets fracos.
+Mundo aberto 3D **pacífico** (sem armas, sem violência) que roda no navegador e foi pensado para tablets fracos.
 
-- Mundo de blocos infinito gerado na hora: campos, florestas, praias, lagos e morros.
-- 22 blocos para construir (grama, pedra, tábuas, vidro, tijolo, lãs coloridas, flores, lampião…).
-- Bichos: ovelha, porquinho, galinha, vaca, coelho, capivara e o Caramelo (que segue você depois de um carinho).
+- Uma cidade com ruas, faixas, semáforos, prédios, casas com quintal e praças com chafariz.
+- Carros estacionados pela cidade: entre em qualquer um e dirija (buzina, velocímetro, cinco modelos).
+- Estradas que saem da cidade para o campo: florestas, pinheirais, praias, lagos e morros.
+- Bichos: ovelha, porquinho, galinha, vaca, coelho, capivara, o Caramelo e o Gatinho (os dois seguem você depois de um carinho).
 - Dia e noite (a noite é clarinha), nuvens, sons feitos na hora.
-- Contas com login, mundos com código para jogar com amigos em tempo real e emotes (sem chat aberto, mais seguro para crianças).
-- Funciona sem internet também (mundo salvo no aparelho).
+- Contas com login, mundos com código para jogar com amigos em tempo real (você vê o carro do amigo andando) e emotes, sem chat aberto.
+- Funciona sem internet também (posição salva no aparelho).
 
 ## Controles
 
 | Tablet / celular | Computador |
 |---|---|
-| Arraste no lado esquerdo: andar | WASD ou setas |
-| Arraste no lado direito: olhar | Mouse (clique na tela para travar) |
-| Toque: colocar bloco / fazer carinho | Botão direito |
-| Segure o dedo: quebrar | Botão esquerdo |
-| ⬆ pular · 🕊️ voar · ⬇ descer | Espaço · espaço duas vezes ou F · Shift |
-| Barra de baixo e ＋: escolher blocos | 1–9, rodinha, E |
+| Arraste no lado esquerdo: andar / dirigir | WASD ou setas |
+| Arraste no lado direito: girar a câmera | Mouse (clique na tela para travar) |
+| Toque num carro ou botão 🚗 Entrar | E ou F |
+| Botão 📯 buzina | H |
+| Toque num bicho: carinho | Clique |
+| ⬆ pular | Espaço · Shift corre |
 
 ## Como funciona (arquitetura)
 
@@ -28,9 +29,9 @@ Jogo de construir e explorar, **pacífico** (só bichinhos, nada de monstros), q
 | `functions/api/` | Pages Functions | Contas (`/api/cadastrar`, `/api/entrar`), mundos (`/api/mundos`) |
 | `lib/base.js` | Pages Functions | Senhas (PBKDF2), sessões assinadas (HMAC), limite de tentativas |
 | `db/schema.sql` | Cloudflare D1 (`pradaria-db`) | Usuários, mundos, membros |
-| `sala-worker/` | Worker `pradaria-sala` + Durable Object | Uma sala por mundo: guarda as edições de blocos e repassa posições/emotes por WebSocket |
+| `sala-worker/` | Worker `pradaria-sala` + Durable Object | Uma sala por mundo: repassa posições, carros e emotes por WebSocket |
 
-O terreno é gerado a partir de uma semente, então o servidor só guarda **o que os jogadores mudaram**.
+O mundo é gerado a partir de uma semente (`terreno.js`, `cidade.js`), então o servidor só guarda onde cada jogador parou.
 
 ## Publicação
 

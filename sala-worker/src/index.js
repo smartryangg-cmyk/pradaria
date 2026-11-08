@@ -3,7 +3,16 @@ import { DurableObject } from 'cloudflare:workers';
 
 const MAX_BLOCO = 23;
 const MAX_JOGADORES = 12;
-const EMOTES = new Set(['👋', '❤️', '😄', '⭐']);
+const EMOTES = new Set(['👋', '❤️', '😄', '⭐', '📯']);
+const MODELOS = new Set(['compacto', 'sedan', 'picape', 'van', 'esportivo']);
+// carro do jogador: [modelo, cor, inclinação, rolagem, id do carro estacionado] ou null
+function carroValido(c) {
+  if (!Array.isArray(c) || c.length < 4 || c.length > 5 || !MODELOS.has(c[0])) return null;
+  const cor = Number.isInteger(c[1]) && c[1] >= 0 && c[1] <= 0xffffff ? c[1] : 0xffffff;
+  const ang = (v) => (Number.isFinite(v) ? Math.max(-1, Math.min(1, Math.round(v * 100) / 100)) : 0);
+  const id = typeof c[4] === 'string' && /^-?\d{1,4},-?\d{1,4},\d{1,2}$/.test(c[4]) ? c[4] : '';
+  return [c[0], cor, ang(c[2]), ang(c[3]), id];
+}
 
 export class Sala extends DurableObject {
   constructor(ctx, env) {
@@ -60,7 +69,7 @@ export class Sala extends DurableObject {
     const dia = (((Date.now() - this.info.inicio) / 600000) + 0.3) % 1;
     servidor.send(JSON.stringify({
       t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia,
-      jogadores: this.jogadores().filter((j) => j.id !== id).map(({ id, nome, cor, p, r }) => ({ id, nome, cor, p, r })),
+      jogadores: this.jogadores().filter((j) => j.id !== id).map(({ id, nome, cor, p, r, c }) => ({ id, nome, cor, p, r, c })),
     }));
     this.enviarTodos({ t: 'entrou', j: { id, nome: u.nome, cor: u.cor, p: eu.p, r: eu.r } }, servidor);
     return new Response(null, { status: 101, webSocket: cliente });
@@ -74,8 +83,9 @@ export class Sala extends DurableObject {
     if (m.t === 'pos' && Array.isArray(m.p) && m.p.length === 3 && m.p.every(Number.isFinite)) {
       eu.p = m.p.map((v) => Math.round(v * 100) / 100);
       eu.r = Array.isArray(m.r) ? m.r.slice(0, 2).map((v) => (Number.isFinite(v) ? v : 0)) : [0, 0];
+      eu.c = carroValido(m.c);
       ws.serializeAttachment(eu);
-      this.enviarTodos({ t: 'pos', id: eu.id, p: eu.p, r: eu.r }, ws);
+      this.enviarTodos({ t: 'pos', id: eu.id, p: eu.p, r: eu.r, c: eu.c }, ws);
       const agora = Date.now();
       if (!eu.salvoEm || agora - eu.salvoEm > 10000) { eu.salvoEm = agora; ws.serializeAttachment(eu); await this.ctx.storage.put('p:' + eu.uid, eu.p); }
     } else if (m.t === 'bloco') {

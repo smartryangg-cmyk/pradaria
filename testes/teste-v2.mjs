@@ -1,0 +1,35 @@
+import { createRequire } from 'module'; const { chromium, devices } = createRequire(import.meta.url)('playwright');
+const SAIDA = process.env.SAIDA || '/tmp', URL = (process.env.URL || 'http://localhost:8788') + '/#teste';
+const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const ctx = await b.newContext(process.env.TABLET ? { ...devices['Galaxy Tab S4 landscape'] } : { viewport: { width: 1024, height: 640 } });
+const p = await ctx.newPage();
+const erros = []; p.on('pageerror', (e) => erros.push('PAGEERROR ' + e.message)); p.on('console', (m) => { if (m.type() === 'error') erros.push(m.text()); });
+await p.goto(URL);
+await p.evaluate(() => localStorage.clear());
+await p.click('#bt-sozinho');
+await p.waitForTimeout(4000);
+await p.screenshot({ path: SAIDA + '/v2-inicio.png' });
+const info = await p.evaluate(() => { const J = window.__jogo; return { pos: J.jog.pos, pedacos: J.terreno.pedacos.size, carros: J.garagem.carros.size, bichos: J.bichos.lista.length, draws: J.renderer.info.render.calls, tri: J.renderer.info.render.triangles }; });
+console.log(JSON.stringify(info));
+// vai até o carro mais perto e entra
+await p.evaluate(() => { const J = window.__jogo; let m = null, dm = 1e9; for (const c of J.garagem.carros.values()) { const d = Math.hypot(c.x - J.jog.pos.x, c.z - J.jog.pos.z); if (d < dm) { dm = d; m = c; } } J.jog.pos.x = m.x + Math.cos(m.yaw) * 2; J.jog.pos.z = m.z - Math.sin(m.yaw) * 2; });
+await p.waitForTimeout(500);
+await p.evaluate(() => window.__jogo.entrarSair());
+const dentro = await p.evaluate(() => !!window.__jogo.jog.carro);
+await p.keyboard.down('KeyW');
+await p.waitForTimeout(3500);
+await p.keyboard.up('KeyW');
+const vel = await p.evaluate(() => { const c = window.__jogo.jog.carro; return c && { vel: c.vel.toFixed(1), x: c.x.toFixed(1), z: c.z.toFixed(1) }; });
+await p.screenshot({ path: SAIDA + '/v2-carro.png' });
+console.log('dentro do carro', dentro, JSON.stringify(vel));
+// sai da cidade: teleporta para o campo
+await p.evaluate(() => { const J = window.__jogo; J.jog.carro.vel = 0; J.entrarSair(); J.jog.pos.x = 30; J.jog.pos.z = 420; J.cam.yaw = 0.8; });
+await p.waitForTimeout(6000);
+await p.screenshot({ path: SAIDA + '/v2-campo.png' });
+await p.evaluate(() => { const J = window.__jogo; J.jog.pos.x = 140; J.jog.pos.z = 130; J.cam.yaw = 2.4; J.cam.pitch = 0.5; J.cam.dist = 14; });
+await p.waitForTimeout(3000);
+await p.screenshot({ path: SAIDA + '/v2-cidade.png' });
+const fps = await p.evaluate(() => new Promise(r => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 2000) requestAnimationFrame(f); else r(n / 2); }; requestAnimationFrame(f); }));
+console.log('fps', fps, 'draws', await p.evaluate(() => window.__jogo.renderer.info.render.calls), 'tri', await p.evaluate(() => window.__jogo.renderer.info.render.triangles));
+console.log(erros.slice(0, 10).join('\n') || 'sem erros');
+await b.close();
