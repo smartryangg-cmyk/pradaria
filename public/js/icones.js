@@ -269,6 +269,24 @@ const ICONES = {
     { d: 'M5 3.5h14A1.5 1.5 0 0 1 20.5 5v14a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19V5A1.5 1.5 0 0 1 5 3.5z', f: '#3f8fe0', s: T, w: 1.6 },
     { d: 'M10 17V7h3.4a3 3 0 0 1 0 6H10', s: '#fff', w: 2.6 },
   ],
+  // bomba de gasolina
+  combustivel: [
+    { d: 'M4.5 20.5V5.5A2 2 0 0 1 6.5 3.5h6A2 2 0 0 1 14.5 5.5v15z', f: '#e53935', s: T, w: 1.6 },
+    { d: 'M6.6 6h5.8v4.2H6.6z', f: '#bfe6ff', s: T, w: 1.2 },
+    { d: 'M14.5 9.5h2a1.5 1.5 0 0 1 1.5 1.5v5.5a1.3 1.3 0 0 0 2.6 0V8l-2.4-2.6', s: T, w: 1.7 },
+    { d: 'M3 20.5h13', s: T, w: 1.8 },
+  ],
+  // bateria com raio
+  bateria: [
+    { d: 'M5 6.5h13a1.5 1.5 0 0 1 1.5 1.5v10A1.5 1.5 0 0 1 18 19.5H5A1.5 1.5 0 0 1 3.5 18V8A1.5 1.5 0 0 1 5 6.5z', f: '#43a047', s: T, w: 1.6 },
+    { d: 'M7 4.2h3v2.3H7zM13 4.2h3v2.3h-3z', f: '#9a9a9a', s: T, w: 1.2 },
+    { d: 'M12.6 8.6l-3.4 5h2.8l-1.2 4 3.8-5.6h-2.8z', f: '#ffd54a', s: T, w: 1.1 },
+  ],
+  // chave inglesa (oficina, conserto, montar)
+  ferramenta: [
+    { d: 'M14.8 3.6a5 5 0 0 0-4.6 6.6L3.9 16.5a2 2 0 0 0 2.9 2.9l6.3-6.3a5 5 0 0 0 6.6-4.6l-3 1.2-2.4-1.1-1.1-2.4z', f: '#b0bec5', s: T, w: 1.6 },
+    { d: circ(5.6, 17.7, 0.9), f: T },
+  ],
 };
 
 export const NOMES_ICONES = Object.keys(ICONES);

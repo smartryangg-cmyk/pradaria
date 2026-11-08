@@ -15,6 +15,8 @@ await p.waitForTimeout(500);
 await p.click('#bt-sozinho');
 // primeira vez: tela de opções do mundo novo (tudo no padrão, veículos ligados)
 await p.waitForSelector('#m-novo:not([hidden])');
+await p.click('[data-opcao=mercado]'); // sem mercado: a garagem é livre (com mercado, veja teste-veiculos-logica.mjs)
+await p.click('#m-novo summary'); await p.fill('#n-semente', process.env.SEMENTE || 'estrada'); // mesmo lugar sempre
 await p.click('#m-novo button[type=submit]');
 await p.waitForTimeout(5000);
 const info = () => p.evaluate(() => {

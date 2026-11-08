@@ -21,7 +21,9 @@ async function jogador(nome, toque) {
 const ok = (c, msg) => { console.log((c ? 'OK   ' : 'FALHA') + ' ' + msg); if (!c) process.exitCode = 1; };
 const sfx = Date.now() % 10000;
 const a = await jogador('Ana' + sfx, false);
-await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Estrada'); await a.click('#m-novo button[type=submit]');
+await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Estrada');
+await a.click('[data-opcao=mercado]'); // sem mercado: a garagem é livre (com mercado, veja teste-veiculos-logica.mjs)
+await a.click('#m-novo button[type=submit]');
 await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 20000 });
 await a.waitForTimeout(2500);
 const codigo = await a.evaluate(() => window.__jogo.sala.codigo);

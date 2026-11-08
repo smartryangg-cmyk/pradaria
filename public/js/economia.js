@@ -53,13 +53,49 @@ export const ATIVOS = 3; // quantos objetivos aparecem por vez
 export const EVENTOS = { carinho: 1, conversa: 1, voar: 1, emote: 1, andar: 80 };
 const MAX_ITEM = 9999, MAX_MOEDAS = 999999;
 
+// ---------- veículos (só valem com a opção Veículos ligada no mundo) ----------
+// tipos iguais aos de veiculos.js (ORDEM). Livres: já vêm com todo mundo.
+export const VEICULOS_LIVRES = ['bicicleta', 'skate'];
+export const PRECO_VEICULO = {
+  carro: 40, jipe: 50, esportivo: 70, quadriciclo: 35, moto: 30, bicicleta: 0, skate: 0,
+  trator: 45, caminhao: 70, onibus: 80, barco: 40, aviao: 120, helicoptero: 110,
+};
+// montar com o que se coletou pelo mundo (o "crafting" dos veículos): { bloco: quantidade }
+export const RECEITA_VEICULO = {
+  carro: { [TR]: 10, [PE]: 20, [AR_]: 6 },
+  jipe: { [TR]: 14, [PE]: 20, [AR_]: 6 },
+  esportivo: { [TR]: 6, [PE]: 30, [AR_]: 12 },
+  quadriciclo: { [TR]: 8, [PE]: 14 },
+  moto: { [TR]: 6, [PE]: 12 },
+  trator: { [TR]: 12, [PE]: 18, [G]: 6 },
+  caminhao: { [TR]: 16, [PE]: 30 },
+  onibus: { [TR]: 16, [PE]: 36, [AR_]: 12 },
+  barco: { [TR]: 20, [FO]: 6 },
+  aviao: { [TR]: 20, [PE]: 30, [AR_]: 10 },
+  helicoptero: { [TR]: 12, [PE]: 36, [AR_]: 10 },
+};
+// serviços no posto: preço do tanque cheio (ou da bateria) e do conserto completo
+export const SERVICO = { comb: 6, conserto: 12 };
+export const precoServico = (k, falta) => Math.max(1, Math.ceil(SERVICO[k] * Math.max(0, Math.min(1, falta))));
+export const temVeiculo = (e, tipo, op) => !op.mercado || VEICULOS_LIVRES.includes(tipo) || (e.veiculos || []).includes(tipo);
+// estado guardado na garagem de cada jogador: { tipo: [combustível 0..1, dano 0..1, quando guardou (ms)] }
+const estadoVeic = (x) => Array.isArray(x) && x.length >= 2 ? [Math.max(0, Math.min(1, +x[0] || 0)), Math.max(0, Math.min(1, +x[1] || 0)), Math.max(0, +x[2] || 0)] : null;
+// na garagem o mecânico abastece e conserta aos poucos: 10% por minuto guardado
+export const OFICINA_POR_MS = 0.1 / 60000;
+export function estadoDaGaragem(e, tipo, agora) {
+  const g = e && e.garagem && e.garagem[tipo];
+  if (!g) return [1, 0];
+  const k = Math.max(0, agora - (g[2] || 0)) * OFICINA_POR_MS;
+  return [Math.min(1, g[0] + k), Math.max(0, g[1] - k)];
+}
+
 export function opcoesEcon(op) {
   op = op || {};
   return { mercado: !!op.mercado, objetivos: !!op.objetivos };
 }
 
 export function estadoNovo(op) {
-  return { moedas: op && op.mercado ? 10 : 0, estrelas: 0, itens: {}, comprados: [], cont: {}, feitos: [] };
+  return { moedas: op && op.mercado ? 10 : 0, estrelas: 0, itens: {}, comprados: [], cont: {}, feitos: [], veiculos: [], garagem: {} };
 }
 
 // confere/repara um estado salvo (vindo do armazenamento)
@@ -72,6 +108,8 @@ export function normalizar(e, op) {
   n.comprados = (e.comprados || []).filter((b) => PRECO_LOJA.has(b));
   for (const [k, v] of Object.entries(e.cont || {})) if (typeof v === 'number') n.cont[k] = v;
   n.feitos = (e.feitos || []).filter((id) => OBJETIVOS.some((o) => o.id === id));
+  n.veiculos = [...new Set((Array.isArray(e.veiculos) ? e.veiculos : []).filter((t) => t in PRECO_VEICULO))];
+  for (const [t, x] of Object.entries(e.garagem && typeof e.garagem === 'object' ? e.garagem : {})) { const q = estadoVeic(x); if (t in PRECO_VEICULO && q) n.garagem[t] = q; }
   return n;
 }
 
@@ -144,6 +182,39 @@ export function aplicar(e, op, a) {
     if (e.moedas < preco) return falha(`Faltam ${preco - e.moedas} moedas.`);
     e.moedas -= preco; e.comprados.push(a.b);
     r.feitos = contar(e, op, 'comprar', 1); r.mudou = true;
+  } else if (a.t === 'comprarV' || a.t === 'montarV') {
+    // veículo novo: com moedas ou montado com o que se coletou
+    if (!op.mercado) return falha('O mercado está desligado neste mundo.');
+    const tipo = a.tipo;
+    if (!(tipo in PRECO_VEICULO)) return falha('?');
+    if (temVeiculo(e, tipo, op)) return falha('Esse veículo já é seu!');
+    if (a.t === 'comprarV') {
+      const preco = PRECO_VEICULO[tipo];
+      if (e.moedas < preco) return falha(`Faltam ${preco - e.moedas} moedas.`);
+      e.moedas -= preco;
+    } else {
+      const rec = RECEITA_VEICULO[tipo];
+      for (const [b, n] of Object.entries(rec)) if ((e.itens[b] || 0) < n) return falha('Faltam materiais na mochila.');
+      for (const [b, n] of Object.entries(rec)) { e.itens[b] -= n; if (!e.itens[b]) delete e.itens[b]; }
+    }
+    e.veiculos.push(tipo);
+    r.mudou = true;
+  } else if (a.t === 'servico') {
+    // abastecer/carregar ou consertar no posto. "falta" = quanto falta (0..1); online quem calcula é a sala
+    if (!(a.k in SERVICO)) return falha('?');
+    if (op.mercado) {
+      const preco = precoServico(a.k, a.falta);
+      if (e.moedas < preco) return falha(`Faltam ${preco - e.moedas} moedas.`);
+      e.moedas -= preco;
+    }
+    r.mudou = true;
+  } else if (a.t === 'garagem') {
+    // guardou um veículo: lembra como ele estava (tanque e dano) para quando tirar de novo
+    const q = estadoVeic(a.s);
+    if (!(a.tipo in PRECO_VEICULO) || !q) return falha('?');
+    q[2] = Number.isFinite(a.agora) ? a.agora : Date.now();
+    e.garagem[a.tipo] = q;
+    r.mudou = true;
   } else return falha('?');
   return r;
 }

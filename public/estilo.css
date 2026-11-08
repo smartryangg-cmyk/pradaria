@@ -357,3 +357,34 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 .dono-membro .bt { min-height: 40px; padding: 6px 10px; font-size: 14px; color: #c62828; }
 #c-adulto .campo.linha { font-size: 14px; }
 .sub a { color: inherit; }
+/* veículos: medidores de combustível/bateria e dano, posto, comprar e montar na garagem */
+#velo { align-items: center; }
+#velo .medidor { display: flex; align-items: center; gap: 4px; margin-left: 6px; }
+#velo .medidor[hidden] { display: none; }
+#velo .medidor .ic-svg { width: 20px; height: 20px; }
+#velo .medidor i { display: block; width: 54px; height: 10px; border-radius: 6px; background: rgba(255,255,255,.25); overflow: hidden; }
+#velo .medidor u { display: block; height: 100%; width: 100%; background: #7bd36b; text-decoration: none; transition: width .3s; }
+#velo .medidor.baixo u { background: #ff7a5c; }
+#velo .medidor.baixo { animation: pisca 1s infinite; }
+@keyframes pisca { 50% { opacity: .45; } }
+#veic-posto { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+#veic-posto[hidden], #veic-posto [hidden] { display: none; }
+.pilula.verde { background: #7bd36b; }
+.pilula .econ-m { display: inline-flex; align-items: center; gap: 2px; margin-left: 4px; }
+.pilula .econ-m .ic-svg { width: 20px; height: 20px; }
+.veiculo { position: relative; }
+.veiculo .preco { font-style: normal; font-size: 13px; font-weight: 900; display: inline-flex; align-items: center; gap: 2px; min-height: 16px; color: #6a5a3f; }
+.veiculo .preco .ic-svg { width: 15px; height: 15px; }
+.veiculo.trancado .ic { opacity: .55; filter: grayscale(.5); }
+.veiculo.sel { outline: 3px solid #f2a33a; }
+#garagem-compra { background: #fff7e3; border-radius: 14px; padding: 10px 12px; margin: 8px 0; }
+#garagem-compra .gc-topo { display: flex; align-items: center; gap: 8px; font-size: 18px; }
+#garagem-compra .gc-topo .ic-svg { width: 34px; height: 34px; }
+#garagem-compra .gc-linhas { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+#garagem-compra .bt { display: inline-flex; align-items: center; gap: 6px; justify-content: center; }
+#garagem-compra .bt .ic-svg { width: 20px; height: 20px; }
+#garagem-compra .gc-montar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+#garagem-compra .gc-rec { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+#garagem-compra .gc-item { display: inline-flex; align-items: center; gap: 3px; font-weight: 900; color: #b5523b; }
+#garagem-compra .gc-item.ok { color: #2f7d32; }
+#garagem-compra .gc-item canvas, #garagem-compra .gc-item img { width: 24px; height: 24px; }

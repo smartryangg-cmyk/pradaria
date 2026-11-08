@@ -1,6 +1,6 @@
 // Sala de um mundo: guarda as edições de blocos e repassa posições/emotes entre os jogadores.
 import { DurableObject } from 'cloudflare:workers';
-import { opcoesEcon, normalizar, aplicar, dar, liberado } from '../../public/js/economia.js';
+import { opcoesEcon, normalizar, aplicar, dar, liberado, temVeiculo, estadoDaGaragem } from '../../public/js/economia.js';
 
 const MAX_BLOCO = 255; // 0..63 base, 100..126 engenharia, 128..175 eras (blocos-eras.js)
 // o cliente ignora ids que não existem (antes um id desconhecido travava o mundo de todos); aqui só o intervalo
@@ -15,6 +15,9 @@ const MSG_POR_SEG = 30;
 const LUGARES = { carro: 4, jipe: 4, esportivo: 2, quadriciclo: 2, moto: 2, bicicleta: 1, skate: 1, trator: 2, caminhao: 6, onibus: 9, barco: 4, aviao: 2, helicoptero: 4 };
 const MAX_VEICULOS = 40; // por mundo
 const MAX_VEICULOS_POR_JOGADOR = 6;
+const MAX_PARADOS = 40; // veículos que moram nas vilas/portos (aparecem quando alguém chega perto)
+const fracao = (x, padrao) => (Number.isFinite(x) ? Math.max(0, Math.min(1, Math.round(x * 1000) / 1000)) : padrao);
+const pubV = (v) => ({ id: v.id, tipo: v.tipo, cor: v.cor, p: v.p, r: v.r, c: fracao(v.c, 1), d: fracao(v.d, 0), ...(v.k ? { k: v.k } : {}) });
 const arrV = (v, k = 100) => Math.round(v * k) / k;
 const MAX_LUGARES = 8;
 // desenhos dos lugares salvos: nomes de ícone (v4, ver ICONES em public/js/comandos.js) e os emojis antigos
@@ -66,6 +69,12 @@ export class Sala extends DurableObject {
     for (const [, v] of lista) m.set(v.id, v);
     this.veiculos = m;
     return m;
+  }
+
+  // chaves dos veículos de vila/porto que já apareceram neste mundo (cada um aparece uma vez só)
+  async carregarParados() {
+    if (!this.parados) this.parados = new Set((await this.ctx.storage.get('vpar')) || []);
+    return this.parados;
   }
 
   // quem está sentado em cada veículo (fica guardado na conexão de cada jogador)
@@ -169,10 +178,11 @@ export class Sala extends DurableObject {
     const dia = opcoes.cicloDia === false ? 0.3 : this.diaAgora();
     const vs = await this.carregarVeiculos();
     const ocup = this.ocupacao();
-    const veiculos = [...vs.values()].map(({ id, tipo, cor, p, r }) => ({ id, tipo, cor, p, r, ocup: ocup.get(id) || [] }));
+    const veiculos = [...vs.values()].map((v) => ({ ...pubV(v), ocup: ocup.get(v.id) || [] }));
+    const vparados = await this.carregarParados();
     const lugares = (await this.ctx.storage.get('l:' + u.id)) || { casa: null, lista: [] };
     servidor.send(JSON.stringify({
-      t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia, dono: eu.dono, lugares, opcoes, econ, veiculos,
+      t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia, dono: eu.dono, lugares, opcoes, econ, veiculos, vparados: [...vparados],
       jogadores: this.jogadores().filter((j) => j.id !== id).map(({ id, nome, cor, p, r }) => ({ id, nome, cor, p, r })),
     }));
     this.enviarTodos({ t: 'entrou', j: { id, nome: u.nome, cor: u.cor, p: eu.p, r: eu.r } }, servidor);
@@ -274,6 +284,10 @@ export class Sala extends DurableObject {
     } else if (m.t === 'vnovo') {
       if (eu.semVeiculos || !LUGARES[m.tipo] || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
       const cor = Number.isInteger(m.cor) && m.cor >= 0 && m.cor < 8 ? m.cor : 0;
+      // com o mercado ligado, só sai da garagem o que a pessoa comprou ou montou (e do jeito que guardou)
+      const econV = await this.econDe(eu.uid);
+      if (!temVeiculo(econV, m.tipo, this.op())) { ws.send(JSON.stringify({ t: 'erro', msg: 'Esse veículo ainda não é seu. Compre ou monte na garagem!' })); return; }
+      const [comb, dano] = estadoDaGaragem(econV, m.tipo, Date.now());
       const agora = Date.now();
       if (eu.ultimoVeiculo && agora - eu.ultimoVeiculo < 1500) return;
       eu.ultimoVeiculo = agora; ws.serializeAttachment(eu);
@@ -282,18 +296,58 @@ export class Sala extends DurableObject {
       const vazio = (v) => !(ocup.get(v.id) || []).some(Boolean);
       // limite: some o mais antigo (e vazio) do próprio jogador, ou do mundo
       const meus = [...vs.values()].filter((v) => v.dono === eu.uid).sort((a, b) => a.t - b.t);
-      const cheio = meus.length >= MAX_VEICULOS_POR_JOGADOR || vs.size >= MAX_VEICULOS;
-      const tirar = meus.length >= MAX_VEICULOS_POR_JOGADOR ? meus.find(vazio) : vs.size >= MAX_VEICULOS ? [...vs.values()].sort((a, b) => a.t - b.t).find(vazio) : null;
+      const daGaragem = [...vs.values()].filter((v) => !v.k);
+      const cheio = meus.length >= MAX_VEICULOS_POR_JOGADOR || daGaragem.length >= MAX_VEICULOS;
+      const tirar = meus.length >= MAX_VEICULOS_POR_JOGADOR ? meus.find(vazio) : daGaragem.length >= MAX_VEICULOS ? daGaragem.sort((a, b) => a.t - b.t).find(vazio) : null;
       if (cheio && !tirar) { ws.send(JSON.stringify({ t: 'erro', msg: 'Tem veículos demais aqui. Guarde algum!' })); return; }
       if (tirar) { vs.delete(tirar.id); await this.ctx.storage.delete('v:' + tirar.id); this.enviarTodos({ t: 'vfim', id: tirar.id }); }
       const seq = ((await this.ctx.storage.get('vseq')) || 0) + 1;
       await this.ctx.storage.put('vseq', seq);
-      const v = { id: 'v' + seq, tipo: m.tipo, cor, p: m.p.map((x) => arrV(x)), r: arrV(m.r, 1000), dono: eu.uid, t: agora };
+      const v = { id: 'v' + seq, tipo: m.tipo, cor, p: m.p.map((x) => arrV(x)), r: arrV(m.r, 1000), dono: eu.uid, t: agora, c: fracao(comb, 1), d: fracao(dano, 0) };
       vs.set(v.id, v);
       await this.ctx.storage.put('v:' + v.id, v);
-      const pub = { id: v.id, tipo: v.tipo, cor: v.cor, p: v.p, r: v.r };
+      const pub = pubV(v);
       this.enviarTodos({ t: 'vnovo', v: pub }, ws);
       ws.send(JSON.stringify({ t: 'vnovo', v: pub, n: Number.isFinite(m.n) ? m.n : 0 }));
+    } else if (m.t === 'vparado') {
+      // veículo que mora numa vila/porto: o primeiro que chega perto pede, e ele aparece uma vez só
+      if (eu.semVeiculos || !LUGARES[m.tipo] || typeof m.k !== 'string' || !/^[va][-0-9a-z.,]{1,40}$/.test(m.k) || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
+      const par = await this.carregarParados();
+      if (par.has(m.k) || par.size > 3000) return;
+      par.add(m.k);
+      await this.ctx.storage.put('vpar', [...par]);
+      const vs = await this.carregarVeiculos();
+      const ocup = this.ocupacao();
+      const moram = [...vs.values()].filter((v) => v.k).sort((a, b) => a.t - b.t);
+      if (moram.length >= MAX_PARADOS) {
+        const tirar = moram.find((v) => !(ocup.get(v.id) || []).some(Boolean));
+        if (!tirar) return;
+        vs.delete(tirar.id); await this.ctx.storage.delete('v:' + tirar.id); this.enviarTodos({ t: 'vfim', id: tirar.id });
+      }
+      const seq = ((await this.ctx.storage.get('vseq')) || 0) + 1;
+      await this.ctx.storage.put('vseq', seq);
+      const cor = Number.isInteger(m.cor) && m.cor >= 0 && m.cor < 8 ? m.cor : 0;
+      const v = { id: 'v' + seq, tipo: m.tipo, cor, p: m.p.map((x) => arrV(x)), r: arrV(m.r, 1000), dono: null, k: m.k, t: Date.now(), c: 0.6 + (cor % 4) * 0.1, d: 0 };
+      vs.set(v.id, v);
+      await this.ctx.storage.put('v:' + v.id, v);
+      this.enviarTodos({ t: 'vnovo', v: pubV(v) });
+    } else if (m.t === 'servico') {
+      // posto: abastecer/carregar ("comb") ou consertar ("conserto"); com o mercado ligado custa moedas
+      if (!eu.v || eu.v[0] !== m.id || eu.v[1] !== 0 || (m.k !== 'comb' && m.k !== 'conserto')) return;
+      const agora = Date.now();
+      if (eu.servEm && agora - eu.servEm < 800) return;
+      eu.servEm = agora; ws.serializeAttachment(eu);
+      const v = (await this.carregarVeiculos()).get(m.id);
+      if (!v) return;
+      const falta = m.k === 'comb' ? 1 - fracao(v.c, 1) : fracao(v.d, 0);
+      if (falta <= 0.005) return;
+      const econ = await this.econDe(eu.uid);
+      const r = aplicar(econ, this.op(), { t: 'servico', k: m.k, falta });
+      if (!r.ok) { ws.send(JSON.stringify({ t: 'econ-erro', msg: r.erro + ' Venda coisas na loja da vila!' })); return; }
+      if (this.op().mercado) { await this.ctx.storage.put('e:' + eu.uid, econ); ws.send(JSON.stringify({ t: 'econ', s: econ, feitos: [] })); }
+      if (m.k === 'comb') v.c = 1; else v.d = 0;
+      await this.ctx.storage.put('v:' + v.id, v);
+      this.enviarTodos({ t: 'vestado', id: v.id, c: fracao(v.c, 1), d: fracao(v.d, 0) });
     } else if (m.t === 'ventrar') {
       const v = (await this.carregarVeiculos()).get(m.id);
       if (!v) return;
@@ -313,8 +367,10 @@ export class Sala extends DurableObject {
       if (!v) return;
       v.p = m.p.map((x) => arrV(x));
       v.r = Number.isFinite(m.r[0]) ? arrV(m.r[0], 1000) : 0;
+      // combustível e dano: quem dirige calcula (gasta andando, amassa batendo); o posto é com a sala
+      v.c = fracao(m.c, fracao(v.c, 1)); v.d = fracao(m.d, fracao(v.d, 0));
       const r = m.r.slice(0, 3).map((x) => (Number.isFinite(x) ? arrV(x, 1000) : 0));
-      this.enviarTodos({ t: 'vmov', id: v.id, p: v.p, r, s: Number.isFinite(m.s) ? arrV(m.s, 10) : 0 }, ws);
+      this.enviarTodos({ t: 'vmov', id: v.id, p: v.p, r, s: Number.isFinite(m.s) ? arrV(m.s, 10) : 0, c: v.c, d: v.d }, ws);
       const agora = Date.now();
       if (!v.salvoEm || agora - v.salvoEm > 5000) { v.salvoEm = agora; await this.ctx.storage.put('v:' + v.id, v); }
     } else if (m.t === 'vguardar') {
@@ -322,8 +378,11 @@ export class Sala extends DurableObject {
       const v = vs.get(m.id);
       if (!v) return;
       const atual = this.ocupacao().get(v.id) || [];
-      if (atual.some((j) => j && j !== eu.id)) return;
+      if (v.k || atual.some((j) => j && j !== eu.id)) return; // o que mora na vila fica lá
       if (eu.v && eu.v[0] === v.id) { eu.v = null; ws.serializeAttachment(eu); }
+      // a garagem lembra como ele estava (o mecânico abastece e conserta aos poucos)
+      const econG = await this.econDe(eu.uid);
+      if (aplicar(econG, this.op(), { t: 'garagem', tipo: v.tipo, s: [fracao(v.c, 1), fracao(v.d, 0)], agora: Date.now() }).ok) await this.ctx.storage.put('e:' + eu.uid, econG);
       vs.delete(v.id);
       await this.ctx.storage.delete('v:' + v.id);
       this.enviarTodos({ t: 'vfim', id: v.id });
@@ -356,9 +415,10 @@ export class Sala extends DurableObject {
       this.info.inicio = Date.now() - (v - 0.3) * 600000;
       await this.ctx.storage.put('info', this.info);
       this.enviarTodos({ t: 'dia', v, nome: eu.nome });
-    } else if (m.t === 'ev' || m.t === 'vender' || m.t === 'comprar') {
+    } else if (m.t === 'ev' || m.t === 'vender' || m.t === 'comprar' || m.t === 'comprarV' || m.t === 'montarV') {
       const op = this.op();
       if (!op.mercado && !op.objetivos) return;
+      if ((m.t === 'comprarV' || m.t === 'montarV') && (eu.semVeiculos || typeof m.tipo !== 'string')) return;
       // no máximo 10 por segundo
       const agora = Date.now();
       if (!eu.jeco || agora - eu.jeco > 1000) { eu.jeco = agora; eu.neco = 0; }
