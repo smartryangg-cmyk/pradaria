@@ -1,5 +1,6 @@
 // Modelos 3D feitos de caixinhas (bichos e jogadores), com cores e sombreamento embutidos.
 import * as THREE from '../vendor/three.module.min.js';
+import { PELES, CORES_CABELO, CORES_OLHOS, CORES_ROUPA, PADRAO, normalizarSkin, skinDeCor } from './skin.js';
 
 export const matModelo = new THREE.MeshLambertMaterial({ vertexColors: true });
 function malha(geo) { const m = new THREE.Mesh(geo, matModelo); m.castShadow = true; return m; }
@@ -164,20 +165,149 @@ export function montarBicho(especie, r) {
   return { grupo: g, cabeca: cab, pernas };
 }
 
-// boneco do jogador (outros jogadores na rede)
-export function montarBoneco(cor = 0x3f6fd9) {
-  const g = new THREE.Group();
-  const pele = 0xf1c8a0;
-  const corpo = malha(juntar([caixa(0.5, 0.65, 0.28, cor, 0, 1.08, 0)]));
-  const cab = malha(juntar([caixa(0.48, 0.48, 0.48, pele, 0, 0.24, 0), caixa(0.5, 0.14, 0.5, 0x5a3a22, 0, 0.45, -0.01),
-    caixa(0.08, 0.08, 0.02, 0x222222, -0.11, 0.26, 0.245), caixa(0.08, 0.08, 0.02, 0x222222, 0.11, 0.26, 0.245),
-    caixa(0.16, 0.04, 0.02, 0xc0605a, 0, 0.12, 0.245)]));
+// ---------- boneco do jogador (o meu na 3ª pessoa, o dos amigos e o do editor de personagem) ----------
+// Feito a partir do personagem (skin.js): pele, cabelo, rosto, roupa, calça, sapato e chapéu.
+// Medidas (frente = +z): pernas 0..0.75, tronco 0.755..1.405, cabeça 1.4..1.88, braços pendurados de 1.4.
+
+// esfera / cilindro com cor (para cabelo black power, coque, pompom, saia e chapéu)
+function comCor(g, cor) {
+  g.deleteAttribute('uv');
+  const c = new THREE.Color(cor), n = g.attributes.position.count, cols = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { cols[i * 3] = c.r; cols[i * 3 + 1] = c.g; cols[i * 3 + 2] = c.b; }
+  g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+  return g;
+}
+export function bola(r, cor, ox = 0, oy = 0, oz = 0, sx = 1, sy = 1, sz = 1) {
+  const g = new THREE.SphereGeometry(r, 10, 7);
+  g.scale(sx, sy, sz); g.translate(ox, oy, oz);
+  return comCor(g, cor);
+}
+export function cilindro(rt, rb, h, cor, ox = 0, oy = 0, oz = 0, lados = 12) {
+  const g = new THREE.CylinderGeometry(rt, rb, h, lados);
+  g.translate(ox, oy, oz);
+  return comCor(g, cor);
+}
+
+// braço/perna de várias cores, empilhadas de cima para baixo; pivô no topo
+function membroPartes(partes, x, y, z) {
+  let topo = 0;
+  const geos = [];
+  for (const [w, h, d, cor, dz = 0] of partes) { geos.push(caixa(w, h, d, cor, 0, topo - h / 2, dz)); topo -= h; }
+  const m = malha(juntar(geos));
+  m.position.set(x, y, z);
+  return m;
+}
+
+const BOCA = 0xc0605a, ESCURO = 0x222222, BRANCO = 0xffffff, ROSA = 0xf29a9a, PALHA = 0xe8c66a, OURO = 0xf5c542;
+
+function pecasCabeca(s) {
+  const pele = PELES[s.pele], ch = CORES_CABELO[s.corCabelo], io = CORES_OLHOS[s.corOlhos], hat = CORES_ROUPA[s.corChapeu];
+  const g = [caixa(0.48, 0.48, 0.48, pele, 0, 0.24, 0)];
+  const z = 0.245; // frente do rosto
+  // olhos
+  for (const lx of [-0.11, 0.11]) {
+    if (s.olhos === 0) g.push(caixa(0.08, 0.08, 0.02, io, lx, 0.26, z));
+    else if (s.olhos === 1) g.push(caixa(0.13, 0.13, 0.02, BRANCO, lx, 0.26, z), caixa(0.07, 0.09, 0.02, io, lx + (lx < 0 ? 0.02 : -0.02), 0.25, z + 0.006));
+    else if (s.olhos === 2) g.push(caixa(0.12, 0.035, 0.02, ESCURO, lx, 0.275, z), caixa(0.035, 0.035, 0.02, ESCURO, lx - 0.055, 0.25, z), caixa(0.035, 0.035, 0.02, ESCURO, lx + 0.055, 0.25, z));
+    else if (s.olhos === 3) g.push(caixa(0.1, 0.11, 0.02, io, lx, 0.26, z), caixa(0.04, 0.04, 0.02, BRANCO, lx + 0.025, 0.285, z + 0.006));
+    else g.push(caixa(0.12, 0.035, 0.02, ESCURO, lx, 0.27, z + 0.004), caixa(0.08, 0.045, 0.02, io, lx, 0.24, z));
+  }
+  // boca
+  if (s.boca === 0) g.push(caixa(0.16, 0.04, 0.02, BOCA, 0, 0.12, z));
+  else if (s.boca === 1) g.push(caixa(0.2, 0.09, 0.02, 0x7a2a2a, 0, 0.115, z), caixa(0.17, 0.03, 0.02, BRANCO, 0, 0.142, z + 0.005));
+  else if (s.boca === 2) g.push(caixa(0.08, 0.03, 0.02, BOCA, 0, 0.12, z));
+  else g.push(caixa(0.16, 0.04, 0.02, BOCA, 0, 0.125, z), caixa(0.07, 0.07, 0.02, 0xef7f95, 0.02, 0.085, z + 0.005));
+  // extras do rosto
+  if (s.rosto === 1) g.push(caixa(0.08, 0.05, 0.02, ROSA, -0.17, 0.16, z - 0.002), caixa(0.08, 0.05, 0.02, ROSA, 0.17, 0.16, z - 0.002));
+  else if (s.rosto === 2) for (const [x, y] of [[-0.18, 0.18], [-0.14, 0.15], [-0.19, 0.14], [0.18, 0.18], [0.14, 0.15], [0.19, 0.14]]) g.push(caixa(0.025, 0.025, 0.02, 0xa8673f, x, y, z - 0.002));
+  else if (s.rosto === 3) {
+    for (const lx of [-0.11, 0.11]) g.push(caixa(0.17, 0.025, 0.02, ESCURO, lx, 0.335, z + 0.012), caixa(0.17, 0.025, 0.02, ESCURO, lx, 0.185, z + 0.012),
+      caixa(0.025, 0.15, 0.02, ESCURO, lx - 0.085, 0.26, z + 0.012), caixa(0.025, 0.15, 0.02, ESCURO, lx + 0.085, 0.26, z + 0.012));
+    g.push(caixa(0.06, 0.025, 0.02, ESCURO, 0, 0.29, z + 0.012), caixa(0.02, 0.025, 0.2, ESCURO, -0.245, 0.3, 0.13), caixa(0.02, 0.025, 0.2, ESCURO, 0.245, 0.3, 0.13));
+  } else if (s.rosto === 4) {
+    g.push(caixa(0.17, 0.11, 0.02, 0x1b1b24, -0.11, 0.265, z + 0.014), caixa(0.17, 0.11, 0.02, 0x1b1b24, 0.11, 0.265, z + 0.014),
+      caixa(0.06, 0.025, 0.02, ESCURO, 0, 0.29, z + 0.014), caixa(0.02, 0.025, 0.2, ESCURO, -0.245, 0.3, 0.13), caixa(0.02, 0.025, 0.2, ESCURO, 0.245, 0.3, 0.13));
+  }
+  // cabelo
+  const curto = () => g.push(caixa(0.52, 0.1, 0.52, ch, 0, 0.47, 0), caixa(0.52, 0.3, 0.06, ch, 0, 0.33, -0.245),
+    caixa(0.04, 0.16, 0.42, ch, -0.25, 0.37, -0.03), caixa(0.04, 0.16, 0.42, ch, 0.25, 0.37, -0.03));
+  let topo = 0.48;
+  if (s.cabelo >= 1 && s.cabelo <= 6) { curto(); topo = 0.52; }
+  if (s.cabelo === 2) for (const [x, zz, h] of [[-0.15, 0.1, 0.12], [0.02, 0.14, 0.15], [0.17, 0.06, 0.11], [-0.08, -0.1, 0.13], [0.12, -0.14, 0.12]]) g.push(caixa(0.11, h, 0.11, ch, x, 0.52 + h / 2, zz));
+  else if (s.cabelo === 3) g.push(caixa(0.52, 0.1, 0.05, ch, 0, 0.42, 0.24), caixa(0.14, 0.06, 0.05, ch, -0.17, 0.36, 0.24));
+  else if (s.cabelo === 4) g.push(caixa(0.54, 0.64, 0.08, ch, 0, 0.19, -0.255), caixa(0.06, 0.46, 0.3, ch, -0.265, 0.23, -0.07), caixa(0.06, 0.46, 0.3, ch, 0.265, 0.23, -0.07));
+  else if (s.cabelo === 5) g.push(caixa(0.1, 0.1, 0.08, hat === ch ? BRANCO : hat, 0, 0.36, -0.3), caixa(0.13, 0.4, 0.13, ch, 0, 0.12, -0.32));
+  else if (s.cabelo === 6) g.push(bola(0.12, ch, 0, 0.58, -0.1));
+  else if (s.cabelo === 7) { g.push(bola(0.34, ch, 0, 0.42, -0.1, 1.12, 0.86, 1), caixa(0.5, 0.06, 0.4, ch, 0, 0.49, 0.03)); topo = 0.7; }
+  // chapéu
+  if (s.chapeu === 1) g.push(caixa(0.54, 0.15, 0.54, hat, 0, topo + 0.04, 0), caixa(0.5, 0.04, 0.24, hat, 0, topo - 0.01, 0.36), caixa(0.08, 0.04, 0.08, BRANCO, 0, topo + 0.13, 0));
+  else if (s.chapeu === 2) g.push(cilindro(0.5, 0.5, 0.035, PALHA, 0, topo, 0, 16), cilindro(0.26, 0.29, 0.22, PALHA, 0, topo + 0.12, 0), cilindro(0.295, 0.295, 0.06, hat, 0, topo + 0.04, 0));
+  else if (s.chapeu === 3) g.push(caixa(0.56, 0.08, 0.56, BRANCO, 0, topo - 0.02, 0), caixa(0.52, 0.2, 0.52, hat, 0, topo + 0.1, 0), bola(0.09, BRANCO, 0, topo + 0.26, 0));
+  else if (s.chapeu === 4) {
+    g.push(caixa(0.5, 0.1, 0.5, OURO, 0, topo + 0.03, 0));
+    for (const [x, zz] of [[-0.2, 0.2], [0, 0.2], [0.2, 0.2], [-0.2, -0.2], [0.2, -0.2], [0, -0.2]]) g.push(caixa(0.08, 0.12, 0.08, OURO, x, topo + 0.13, zz));
+    g.push(caixa(0.07, 0.07, 0.02, hat, 0, topo + 0.03, 0.255));
+  } else if (s.chapeu === 5) g.push(caixa(0.16, 0.13, 0.06, hat, 0.08, topo + 0.02, 0.1), caixa(0.16, 0.13, 0.06, hat, 0.3, topo + 0.02, 0.1), caixa(0.08, 0.08, 0.08, hat, 0.19, topo + 0.02, 0.1));
+  return g;
+}
+
+function pecasCorpo(s) {
+  const pele = PELES[s.pele], r = CORES_ROUPA[s.corRoupa], d = CORES_ROUPA[s.corDetalhe];
+  const jardineira = s.roupa === 5, vestido = s.roupa === 4;
+  const camisa = jardineira ? d : r; // na jardineira a camiseta de baixo é a cor do detalhe
+  const g = [caixa(0.5, 0.65, 0.28, camisa, 0, 1.08, 0)];
+  // estampa (não vale na jardineira, que já tem duas cores)
+  if (!jardineira) {
+    if (s.estampa === 1) for (const y of [0.88, 1.05, 1.22]) g.push(caixa(0.51, 0.07, 0.29, d, 0, y, 0));
+    else if (s.estampa === 2) g.push(caixa(0.13, 0.66, 0.29, d, 0, 1.08, 0));
+    else if (s.estampa === 3) g.push(caixa(0.24, 0.14, 0.02, d, 0.09, 0.95, 0.145), caixa(0.24, 0.02, 0.02, ESCURO, 0.09, 1.025, 0.146));
+  }
+  if (s.roupa === 1) g.push(caixa(0.5, 0.06, 0.24, pele, 0, 1.38, 0), caixa(0.06, 0.06, 0.29, r, -0.19, 1.38, 0), caixa(0.06, 0.06, 0.29, r, 0.19, 1.38, 0));
+  if (s.roupa === 3) g.push(caixa(0.42, 0.2, 0.12, r, 0, 1.4, -0.18), caixa(0.03, 0.14, 0.02, BRANCO, -0.07, 1.31, 0.146), caixa(0.03, 0.14, 0.02, BRANCO, 0.07, 1.31, 0.146));
+  if (jardineira) g.push(caixa(0.34, 0.3, 0.02, r, 0, 0.93, 0.145), caixa(0.51, 0.16, 0.29, r, 0, 0.84, 0),
+    caixa(0.06, 0.34, 0.02, r, -0.15, 1.22, 0.145), caixa(0.06, 0.34, 0.02, r, 0.15, 1.22, 0.145), caixa(0.06, 0.4, 0.02, r, -0.15, 1.15, -0.145), caixa(0.06, 0.4, 0.02, r, 0.15, 1.15, -0.145),
+    caixa(0.05, 0.05, 0.02, OURO, -0.15, 1.08, 0.157), caixa(0.05, 0.05, 0.02, OURO, 0.15, 1.08, 0.157));
+  // saia / vestido (rodadinhos)
+  if (vestido) g.push(cilindro(0.27, 0.38, 0.44, r, 0, 0.6, 0, 14));
+  else if (s.calca === 2) g.push(cilindro(0.27, 0.35, 0.28, CORES_ROUPA[s.corCalca], 0, 0.69, 0, 14));
+  return g;
+}
+
+function membrosDe(s) {
+  const pele = PELES[s.pele], r = CORES_ROUPA[s.corRoupa], d = CORES_ROUPA[s.corDetalhe], sap = CORES_ROUPA[s.corSapato];
+  const manga = s.roupa === 2 || s.roupa === 3 ? 0.52 : s.roupa === 1 ? 0 : 0.22;
+  const corManga = s.roupa === 5 ? d : r;
+  const braco = (x) => membroPartes(manga ? [[0.22, manga, 0.24, corManga], [0.2, 0.62 - manga, 0.22, pele]] : [[0.2, 0.62, 0.22, pele]], x, 1.4, 0);
+  // jardineira: a calça é da cor da roupa; vestido e saia: pernas de fora
+  const pernasDeFora = s.roupa === 4 || s.calca === 2;
+  const corCalca = s.roupa === 5 ? r : CORES_ROUPA[s.corCalca];
+  const sapato = [0.24, 0.14, 0.28, sap, 0.02];
+  const perna = (x) => membroPartes(pernasDeFora ? [[0.2, 0.61, 0.22, pele], sapato]
+    : s.calca === 1 && s.roupa !== 5 ? [[0.23, 0.3, 0.25, corCalca], [0.2, 0.31, 0.22, pele], sapato]
+      : [[0.22, 0.61, 0.24, corCalca], sapato], x, 0.75, 0);
+  return [braco(-0.36), braco(0.36), perna(-0.13), perna(0.13)];
+}
+
+// (re)veste o boneco com um personagem; o grupo continua o mesmo (pode estar sentado num carro, com etiqueta etc.)
+export function vestirBoneco(b, skin) {
+  const s = typeof skin === 'number' ? skinDaCorHex(skin) : normalizarSkin(skin);
+  for (const c of [...b.grupo.children]) if (c.userData.boneco) { b.grupo.remove(c); c.geometry.dispose(); }
+  const corpo = malha(juntar(pecasCorpo(s)));
+  const cab = malha(juntar(pecasCabeca(s)));
   cab.position.y = 1.4;
-  g.add(corpo, cab);
-  const bd = membro(0.2, 0.62, 0.22, pele, -0.36, 1.4, 0), be = membro(0.2, 0.62, 0.22, pele, 0.36, 1.4, 0);
-  const pd = membro(0.22, 0.75, 0.24, 0x3a4a6a, -0.13, 0.75, 0), pe = membro(0.22, 0.75, 0.24, 0x3a4a6a, 0.13, 0.75, 0);
-  g.add(bd, be, pd, pe);
-  return { grupo: g, cabeca: cab, membros: [bd, be, pd, pe] };
+  const membros = membrosDe(s);
+  for (const m of [corpo, cab, ...membros]) { m.userData.boneco = true; b.grupo.add(m); }
+  // mantém a pose de antes
+  if (b.membros) membros.forEach((m, i) => m.rotation.copy(b.membros[i].rotation));
+  if (b.cabeca) cab.rotation.copy(b.cabeca.rotation);
+  b.cabeca = cab; b.membros = membros; b.skin = s;
+  return b;
+}
+// compatibilidade: quem ainda passa uma cor de camiseta (0xRRGGBB)
+function skinDaCorHex(hex) { const i = CORES_ROUPA.indexOf(hex); return skinDeCor(i >= 0 && i < 8 ? i : 0); }
+
+export function montarBoneco(skin = PADRAO) {
+  return vestirBoneco({ grupo: new THREE.Group(), cabeca: null, membros: null }, skin);
 }
 
 // Animação do boneco (o meu, na 3ª pessoa, e o dos amigos): andar, pular, voar, nadar e bater.

@@ -51,7 +51,7 @@ export class Escavacao {
     let e = this.blocos.get(k);
     if (e && e.b !== h.b) { this.soltar(k); e = null; }
     if (!e) {
-      if (total <= 1) { this.estilhacar(h.x, h.y, h.z, h.b, null, h.n); return true; }
+      if (total <= 1) { this.estilhacar(h.x, h.y, h.z, h.b, null, h.n); this.mundo.definir(h.x, h.y, h.z, AR); return true; }
       if (this.blocos.size >= MAX_ESCAVADOS) this.soltar(this.maisAntigo());
       e = { x: h.x, y: h.y, z: h.z, b: h.b, vivos: new Uint8Array(TOTAL).fill(1), restam: TOTAL, toques: 0, malha: null };
       this.blocos.set(k, e);
@@ -178,7 +178,7 @@ export class Escavacao {
       const pecas = ids ? (Math.random() < 0.5 ? 2 : 1) : 6;
       for (let q = 0; q < pecas; q++) {
         const mesh = new THREE.Mesh(this.geoP, this.corDe(b, tile, (i + q) % N, N - 1 - j));
-        const sz = tam * (0.3 + Math.random() * 0.3);
+        const sz = tam * (0.2 + Math.random() * 0.25);
         mesh.scale.setScalar(sz);
         const cx = ids ? (i + 0.5) / N : 0.2 + Math.random() * 0.6;
         const cy = ids ? (j + 0.5) / N : 0.1 + Math.random() * 0.6;

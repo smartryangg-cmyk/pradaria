@@ -23,7 +23,7 @@ export class Visao {
   constructor(cena) {
     this.cena = cena;
     this.modo = 0;
-    this.boneco = null; this.cor = null;
+    this.boneco = null;
     this.golpe = 1; this.ultGolpe = -1e9;
     this.dist = 0; // distância atual da câmera (0 na 1ª pessoa)
     this.olho = new THREE.Vector3();
@@ -50,13 +50,9 @@ export class Visao {
 
   esconder() { if (this.boneco && this.boneco.grupo.parent) this.boneco.grupo.parent.remove(this.boneco.grupo); }
 
-  // cria (ou troca de cor) o boneco do jogador
-  meuBoneco(cor) {
-    if (this.boneco && this.cor === cor) return this.boneco;
-    this.esconder();
-    if (this.boneco) this.boneco.grupo.traverse((x) => x.geometry && x.geometry.dispose());
-    this.boneco = montarBoneco(cor);
-    this.cor = cor;
+  // cria o boneco do jogador (skin = função que devolve o personagem; trocar de roupa usa vestirBoneco)
+  meuBoneco(skin) {
+    if (!this.boneco) this.boneco = montarBoneco(typeof skin === 'function' ? skin() : skin);
     return this.boneco;
   }
 
@@ -77,9 +73,9 @@ export class Visao {
   }
 
   // anima o boneco e posiciona a câmera. Devolve false na 1ª pessoa (a câmera fica nos olhos).
-  quadro(dt, jog, camera, mundo, cor, dirigindo) {
+  quadro(dt, jog, camera, mundo, skin, dirigindo) {
     if (!this.terceira || dirigindo || !jog || !mundo) { this.esconder(); this.dist = 0; return false; }
-    const b = this.meuBoneco(cor);
+    const b = this.meuBoneco(skin);
     if (b.grupo.parent !== this.cena) this.cena.add(b.grupo);
     const yaw = jog.yaw, pitch = jog.pitch;
     // boneco: a frente do modelo é +z; a câmera olha para -z, por isso o meio giro

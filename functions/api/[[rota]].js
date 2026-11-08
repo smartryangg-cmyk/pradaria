@@ -1,7 +1,10 @@
 // API de contas e mundos.  /api/cadastrar  /api/entrar  /api/eu  /api/mundos  /api/mundos/entrar
-// Dono do mundo: /api/mundos/membros  /api/mundos/expulsar  /api/mundos/codigo-novo.  Apagar conta: DELETE /api/eu
+// Dono do mundo: /api/mundos/membros  /api/mundos/expulsar  /api/mundos/codigo-novo  /api/mundos/editar
+// /api/mundos/apagar  /api/mundos/exportar.  Importar (vira um mundo novo de quem importa): /api/mundos/importar.  Apagar conta: DELETE /api/eu
 import { json, erro, banco, criarToken, usuarioDa, hashSenha, iguais, limitar, codigoNovo, textoProibido } from '../../lib/base.js';
-import { normalizarOpcoes, sementeDeTexto } from '../../public/js/opcoes-mundo.js';
+import { normalizarOpcoes, sementeDeTexto, editarOpcoes, opcoesMudadas } from '../../public/js/opcoes-mundo.js';
+import { lerArquivo, montarArquivo } from '../../public/js/arquivo-mundo.js';
+import { normalizarSkin } from '../../public/js/skin.js';
 
 const NOME_OK = /^[A-Za-zÀ-ÿ0-9_]{3,16}$/;
 const NOME_MUNDO_OK = /^[A-Za-zÀ-ÿ0-9 ]{2,24}$/;
@@ -9,7 +12,7 @@ const ipDe = (request) => request.headers.get('cf-connecting-ip') || 'local';
 const texto = (v) => (typeof v === 'string' ? v : '');
 
 async function corpo(request) { try { return await request.json(); } catch { return {}; } }
-const publico = (u) => ({ id: u.id, nome: u.nome, cor: u.cor });
+const publico = (u) => ({ id: u.id, nome: u.nome, cor: u.cor, skin: normalizarSkin(u.skin, u.cor), skinSalva: !!u.skin });
 
 async function cadastrar(request, env) {
   const c0 = await corpo(request);
@@ -24,10 +27,12 @@ async function cadastrar(request, env) {
   if (existe) return erro('Esse nome já existe. Escolha outro!', 409);
   const { hash, sal } = await hashSenha(senha);
   const c = Math.max(0, Math.min(7, cor | 0));
+  // personagem montado antes de criar a conta (opcional)
+  const skin = c0.skin && typeof c0.skin === 'object' ? JSON.stringify(normalizarSkin(c0.skin, c)) : null;
   let r;
   try {
-    r = await db.prepare('INSERT INTO usuarios (nome, hash, sal, cor, criado_em) VALUES (?, ?, ?, ?, ?) RETURNING id, nome, cor')
-      .bind(nome, hash, sal, c, Date.now()).first();
+    r = await db.prepare('INSERT INTO usuarios (nome, hash, sal, cor, criado_em, skin) VALUES (?, ?, ?, ?, ?, ?) RETURNING id, nome, cor, skin')
+      .bind(nome, hash, sal, c, Date.now(), skin).first();
   } catch (e) { if (/UNIQUE/i.test(String(e))) return erro('Esse nome já existe. Escolha outro!', 409); throw e; }
   return json({ token: await criarToken(env, r), usuario: publico(r) });
 }
@@ -43,7 +48,7 @@ async function entrar(request, env) {
     || !(await limitar(env, 'entn:' + n, 60, 15 * 60e3)))
     return erro('Muitas tentativas. Espere uns minutos e tente de novo.', 429);
   const db = await banco(env);
-  const u = await db.prepare('SELECT id, nome, cor, hash, sal FROM usuarios WHERE nome = ?').bind(nome).first();
+  const u = await db.prepare('SELECT id, nome, cor, skin, hash, sal FROM usuarios WHERE nome = ?').bind(nome).first();
   if (!u) return erro('Nome ou senha errados.', 401);
   const { hash } = await hashSenha(senha, u.sal);
   if (!iguais(hash, u.hash)) return erro('Nome ou senha errados.', 401);
@@ -58,17 +63,30 @@ async function listarMundos(env, u) {
   return results.map((m) => ({ ...m, dono: !!m.dono, opcoes: normalizarOpcoes(m.opcoes) }));
 }
 
+const limparNomeMundo = (nome) => texto(nome).trim().replace(/\s+/g, ' ');
+// o nome do mundo aparece para os amigos: mesmas regras ao criar e ao editar
+function nomeMundoRuim(n) {
+  if (n.length < 2) return 'Dê um nome para o mundo.';
+  if (!NOME_MUNDO_OK.test(n)) return 'O nome do mundo pode ter só letras, números e espaços (até 24).';
+  if (textoProibido(n)) return 'Escolha outro nome: sem números de telefone, redes sociais ou palavras feias.';
+  return null;
+}
+
 async function criarMundo(request, env, u) {
   const { nome = '', opcoes = null, semente: sementeTxt = '' } = await corpo(request);
-  const n = texto(nome).trim().replace(/\s+/g, ' ');
+  const n = limparNomeMundo(nome);
   const op = normalizarOpcoes(opcoes);
   const escolhida = sementeDeTexto(String(sementeTxt).slice(0, 40));
-  if (n.length < 2) return erro('Dê um nome para o mundo.');
-  if (!NOME_MUNDO_OK.test(n)) return erro('O nome do mundo pode ter só letras, números e espaços (até 24).');
-  if (textoProibido(n)) return erro('Escolha outro nome: sem números de telefone, redes sociais ou palavras feias.');
+  const ruim = nomeMundoRuim(n);
+  if (ruim) return erro(ruim);
+  return inserirMundo(env, u, n, op, escolhida);
+}
+
+// guarda um mundo novo do usuário (criar e importar); depois(m) roda antes de responder (ex.: colocar os blocos importados)
+async function inserirMundo(env, u, n, op, escolhida, depois) {
   const db = await banco(env);
   const qtd = await db.prepare('SELECT COUNT(*) AS n FROM mundos WHERE dono_id = ?').bind(u.id).first();
-  if (qtd.n >= 10) return erro('Você já tem 10 mundos. Esse é o máximo por enquanto.');
+  if (qtd.n >= 10) return erro('Você já tem 10 mundos. Esse é o máximo por enquanto. Apague um para abrir espaço.');
   for (let tent = 0; tent < 5; tent++) {
     const codigo = codigoNovo();
     const semente = escolhida ?? crypto.getRandomValues(new Uint32Array(1))[0] % 1000000000;
@@ -77,7 +95,11 @@ async function criarMundo(request, env, u) {
         .bind(codigo, n, u.id, semente, Date.now(), JSON.stringify(op)).first();
       try {
         await db.prepare('INSERT INTO membros (mundo_id, usuario_id, entrou_em) VALUES (?, ?, ?)').bind(m.id, u.id, Date.now()).run();
-      } catch (e) { await db.prepare('DELETE FROM mundos WHERE id = ?').bind(m.id).run(); throw e; }
+        if (depois) await depois(m);
+      } catch (e) {
+        await db.batch([db.prepare('DELETE FROM membros WHERE mundo_id = ?').bind(m.id), db.prepare('DELETE FROM mundos WHERE id = ?').bind(m.id)]);
+        throw e;
+      }
       return json({ mundo: { codigo: m.codigo, nome: m.nome, dono: true, nome_dono: u.nome, opcoes: op } });
     } catch (e) { if (!/UNIQUE/i.test(String(e))) throw e; }
   }
@@ -102,7 +124,7 @@ async function entrarMundo(request, env, u) {
 async function mundoDoDono(request, env, u) {
   const c = await corpo(request);
   const db = await banco(env);
-  const m = await db.prepare('SELECT id, codigo, dono_id, sala FROM mundos WHERE codigo = ?').bind(texto(c.codigo).toUpperCase().trim().slice(0, 12)).first();
+  const m = await db.prepare('SELECT id, codigo, nome, opcoes, dono_id, sala FROM mundos WHERE codigo = ?').bind(texto(c.codigo).toUpperCase().trim().slice(0, 12)).first();
   if (!m) return { resp: erro('Mundo não encontrado.', 404) };
   if (m.dono_id !== u.id) return { resp: erro('Só o dono do mundo pode fazer isso.', 403) };
   return { db, m, c };
@@ -116,6 +138,16 @@ async function avisarSala(env, m, acao, dados) {
       method: 'POST', headers: { 'x-admin': acao, 'content-type': 'application/json' }, body: JSON.stringify(dados || {}),
     });
   } catch (e) { console.error('sala', acao, e); }
+}
+
+// pede algo à sala e devolve a resposta (JSON); diferente de avisarSala, aqui a falha vira erro
+async function pedirSala(env, salaNome, acao, dados) {
+  if (!env.SALA) throw new Error('sala não configurada');
+  const r = await env.SALA.get(env.SALA.idFromName(salaNome)).fetch('https://sala/admin', {
+    method: 'POST', headers: { 'x-admin': acao, 'content-type': 'application/json' }, body: JSON.stringify(dados || {}),
+  });
+  if (!r.ok) throw new Error('sala ' + acao + ' ' + r.status);
+  return r.json();
 }
 
 async function membros(request, env, u) {
@@ -134,6 +166,61 @@ async function expulsar(request, env, u) {
   await db.prepare('DELETE FROM membros WHERE mundo_id = ? AND usuario_id = ?').bind(m.id, uid).run();
   await avisarSala(env, m, 'expulsar', { uids: [uid] });
   return json({ ok: true });
+}
+
+// editar um mundo já criado (só o dono): nome e opções. Tipo, tamanho e gerador não mudam (fazem o terreno).
+// Quem estiver jogando recebe a mudança na hora (a sala avisa e o jogo recarrega o mundo com as opções novas).
+async function editarMundo(request, env, u) {
+  const { resp, db, m, c } = await mundoDoDono(request, env, u);
+  if (resp) return resp;
+  if (!(await limitar(env, 'edm:' + u.id, 30, 3600e3))) return erro('Muitas mudanças seguidas. Espere um pouco.', 429);
+  const nome = c.nome == null ? m.nome : limparNomeMundo(c.nome);
+  const ruim = nomeMundoRuim(nome);
+  if (ruim) return erro(ruim);
+  const antes = normalizarOpcoes(m.opcoes);
+  const opcoes = c.opcoes == null ? antes : editarOpcoes(antes, c.opcoes);
+  const mudou = opcoesMudadas(antes, opcoes);
+  if (nome !== m.nome || mudou.length) {
+    await db.prepare('UPDATE mundos SET nome = ?, opcoes = ? WHERE id = ?').bind(nome, JSON.stringify(opcoes), m.id).run();
+    await avisarSala(env, m, 'editar', { nome, opcoes, recarregar: mudou.length > 0 });
+  }
+  return json({ mundo: { codigo: m.codigo, nome, dono: true, nome_dono: u.nome, opcoes }, mudou });
+}
+
+// apagar um mundo (só o dono): some do banco e a sala apaga os blocos e tira quem estiver lá
+async function apagarMundo(request, env, u) {
+  const { resp, db, m } = await mundoDoDono(request, env, u);
+  if (resp) return resp;
+  await db.batch([
+    db.prepare('DELETE FROM membros WHERE mundo_id = ?').bind(m.id),
+    db.prepare('DELETE FROM mundos WHERE id = ?').bind(m.id),
+  ]);
+  await avisarSala(env, m, 'apagar');
+  return json({ ok: true });
+}
+
+// exportar (só o dono): um arquivo com nome, semente, opções e todos os blocos mudados
+async function exportarMundo(request, env, u) {
+  const { resp, db, m } = await mundoDoDono(request, env, u);
+  if (resp) return resp;
+  if (!(await limitar(env, 'exp:' + u.id, 30, 3600e3))) return erro('Muitas exportações seguidas. Espere um pouco.', 429);
+  const r = await db.prepare('SELECT semente FROM mundos WHERE id = ?').bind(m.id).first();
+  const { edicoes } = env.SALA ? await pedirSala(env, m.sala || m.codigo, 'exportar') : { edicoes: [] };
+  return json(montarArquivo({ nome: m.nome, semente: r.semente, opcoes: m.opcoes, edicoes }));
+}
+
+// importar: o arquivo vira um mundo NOVO de quem importou (código novo; ninguém mais entra sem ele)
+async function importarMundo(request, env, u) {
+  if (!(await limitar(env, 'imp:' + u.id, 10, 3600e3))) return erro('Muitas importações seguidas. Espere um pouco.', 429);
+  const c = await corpo(request);
+  const a = lerArquivo(c.arquivo);
+  if (a.erro) return erro(a.erro);
+  const n = limparNomeMundo(c.nome == null ? a.nome : c.nome);
+  const ruim = nomeMundoRuim(n);
+  if (ruim) return erro(ruim);
+  return inserirMundo(env, u, n, a.opcoes, a.semente, async (m) => {
+    if (a.edicoes.length) await pedirSala(env, m.codigo, 'importar', { semente: a.semente, edicoes: a.edicoes });
+  });
 }
 
 // código novo: o antigo para de funcionar e todo mundo (menos o dono) precisa do código novo para voltar
@@ -177,6 +264,17 @@ async function apagarConta(request, env, u) {
   return json({ ok: true });
 }
 
+// personagem: salva na conta (os amigos veem na próxima vez que você entrar num mundo, ou na hora pela sala)
+async function salvarSkin(request, env, u) {
+  const c = await corpo(request);
+  if (!c.skin || typeof c.skin !== 'object') return erro('Personagem inválido.');
+  if (!(await limitar(env, 'skin:' + u.id, 60, 3600e3))) return erro('Você trocou de roupa muitas vezes. Espere um pouco.', 429);
+  const skin = normalizarSkin(c.skin, u.cor);
+  const db = await banco(env);
+  await db.prepare('UPDATE usuarios SET skin = ? WHERE id = ?').bind(JSON.stringify(skin), u.id).run();
+  return json({ skin });
+}
+
 export async function onRequest({ request, env, params }) {
   const rota = (params.rota || []).join('/');
   const metodo = request.method;
@@ -187,15 +285,21 @@ export async function onRequest({ request, env, params }) {
     const u = await usuarioDa(request, env);
     if (!u) return erro('Sessão expirada, entre de novo.', 401);
     // a conta pode ter sido apagada: o token assinado continua válido, então confere no banco
-    if (!(await (await banco(env)).prepare('SELECT 1 AS ok FROM usuarios WHERE id = ?').bind(u.id).first())) return erro('Sessão expirada, entre de novo.', 401);
+    const atual = await (await banco(env)).prepare('SELECT id, nome, cor, skin FROM usuarios WHERE id = ?').bind(u.id).first();
+    if (!atual) return erro('Sessão expirada, entre de novo.', 401);
     if (rota === 'eu' && metodo === 'DELETE') return await apagarConta(request, env, u);
-    if (rota === 'eu') return json({ usuario: u });
+    if (rota === 'eu/skin' && metodo === 'POST') return await salvarSkin(request, env, atual);
+    if (rota === 'eu') return json({ usuario: publico(atual) });
     if (rota === 'mundos' && metodo === 'GET') return json({ mundos: await listarMundos(env, u) });
     if (rota === 'mundos' && metodo === 'POST') return await criarMundo(request, env, u);
     if (rota === 'mundos/entrar' && metodo === 'POST') return await entrarMundo(request, env, u);
     if (rota === 'mundos/membros' && metodo === 'POST') return await membros(request, env, u);
     if (rota === 'mundos/expulsar' && metodo === 'POST') return await expulsar(request, env, u);
     if (rota === 'mundos/codigo-novo' && metodo === 'POST') return await trocarCodigo(request, env, u);
+    if (rota === 'mundos/editar' && metodo === 'POST') return await editarMundo(request, env, u);
+    if (rota === 'mundos/apagar' && metodo === 'POST') return await apagarMundo(request, env, u);
+    if (rota === 'mundos/exportar' && metodo === 'POST') return await exportarMundo(request, env, u);
+    if (rota === 'mundos/importar' && metodo === 'POST') return await importarMundo(request, env, u);
     return erro('Rota não encontrada', 404);
   } catch (e) {
     console.error(e);

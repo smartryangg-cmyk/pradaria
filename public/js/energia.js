@@ -7,7 +7,7 @@
 //    olhando os blocos. Mesmo mundo => mesmo resultado.
 //  * Tudo que é elétrico e encosta conduz: fio, lâmpada, portão, ventilador, sino e confete.
 //    Um grupo de peças encostadas fica ligado se alguma fonte ligada encostar nele.
-import { E, ESTEIRA_DIRS, BLOCOS, OPACO, SOLIDO, BRILHO, uvTile } from './blocos.js';
+import { E, M, ESTEIRA_DIRS, BLOCOS, OPACO, SOLIDO, BRILHO, uvTile } from './blocos.js';
 const ALT_MAX = 96; // altura do mundo (igual a ALT de mundo.js)
 
 // pares desligado -> ligado
@@ -15,6 +15,7 @@ const PARES = [
   [E.FIO, E.FIO_LIGADO], [E.ALAVANCA, E.ALAVANCA_LIGADA], [E.BOTAO, E.BOTAO_LIGADO], [E.PLACA, E.PLACA_LIGADA],
   [E.LAMPADA, E.LAMPADA_LIGADA], [E.PORTAO, E.PORTAO_ABERTO], [E.VENTILADOR, E.VENTILADOR_LIGADO],
   [E.SINO, E.SINO_LIGADO], [E.CONFETE, E.CONFETE_LIGADO], [E.SENSOR, E.SENSOR_LIGADO], [E.PISCA, E.PISCA_LIGADO],
+  [M.CATAVENTO, M.CATAVENTO_GIRANDO], [M.MO, M.MO_GIRANDO], [M.CABO, M.CABO_LIGADO],
 ];
 export const BASE = new Uint8Array(256);
 export const LIGADO = new Uint8Array(256);
@@ -23,15 +24,26 @@ for (let i = 0; i < 256; i++) BASE[i] = i;
 for (const [d, l] of PARES) { BASE[l] = d; LIGADO[d] = l; LIGADO[l] = l; ESTA_LIGADO[l] = 1; }
 // conduz energia (e liga quando recebe)
 export const CONDUZ = new Uint8Array(256);
-for (const b of [E.FIO, E.LAMPADA, E.PORTAO, E.VENTILADOR, E.SINO, E.CONFETE]) { CONDUZ[b] = 1; CONDUZ[LIGADO[b]] = 1; }
+for (const b of [E.FIO, E.LAMPADA, E.PORTAO, E.VENTILADOR, E.SINO, E.CONFETE, M.MO, M.CABO]) { CONDUZ[b] = 1; CONDUZ[LIGADO[b]] = 1; }
 // fontes de energia
 export const FONTE = new Uint8Array(256);
-for (const b of [E.ALAVANCA, E.BOTAO, E.PLACA, E.SENSOR, E.PISCA]) { FONTE[b] = 1; FONTE[LIGADO[b]] = 1; }
+for (const b of [E.ALAVANCA, E.BOTAO, E.PLACA, E.SENSOR, E.PISCA, M.CATAVENTO]) { FONTE[b] = 1; FONTE[LIGADO[b]] = 1; }
 // fontes que mudam sozinhas com o tempo (calculadas em cada aparelho)
 const DO_TEMPO = new Uint8Array(256);
-for (const b of [E.SENSOR, E.PISCA]) { DO_TEMPO[b] = 1; DO_TEMPO[LIGADO[b]] = 1; }
+for (const b of [E.SENSOR, E.PISCA, M.CATAVENTO]) { DO_TEMPO[b] = 1; DO_TEMPO[LIGADO[b]] = 1; }
 // máquinas que precisam de energia (para a dica)
-export const PRECISA_ENERGIA = new Set([E.LAMPADA, E.PORTAO, E.VENTILADOR, E.SINO, E.CONFETE]);
+export const PRECISA_ENERGIA = new Set([E.LAMPADA, E.PORTAO, E.VENTILADOR, E.SINO, E.CONFETE, M.MO]);
+
+// Vento: igual em todos os aparelhos (vem do relógio). Venta quase sempre; a cada 4 minutos
+// tem uns 35 segundos de calmaria, e aí os cataventos param (e o que eles ligam desliga).
+export function vento(agora = Date.now()) {
+  const s = agora / 1000;
+  const ciclo = s % 240;
+  if (ciclo >= 205) return 0;
+  // força varia devagar (0.55..1); começa e termina suave
+  const borda = Math.min(1, ciclo / 6, (205 - ciclo) / 6);
+  return borda * (0.78 + 0.22 * Math.sin(s / 17) * Math.cos(s / 41));
+}
 export const ehEsteira = (b) => b >= E.ESTEIRA && b < E.ESTEIRA + 4;
 export const ELETRICO = (b) => CONDUZ[b] || FONTE[b];
 
@@ -82,11 +94,12 @@ export class Energia {
     const m = this.m;
     // 1) sensores de noite e pisca-piscas
     const piscaAceso = Math.floor(Date.now() / PISCA_MS) % 2 === 0;
+    const ventando = vento() > 0.2;
     for (const [k, [x, y, z]] of this.relogio) {
       if (!this.carregado(x, z)) continue;
       const b = m.bloco(x, y, z);
       if (!DO_TEMPO[b]) { this.relogio.delete(k); continue; }
-      const quer = BASE[b] === E.SENSOR ? this.noite : piscaAceso;
+      const quer = BASE[b] === E.SENSOR ? this.noite : BASE[b] === M.CATAVENTO ? ventando : piscaAceso;
       const alvo = quer ? LIGADO[BASE[b]] : BASE[b];
       if (alvo !== b) { this.definirDerivado(x, y, z, alvo); this.agendar(x, y, z); }
     }
@@ -217,10 +230,41 @@ export function desenharForma(A, get, x, y, z, b) {
     caixa(A, get, x, y, z, 0.33, 0.05, 0.33, 0.67, b === E.BOTAO_LIGADO ? 0.09 : 0.18, 0.67, def.tiles[0], luz);
   } else if (f === 'placa') {
     caixa(A, get, x, y, z, 0.06, 0, 0.06, 0.94, b === E.PLACA_LIGADA ? 0.03 : 0.08, 0.94, def.tiles[0], luz);
+  } else if (f === 'porta') {
+    // porta fina: fechada fica no meio da parede; aberta encosta na dobradiça
+    const naX = portaNaX(get, x, y, z);
+    const e = 0.1875, aberta = b === M.PORTA_ABERTA, t = def.tiles[2];
+    if (!aberta) {
+      if (naX) caixa(A, get, x, y, z, 0, 0, 0.5 - e / 2, 1, 1, 0.5 + e / 2, t, luz);
+      else caixa(A, get, x, y, z, 0.5 - e / 2, 0, 0, 0.5 + e / 2, 1, 1, t, luz);
+    } else if (naX) caixa(A, get, x, y, z, 0, 0, 0.5 + e / 2, e, 1, 1, t, luz);
+    else caixa(A, get, x, y, z, 0, 0, 0, 1, 1, e, t, luz);
+  } else if (f === 'mo') {
+    // base de pedra; a pedra de cima é desenhada à parte quando gira (mecanismos.js)
+    caixa(A, get, x, y, z, 0.04, 0, 0.04, 0.96, 0.45, 0.96, def.tiles[2], 0, 0, 3);
+    if (b === M.MO) caixa(A, get, x, y, z, 0.14, 0.45, 0.14, 0.86, 0.8, 0.86, def.tiles[2], 0, 0, def.tiles[0]);
+  } else if (f === 'sarilho') {
+    // dois pés de madeira, o rolo com a corda e o balde pendurado
+    const naX = !SOLIDO[get(x, y, z - 1)] && !SOLIDO[get(x, y, z + 1)] ? true : !(SOLIDO[get(x - 1, y, z)] || SOLIDO[get(x + 1, y, z)]);
+    const C = (a0, b0, c0, a1, b1, c1, t) => naX ? caixa(A, get, x, y, z, a0, b0, c0, a1, b1, c1, t, 0) : caixa(A, get, x, y, z, c0, b0, a0, c1, b1, a1, t, 0);
+    C(0, 0.35, 0.42, 1, 0.55, 0.58, 7); // rolo
+    C(0.92, 0.25, 0.4, 1, 0.65, 0.48, 55); // manivela
+    C(0.47, 0.05, 0.47, 0.53, 0.35, 0.53, 9); // corda
+    C(0.36, -0.25, 0.36, 0.64, 0.05, 0.64, 55); // balde
   } else if (f === 'esteira') {
     const d = b - E.ESTEIRA;
     caixa(A, get, x, y, z, 0, 0, 0, 1, 1, 1, def.tiles[2], 0, GIRO_ESTEIRA[d], def.tiles[0]);
   }
 }
+
+// a porta fica no plano x (parede correndo em x) se tiver parede ou porta dos lados em x
+export function portaNaX(get, x, y, z) {
+  const p = (q) => SOLIDO[q] || BASE_PORTA[q];
+  if (p(get(x - 1, y, z)) || p(get(x + 1, y, z))) return true;
+  if (p(get(x, y, z - 1)) || p(get(x, y, z + 1))) return false;
+  return true;
+}
+const BASE_PORTA = new Uint8Array(256);
+BASE_PORTA[M.PORTA] = BASE_PORTA[M.PORTA_ABERTA] = 1;
 
 export { ESTEIRA_DIRS };

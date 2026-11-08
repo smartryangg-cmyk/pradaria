@@ -17,6 +17,8 @@ export const IDS = {
   // engenharia
   FIO: 100, ALAVANCA: 102, BOTAO: 104, PLACA: 106, LAMPADA: 108, PORTAO: 110, VENTILADOR: 112, SINO: 114,
   CONFETE: 116, SENSOR: 118, PISCA: 120, TRAMPOLIM: 122, ESTEIRA: 123,
+  // mecanismos das construções (blocos-mecanismos.js)
+  PORTA: 47, CATAVENTO: 49, MO: 51, CABO: 53, FORNO: 55, FARINHA: 57, PAO: 58, SARILHO: 59,
   // itens (não são blocos)
   GRAVETO: 1000, PICARETA_MADEIRA: 1001, PICARETA_PEDRA: 1002, MACHADO_MADEIRA: 1003, MACHADO_PEDRA: 1004, PA_MADEIRA: 1005, PA_PEDRA: 1006,
 };
@@ -32,6 +34,7 @@ export const guardavel = (id) => Number.isInteger(id) && ((id > 0 && id <= MAX_B
 export function baseDe(b) {
   if (b >= 100 && b <= 121) return b - ((b - 100) % 2);
   if (b >= 123 && b <= 126) return I.ESTEIRA;
+  if (b >= 47 && b <= 56) return b - ((b - 47) % 2); // porta aberta, catavento girando, forno aceso...
   return b;
 }
 const VIRA = { [I.GRAMA]: I.TERRA, [I.TERRA_ARADA]: I.TERRA };
@@ -60,7 +63,8 @@ export const FERRAMENTAS = {
 };
 const TIPO_DO_BLOCO = {};
 for (const b of [I.PEDRA, I.PEDRISCO, I.TIJOLO, I.LAMPIAO, I.VIDRO, 108, 109, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122]) TIPO_DO_BLOCO[b] = 'picareta';
-for (const b of [I.TRONCO, I.TABUAS, I.FOLHAS, I.FENO, I.BANCADA, 110, 111]) TIPO_DO_BLOCO[b] = 'machado';
+for (const b of [I.TRONCO, I.TABUAS, I.FOLHAS, I.FENO, I.BANCADA, 110, 111, 47, 48, 49, 50, 53, 54]) TIPO_DO_BLOCO[b] = 'machado';
+for (const b of [51, 52, 55, 56]) TIPO_DO_BLOCO[b] = 'picareta';
 for (const b of [I.TERRA, I.GRAMA, I.AREIA, I.TERRA_ARADA]) TIPO_DO_BLOCO[b] = 'pa';
 
 // quantos toques o bloco b precisa com `naMao` na mão (base = toques sem ferramenta)
@@ -98,6 +102,9 @@ export const RECEITAS = [
   { id: 'vidro', faz: [I.VIDRO, 1], usa: [[I.AREIA, 2]], bancada: true, grupo: 'construir' },
   { id: 'lampiao', faz: [I.LAMPIAO, 1], usa: [[I.VIDRO, 1], [I.GRAVETO, 1]], bancada: true, grupo: 'construir' },
   { id: 'feno', faz: [I.FENO, 1], usa: [[I.TRIGO, 3]], grupo: 'construir' },
+  { id: 'porta', faz: [I.PORTA, 2], usa: [[I.TABUAS, 4]], bancada: true, grupo: 'construir' },
+  { id: 'forno', faz: [I.FORNO, 1], usa: [[I.PEDRA, 6], [I.PEDRISCO, 2]], bancada: true, grupo: 'construir' },
+  { id: 'manivela', faz: [I.SARILHO, 1], usa: [[I.TRONCO, 1], [I.GRAVETO, 2]], bancada: true, grupo: 'construir' },
   // cores
   { id: 'la-vermelha', faz: [I.LA_VERMELHA, 1], usa: [[I.LA_BRANCA, 1], [I.FLOR_VERMELHA, 1]], grupo: 'cores' },
   { id: 'la-amarela', faz: [I.LA_AMARELA, 1], usa: [[I.LA_BRANCA, 1], [I.FLOR_AMARELA, 1]], grupo: 'cores' },
@@ -118,6 +125,9 @@ export const RECEITAS = [
   { id: 'confete', faz: [I.CONFETE, 1], usa: [[I.PEDRA, 3], [I.FLOR_VERMELHA, 1], [I.FLOR_AMARELA, 1]], bancada: true, grupo: 'maquinas' },
   { id: 'trampolim', faz: [I.TRAMPOLIM, 1], usa: [[I.LA_BRANCA, 3], [I.GRAVETO, 2]], bancada: true, grupo: 'maquinas' },
   { id: 'esteira', faz: [I.ESTEIRA, 2], usa: [[I.PEDRA, 3], [I.FIO, 1]], bancada: true, grupo: 'maquinas' },
+  { id: 'catavento', faz: [I.CATAVENTO, 1], usa: [[I.TABUAS, 4], [I.LA_BRANCA, 4], [I.FIO, 1]], bancada: true, grupo: 'maquinas' },
+  { id: 'cabo', faz: [I.CABO, 4], usa: [[I.TRONCO, 1], [I.FIO, 2]], bancada: true, grupo: 'maquinas' },
+  { id: 'pedra-moinho', faz: [I.MO, 1], usa: [[I.PEDRA, 4], [I.GRAVETO, 1]], bancada: true, grupo: 'maquinas' },
 ];
 export function adicionarReceitas(lista) { for (const r of lista) if (!RECEITAS.some((x) => x.id === r.id)) RECEITAS.push(r); }
 export const regras = { liberada: () => true };

@@ -2,6 +2,8 @@
 import { DurableObject } from 'cloudflare:workers';
 import { opcoesEcon, econLigada, normalizar, aplicar, dar, liberado, temVeiculo, estadoDaGaragem } from '../../public/js/economia.js';
 import { lugarVazio, gastoDe, ULTIMO_ITEM } from '../../public/js/receitas.js';
+import { normalizarOpcoes } from '../../public/js/opcoes-mundo.js';
+import { normalizarSkin } from '../../public/js/skin.js';
 
 const MAX_BLOCO = 255; // 0..63 base, 100..126 engenharia, 128..175 eras (blocos-eras.js)
 // o cliente ignora ids que não existem (antes um id desconhecido travava o mundo de todos); aqui só o intervalo
@@ -114,23 +116,54 @@ export class Sala extends DurableObject {
     }
   }
 
-  // pedidos da API (só chegam pelo binding, nunca do jogador): expulsar, esquecer alguém, apagar o mundo
+  // pedidos da API (só chegam pelo binding, nunca do jogador): expulsar, esquecer alguém, apagar o mundo, editar, exportar, importar
   async admin(acao, d) {
     if (acao === 'expulsar') {
       const uids = new Set(Array.isArray(d.uids) ? d.uids : []);
       for (const ws of this.ctx.getWebSockets()) {
         const j = ws.deserializeAttachment();
         if (!j || !(uids.has(j.uid) || (d.todosMenos != null && j.uid !== d.todosMenos))) continue;
-        try { ws.send(JSON.stringify({ t: 'erro', fim: true, msg: 'O dono do mundo tirou você deste mundo.' })); } catch {}
+        try { ws.send(JSON.stringify({ t: 'erro', fim: true, msg: typeof d.msg === 'string' ? d.msg : 'O dono do mundo tirou você deste mundo.' })); } catch {}
         ws.serializeAttachment(null);
         try { ws.close(4004, 'expulso'); } catch {}
         this.enviarTodos({ t: 'saiu', id: j.id }, ws);
       }
+    } else if (acao === 'editar') {
+      // o dono editou o mundo (nome/opções já salvos no banco): vale na hora para quem está aqui
+      const opcoes = normalizarOpcoes(d.opcoes);
+      if (this.info) { this.info.econ = opcoesEcon(opcoes); await this.ctx.storage.put('info', this.info); }
+      if (this.econ) this.econ.clear(); // a mochila/moedas de cada um é ajustada às opções novas
+      const nome = typeof d.nome === 'string' ? d.nome.slice(0, 24) : '';
+      for (const ws of this.ctx.getWebSockets()) {
+        const j = ws.deserializeAttachment();
+        if (!j) continue;
+        j.semVeiculos = opcoes.veiculos === false; ws.serializeAttachment(j);
+        try { ws.send(JSON.stringify({ t: 'mundo-editado', nome, opcoes, recarregar: d.recarregar === true })); } catch {}
+      }
+    } else if (acao === 'exportar') {
+      // todos os blocos mudados neste mundo (para o arquivo do dono)
+      const edicoes = [];
+      for (const [k, b] of await this.carregarEdicoes()) { if (!blocoOk(b)) continue; const [x, y, z] = k.split(',').map(Number); edicoes.push([x, y, z, b]); }
+      return Response.json({ edicoes });
+    } else if (acao === 'importar' && Array.isArray(d.edicoes)) {
+      // mundo novo vindo de um arquivo (a API já conferiu): grava os blocos de 128 em 128
+      const ed = await this.carregarEdicoes();
+      let lote = {}, n = 0;
+      for (const e of d.edicoes.slice(0, MAX_EDICOES)) {
+        if (!Array.isArray(e) || e.length !== 4) continue;
+        const [x, y, z, b] = e;
+        if (![x, y, z].every(Number.isInteger) || y < 1 || y > 63 || !blocoOk(b) || Math.abs(x) > LONGE || Math.abs(z) > LONGE) continue;
+        const k = x + ',' + y + ',' + z;
+        ed.set(k, b); lote['b:' + k] = b;
+        if (++n % 128 === 0) { await this.ctx.storage.put(lote); lote = {}; }
+      }
+      if (Object.keys(lote).length) await this.ctx.storage.put(lote);
+      return Response.json({ ok: true, n });
     } else if (acao === 'esquecer' && Number.isInteger(d.uid)) {
       await this.ctx.storage.delete(['p:' + d.uid, 'l:' + d.uid]);
       await this.admin('expulsar', { uids: [d.uid] });
     } else if (acao === 'apagar') {
-      await this.admin('expulsar', { todosMenos: -1 });
+      await this.admin('expulsar', { todosMenos: -1, msg: 'O dono apagou este mundo.' });
       await this.ctx.storage.deleteAll();
       this.edicoes = null; this.info = null;
     }
@@ -171,7 +204,7 @@ export class Sala extends DurableObject {
     }
     const id = u.id + '-' + Math.random().toString(36).slice(2, 7);
     const pos = (await this.ctx.storage.get('p:' + u.id)) || null;
-    const eu = { id, uid: u.id, nome: u.nome, cor: u.cor, dono: !!u.dono, p: pos || [0, 60, 0], r: [0, 0], cota: 0, janela: 0, semVeiculos: opcoes.veiculos === false };
+    const eu = { id, uid: u.id, nome: u.nome, cor: u.cor, skin: normalizarSkin(u.skin, u.cor), dono: !!u.dono, p: pos || [0, 60, 0], r: [0, 0], cota: 0, janela: 0, semVeiculos: opcoes.veiculos === false };
     this.ctx.acceptWebSocket(servidor);
     servidor.serializeAttachment(eu);
 
@@ -189,9 +222,9 @@ export class Sala extends DurableObject {
     const barra = (await this.ctx.storage.get('h:' + u.id)) || null;
     servidor.send(JSON.stringify({
       t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia, dono: eu.dono, lugares, opcoes, econ, veiculos, vparados: [...vparados], barra,
-      jogadores: this.jogadores().filter((j) => j.id !== id).map(({ id, nome, cor, p, r }) => ({ id, nome, cor, p, r })),
+      jogadores: this.jogadores().filter((j) => j.id !== id).map(({ id, nome, cor, skin, p, r }) => ({ id, nome, cor, skin, p, r })),
     }));
-    this.enviarTodos({ t: 'entrou', j: { id, nome: u.nome, cor: u.cor, p: eu.p, r: eu.r } }, servidor);
+    this.enviarTodos({ t: 'entrou', j: { id, nome: u.nome, cor: u.cor, skin: eu.skin, p: eu.p, r: eu.r } }, servidor);
     return new Response(null, { status: 101, webSocket: cliente });
   }
 
@@ -403,6 +436,14 @@ export class Sala extends DurableObject {
     } else if (m.t === 'buzina') {
       if (!eu.v || eu.v[0] !== m.id) return;
       this.enviarTodos({ t: 'buzina', id: m.id }, ws);
+    } else if (m.t === 'skin' && m.s && typeof m.s === 'object') {
+      // trocou de personagem no meio do jogo: os amigos veem na hora (a conta já salvou pela API)
+      const agora = Date.now();
+      if (eu.skinEm && agora - eu.skinEm < 1500) return;
+      eu.skinEm = agora;
+      eu.skin = normalizarSkin(m.s, eu.cor);
+      ws.serializeAttachment(eu);
+      this.enviarTodos({ t: 'skin', id: eu.id, s: eu.skin }, ws);
     } else if (m.t === 'emote' && EMOTES.has(m.e)) {
       // no máximo um emote a cada 0,8 s (evita encher a tela/os ouvidos dos outros)
       const agora = Date.now();
@@ -435,7 +476,7 @@ export class Sala extends DurableObject {
       this.info.inicio = Date.now() - (v - 0.3) * 600000;
       await this.ctx.storage.put('info', this.info);
       this.enviarTodos({ t: 'dia', v, nome: eu.nome });
-    } else if (m.t === 'ev' || m.t === 'vender' || m.t === 'comprar' || m.t === 'criar' || m.t === 'comprarV' || m.t === 'montarV' || m.t === 'chave') {
+    } else if (m.t === 'ev' || m.t === 'vender' || m.t === 'comprar' || m.t === 'criar' || m.t === 'moer' || m.t === 'assar' || m.t === 'comprarV' || m.t === 'montarV' || m.t === 'chave') {
       const op = this.op();
       const deVeiculo = m.t === 'comprarV' || m.t === 'montarV' || m.t === 'chave';
       if (!econLigada(op) && !deVeiculo) return; // chave de veículo vale mesmo sem mercado
