@@ -5,6 +5,7 @@ import { Mundo, ALT, NIVEL_AGUA } from './mundo.js';
 import { Jogador, OLHOS } from './jogador.js';
 import { Controles } from './controles.js';
 import { Bichos } from './animais.js';
+import { Aldeoes } from './aldeoes.js';
 import { Som } from './som.js';
 import { montarBoneco, etiqueta, matModelo, caixa, juntar } from './modelos.js';
 import { conta, api, Sala } from './rede.js';
@@ -85,7 +86,7 @@ cena.add(contorno);
 
 // ---------- estado do jogo ----------
 const som = new Som();
-let mundo = null, jog = null, ctrl = null, bichos = null, sala = null;
+let mundo = null, jog = null, ctrl = null, bichos = null, aldeoes = null, sala = null;
 let jogando = false, pausado = false;
 let modo = 'local', mundoAtual = null;
 let barra = [B.GRAMA, B.TERRA, B.PEDRA, B.TABUAS, B.TRONCO, B.VIDRO, B.TIJOLO, B.LA_VERMELHA, B.FLOR_AMARELA];
@@ -289,6 +290,8 @@ function mirar(ponto, alcance = 6) {
   const o = camera.position;
   const hb = mundo.raycast(o, dir, alcance);
   const ha = bichos.atingir(o, dir, hb ? hb.t + 0.01 : alcance);
+  const hv = aldeoes.atingir(o, dir, ha ? ha.t : hb ? hb.t + 0.01 : alcance);
+  if (hv) return { bloco: null, bicho: null, aldeao: hv.aldeao };
   return { bloco: ha ? null : hb, bicho: ha ? ha.bicho : null };
 }
 
@@ -297,6 +300,7 @@ function usar(ponto) {
   som.iniciar();
   const m = mirar(ponto);
   if (m.bicho) { bichos.carinho(m.bicho); return; }
+  if (m.aldeao) { aldeoes.conversar(m.aldeao, jog, Math.sin(tempoDia * Math.PI * 2) < -0.15); return; }
   const h = m.bloco;
   if (!h) return;
   const x = h.x + h.n[0], y = h.y + h.n[1], z = h.z + h.n[2];
@@ -316,6 +320,7 @@ function quebrar(ponto) {
   som.iniciar();
   const m = mirar(ponto);
   if (m.bicho) { bichos.carinho(m.bicho); return; }
+  if (m.aldeao) { aldeoes.conversar(m.aldeao, jog, Math.sin(tempoDia * Math.PI * 2) < -0.15); return; }
   // com a Água na mão, "quebrar" recolhe a água (como um balde)
   if (barra[slotSel] === B.AGUA && recolherAgua(ponto)) return;
   const h = m.bloco;
@@ -378,6 +383,13 @@ function removerOutro(id) {
 
 // ---------- iniciar / sair ----------
 function acharInicio() {
+  // começa na rua da vila que fica perto do meio do mundo
+  const v = mundo.vilas.regiao(0, 0);
+  if (v && v.ruas.length) {
+    const r = v.ruas[0];
+    const x = v.x + r.dx * 6, z = v.z + r.dz * 6;
+    return { x: x + 0.5, y: Math.max(mundo.alturaEm(x, z), NIVEL_AGUA) + 2, z: z + 0.5 };
+  }
   // procura um lugar de terra firme perto da origem
   for (let r = 0; r < 200; r += 4) for (let a = 0; a < 8; a++) {
     const x = Math.round(Math.cos(a * 0.785) * r), z = Math.round(Math.sin(a * 0.785) * r);
@@ -405,7 +417,8 @@ function limparMundo() {
     for (const c of mundo.chunks.values()) for (const m of [c.malha, c.agua]) if (m) { cena.remove(m); m.geometry.dispose(); }
   }
   if (bichos) for (let i = bichos.lista.length - 1; i >= 0; i--) bichos.remover(i);
-  mundo = null; bichos = null;
+  if (aldeoes) aldeoes.limpar();
+  mundo = null; bichos = null; aldeoes = null;
 }
 
 function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0 }) {
@@ -434,6 +447,8 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0 }) {
   ctrl.jog = jog;
   ctrl.sensToque = ajustes.sens;
   bichos = new Bichos(cena, mundo, som);
+  aldeoes = new Aldeoes(cena, mundo, som, (...a) => bichos.emoji(...a));
+  aldeoes.aoEntrarVila = (v) => aviso(`🏘️ ${v.nome}`, 2600);
   som.ligado = ajustes.som;
   ajustarNevoa();
   desenharBarra();
@@ -628,6 +643,7 @@ function laco(agora) {
 
   mundo.atualizar(jog.pos.x, jog.pos.z, ehToque ? 5 : 8);
   bichos.atualizar(dt, jog, tempoTotal);
+  aldeoes.atualizar(dt, jog, Math.sin(tempoDia * Math.PI * 2));
 
   function aplicarGraficos() {
   const o = graf.aplicar(opcoesGraficas());
@@ -727,4 +743,4 @@ camera.position.set(0, 40, 0);
 if (conta.token) abrirMundos(); else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, set dia(v) { tempoDia = v; }, graf, renderer, ajustes, jogarLocal, usar, quebrar }; }
+if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, set dia(v) { tempoDia = v; }, graf, renderer, ajustes, jogarLocal, usar, quebrar }; }

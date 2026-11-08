@@ -2,6 +2,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { criarRuido, hash3 } from './ruido.js';
 import { AR, B, SOLIDO, OPACO, PLANTA, BLOCOS, AGUA, NIVEL, AGUA_CORRENTE, AGUA_CAINDO, uvTile } from './blocos.js';
+import { Vilas } from './vilas.js';
 
 export const CX = 16, CZ = 16, ALT = 64;
 export const NIVEL_AGUA = 20;
@@ -48,6 +49,7 @@ export class Mundo {
     this.aoMudarBloco = null;
     this.filaAgua = new Set(); // células para reavaliar no próximo passo da água
     this.ultimoPassoAgua = 0;
+    this.vilas = new Vilas(this);
   }
 
   // ---------- geração ----------
@@ -86,7 +88,7 @@ export class Mundo {
       const rnd = hash3(wx, 7, wz, s);
       const floresta = this.ruido2.fbm(wx / 90 + 300, wz / 90 - 200, 2);
       const chanceArvore = floresta > 0.18 ? 0.035 : 0.004;
-      if (rnd < chanceArvore && x >= 2 && x <= 13 && z >= 2 && z <= 13 && h + 8 < ALT) {
+      if (rnd < chanceArvore && x >= 2 && !this.vilas.semArvore(wx, wz) && x <= 13 && z >= 2 && z <= 13 && h + 8 < ALT) {
         this.arvore(d, x, h + 1, z, hash3(wx, 3, wz, s));
         continue;
       }
@@ -97,6 +99,8 @@ export class Mundo {
         d[idx(x, h + 1, z)] = t < 0.4 ? B.FLOR_VERMELHA : t < 0.75 ? B.FLOR_AMARELA : B.FLOR_AZUL;
       } else if (r2 < 0.2) d[idx(x, h + 1, z)] = B.CAPIM;
     }
+    // vilas (casas, ruas, poço e plantações)
+    this.vilas.carimbar(d, cx, cz, CX, CZ);
     // edições salvas
     const ed = this.edicoes.get(chave(cx, cz));
     if (ed) for (const [i, b] of ed) d[i] = b;
