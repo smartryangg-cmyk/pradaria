@@ -4,6 +4,7 @@ import { opcoesEcon, econLigada, normalizar, aplicar, dar, liberado } from '../.
 import { lugarVazio, gastoDe, ULTIMO_ITEM } from '../../public/js/receitas.js';
 import { normalizarOpcoes } from '../../public/js/opcoes-mundo.js';
 import { normalizarSkin } from '../../public/js/skin.js';
+import { filtrarChat } from '../../public/js/chat-filtro.js';
 
 const MAX_BLOCO = 255; // 0..63 base, 100..126 engenharia, 128..175 eras (blocos-eras.js)
 // o cliente ignora ids que não existem (antes um id desconhecido travava o mundo de todos); aqui só o intervalo
@@ -26,6 +27,13 @@ const ICONES_LUGAR = new Set(['estrela', 'arvore', 'castelo', 'onda', 'montanha'
 const TP_ESPERA = 30000; // um pedido de teleporte vale por 30 s
 const TP_INTERVALO = 4000; // e cada um pode pedir de 4 em 4 s
 const TP_ALVO_INTERVALO = 4000; // e cada um recebe no máximo um pedido a cada 4 s
+// chat de texto: no máximo 1 mensagem a cada 1,2 s e 6 a cada 15 s por pessoa; a mesma frase só depois de 20 s
+const CHAT_INTERVALO = 1200, CHAT_JANELA = 15000, CHAT_NA_JANELA = 6, CHAT_REPETIDA = 20000;
+const CHAT_HISTORICO = 20, CHAT_HISTORICO_MS = 10 * 60000; // quem entra vê as últimas mensagens (só na memória)
+// chat de voz: a sala só passa os recados do WebRTC (oferta/resposta/caminhos) entre quem ligou a voz
+const VOZ_SINAL_MAX = 8000; // tamanho de um recado (uma oferta de áudio tem uns 2-4 mil letras)
+const VOZ_SINAIS_POR_5S = 60;
+const chatDe = (opcoes) => ({ texto: opcoes.chatTexto !== false, voz: opcoes.chatVoz !== false });
 const MAX_ID_ITEM = ULTIMO_ITEM; // blocos 1..255 e itens 1000+ (ferramentas etc.)
 
 // posição [x, y, z] (e giro opcional) dentro dos limites do mundo
@@ -124,6 +132,7 @@ export class Sala extends DurableObject {
       const opcoes = normalizarOpcoes(d.opcoes);
       if (this.info) { this.info.econ = opcoesEcon(opcoes); await this.ctx.storage.put('info', this.info); }
       if (this.econ) this.econ.clear(); // a mochila/moedas de cada um é ajustada às opções novas
+      if (this.info) await this.mudarChat(chatDe(opcoes)); // chat de texto/voz: vale na hora, sem recarregar
       const nome = typeof d.nome === 'string' ? d.nome.slice(0, 24) : '';
       for (const ws of this.ctx.getWebSockets()) {
         const j = ws.deserializeAttachment();
@@ -150,6 +159,9 @@ export class Sala extends DurableObject {
       }
       if (Object.keys(lote).length) await this.ctx.storage.put(lote);
       return Response.json({ ok: true, n });
+    } else if (acao === 'chat-op') {
+      // o dono ligou/desligou o chat de texto ou de voz nas opções do mundo (vale na hora, para todo mundo)
+      await this.mudarChat({ texto: d.texto !== false, voz: d.voz !== false });
     } else if (acao === 'esquecer' && Number.isInteger(d.uid)) {
       await this.ctx.storage.delete(['p:' + d.uid, 'l:' + d.uid]);
       await this.admin('expulsar', { uids: [d.uid] });
@@ -175,6 +187,8 @@ export class Sala extends DurableObject {
     const opcoes = mundo.opcoes && typeof mundo.opcoes === 'object' ? mundo.opcoes : {};
     const op = opcoesEcon(opcoes);
     if (JSON.stringify(op) !== JSON.stringify(this.info.econ)) { this.info.econ = op; await this.ctx.storage.put('info', this.info); }
+    const chat = chatDe(opcoes);
+    if (JSON.stringify(chat) !== JSON.stringify(this.info.chat)) await this.mudarChat(chat);
     const par = new WebSocketPair();
     const [cliente, servidor] = Object.values(par);
     // o mesmo login em outro aparelho/aba: a conexão antiga sai
@@ -212,10 +226,95 @@ export class Sala extends DurableObject {
     const barra = (await this.ctx.storage.get('h:' + u.id)) || null;
     servidor.send(JSON.stringify({
       t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia, dono: eu.dono, lugares, opcoes, econ, veiculos, barra,
-      jogadores: this.jogadores().filter((j) => j.id !== id).map(({ id, nome, cor, skin, p, r }) => ({ id, nome, cor, skin, p, r })),
+      chat: this.chat(), historico: this.chatRecente(),
+      jogadores: this.jogadores().filter((j) => j.id !== id).map(({ id, nome, cor, skin, p, r, voz }) => ({ id, nome, cor, skin, p, r, voz: !!voz })),
     }));
     this.enviarTodos({ t: 'entrou', j: { id, nome: u.nome, cor: u.cor, skin: eu.skin, p: eu.p, r: eu.r } }, servidor);
     return new Response(null, { status: 101, webSocket: cliente });
+  }
+
+  chat() { return (this.info && this.info.chat) || { texto: true, voz: true }; }
+
+  async mudarChat(chat) {
+    const antes = this.chat();
+    this.info.chat = chat;
+    await this.ctx.storage.put('info', this.info);
+    if (antes.texto === chat.texto && antes.voz === chat.voz) return;
+    if (!chat.texto) this.historico = [];
+    // voz desligada: todo mundo sai da voz
+    if (!chat.voz) for (const ws of this.ctx.getWebSockets()) {
+      const j = ws.deserializeAttachment();
+      if (j && j.voz) { j.voz = false; ws.serializeAttachment(j); }
+    }
+    this.enviarTodos({ t: 'chat-op', ...chat });
+  }
+
+  chatRecente() {
+    const agora = Date.now();
+    return (this.historico || []).filter((h) => agora - h.em < CHAT_HISTORICO_MS).map(({ id, nome, txt }) => ({ id, nome, txt }));
+  }
+
+  // mensagem de texto: filtro de palavrão/contato e limite de quantas por vez (por pessoa, reconectar não zera)
+  mandarChat(ws, eu, m) {
+    if (!this.chat().texto) { ws.send(JSON.stringify({ t: 'chat-erro', msg: 'O chat de texto está desligado neste mundo.' })); return; }
+    const f = filtrarChat(m.txt);
+    if (f.erro) { ws.send(JSON.stringify({ t: 'chat-erro', msg: f.erro })); return; }
+    const agora = Date.now();
+    if (!this.chatUid) this.chatUid = new Map();
+    const c = this.chatUid.get(eu.uid) || { em: [], ult: '', ultEm: 0 };
+    c.em = c.em.filter((t) => agora - t < CHAT_JANELA);
+    if ((c.em.length && agora - c.em[c.em.length - 1] < CHAT_INTERVALO) || c.em.length >= CHAT_NA_JANELA) {
+      ws.send(JSON.stringify({ t: 'chat-erro', msg: 'Calma! Espere um pouquinho para mandar outra mensagem.' }));
+      this.chatUid.set(eu.uid, c);
+      return;
+    }
+    if (f.texto.toLowerCase() === c.ult && agora - c.ultEm < CHAT_REPETIDA) {
+      ws.send(JSON.stringify({ t: 'chat-erro', msg: 'Você acabou de mandar essa mensagem.' }));
+      return;
+    }
+    c.em.push(agora); c.ult = f.texto.toLowerCase(); c.ultEm = agora;
+    this.chatUid.set(eu.uid, c);
+    const msg = { t: 'chat', id: eu.id, nome: eu.nome, txt: f.texto };
+    if (!this.historico) this.historico = [];
+    this.historico.push({ id: eu.id, nome: eu.nome, txt: f.texto, em: agora });
+    if (this.historico.length > CHAT_HISTORICO) this.historico.shift();
+    this.enviarTodos(msg); // inclusive para quem mandou (vê como ficou depois do filtro)
+  }
+
+  // voz: entrar/sair da conversa e passar os recados do WebRTC só entre quem está na voz
+  voz(ws, eu, m) {
+    const agora = Date.now();
+    if (m.t === 'voz-entrar') {
+      if (!this.chat().voz) { ws.send(JSON.stringify({ t: 'chat-erro', msg: 'O chat de voz está desligado neste mundo.' })); return; }
+      if (eu.voz) return;
+      if (eu.vozEm && agora - eu.vozEm < 1000) return;
+      eu.voz = true; eu.vozEm = agora; ws.serializeAttachment(eu);
+      // quem acabou de entrar chama os que já estão (assim nunca os dois chamam ao mesmo tempo)
+      const ids = this.jogadores().filter((j) => j.voz && j.id !== eu.id).map((j) => j.id);
+      ws.send(JSON.stringify({ t: 'voz-lista', ids }));
+      this.enviarTodos({ t: 'voz', id: eu.id, on: true }, ws);
+    } else if (m.t === 'voz-sair') {
+      if (!eu.voz) return;
+      eu.voz = false; ws.serializeAttachment(eu);
+      this.enviarTodos({ t: 'voz', id: eu.id, on: false }, ws);
+    } else if (m.t === 'voz-sinal') {
+      if (!eu.voz || typeof m.para !== 'string' || !m.d || typeof m.d !== 'object') return;
+      if (!eu.sinJ || agora - eu.sinJ > 5000) { eu.sinJ = agora; eu.sinN = 0; }
+      if (++eu.sinN > VOZ_SINAIS_POR_5S) return;
+      ws.serializeAttachment(eu);
+      const [alvoWs, alvo] = this.conexaoDe(m.para);
+      if (!alvoWs || !alvo.voz || alvo.id === eu.id) return;
+      const d = {};
+      if (m.d.sdp && typeof m.d.sdp === 'object' && (m.d.sdp.type === 'offer' || m.d.sdp.type === 'answer') && typeof m.d.sdp.sdp === 'string') d.sdp = { type: m.d.sdp.type, sdp: m.d.sdp.sdp };
+      else if (m.d.ice && typeof m.d.ice === 'object' && typeof m.d.ice.candidate === 'string') d.ice = { candidate: m.d.ice.candidate, sdpMid: typeof m.d.ice.sdpMid === 'string' ? m.d.ice.sdpMid : null, sdpMLineIndex: Number.isInteger(m.d.ice.sdpMLineIndex) ? m.d.ice.sdpMLineIndex : null };
+      else return;
+      alvoWs.send(JSON.stringify({ t: 'voz-sinal', de: eu.id, d }));
+    } else if (m.t === 'voz-fala') {
+      // aviso de "está falando" (para o desenho em cima da cabeça), no máximo 4 por segundo
+      if (!eu.voz || (eu.falaEm && agora - eu.falaEm < 250)) return;
+      eu.falaEm = agora; ws.serializeAttachment(eu);
+      this.enviarTodos({ t: 'voz-fala', id: eu.id, on: !!m.on }, ws);
+    }
   }
 
   diaAgora() { return ((((Date.now() - this.info.inicio) / 600000) + 0.3) % 1 + 1) % 1; }
@@ -269,8 +368,9 @@ export class Sala extends DurableObject {
   }
 
   async webSocketMessage(ws, dados) {
-    if (typeof dados !== 'string' || dados.length > 2000) return;
+    if (typeof dados !== 'string' || dados.length > VOZ_SINAL_MAX) return;
     let m; try { m = JSON.parse(dados); } catch { return; }
+    if (!m || (dados.length > 2000 && m.t !== 'voz-sinal')) return;
     const eu = ws.deserializeAttachment();
     if (!eu) return;
     if (m.t === 'pos' || m.t === 'emote' || m.t === 'vmov' || m.t === 'buzina') {
@@ -389,6 +489,10 @@ export class Sala extends DurableObject {
       if (eu.emEm && agora - eu.emEm < 800) return;
       eu.emEm = agora; ws.serializeAttachment(eu);
       this.enviarTodos({ t: 'emote', id: eu.id, e: m.e }, ws);
+    } else if (m.t === 'chat' && typeof m.txt === 'string') {
+      this.mandarChat(ws, eu, m);
+    } else if (m.t === 'voz-entrar' || m.t === 'voz-sair' || m.t === 'voz-sinal' || m.t === 'voz-fala') {
+      this.voz(ws, eu, m);
     } else if (m.t === 'tp-pedir' && typeof m.para === 'string') {
       this.pedirTeleporte(ws, eu, m);
     } else if (m.t === 'tp-resp' && typeof m.pid === 'string') {

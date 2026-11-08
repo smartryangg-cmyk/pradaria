@@ -1,7 +1,7 @@
 // Editar um mundo já criado (só o dono): nome e opções.
 // A lista de opções vem de OPCOES_MUNDO (opcoes-mundo.js): uma opção nova aparece aqui sozinha.
 // Tipo, tamanho e gerador fazem o terreno, então aparecem travados (FIXAS_AO_CRIAR).
-import { OPCOES_MUNDO, TAMANHOS, TIPOS, normalizarOpcoes, editarOpcoes, opcoesMudadas } from './opcoes-mundo.js';
+import { OPCOES_MUNDO, TAMANHOS, TIPOS, normalizarOpcoes, editarOpcoes, opcoesMudadas, precisaRecarregar } from './opcoes-mundo.js';
 import { icone } from './icones.js';
 import { api } from './rede.js';
 import { montarArquivo, lerArquivo, nomeArquivo } from './arquivo-mundo.js';
@@ -89,7 +89,7 @@ export function abrirEditarMundo({ mundo = null, opcoes, salvarLocal = null, aoS
     const av = $('#e-aviso');
     const partes = [];
     if (terreno.length) partes.push(`${terreno.join(', ')}: muda o terreno nos lugares onde ninguém mexeu ainda. O que já foi construído continua.`);
-    if (mudou.length && online) partes.push('Quem estiver jogando neste mundo vai recarregar por um instante.');
+    if (precisaRecarregar(mudou) && online) partes.push('Quem estiver jogando neste mundo vai recarregar por um instante.');
     av.textContent = partes.join(' ');
     av.hidden = !partes.length;
     for (const b of lista.children) b.classList.toggle('mudou', mudou.includes(b.dataset.opcao));

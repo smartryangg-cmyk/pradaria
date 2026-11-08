@@ -18,6 +18,8 @@ export const OPCOES_MUNDO = [
   { id: 'cicloDia', icone: 'lua', nome: 'Dia e noite', desc: 'Desligado: é sempre de dia', padrao: true },
   { id: 'mercado', icone: 'moeda', nome: 'Mercado', desc: 'Moedas e lojinha com os moradores', padrao: true, antigos: false },
   { id: 'objetivos', icone: 'alvo', nome: 'Missões', desc: 'Desafios com prêmios', padrao: true, antigos: false },
+  { id: 'chatTexto', icone: 'balao', nome: 'Chat de texto', desc: 'Mensagens escritas, com filtro de palavrões e contatos', padrao: true, semRecarregar: true },
+  { id: 'chatVoz', icone: 'microfone', nome: 'Chat de voz', desc: 'Falar com os amigos segurando o botão do microfone', padrao: true, semRecarregar: true },
   { id: 'monstros', icone: 'monstro', nome: 'Monstrinhos', desc: 'Aparecem de noite e dão sustinho', padrao: false },
   { id: 'monstrosMachucam', icone: 'coracao', nome: 'Monstros machucam', desc: 'Corações de vida. Luz e um toque espantam', padrao: false },
 ];
@@ -79,6 +81,8 @@ export function editarOpcoes(atual, pedido) {
   return normalizarOpcoes(novo);
 }
 // quais opções mudaram (ids de OPCOES_MUNDO)
+// mudar estas não precisa recarregar o mundo de quem está jogando (semRecarregar: a sala aplica na hora)
+export const precisaRecarregar = (mudou) => mudou.some((id) => !OPCOES_MUNDO.find((o) => o.id === id)?.semRecarregar);
 export const opcoesMudadas = (a, b) => { const x = normalizarOpcoes(a), y = normalizarOpcoes(b); return OPCOES_MUNDO.filter((o) => x[o.id] !== y[o.id]).map((o) => o.id); };
 
 // semente: número digitado vira ele mesmo; palavra vira um número (sempre igual para a mesma palavra)

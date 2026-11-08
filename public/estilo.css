@@ -435,3 +435,45 @@ body.dirigindo #botoes-toque { bottom: 60px; }
   #pers-canvas { height: 360px; }
   #pers-painel { max-height: 360px; overflow-y: auto; padding: 4px 6px 4px 8px; }
 }
+/* ---------- chat de texto e de voz (online) ---------- */
+#conversa { position: absolute; inset: 0; pointer-events: none; }
+/* à direita, embaixo do minimapa (à esquerda ficam moedas e missões) */
+#conversa-botoes { position: absolute; right: max(10px, env(safe-area-inset-right)); top: calc(max(10px, env(safe-area-inset-top)) + 210px); display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.linha-conv { display: flex; gap: 10px; }
+#conversa-botoes .redondo { width: 50px; height: 50px; font-size: 26px; }
+#conversa-botoes .redondo.grande { width: 84px; height: 84px; font-size: 38px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#conversa-botoes .redondo.grande small { font-size: 12px; font-weight: 900; line-height: 1; }
+#bt-falar.ativo { background: #7ed3a1; box-shadow: 0 0 0 6px rgba(126, 211, 161, .55), 0 1px 0 var(--txt); }
+#bt-voz.ligado { background: #e3f7ea; }
+#bt-mudo.ligado { background: #ffe1dc; }
+#conversa-botoes [hidden] { display: none; }
+#voz-gente { position: absolute; right: calc(100% + 10px); top: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; width: 170px; }
+#voz-gente .voz-pessoa { pointer-events: auto; display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; border-radius: 999px; border: 0; background: var(--hud-fundo); color: #fff; font-family: inherit; font-weight: 800; font-size: 13px; text-align: left; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer; }
+#voz-gente .voz-pessoa .ic-svg { font-size: 18px; }
+#voz-gente .voz-pessoa.falando { background: #2f8f5b; box-shadow: 0 0 0 2px #b7f0cd; }
+#voz-gente .voz-pessoa.silenciada { opacity: .6; text-decoration: line-through; }
+#chat-log { position: absolute; left: max(10px, env(safe-area-inset-left)); bottom: 96px; width: min(440px, 52vw); max-height: 34vh; overflow: hidden; display: flex; flex-direction: column; gap: 4px; }
+#chat-log .chat-msg { align-self: flex-start; max-width: 100%; padding: 5px 10px; border-radius: 12px; background: var(--hud-fundo); color: #fff; font-size: 15px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; transition: opacity .8s; }
+#chat-log .chat-msg.some { opacity: 0; }
+#chat-log .chat-msg.silenciada { display: none; }
+#chat-log .chat-nome { border: 0; padding: 0 6px 0 0; background: none; color: #ffd54a; font: inherit; font-weight: 900; cursor: pointer; pointer-events: none; }
+#chat-log .chat-msg.eu .chat-nome { color: #9fe0ff; }
+#conversa.aberto #chat-log { pointer-events: auto; overflow-y: auto; bottom: 150px; max-height: 42vh; }
+#conversa.aberto #chat-log .chat-msg { opacity: 1; }
+#conversa.aberto #chat-log .chat-msg.silenciada { display: block; opacity: .5; }
+#conversa.aberto #chat-log .chat-nome { pointer-events: auto; text-decoration: underline dotted; }
+#chat-caixa { pointer-events: auto; position: absolute; left: 50%; bottom: 84px; transform: translateX(-50%); width: min(620px, calc(100vw - 24px)); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px; border-radius: 16px; background: rgba(40, 28, 18, .86); }
+#chat-caixa input { flex: 1; min-width: 0; height: 44px; padding: 0 12px; border-radius: 12px; border: 3px solid var(--txt); font-family: inherit; font-weight: 700; font-size: 16px; }
+#chat-caixa .bt { margin: 0; width: auto; padding: 0 14px; height: 44px; }
+#chat-erro { flex-basis: 100%; margin: 0; color: #ffd0c8; font-weight: 800; }
+#chat-erro:empty { display: none; }
+#pausa-chat { margin: 10px 0; }
+#pausa-chat[hidden] { display: none; }
+@media (max-width: 640px) {
+  #conversa-botoes { top: calc(max(10px, env(safe-area-inset-top)) + 190px); gap: 8px; }
+  .linha-conv { gap: 8px; }
+  #conversa-botoes .redondo { width: 44px; height: 44px; font-size: 22px; }
+  #conversa-botoes .redondo.grande { width: 72px; height: 72px; font-size: 32px; }
+  #chat-log { bottom: 74px; width: 70vw; font-size: 13px; }
+  #chat-caixa { bottom: 66px; }
+}

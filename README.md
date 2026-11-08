@@ -16,7 +16,10 @@ Jogo de construir e explorar, **pacífico** (só bichinhos, nada de monstros), q
 - **Coletar e criar** (vem ligado nos mundos novos; desligado = blocos à vontade): começa de mão vazia, o que você quebra vai para a mochila e colocar gasta. Livro de receitas só com toques (mostra o que tem e o que falta, sem grade para decorar): tronco vira tábuas, gravetos, **Bancada** (toque nela para abrir as receitas), picaretas, machados e pás de madeira e de pedra (quebram 2x e 3x mais rápido os blocos do tipo delas), tijolo, vidro, lampião, lãs coloridas com flores e as peças de engenharia. Carinho na ovelha dá lã. É a mesma mochila do Mercado (vender sai dela e comprar traz 4 do bloco). Regras em `public/js/receitas.js`, usadas pelo jogo e pela sala.
 - **Missões** (opcional): 21 desafios tranquilos (colocar blocos, fazer carinho, conversar com aldeões, plantar flores, explorar…) que aparecem de 3 em 3 e dão moedas (ou estrelas, se o mercado estiver desligado). Regras em `public/js/economia.js`, usadas pelo jogo e pela sala.
 - Dia e noite (a noite é clarinha), sons feitos na hora.
-- Contas com login, mundos com código para jogar com amigos em tempo real e emotes (sem chat aberto, mais seguro para crianças).
+- Contas com login, mundos com código para jogar com amigos em tempo real e emotes.
+- **Chat de texto** (botão do balão, tecla T ou Enter): palavrão vira asteriscos e telefone, link, e-mail, rede social, endereço e senha não são enviados (o filtro roda no aparelho e de novo na sala, `public/js/chat-filtro.js`); no máximo 1 mensagem a cada 1,2 s e 6 a cada 15 s por pessoa. Quem entra vê as últimas mensagens. Tocar no nome de alguém silencia essa pessoa só para você.
+- **Chat de voz** (botão do microfone): áudio direto entre os aparelhos (WebRTC, `public/js/voz.js`), a sala só passa os recados. O microfone só liga enquanto você segura o botão "Segure" (ou a tecla B); botão de mudo para não ouvir ninguém e silenciar por pessoa. Sem microfone, dá para entrar só ouvindo.
+- O dono do mundo liga e desliga o chat de texto e o de voz na criação ou depois, na pausa (vale na hora para todos).
 - Menu de comandos 🧭 só com botões (sem digitar): marcar casa e voltar para ela, guardar lugares com desenhos, ir para o começo do mundo, ir para um lugar novo bem longe, voltar para onde estava, ir até um amigo ou chamar um amigo (o amigo precisa tocar em "Pode!") e mudar a hora do dia (online, só o dono do mundo).
 - Funciona sem internet também (mundo salvo no aparelho).
 
@@ -31,6 +34,7 @@ Jogo de construir e explorar, **pacífico** (só bichinhos, nada de monstros), q
 | ⬆ pular · 🕊️ voar · ⬇ descer | Espaço · espaço duas vezes ou F · Shift |
 | Barra de baixo e ＋: escolher blocos | 1–9, rodinha, E |
 | 🧭: comandos (teleporte, casa, amigos, hora) | C |
+| Balão: chat de texto · Microfone: entrar na voz · Segure: falar | T ou Enter · B (segurar) |
 | Botão da câmera: ver o próprio boneco (olhos → de trás → de frente) | R (ou F5) |
 | 🚗 garagem · toque no veículo ou "Entrar" · 🚪 Descer · 📯 buzina | G · V · V · H |
 | No veículo: joystick dirige; ⬆ ⬇ sobem e descem avião/helicóptero | WASD; Espaço/Shift |
