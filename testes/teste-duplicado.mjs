@@ -9,7 +9,8 @@ async function abrir(criar) {
   p.on('pageerror', (e) => erros.push('PAGEERROR ' + e.message));
   await p.goto(URL);
   await p.click(criar ? '#bt-criar-conta' : '#bt-entrar');
-  await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123'); await p.click('#c-ok');
+  await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123'); if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
+  await p.click('#c-ok');
   await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
   return p;
 }

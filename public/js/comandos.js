@@ -125,6 +125,10 @@ export function criarComandos(j) {
     $('#pedido-txt').textContent = m.tipo === 'ir' ? `${m.nome} quer vir até você` : `${m.nome} está chamando você para ir até lá`;
     $('#pedido-ic').innerHTML = icone(m.tipo === 'ir' ? 'acenar' : 'brilho');
     $('#pedido-tp').hidden = false;
+    // os botões só funcionam depois de um instante (a criança pode estar tocando na tela para quebrar blocos)
+    $('#pedido-sim').disabled = true; $('#pedido-nao').disabled = true;
+    clearTimeout(mostrarPedido.libera);
+    mostrarPedido.libera = setTimeout(() => { $('#pedido-sim').disabled = false; $('#pedido-nao').disabled = false; }, 1200);
     j.som.oi();
     clearTimeout(mostrarPedido.t);
     mostrarPedido.t = setTimeout(() => responder(false, true), 28000);

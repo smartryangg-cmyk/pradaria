@@ -10,6 +10,7 @@ async function jogador(nome) {
   await p.goto(URL);
   await p.click('#bt-criar-conta');
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
+  if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
   await p.click('#c-ok');
   await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
   return p;

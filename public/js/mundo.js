@@ -266,6 +266,7 @@ export class Mundo {
   // muda um bloco (local ou vindo da rede). Retorna true se mudou.
   definir(x, y, z, b, daRede = false) {
     if (y < 1 || y >= ALT) return false;
+    if (b !== AR && !BLOCOS[b]) return false; // bloco que não existe (de outra versão ou de alguém atrapalhando)
     const cx = Math.floor(x / CX), cz = Math.floor(z / CZ);
     const c = this.pegarChunk(cx, cz);
     const lx = x - cx * CX, lz = z - cz * CZ;
@@ -393,6 +394,7 @@ export class Mundo {
   // aplica uma lista de edições [x,y,z,b] (ex.: vindas do servidor) antes de gerar
   carregarEdicoes(lista) {
     for (const [x, y, z, b] of lista) {
+      if (b !== AR && !BLOCOS[b]) continue;
       const cx = Math.floor(x / CX), cz = Math.floor(z / CZ);
       const k = chave(cx, cz);
       if (!this.edicoes.has(k)) this.edicoes.set(k, new Map());
@@ -513,6 +515,7 @@ export class Mundo {
       const b = d[idx(x, y, z)];
       if (b === AR) continue;
       const def = BLOCOS[b];
+      if (!def) continue;
       if (b === B.LAMPIAO || b === E.LAMPADA_LIGADA) luzes.push([ox + x + 0.5, y + 0.5, oz + z + 0.5]);
       if (def.forma) { desenharForma(FORMA_A, get, x, y, z, b); continue; }
       if (def.planta) {

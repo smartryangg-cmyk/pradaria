@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS mundos (
   dono_id INTEGER NOT NULL,
   semente INTEGER NOT NULL,
   criado_em INTEGER NOT NULL,
-  opcoes TEXT NOT NULL DEFAULT '{}' -- opções da criação (bichos, monstros, vilas...), ver public/js/opcoes-mundo.js
+  opcoes TEXT NOT NULL DEFAULT '{}', -- opções da criação (bichos, monstros, vilas...), ver public/js/opcoes-mundo.js
+  sala TEXT -- nome fixo da sala (Durable Object); vazio = o código. Continua o mesmo quando o dono troca o código.
 );
 CREATE TABLE IF NOT EXISTS membros (
   mundo_id INTEGER NOT NULL,

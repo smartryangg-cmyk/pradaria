@@ -3,6 +3,8 @@ import { DurableObject } from 'cloudflare:workers';
 import { opcoesEcon, normalizar, aplicar, dar, liberado } from '../../public/js/economia.js';
 
 const MAX_BLOCO = 255; // 0..63 base, 100..126 engenharia, 128..175 eras (blocos-eras.js)
+// o cliente ignora ids que não existem (antes um id desconhecido travava o mundo de todos); aqui só o intervalo
+const blocoOk = (b) => Number.isInteger(b) && b >= 0 && b <= MAX_BLOCO;
 const MAX_JOGADORES = 12;
 // emotes por nome de ícone (v4); os emojis ficam para quem ainda está com a versão antiga aberta
 const EMOTES = new Set(['acenar', 'coracao', 'sorriso', 'estrela', '👋', '❤️', '😄', '⭐']);
@@ -15,9 +17,12 @@ const MAX_VEICULOS = 40; // por mundo
 const MAX_VEICULOS_POR_JOGADOR = 6;
 const arrV = (v, k = 100) => Math.round(v * k) / k;
 const MAX_LUGARES = 8;
-const ICONES_LUGAR = new Set(['⭐', '🌳', '🏰', '🌊', '⛰️', '🌸', '🐑', '🍎', '💎', '🌻']);
+// desenhos dos lugares salvos: nomes de ícone (v4, ver ICONES em public/js/comandos.js) e os emojis antigos
+const ICONES_LUGAR = new Set(['estrela', 'arvore', 'castelo', 'onda', 'montanha', 'flor', 'ovelha', 'maca', 'diamante', 'casa',
+  '⭐', '🌳', '🏰', '🌊', '⛰️', '🌸', '🐑', '🍎', '💎', '🌻']);
 const TP_ESPERA = 30000; // um pedido de teleporte vale por 30 s
 const TP_INTERVALO = 4000; // e cada um pode pedir de 4 em 4 s
+const TP_ALVO_INTERVALO = 10000; // e cada um recebe no máximo um pedido a cada 10 s
 
 // posição [x, y, z] (e giro opcional) dentro dos limites do mundo
 function posOk(p) {
@@ -95,7 +100,32 @@ export class Sala extends DurableObject {
     }
   }
 
+  // pedidos da API (só chegam pelo binding, nunca do jogador): expulsar, esquecer alguém, apagar o mundo
+  async admin(acao, d) {
+    if (acao === 'expulsar') {
+      const uids = new Set(Array.isArray(d.uids) ? d.uids : []);
+      for (const ws of this.ctx.getWebSockets()) {
+        const j = ws.deserializeAttachment();
+        if (!j || !(uids.has(j.uid) || (d.todosMenos != null && j.uid !== d.todosMenos))) continue;
+        try { ws.send(JSON.stringify({ t: 'erro', fim: true, msg: 'O dono do mundo tirou você deste mundo.' })); } catch {}
+        ws.serializeAttachment(null);
+        try { ws.close(4004, 'expulso'); } catch {}
+        this.enviarTodos({ t: 'saiu', id: j.id }, ws);
+      }
+    } else if (acao === 'esquecer' && Number.isInteger(d.uid)) {
+      await this.ctx.storage.delete(['p:' + d.uid, 'l:' + d.uid]);
+      await this.admin('expulsar', { uids: [d.uid] });
+    } else if (acao === 'apagar') {
+      await this.admin('expulsar', { todosMenos: -1 });
+      await this.ctx.storage.deleteAll();
+      this.edicoes = null; this.info = null;
+    }
+    return new Response('ok');
+  }
+
   async fetch(request) {
+    const acao = request.headers.get('x-admin');
+    if (acao) { let d = {}; try { d = await request.json(); } catch {} return this.admin(acao, d || {}); }
     const u = JSON.parse(request.headers.get('x-usuario') || 'null');
     const mundo = JSON.parse(request.headers.get('x-mundo') || 'null');
     if (!u || !mundo) return new Response('sem dados', { status: 400 });
@@ -134,7 +164,7 @@ export class Sala extends DurableObject {
     const econ = await this.econDe(u.id);
     const ed = await this.carregarEdicoes();
     const edicoes = [];
-    for (const [k, b] of ed) { const [x, y, z] = k.split(',').map(Number); edicoes.push([x, y, z, b]); }
+    for (const [k, b] of ed) { if (!blocoOk(b)) continue; const [x, y, z] = k.split(',').map(Number); edicoes.push([x, y, z, b]); }
     // sem ciclo de dia e noite: sempre de manhã clarinha
     const dia = opcoes.cicloDia === false ? 0.3 : this.diaAgora();
     const vs = await this.carregarVeiculos();
@@ -160,12 +190,21 @@ export class Sala extends DurableObject {
   pedirTeleporte(ws, eu, m) {
     const agora = Date.now();
     if (m.tipo !== 'ir' && m.tipo !== 'chamar') return;
-    if (eu.tpEm && agora - eu.tpEm < TP_INTERVALO) {
+    // a espera vale por pessoa (não por conexão: reconectar não zera) e cada um recebe no máximo um pedido a cada 10 s
+    if (!this.tpUid) this.tpUid = new Map();
+    const ultimo = this.tpUid.get(eu.uid) || 0;
+    if (agora - ultimo < TP_INTERVALO || (eu.tpEm && agora - eu.tpEm < TP_INTERVALO)) {
       ws.send(JSON.stringify({ t: 'tp-erro', msg: 'Espere um pouquinho antes de pedir de novo.' }));
       return;
     }
     const [alvoWs, alvo] = this.conexaoDe(m.para);
     if (!alvoWs || alvo.id === eu.id) { ws.send(JSON.stringify({ t: 'tp-erro', msg: 'Esse amigo não está mais no mundo.' })); return; }
+    if (!this.tpAlvo) this.tpAlvo = new Map();
+    if (agora - (this.tpAlvo.get(alvo.uid) || 0) < TP_ALVO_INTERVALO) {
+      ws.send(JSON.stringify({ t: 'tp-erro', msg: `${alvo.nome} acabou de receber um pedido. Tente daqui a pouco.` }));
+      return;
+    }
+    this.tpAlvo.set(alvo.uid, agora); this.tpUid.set(eu.uid, agora);
     eu.tpEm = agora; ws.serializeAttachment(eu);
     if (!this.pedidos) this.pedidos = new Map();
     for (const [k, p] of this.pedidos) if (agora > p.ate || p.de === eu.id) this.pedidos.delete(k);
@@ -213,7 +252,7 @@ export class Sala extends DurableObject {
       if (!eu.salvoEm || agora - eu.salvoEm > 10000) { eu.salvoEm = agora; ws.serializeAttachment(eu); await this.ctx.storage.put('p:' + eu.uid, eu.p); }
     } else if (m.t === 'bloco') {
       const { x, y, z, b } = m;
-      if (![x, y, z, b].every(Number.isInteger) || y < 1 || y > 63 || b < 0 || b > MAX_BLOCO) return;
+      if (![x, y, z].every(Number.isInteger) || y < 1 || y > 63 || !blocoOk(b)) return;
       if (Math.abs(x) > LONGE || Math.abs(z) > LONGE) return;
       const op = this.op();
       const econ = (op.mercado || op.objetivos) ? await this.econDe(eu.uid) : null;
@@ -292,6 +331,10 @@ export class Sala extends DurableObject {
       if (!eu.v || eu.v[0] !== m.id) return;
       this.enviarTodos({ t: 'buzina', id: m.id }, ws);
     } else if (m.t === 'emote' && EMOTES.has(m.e)) {
+      // no máximo um emote a cada 0,8 s (evita encher a tela/os ouvidos dos outros)
+      const agora = Date.now();
+      if (eu.emEm && agora - eu.emEm < 800) return;
+      eu.emEm = agora; ws.serializeAttachment(eu);
       this.enviarTodos({ t: 'emote', id: eu.id, e: m.e }, ws);
     } else if (m.t === 'tp-pedir' && typeof m.para === 'string') {
       this.pedirTeleporte(ws, eu, m);
@@ -306,6 +349,9 @@ export class Sala extends DurableObject {
     } else if (m.t === 'dia' && Number.isFinite(m.v)) {
       // só o dono do mundo muda a hora (vale para todo mundo)
       if (!eu.dono) { ws.send(JSON.stringify({ t: 'tp-erro', msg: 'Só o dono do mundo pode mudar a hora.' })); return; }
+      const agoraDia = Date.now();
+      if (eu.diaEm && agoraDia - eu.diaEm < 3000) return;
+      eu.diaEm = agoraDia; ws.serializeAttachment(eu);
       const v = ((m.v % 1) + 1) % 1;
       this.info.inicio = Date.now() - (v - 0.3) * 600000;
       await this.ctx.storage.put('info', this.info);
