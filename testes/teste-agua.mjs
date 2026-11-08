@@ -20,7 +20,11 @@ await p.waitForTimeout(3000);
 const r = await p.evaluate(async () => {
   const { mundo, jog } = window.__jogo;
   const espera = (ms) => new Promise((r) => setTimeout(r, ms));
-  const X = Math.floor(jog.pos.x) + 3, Z = Math.floor(jog.pos.z) + 3, Y = 56;
+  const X = Math.floor(jog.pos.x) + 3, Z = Math.floor(jog.pos.z) + 3;
+  // mesa acima de todo o chão em volta (o terreno muda com o gerador do mundo)
+  let alto = 0;
+  for (let dx = -12; dx <= 12; dx++) for (let dz = -12; dz <= 12; dz++) alto = Math.max(alto, mundo.chao(X + dx, Z + dz));
+  const Y = Math.max(56, alto + 6);
   jog.voando = true; jog.pos.y = Y + 6; jog.pitch = -0.9;
   for (let dx = -10; dx <= 10; dx++) for (let dz = -10; dz <= 10; dz++) mundo.definir(X + dx, Y, Z + dz, 3);
   mundo.definir(X, Y + 1, Z, 5); // fonte no meio
