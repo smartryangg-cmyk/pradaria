@@ -180,6 +180,40 @@ export function montarBoneco(cor = 0x3f6fd9) {
   return { grupo: g, cabeca: cab, membros: [bd, be, pd, pe] };
 }
 
+// Animação do boneco (o meu, na 3ª pessoa, e o dos amigos): andar, pular, voar, nadar e bater.
+// e = { anda: 0..1, noAr, voando, nadando, golpe: 0..1 (>= 1 = parado), pitch }
+export function animarBoneco(b, e, dt) {
+  const [bd, be, pd, pe] = b.membros;
+  const anda = e.anda > 0.05 ? e.anda : 0;
+  b.fase = ((b.fase || 0) + dt * (e.voando ? 2.5 : e.nadando ? 5 : anda ? 7 + anda * 5 : 0)) % (Math.PI * 200);
+  const s = Math.sin(b.fase);
+  let bdx, bex, bdz = 0, bez = 0, pdx, pex;
+  if (e.voando) {
+    // asas abertas, pernas para trás balançando de leve
+    bdz = -1.25 - s * 0.08; bez = 1.25 + s * 0.08; bdx = bex = 0;
+    pdx = 0.3 + s * 0.12; pex = 0.3 - s * 0.12;
+  } else if (e.nadando) {
+    // braçadas e pernadas
+    bdx = -1.5 + s * 0.9; bex = -1.5 - s * 0.9; bdz = -0.25; bez = 0.25;
+    pdx = Math.sin(b.fase * 2) * 0.45; pex = -pdx;
+  } else if (e.noAr) {
+    // pulo: braços sobem um pouco e as pernas abrem
+    bdx = bex = -0.45; bdz = -0.35; bez = 0.35;
+    pdx = -0.55; pex = 0.35;
+  } else {
+    const a = s * 0.8 * anda;
+    bdx = a; bex = -a; pdx = -a; pex = a;
+  }
+  // bater / colocar: o braço direito vai para a frente e volta
+  if (e.golpe < 1) {
+    const g = Math.sin(Math.max(0, e.golpe) * Math.PI);
+    bdx = bdx * (1 - g) - 1.9 * g; bdz = bdz * (1 - g) + 0.25 * g;
+  }
+  bd.rotation.x = bdx; be.rotation.x = bex; bd.rotation.z = bdz; be.rotation.z = bez;
+  pd.rotation.x = pdx; pe.rotation.x = pex; pd.rotation.z = pe.rotation.z = 0;
+  b.cabeca.rotation.x = -(e.pitch || 0) * 0.6;
+}
+
 // etiqueta com o nome acima da cabeça
 export function etiqueta(texto) {
   const cv = document.createElement('canvas');

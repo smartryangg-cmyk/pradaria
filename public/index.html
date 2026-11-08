@@ -12,7 +12,7 @@
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icone-apple.png">
 <meta name="apple-mobile-web-app-title" content="Pradaria">
-<link rel="stylesheet" href="estilo.css?v=13">
+<link rel="stylesheet" href="estilo.css?v=15">
 </head>
 <body>
 <canvas id="tela"></canvas>
@@ -25,6 +25,7 @@
     <button id="bt-menu" class="redondo" aria-label="Menu"><span data-icone="menu"></span></button>
     <button id="bt-tela" class="redondo" aria-label="Tela cheia"><span data-icone="telacheia"></span></button>
     <button id="bt-comandos" class="redondo" aria-label="Comandos: teleportar, casa, amigos e hora"><span data-icone="bussola"></span></button>
+    <button id="bt-visao" class="redondo" aria-label="Câmera: ver o próprio boneco de trás ou de frente (tecla R)"><span data-icone="camera"></span></button>
     <button id="bt-mapa-ilha" class="redondo" aria-label="Mapa da ilha inteira" hidden><span data-icone="ilha"></span></button>
     <div id="status-linha"><div id="status"></div></div>
     <div id="emotes">
@@ -37,6 +38,7 @@
   <div id="vida" role="img" hidden></div>
   <button id="minimapa" aria-label="Abrir o mapa"><canvas id="minimapa-tela"></canvas><span class="norte">N</span></button>
   <div id="aviso"></div>
+  <div id="coleta" aria-live="polite"></div>
   <div id="pedido-tp" hidden>
     <span id="pedido-ic"></span>
     <span id="pedido-txt"></span>
@@ -76,9 +78,10 @@
 <div id="inventario" class="janela" hidden>
   <div class="caixa">
     <h2 id="inv-titulo">Blocos</h2>
-    <div id="abas-inv" class="abas"><button type="button" data-aba="blocos" class="sel"><span data-icone="tijolos"></span>Blocos</button><button type="button" data-aba="maquinas"><span data-icone="engrenagem"></span>Engenharia</button></div>
-    <p class="sub">Escolha um bloco para a mão</p>
+    <div id="abas-inv" class="abas"></div>
+    <p class="sub" id="inv-sub">Escolha um bloco para a mão</p>
     <p id="dica-maquinas" class="sub dica-maq" hidden><span data-icone="raio"></span> Toque na <b>Alavanca</b> para ligar. A energia corre pelo <b>Fio</b> e por tudo que encosta: lâmpada, portão, ventilador (elevador!), sino e confete. O <b>Sensor de noite</b> liga sozinho quando escurece e o <b>Pisca-pisca</b> liga e desliga sem parar.</p>
+    <p id="bancada-status" class="sub" hidden></p>
     <div id="grade"></div>
     <button class="bt" data-fechar>Fechar</button>
   </div>
@@ -141,6 +144,7 @@
     <h2>Pausa</h2>
     <p id="pausa-mundo" class="sub"></p>
     <p id="pausa-opcoes" class="sub"></p>
+    <button class="bt" type="button" id="bt-editar-mundo" hidden><span data-icone="lapis"></span>Editar o mundo</button>
     <details class="mais" id="pausa-dono" hidden>
       <summary>Quem pode entrar no meu mundo</summary>
       <p class="sub">Código: <b id="dono-codigo"></b>. Só passe o código para amigos que você conhece.</p>
@@ -219,6 +223,7 @@
     <button class="bt instalar" hidden><span data-icone="baixar"></span>Instalar o jogo</button>
     <button class="bt verde" data-fechar>Voltar a jogar</button>
     <button class="bt" id="bt-sair-mundo">Sair do mundo</button>
+    <p class="versao" id="versao-pausa"></p>
   </div>
 </div>
 
@@ -234,6 +239,7 @@
     <button class="bt amarelo" id="bt-sozinho"><span data-icone="casa"></span>Jogar sem conta</button>
     <button class="bt instalar" hidden><span data-icone="baixar"></span>Instalar o jogo</button>
     <a class="bt baixar-apk" href="https://github.com/smartryangg-cmyk/pradaria/releases/latest/download/pradaria.apk" hidden><span data-icone="celular"></span>Baixar app para Android</a>
+    <p class="versao" id="versao-inicio"></p>
   </div>
 
   <form class="caixa" id="m-conta" hidden>
@@ -259,6 +265,7 @@
       <button class="bt verde" id="bt-novo-mundo"><span data-icone="mais"></span>Novo mundo</button>
       <button class="bt" id="bt-codigo"><span data-icone="chave"></span>Entrar com código</button>
     </div>
+    <button class="bt" id="bt-importar"><span data-icone="subir"></span>Importar mundo de um arquivo</button>
     <button class="bt amarelo" id="bt-sozinho2"><span data-icone="casa"></span>Jogar sem internet</button>
     <button class="bt instalar" hidden><span data-icone="baixar"></span>Instalar o jogo</button>
     <a class="bt baixar-apk" href="https://github.com/smartryangg-cmyk/pradaria/releases/latest/download/pradaria.apk" hidden><span data-icone="celular"></span>Baixar app para Android</a>
@@ -296,8 +303,31 @@
   </div>
 </div>
 
+<!-- editar um mundo já criado (só o dono): na lista de mundos e na pausa -->
+<div id="editar-mundo" class="janela" hidden>
+  <form class="caixa larga" id="e-form">
+    <h2>Editar o mundo</h2>
+    <label class="campo" id="e-rotulo">Nome do mundo<input id="e-nome" maxlength="24" autocomplete="off"></label>
+    <p class="sub">O que tem no mundo? Toque para ligar ou desligar.</p>
+    <div class="opcoes-mundo" id="e-lista"></div>
+    <p class="sub fixas" id="e-fixas"></p>
+    <p class="aviso-editar" id="e-aviso" hidden></p>
+    <p id="e-erro" class="erro"></p>
+    <button class="bt verde grande" type="submit" id="e-salvar">Salvar</button>
+    <button class="bt" type="button" id="e-cancelar"><span data-icone="voltar"></span>Cancelar</button>
+    <details class="mais" id="e-mais">
+      <summary>Guardar num arquivo ou apagar</summary>
+      <p class="sub">O arquivo guarda o mundo inteiro (o que foi construído e as opções). Dá para importar de volta depois, aqui ou em outro aparelho.</p>
+      <button class="bt" type="button" id="e-exportar"><span data-icone="baixar"></span>Exportar (baixar o arquivo)</button>
+      <button class="bt" type="button" id="e-importar" hidden><span data-icone="subir"></span>Trocar por um mundo de arquivo</button>
+      <button class="bt perigo" type="button" id="e-apagar"><span data-icone="lixeira"></span>Apagar este mundo</button>
+    </details>
+  </form>
+</div>
+
+<input type="file" id="arquivo-mundo" accept=".json,application/json" hidden>
 <div id="desmaio" hidden></div>
 <div id="fps" hidden></div>
-<script type="module" src="js/main.js?v=13"></script>
+<script type="module" src="js/main.js?v=17"></script>
 </body>
 </html>

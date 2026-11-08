@@ -465,6 +465,11 @@ export class Armas {
     }
   }
 
+  // braço de quem segura arma fica esticado para a frente (a animação de andar mexe só as pernas)
+  segurar(bonecos) {
+    for (const b of bonecos) if (b && b.arma && b.membros) { b.membros[0].rotation.x = -Math.PI / 2 - (b.alvoPitch || 0) * 0.5; b.membros[0].rotation.z = 0; }
+  }
+
   ferido(m) {
     if (!this.ligado) return;
     const machucou = vida.dano(m.dano);
