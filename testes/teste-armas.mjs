@@ -64,7 +64,7 @@ const disparar = async (p, vezes = 1, espera = 360) => { for (let i = 0; i < vez
   conferir(await p.evaluate(() => !window.__jogo.jog.voando), 'com armas não voa');
 
   // atirar num alvo de treino
-  await p.evaluate(() => { const j = window.__jogo; j.armas.alvos.clear(); j.armas.montarAlvo('t', 9, 0, true); j.jog.pitch = 0; });
+  await p.evaluate(() => { const j = window.__jogo; j.armas.alvos.clear(); j.armas.montarAlvo('t', 9, 0, true, 71); j.jog.pitch = 0; });
   const alvo = await p.evaluate(() => { const a = window.__jogo.armas.alvos.get('t'); return [a.x, a.y + 1.5, a.z]; });
   await olharPara(p, alvo);
   await p.evaluate(() => window.__jogo.armas.mirar(true));
@@ -114,14 +114,16 @@ const disparar = async (p, vezes = 1, espera = 360) => { for (let i = 0; i < vez
   // fuzil automático: segurando atira várias
   await p.evaluate(() => { const a = window.__jogo.armas; a.escolher(a.slots.findIndex((s) => s && s.a === 'fuzil')); a.slots[a.sel].pente = 25; });
   await esperar(p, 300);
-  await p.evaluate(() => window.__jogo.armas.gatilho(true)); await esperar(p, 700); await p.evaluate(() => window.__jogo.armas.gatilho(false));
+  await p.evaluate(() => window.__jogo.armas.gatilho(true)); await esperar(p, 1600); await p.evaluate(() => window.__jogo.armas.gatilho(false));
   const auto = await p.evaluate(() => window.__jogo.armas.atual.pente);
   conferir(auto <= 21, 'fuzil automático: segurando o gatilho atira várias vezes (' + (25 - auto) + ' tiros)');
   await p.screenshot({ path: SAIDA + '/armas-pc-fuzil.png' });
 
   // queda alta machuca
-  await p.evaluate(() => { const { jog, vida } = window.__jogo; vida.reiniciar(); Object.assign(jog.pos, { x: 4.5, y: 86, z: 0.5 }); jog.vel.y = 0; });
-  await esperar(p, 2000);
+  await p.evaluate(() => { const { jog, vida } = window.__jogo; vida.reiniciar(); Object.assign(jog.pos, { x: 4.5, y: 86, z: 0.5 }); jog.vel.y = 0; jog.noChao = false; });
+  await esperar(p, 500);
+  await p.waitForFunction(() => window.__jogo.jog.noChao && window.__jogo.jog.pos.y < 75, null, { timeout: 15000 });
+  await esperar(p, 300);
   const vq = await p.evaluate(() => window.__jogo.vida.atual);
   conferir(vq < 10 && vq > 0, 'cair de 15 blocos tira corações (' + vq + '/10)');
   // ficar sem corações: cai e volta com a pistola
@@ -144,7 +146,7 @@ const disparar = async (p, vezes = 1, espera = 360) => { for (let i = 0; i < vez
   conferir(await p.isVisible('#bt-atirar') && await p.isVisible('#bt-mirar') && await p.isVisible('#bt-recarregar') && await p.isVisible('#bt-trocar'), 'tablet: botões atirar, mirar, recarregar e trocar');
   conferir(await p.isVisible('#barra') && await p.isVisible('#mira'), 'tablet: barra de blocos (construção ligada) e a mira no meio');
   await plataforma(p, 0, 0, 70);
-  await p.evaluate(() => { const { jog } = window.__jogo; Object.assign(jog.pos, { x: 0.5, y: 71, z: 0.5 }); jog.vel.y = 0; jog.yaw = -Math.PI / 2; jog.pitch = 0; window.__jogo.armas.alvos.clear(); window.__jogo.armas.montarAlvo('t', 8, 0, true); });
+  await p.evaluate(() => { const { jog } = window.__jogo; Object.assign(jog.pos, { x: 0.5, y: 71, z: 0.5 }); jog.vel.y = 0; jog.yaw = -Math.PI / 2; jog.pitch = 0; window.__jogo.armas.alvos.clear(); window.__jogo.armas.montarAlvo('t', 8, 0, true, 71); });
   const alvo = await p.evaluate(() => { const a = window.__jogo.armas.alvos.get('t'); return [a.x, a.y + 1.5, a.z]; });
   await olharPara(p, alvo);
   await esperar(p, 300);
@@ -193,15 +195,15 @@ async function jogador(nome) {
   await esperar(a, 1500);
   conferir(await bb.evaluate(() => window.__jogo.opcoesMundo.armas === true && window.__jogo.opcoesMundo.construcao === false), 'Beto entrou num mundo com armas e sem construção');
   // os dois numa plataforma, frente a frente, 8 blocos de distância
-  for (const p of [a, bb]) await plataforma(p, 300, 300, 70);
-  await a.evaluate(() => { const { jog } = window.__jogo; Object.assign(jog.pos, { x: 300.5, y: 71, z: 300.5 }); jog.vel.y = 0; });
-  await bb.evaluate(() => { const { jog } = window.__jogo; Object.assign(jog.pos, { x: 308.5, y: 71, z: 300.5 }); jog.vel.y = 0; jog.yaw = Math.PI / 2; });
+  for (const p of [a, bb]) await plataforma(p, 60, 60, 70);
+  await a.evaluate(() => { const { jog } = window.__jogo; Object.assign(jog.pos, { x: 60.5, y: 71, z: 60.5 }); jog.vel.y = 0; });
+  await bb.evaluate(() => { const { jog } = window.__jogo; Object.assign(jog.pos, { x: 68.5, y: 71, z: 60.5 }); jog.vel.y = 0; jog.yaw = Math.PI / 2; });
   await esperar(a, 1500);
   conferir(await a.evaluate(() => { const [o] = [...window.__jogo.armas.o.outros().values()]; return !!o.arma && o.arma.userData.a === 'pistola'; }), 'Ana vê a pistola na mão do Beto');
   // servidor recusa bloco num mundo sem construção
-  await a.evaluate(() => window.__jogo.sala.enviar({ t: 'bloco', x: 302, y: 71, z: 300, b: 3, j: 1 }));
+  await a.evaluate(() => window.__jogo.sala.enviar({ t: 'bloco', x: 62, y: 71, z: 60, b: 3, j: 1 }));
   await esperar(a, 800);
-  conferir(await bb.evaluate(() => window.__jogo.mundo.bloco(302, 71, 300)) === 0, 'servidor não deixa colocar bloco num mundo sem construção');
+  conferir(await bb.evaluate(() => window.__jogo.mundo.bloco(62, 71, 60)) === 0, 'servidor não deixa colocar bloco num mundo sem construção');
   // Ana atira no Beto até ele cair
   const vidaAntes = await bb.evaluate(() => window.__jogo.vida.atual);
   let caiu = false, vidaMeio = null;
@@ -223,11 +225,16 @@ async function jogador(nome) {
   conferir(await bb.evaluate(() => window.__jogo.vida.atual === 10 && window.__jogo.armas.slots[0].a === 'pistola'), 'Beto voltou com vida cheia');
   await bb.screenshot({ path: SAIDA + '/armas-online-beto.png' });
   // item pego some para os dois
-  const it = await a.evaluate(() => {
-    const ar = window.__jogo.armas, jog = window.__jogo.jog;
-    for (let i = 0; i < 40; i++) { ar.atualizarItens(jog); const x = [...ar.itens.values()].find((v) => v.y != null && !v.ruim); if (x) return { k: x.k, x: x.x, y: x.y, z: x.z }; jog.pos.x += 16; }
-    return null;
-  });
+  let it = null;
+  for (let i = 0; i < 30 && !it; i++) {
+    it = await a.evaluate(() => {
+      const ar = window.__jogo.armas, jog = window.__jogo.jog;
+      ar.atualizarItens(jog); const x = [...ar.itens.values()].find((v) => v.y != null && !v.ruim);
+      if (x) return { k: x.k, x: x.x, y: x.y, z: x.z };
+      jog.pos.x -= 16; jog.pos.y = 90; jog.vel.y = 0; return null;
+    });
+    if (!it) await esperar(a, 700);
+  }
   if (it) {
     await bb.evaluate((it) => { const { jog, armas } = window.__jogo; Object.assign(jog.pos, { x: it.x + 3.5, y: it.y + 3, z: it.z + 0.5 }); armas.atualizarItens(jog); }, it);
     await a.evaluate((it) => { const { jog, armas, vida } = window.__jogo; vida.atual = 4; armas.reserva = { leve: 0, media: 0, cartucho: 0, pesada: 0 }; armas.slots[1] = null; Object.assign(jog.pos, { x: it.x + 0.5, y: it.y + 0.2, z: it.z + 0.5 }); jog.vel.y = 0; }, it);

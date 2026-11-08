@@ -15,6 +15,7 @@ const RAIO_ITENS = 3; // células em volta do jogador com itens montados
 const PEGAR = 1.5; // distância para pegar um item andando por cima
 const ORDEM = Object.keys(ARMAS);
 const COR_PONTA = 0xff8a3d;
+const ESC_MAO = 0.42; // tamanho da arma em primeira pessoa
 
 // número "aleatório" fixo para cada lugar (todos os jogadores veem os mesmos itens)
 function hash(a, b, c) {
@@ -111,10 +112,12 @@ export class Armas {
     this.tempoItens = 0; this.celAtual = null;
     this.topo = null; this.antes = { noChao: true, planando: false, voando: false };
     this.recuo = 0; this.balanco = 0;
+    this.alvosExtras = []; // outros módulos podem pôr alvos aqui (veja lancar)
+    this.aoAtirar = null; // (arma, origem, direção): avisa outros módulos que o jogador atirou
     this.mao = new THREE.Group(); // arma em primeira pessoa (presa na câmera)
-    this.mao.position.set(0.26, -0.27, -0.5);
+    this.mao.position.set(0.2, -0.19, -0.38);
     this.o.camera.add(this.mao);
-    this.clarao = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
+    this.clarao = new THREE.Mesh(new THREE.PlaneGeometry(0.13, 0.13), new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
     this.clarao.visible = false;
     this.geoFaisca = new THREE.BoxGeometry(0.07, 0.07, 0.07);
     this.matFaisca = new THREE.MeshBasicMaterial({ color: 0xfff1a8 });
@@ -220,11 +223,12 @@ export class Armas {
     this.mao.clear();
     const at = this.atual;
     if (at) {
-      const m = modeloArma(at.a);
+      const m = modeloArma(at.a, ESC_MAO);
+      m.rotation.y = Math.PI; // o modelo aponta para +z; a câmera olha para -z
       this.mao.add(m);
-      this.clarao.position.set(0, 0.05, PONTA[at.a] + 0.06);
+      this.clarao.position.set(0, 0.05 * ESC_MAO, (PONTA[at.a] + 0.06) * ESC_MAO);
       m.add(this.clarao);
-      this.mao.position.y = -0.45; // sobe da parte de baixo da tela
+      this.mao.position.y = -0.36; // sobe da parte de baixo da tela
       if (comSom) { this.o.som.tom(420, 0.05, { tipo: 'square', vol: 0.12, ate: 620 }); this.o.som.ruido(0.05, { vol: 0.15, freq: 2400, atraso: 0.04 }); }
     }
     const sala = this.o.sala();
@@ -277,7 +281,7 @@ export class Armas {
       return;
     }
     at.pente--;
-    this.espera = A.intervalo;
+    this.espera = Math.max(-0.2, this.espera) + A.intervalo;
     const cam = this.o.camera, jog = this.o.jog();
     const o = cam.getWorldPosition(new THREE.Vector3());
     const frente = cam.getWorldDirection(new THREE.Vector3());
@@ -301,11 +305,16 @@ export class Armas {
         const mon = this.o.monstros();
         if (mon) mon.espantar(h.monstro);
         acertouAlgo = true;
+      } else if (h.extra) {
+        h.extra(h.cabeca ? A.dano * CABECA : A.dano, h.cabeca, fim);
+        acertouAlgo = true; cabeca = cabeca || h.cabeca;
+        this.faiscas(fim, 0xffe08a, 4);
       } else if (h.alvo) {
         this.derrubarAlvo(h.alvo); acertouAlgo = true;
       } else if (h.bloco) this.faiscas(fim, 0xfff1a8, 3);
       if (i < 3) this.risco(this.pontaMundo(), fim, 0xfff1a8);
     }
+    if (this.aoAtirar) this.aoAtirar(at.a, o, frente);
     // som "pew" de brinquedo, cada arma com seu tom
     const tom = { pistola: 700, sub: 820, espingarda: 260, fuzil: 560, precisao: 380 }[at.a];
     som.tom(tom, A.chumbos > 1 ? 0.18 : 0.09, { tipo: 'square', vol: 0.16, ate: tom * 0.45 });
@@ -341,6 +350,12 @@ export class Armas {
     }
     const mon = this.o.monstros();
     if (mon) { const hm = mon.atingir(o, dir, melhor.t); if (hm && hm.t < melhor.t) melhor = { t: hm.t, monstro: hm.monstro }; }
+    // alvos de outros módulos: { min, max, aoAcertar(dano, cabeca, p) } ou { testar(o, dir, max) -> { t, aoAcertar, cabeca } }
+    for (const x of this.alvosExtras) {
+      if (x.testar) { const r = x.testar(o, dir, melhor.t); if (r && r.t >= 0 && r.t < melhor.t) melhor = { t: r.t, extra: r.aoAcertar, cabeca: !!r.cabeca }; continue; }
+      const te = raioCaixa(o, dir, x.min, x.max, melhor.t);
+      if (te >= 0 && te < melhor.t) melhor = { t: te, extra: x.aoAcertar, cabeca: false };
+    }
     for (const a of this.alvos.values()) {
       if (a.caido) continue;
       mn.set(a.x - 0.5, a.y + 1.0, a.z - 0.5); mx.set(a.x + 0.5, a.y + 2.0, a.z + 0.5);
@@ -352,7 +367,7 @@ export class Armas {
 
   pontaMundo() {
     const at = this.atual;
-    const v = new THREE.Vector3(0, 0.05, at ? PONTA[at.a] : 0.3);
+    const v = new THREE.Vector3(0, 0.05 * ESC_MAO, (at ? PONTA[at.a] : 0.3) * ESC_MAO);
     return this.mao.children[0] ? this.mao.children[0].localToWorld(v) : this.o.camera.getWorldPosition(v);
   }
 
@@ -545,9 +560,9 @@ export class Armas {
     it.malha = g; it.peca = m;
     return true;
   }
-  montarAlvo(k, x, z, fixo = false) {
-    if (!this.carregado(x, z)) return;
-    const y = this.chao(x, z);
+  montarAlvo(k, x, z, fixo = false, yFixo = null) {
+    if (!fixo && !this.carregado(x, z)) return;
+    const y = yFixo ?? this.chao(x, z);
     if (y == null) { this.alvos.set(k, { ruim: true, caido: true }); return; }
     const { g, pivo } = modeloAlvo();
     g.position.set(x + 0.5, y, z + 0.5);
@@ -683,7 +698,10 @@ export class Armas {
     const at = this.atual;
     if (this.espera > 0) this.espera -= dt;
     if (this.recarga > 0) { this.recarga -= dt; if (this.recarga <= 0) { this.recarga = 0; this.terminarRecarga(); } }
-    if (at && !parado && (this.apertado || this.pedido) && this.espera <= 0 && this.recarga <= 0 && (ARMAS[at.a].auto || !this.disparou || this.pedido)) { this.disparou = true; this.pedido = false; this.atirar(); }
+    // aparelho lento (poucos quadros por segundo): a automática ainda atira no ritmo certo
+    for (let n = 0; n < 4 && at && this.atual === at && !parado && (this.apertado || this.pedido) && this.espera <= 0 && this.recarga <= 0 && at.pente > 0 && (ARMAS[at.a].auto || !this.disparou || this.pedido); n++) { this.disparou = true; this.pedido = false; this.atirar(); }
+    if (at && !parado && this.pedido && this.espera <= 0 && this.recarga <= 0 && at.pente <= 0) { this.pedido = false; this.atirar(); }
+    if (this.espera < -0.2) this.espera = 0;
     if (parado) { this.apertado = false; this.pedido = false; }
     // zoom da mira
     const zoom = this.mirando && at ? ARMAS[at.a].zoom : 1;
@@ -697,12 +715,12 @@ export class Armas {
     const andar = Math.hypot(jog.vel.x, jog.vel.z);
     this.balanco += dt * (jog.noChao ? andar * 1.4 : 0);
     const mira = this.mirando ? 1 : 0;
-    const alvoX = 0.26 * (1 - mira) + Math.sin(this.balanco) * 0.012 * (1 - mira);
-    const alvoY = (this.recarga > 0 ? -0.42 : -0.27 + mira * 0.13) + Math.abs(Math.cos(this.balanco)) * 0.012;
+    const alvoX = 0.17 * (1 - mira) + Math.sin(this.balanco) * 0.01 * (1 - mira);
+    const alvoY = (this.recarga > 0 ? -0.3 : -0.17 + mira * 0.03) + Math.abs(Math.cos(this.balanco)) * 0.01;
     const m = this.mao.position;
     m.x += (alvoX - m.x) * Math.min(1, dt * 14);
     m.y += (alvoY - m.y) * Math.min(1, dt * 10);
-    m.z = -0.5 + this.recuo * 0.08;
+    m.z = -0.36 + this.recuo * 0.06;
     this.mao.rotation.x = this.recuo * 0.25 + (this.recarga > 0 ? 0.6 : 0);
     this.mao.visible = !!at && this.el.luneta.hidden;
     this.el.recarga.hidden = !(this.recarga > 0);

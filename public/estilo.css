@@ -414,3 +414,4 @@ body.mirando #mira::before { left: 4px; top: 4px; }
 .noticia .ic-svg { width: 18px; height: 18px; }
 @keyframes noticia { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
 @media (max-width: 640px), (max-height: 480px) { #feed { top: calc(max(10px, env(safe-area-inset-top)) + 160px); } .noticia { font-size: 12px; } }
+#armas-slots .aslot.maos .ic-svg { width: 28px; height: 28px; }
