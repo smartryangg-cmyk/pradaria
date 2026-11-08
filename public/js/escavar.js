@@ -51,7 +51,7 @@ export class Escavacao {
     let e = this.blocos.get(k);
     if (e && e.b !== h.b) { this.soltar(k); e = null; }
     if (!e) {
-      if (total <= 1) { this.estilhacar(h.x, h.y, h.z, h.b, null, h.n); return true; }
+      if (total <= 1) { this.estilhacar(h.x, h.y, h.z, h.b, null, h.n); this.mundo.definir(h.x, h.y, h.z, AR); return true; }
       if (this.blocos.size >= MAX_ESCAVADOS) this.soltar(this.maisAntigo());
       e = { x: h.x, y: h.y, z: h.z, b: h.b, vivos: new Uint8Array(TOTAL).fill(1), restam: TOTAL, toques: 0, malha: null };
       this.blocos.set(k, e);

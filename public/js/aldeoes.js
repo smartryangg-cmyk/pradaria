@@ -2,7 +2,7 @@
 // acenam para quem chega e conversam com um toque. À noite voltam para casa e dormem.
 import * as THREE from '../vendor/three.module.min.js';
 import { caixa, juntar, matModelo } from './modelos.js';
-import { SOLIDO, AGUA } from './blocos.js';
+import { SOLIDO, AGUA, M } from './blocos.js';
 import { ANEL } from './vilas.js';
 
 const NOMES = ['Dona Cida', 'Seu Zé', 'Tia Lu', 'Juca', 'Nina', 'Vô Bento', 'Vó Lurdes', 'Tonico', 'Marieta', 'Dona Flor',
@@ -283,6 +283,11 @@ export class Aldeoes {
           a.dir = Math.atan2(ex, ez);
           const vel = 1.35 * dt;
           const nx = a.x + (ex / d) * Math.min(vel, d), nz = a.z + (ez / d) * Math.min(vel, d);
+          // porta fechada no caminho: o morador abre (e ela fecha sozinha depois)
+          if (this.aoPorta) {
+            const qx = Math.floor(nx + (ex / d) * 0.4), qz = Math.floor(nz + (ez / d) * 0.4);
+            for (let k = 0; k <= 1; k++) if (this.mundo.bloco(qx, Math.floor(a.y) + k, qz) === M.PORTA) this.aoPorta(qx, Math.floor(a.y) + k, qz);
+          }
           const s = this.solo(nx, nz, a.y);
           const subir = s == null ? -99 : s - a.y;
           const m = this.mundo;
