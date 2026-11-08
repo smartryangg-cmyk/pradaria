@@ -13,12 +13,12 @@ const MAX_EDICOES = 200000; // por mundo
 const LONGE = 100000; // ninguém precisa ir mais longe que isso
 const MSG_POR_SEG = 30;
 // veículos: tipo -> número de lugares (igual ao public/js/veiculos.js)
-const LUGARES = { carro: 4, jipe: 4, esportivo: 2, quadriciclo: 2, moto: 2, bicicleta: 1, skate: 1, trator: 2, caminhao: 6, onibus: 9, barco: 4, aviao: 2, helicoptero: 4 };
+const LUGARES = { carro: 4, jipe: 4, esportivo: 2, quadriciclo: 2, moto: 2, bicicleta: 1, skate: 1, trator: 2, caminhao: 6, onibus: 9, barco: 4, submarino: 2, aviao: 2, helicoptero: 4 };
 const MAX_VEICULOS = 40; // por mundo
 const MAX_VEICULOS_POR_JOGADOR = 6;
 const MAX_PARADOS = 40; // veículos que moram nas vilas/portos (aparecem quando alguém chega perto)
 const fracao = (x, padrao) => (Number.isFinite(x) ? Math.max(0, Math.min(1, Math.round(x * 1000) / 1000)) : padrao);
-const pubV = (v) => ({ id: v.id, tipo: v.tipo, cor: v.cor, p: v.p, r: v.r, c: fracao(v.c, 1), d: fracao(v.d, 0), ...(v.k ? { k: v.k } : {}) });
+const pubV = (v) => ({ id: v.id, tipo: v.tipo, cor: v.cor, p: v.p, r: v.r, c: fracao(v.c, 1), d: fracao(v.d, 0), ...(v.k ? { k: v.k } : {}), ...(v.dono ? { dono: v.dono } : {}) });
 const arrV = (v, k = 100) => Math.round(v * k) / k;
 const MAX_LUGARES = 8;
 // desenhos dos lugares salvos: nomes de ícone (v4, ver ICONES em public/js/comandos.js) e os emojis antigos
@@ -298,7 +298,7 @@ export class Sala extends DurableObject {
       const cor = Number.isInteger(m.cor) && m.cor >= 0 && m.cor < 8 ? m.cor : 0;
       // com o mercado ligado, só sai da garagem o que a pessoa comprou ou montou (e do jeito que guardou)
       const econV = await this.econDe(eu.uid);
-      if (!temVeiculo(econV, m.tipo, this.op())) { ws.send(JSON.stringify({ t: 'erro', msg: 'Esse veículo ainda não é seu. Compre ou monte na garagem!' })); return; }
+      if (!temVeiculo(econV, m.tipo)) { ws.send(JSON.stringify({ t: 'erro', msg: 'Esse veículo ainda não é seu. Compre ou monte na garagem!' })); return; }
       const [comb, dano] = estadoDaGaragem(econV, m.tipo, Date.now());
       const agora = Date.now();
       if (eu.ultimoVeiculo && agora - eu.ultimoVeiculo < 1500) return;
@@ -365,7 +365,9 @@ export class Sala extends DurableObject {
       if (!v) return;
       const atual = this.ocupacao().get(v.id) || [];
       let a = -1;
-      for (let i = 0; i < LUGARES[v.tipo]; i++) if (!atual[i]) { a = i; break; }
+      // o volante é só de quem tem a chave (o dono); os outros vão de passageiro. Os das vilas qualquer um dirige
+      const comChave = !v.dono || v.dono === eu.uid;
+      for (let i = comChave ? 0 : 1; i < LUGARES[v.tipo]; i++) if (!atual[i]) { a = i; break; }
       if (a < 0) { ws.send(JSON.stringify({ t: 'erro', msg: 'Está cheio!' })); return; }
       if (eu.v) await this.descer(ws, eu);
       eu.v = [v.id, a];
@@ -433,10 +435,11 @@ export class Sala extends DurableObject {
       this.info.inicio = Date.now() - (v - 0.3) * 600000;
       await this.ctx.storage.put('info', this.info);
       this.enviarTodos({ t: 'dia', v, nome: eu.nome });
-    } else if (m.t === 'ev' || m.t === 'vender' || m.t === 'comprar' || m.t === 'criar' || m.t === 'comprarV' || m.t === 'montarV') {
+    } else if (m.t === 'ev' || m.t === 'vender' || m.t === 'comprar' || m.t === 'criar' || m.t === 'comprarV' || m.t === 'montarV' || m.t === 'chave') {
       const op = this.op();
-      if (!econLigada(op)) return;
-      if ((m.t === 'comprarV' || m.t === 'montarV') && (eu.semVeiculos || typeof m.tipo !== 'string')) return;
+      const deVeiculo = m.t === 'comprarV' || m.t === 'montarV' || m.t === 'chave';
+      if (!econLigada(op) && !deVeiculo) return; // chave de veículo vale mesmo sem mercado
+      if (deVeiculo && (eu.semVeiculos || typeof m.tipo !== 'string')) return;
       // a bancada quem confere é a sala: alguma bancada colocada perto de onde o jogador está
       if (m.t === 'criar') m = { t: 'criar', r: String(m.r), bancada: await this.bancadaPerto(eu.p) };
       // no máximo 10 por segundo

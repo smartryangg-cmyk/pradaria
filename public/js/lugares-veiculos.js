@@ -3,6 +3,7 @@
 // barcos no cais do porto, trator na fazenda, caminhão no pátio. Tudo sai da semente, então todos os
 // jogadores veem as mesmas coisas; cada um aparece uma vez só por mundo (chave "k").
 import { hash3 } from './ruido.js';
+import { opcoesMundo } from './opcoes-mundo.js';
 
 // tipos que moram em cada estilo de vila (vilas.js) e a cor de cada um sai da semente
 const DA_VILA = {
@@ -23,6 +24,8 @@ export class LugaresVeiculos {
     const juntar = (r) => { postos.push(...r.postos); parados.push(...r.parados); };
     for (const v of this.m.vilas.perto(x, z, dist)) juntar(this.daVila(v));
     const A = this.m.aventura;
+    // mundo sem vilas: um posto com garagem pertinho de onde todo mundo começa
+    if (!opcoesMundo.vilas && !A && Math.hypot(x - 10, z - 10) < dist + 10) postos.push({ k: 'inicio', x: 10.5, z: 10.5, yaw: 0 });
     if (A) for (const L of A.lugares) if (Math.hypot(L.x - x, L.z - z) < dist + L.r) juntar(this.doLugar(L));
     return { postos, parados };
   }
@@ -104,7 +107,7 @@ export class LugaresVeiculos {
       const cais = (L.pecas || []).find((p) => p.tipo === 'cais');
       if (cais) for (const [t, w, i] of [[16, 5, 0], [26, -5, 1], [34, 5, 2]]) {
         const x = cais.x + cais.dx * t - cais.dz * w + 0.5, z = cais.z + cais.dz * t + cais.dx * w + 0.5;
-        out.parados.push({ k: k + 'b' + i, tipo: 'barco', cor: this.cor(k + 'b' + i), x, z, yaw: Math.atan2(-cais.dx, -cais.dz), agua: true });
+        out.parados.push({ k: k + 'b' + i, tipo: i === 1 ? 'submarino' : 'barco', cor: this.cor(k + 'b' + i), x, z, yaw: Math.atan2(-cais.dx, -cais.dz), agua: true });
       }
     }
     this.cache.set(k, out);

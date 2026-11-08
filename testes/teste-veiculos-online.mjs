@@ -47,6 +47,8 @@ await a.evaluate(() => {
   }
   j.yaw = melhor;
 });
+await a.evaluate(() => { window.__jogo.mercado.veiculo({ t: 'chave', tipo: 'carro' }); });
+await a.waitForFunction(() => window.__jogo.mercado.e.veiculos.includes('carro'), null, { timeout: 5000 });
 await a.evaluate(() => window.__jogo.garagem.novo('carro', 2));
 await a.waitForFunction(() => window.__jogo.garagem.dentro, null, { timeout: 5000 });
 const vid = await a.evaluate(() => window.__jogo.garagem.dentro.v.id);

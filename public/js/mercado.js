@@ -112,6 +112,14 @@ export class Mercado {
   erro(msg) { this.ui.aviso(msg, 2200, 'moeda'); }
 
   // ---------- veículos (garagem.js) ----------
+  // chave, compra ou montagem de veículo: vale mesmo com mercado e missões desligados (sem mercado a chave é de graça)
+  veiculo(acao) {
+    if (this.sala) { this.sala.enviar(acao); return; }
+    const r = aplicar(this.e, this.op, acao);
+    if (!r.ok) { this.ui.aviso(r.erro, 2400, 'chave'); return; }
+    this.salvarLocal();
+    this.recebeu(this.e, r.feitos);
+  }
   // guardou um veículo (sem internet; online a sala anota sozinha)
   guardarVeiculo(tipo, s) {
     if (this.sala) return;

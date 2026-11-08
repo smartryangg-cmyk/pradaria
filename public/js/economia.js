@@ -60,7 +60,7 @@ const MAX_ITEM = 9999, MAX_MOEDAS = 999999;
 export const VEICULOS_LIVRES = ['bicicleta', 'skate'];
 export const PRECO_VEICULO = {
   carro: 40, jipe: 50, esportivo: 70, quadriciclo: 35, moto: 30, bicicleta: 0, skate: 0,
-  trator: 45, caminhao: 70, onibus: 80, barco: 40, aviao: 120, helicoptero: 110,
+  trator: 45, caminhao: 70, onibus: 80, barco: 40, submarino: 90, aviao: 120, helicoptero: 110,
 };
 // montar com o que se coletou pelo mundo (o "crafting" dos veículos): { bloco: quantidade }
 export const RECEITA_VEICULO = {
@@ -73,13 +73,16 @@ export const RECEITA_VEICULO = {
   caminhao: { [TR]: 16, [PE]: 30 },
   onibus: { [TR]: 16, [PE]: 36, [AR_]: 12 },
   barco: { [TR]: 20, [FO]: 6 },
+  submarino: { [TR]: 6, [PE]: 30, [AR_]: 16 },
   aviao: { [TR]: 20, [PE]: 30, [AR_]: 10 },
   helicoptero: { [TR]: 12, [PE]: 36, [AR_]: 10 },
 };
 // serviços no posto: preço do tanque cheio (ou da bateria) e do conserto completo
 export const SERVICO = { comb: 6, conserto: 12 };
 export const precoServico = (k, falta) => Math.max(1, Math.ceil(SERVICO[k] * Math.max(0, Math.min(1, falta))));
-export const temVeiculo = (e, tipo, op) => !op.mercado || VEICULOS_LIVRES.includes(tipo) || (e.veiculos || []).includes(tipo);
+// chave do veículo: bicicleta e skate todo mundo tem; os outros se pegam na garagem (posto) de uma vila:
+// de graça sem o mercado, comprando ou montando com o mercado ligado
+export const temVeiculo = (e, tipo) => VEICULOS_LIVRES.includes(tipo) || !!(e && (e.veiculos || []).includes(tipo));
 // estado guardado na garagem de cada jogador: { tipo: [combustível 0..1, dano 0..1, quando guardou (ms)] }
 const estadoVeic = (x) => Array.isArray(x) && x.length >= 2 ? [Math.max(0, Math.min(1, +x[0] || 0)), Math.max(0, Math.min(1, +x[1] || 0)), Math.max(0, +x[2] || 0)] : null;
 // na garagem o mecânico abastece e conserta aos poucos: 10% por minuto guardado
@@ -211,7 +214,7 @@ export function aplicar(e, op, a) {
     if (!op.mercado) return falha('O mercado está desligado neste mundo.');
     const tipo = a.tipo;
     if (!(tipo in PRECO_VEICULO)) return falha('?');
-    if (temVeiculo(e, tipo, op)) return falha('Esse veículo já é seu!');
+    if (temVeiculo(e, tipo)) return falha('Esse veículo já é seu!');
     if (a.t === 'comprarV') {
       const preco = PRECO_VEICULO[tipo];
       if (e.moedas < preco) return falha(`Faltam ${preco - e.moedas} moedas.`);
@@ -222,6 +225,12 @@ export function aplicar(e, op, a) {
       for (const [b, n] of Object.entries(rec)) { e.itens[b] -= n; if (!e.itens[b]) delete e.itens[b]; }
     }
     e.veiculos.push(tipo);
+    r.mudou = true;
+  } else if (a.t === 'chave') {
+    // sem o mercado a chave sai de graça na garagem
+    if (op.mercado) return falha('Compre ou monte este veículo na garagem.');
+    if (!(a.tipo in PRECO_VEICULO)) return falha('?');
+    if (!temVeiculo(e, a.tipo)) e.veiculos.push(a.tipo);
     r.mudou = true;
   } else if (a.t === 'servico') {
     // abastecer/carregar ou consertar no posto. "falta" = quanto falta (0..1); online quem calcula é a sala
