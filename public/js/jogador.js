@@ -67,6 +67,11 @@ export class Jogador {
       v.y -= 26 * dt;
       if (ent.pular && this.noChao) { v.y = 8.2; this.noChao = false; }
       v.y = Math.max(v.y, -40);
+      // planando (começo da Ilha de Aventura): cai devagarinho e anda rápido no ar
+      if (this.planando) {
+        v.y = Math.max(v.y, ent.descer ? -12 : -3.2);
+        if (len > 0.1) { v.x += (mx * 9 - v.x) * Math.min(1, 3 * dt); v.z += (mz * 9 - v.z) * Math.min(1, 3 * dt); }
+      }
       // ventilador ligado embaixo (até 10 blocos): sobe como num elevador
       this.noVento = false;
       for (let dy = 0; dy <= 10; dy++) {
@@ -104,6 +109,7 @@ export class Jogador {
         if (this.aoBorda) this.aoBorda();
       }
     }
+    if (this.planando && (this.noChao || this.naAgua || this.voando)) this.planando = false;
     if (p.y < -10) { p.y = this.mundo.chao(Math.floor(p.x), Math.floor(p.z)) + 2; v.y = 0; }
     if (this.noChao && len > 0.1) this.passo += dt * vel;
   }

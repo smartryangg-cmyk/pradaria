@@ -36,6 +36,8 @@ export const TAMANHO_NOVO = 'medio'; // já vem marcado ao criar
 export const TIPOS = {
   normal: { icone: 'flor', nome: 'Pradaria', desc: 'O mundo de sempre, com vilas e bichinhos' },
   historia: { icone: 'ampulheta', nome: 'Linha do Tempo', desc: 'Começa com os dinossauros e evolui pela história', semMonstros: true, oculto: true }, // oculto até as eras ficarem prontas
+  // Ilha de Aventura (ilha-aventura.js): mapa como os de jogos de ação, mas sem armas. Tamanho fixo (limite/raioExtra valem no lugar do tamanho).
+  aventura: { icone: 'ilha', nome: 'Ilha de Aventura', desc: 'Cidades, estradas, porto, farol e lugares com nome', limite: 256, raioExtra: 1 },
 };
 
 // PADRAO_MUNDO: o que vale quando falta a opção (mundos antigos); PADRAO_NOVO: o que já vem marcado ao criar
@@ -69,4 +71,5 @@ export function sementeDeTexto(t) {
 // o objeto das opções do mundo que está aberto agora (mesma referência sempre)
 export const opcoesMundo = { ...PADRAO_MUNDO };
 export function definirOpcoesMundo(o) { Object.assign(opcoesMundo, normalizarOpcoes(o)); return opcoesMundo; }
-export const limiteMundo = () => TAMANHOS[opcoesMundo.tamanho].limite;
+export const limiteMundo = () => TIPOS[opcoesMundo.tipo]?.limite ?? TAMANHOS[opcoesMundo.tamanho].limite;
+export const raioExtraMundo = () => TIPOS[opcoesMundo.tipo]?.raioExtra ?? TAMANHOS[opcoesMundo.tamanho].raioExtra;

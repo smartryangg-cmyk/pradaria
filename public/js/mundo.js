@@ -3,6 +3,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { criarRuido, hash3 } from './ruido.js';
 import { AR, B, E, SOLIDO, OPACO, PLANTA, BLOCOS, AGUA, NIVEL, AGUA_CORRENTE, AGUA_CAINDO, BRILHO, PRECISA_CHAO, uvTile } from './blocos.js';
 import { Vilas } from './vilas.js';
+import { IlhaAventura } from './ilha-aventura.js';
 import { opcoesMundo, limiteMundo } from './opcoes-mundo.js';
 import { Energia, desenharForma } from './energia.js';
 
@@ -54,6 +55,7 @@ export class Mundo {
     this.filaAgua = new Set(); // células para reavaliar no próximo passo da água
     this.ultimoPassoAgua = 0;
     this.vilas = new Vilas(this);
+    this.aventura = opcoesMundo.tipo === 'aventura' ? new IlhaAventura(this) : null; // Ilha de Aventura
     this.ocultos = new Map(); // "x,y,z" -> [x,y,z]: blocos sendo escavados (desenhados à parte)
     this.energia = new Energia(this); // fios e máquinas
   }
@@ -73,6 +75,7 @@ export class Mundo {
 
   // ---------- geração ----------
   alturaEm(x, z) {
+    if (this.aventura) return this.aventura.altura(x, z);
     const r = this.ruido, r2 = this.ruido2;
     const cont = r.fbm(x / 240, z / 240, 3);
     const det = r.fbm(x / 55, z / 55, 3);
@@ -114,7 +117,7 @@ export class Mundo {
       const rnd = hash3(wx, 7, wz, s);
       const floresta = this.ruido2.fbm(wx / 90 + 300, wz / 90 - 200, 2);
       const chanceArvore = floresta > 0.18 ? 0.035 : 0.004;
-      if (rnd < chanceArvore && x >= 2 && !this.vilas.semArvore(wx, wz) && x <= 13 && z >= 2 && z <= 13 && h + 8 < ALT) {
+      if (rnd < chanceArvore && x >= 2 && !this.vilas.semArvore(wx, wz) && !(this.aventura && this.aventura.semArvore(wx, wz)) && x <= 13 && z >= 2 && z <= 13 && h + 8 < ALT) {
         this.arvore(d, x, h + 1, z, hash3(wx, 3, wz, s));
         continue;
       }
@@ -127,6 +130,7 @@ export class Mundo {
     }
     // vilas (casas, ruas, poço e plantações)
     this.vilas.carimbar(d, cx, cz, CX, CZ);
+    if (this.aventura) this.aventura.carimbar(d, cx, cz, CX, CZ);
     // edições salvas
     const ed = this.edicoes.get(chave(cx, cz));
     if (ed) for (const [i, b] of ed) d[i] = b;
@@ -190,9 +194,11 @@ export class Mundo {
     const lx = x - cx * CX, lz = z - cz * CZ;
     const i = idx(lx, y, lz);
     if (c.dados[i] === b) return false;
+    const antes = c.dados[i];
     c.dados[i] = b;
     const k = chave(cx, cz);
     if (!this.edicoes.has(k)) this.edicoes.set(k, new Map());
+    const natural = !this.edicoes.get(k).has(i); // ninguém tinha mexido aqui: bloco do mundo original
     this.edicoes.get(k).set(i, b);
     this.marcarSujo(cx, cz);
     if (lx === 0) this.marcarSujo(cx - 1, cz);
@@ -203,7 +209,7 @@ export class Mundo {
     if (!SOLIDO[b] && PRECISA_CHAO[this.bloco(x, y + 1, z)]) this.definir(x, y + 1, z, AR, daRede);
     this.agendarAgua(x, y, z);
     this.energia.agendar(x, y, z);
-    if (!daRede && this.aoMudarBloco) this.aoMudarBloco(x, y, z, b);
+    if (!daRede && this.aoMudarBloco) this.aoMudarBloco(x, y, z, b, antes, natural);
     return true;
   }
 

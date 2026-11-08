@@ -12,7 +12,7 @@
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icone-apple.png">
 <meta name="apple-mobile-web-app-title" content="Pradaria">
-<link rel="stylesheet" href="estilo.css?v=11">
+<link rel="stylesheet" href="estilo.css?v=12">
 </head>
 <body>
 <canvas id="tela"></canvas>
@@ -25,6 +25,7 @@
     <button id="bt-menu" class="redondo" aria-label="Menu"><span data-icone="menu"></span></button>
     <button id="bt-tela" class="redondo" aria-label="Tela cheia"><span data-icone="telacheia"></span></button>
     <button id="bt-comandos" class="redondo" aria-label="Comandos: teleportar, casa, amigos e hora"><span data-icone="bussola"></span></button>
+    <button id="bt-mapa-ilha" class="redondo" aria-label="Mapa da ilha inteira" hidden><span data-icone="ilha"></span></button>
     <div id="status-linha"><div id="status"></div></div>
     <div id="emotes">
       <button data-emote="acenar" aria-label="Acenar"><span data-icone="acenar"></span></button>
@@ -62,6 +63,16 @@
     <p class="sub">Escolha um bloco para a mão</p>
     <p id="dica-maquinas" class="sub dica-maq" hidden><span data-icone="raio"></span> Toque na <b>Alavanca</b> para ligar. A energia corre pelo <b>Fio</b> e por tudo que encosta: lâmpada, portão, ventilador (elevador!), sino e confete. O <b>Sensor de noite</b> liga sozinho quando escurece e o <b>Pisca-pisca</b> liga e desliga sem parar.</p>
     <div id="grade"></div>
+    <button class="bt" data-fechar>Fechar</button>
+  </div>
+</div>
+
+<!-- mapa da Ilha de Aventura -->
+<div id="mapa-ilha" class="janela" hidden>
+  <div class="caixa larga">
+    <h2 class="com-ic"><span data-icone="ilha"></span> Mapa da ilha</h2>
+    <canvas width="768" height="768" aria-label="Mapa da ilha com o nome dos lugares"></canvas>
+    <p class="sub">A setinha vermelha é você. As bolinhas azuis são seus amigos.</p>
     <button class="bt" data-fechar>Fechar</button>
   </div>
 </div>
@@ -232,7 +243,7 @@
     <div id="n-opcoes" hidden>
       <p class="sub" id="n-tipos-titulo">Tipo de mundo</p>
       <div class="tamanhos-mundo tipos-mundo" id="n-tipos" role="radiogroup" aria-label="Tipo de mundo"></div>
-      <p class="sub">Tamanho do mundo</p>
+      <p class="sub" id="n-tamanhos-titulo">Tamanho do mundo</p>
       <div class="tamanhos-mundo" id="n-tamanhos" role="radiogroup" aria-label="Tamanho do mundo"></div>
       <p class="sub">O que vai ter no seu mundo? Toque para ligar ou desligar.</p>
       <div class="opcoes-mundo" id="n-lista"></div>
