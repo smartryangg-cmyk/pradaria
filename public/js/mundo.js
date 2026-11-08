@@ -50,7 +50,21 @@ export class Mundo {
     this.filaAgua = new Set(); // células para reavaliar no próximo passo da água
     this.ultimoPassoAgua = 0;
     this.vilas = new Vilas(this);
+    this.ocultos = new Map(); // "x,y,z" -> [x,y,z]: blocos sendo escavados (desenhados à parte)
   }
+
+  // esconde/mostra um bloco da malha do pedaço (o bloco continua existindo para colisão e mira)
+  esconder(x, y, z, sim) {
+    const k = x + ',' + y + ',' + z;
+    if (sim) this.ocultos.set(k, [x, y, z]); else if (!this.ocultos.delete(k)) return;
+    const cx = Math.floor(x / CX), cz = Math.floor(z / CZ), lx = x - cx * CX, lz = z - cz * CZ;
+    this.marcarSujo(cx, cz);
+    if (lx === 0) this.marcarSujo(cx - 1, cz);
+    if (lx === CX - 1) this.marcarSujo(cx + 1, cz);
+    if (lz === 0) this.marcarSujo(cx, cz - 1);
+    if (lz === CZ - 1) this.marcarSujo(cx, cz + 1);
+  }
+  escondido(x, y, z) { return this.ocultos.size > 0 && this.ocultos.has(x + ',' + y + ',' + z); }
 
   // ---------- geração ----------
   alturaEm(x, z) {
@@ -301,6 +315,23 @@ export class Mundo {
 
   // ---------- malhas ----------
   construir(c) {
+    // blocos escondidos viram ar só durante a montagem (assim os vizinhos mostram as faces)
+    if (this.ocultos.size) {
+      const trocas = [];
+      for (const [x, y, z] of this.ocultos.values()) {
+        const ch = this.chunks.get(chave(Math.floor(x / CX), Math.floor(z / CZ)));
+        if (!ch) continue;
+        const i = idx(x - ch.cx * CX, y, z - ch.cz * CZ);
+        trocas.push([ch.dados, i, ch.dados[i]]);
+        ch.dados[i] = AR;
+      }
+      try { this.construirMalha(c); } finally { for (const [d, i, b] of trocas) d[i] = b; }
+      return;
+    }
+    this.construirMalha(c);
+  }
+
+  construirMalha(c) {
     const P = [], U = [], C = [], I = [], N = [], O = [], L = [];
     const luzes = [];
     const PA = [], UA = [], CA = [], IA = [], FA = [];

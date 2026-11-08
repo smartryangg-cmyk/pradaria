@@ -9,6 +9,7 @@ Jogo de construir e explorar, **pacífico** (só bichinhos, nada de monstros), q
 - Bichos: ovelha, porquinho, galinha, vaca, coelho, capivara e o Caramelo (que segue você depois de um carinho).
 - Visual caprichado já no padrão: sol que faz sombra de verdade, céu com degradê, pôr do sol rosado e estrelas, água que reflete o céu e brilha, folhas e flores balançando com o vento, lampiões que iluminam a noite, névoa na cor do horizonte.
 - Três níveis de gráficos (Linda, Bonita, Leve). Se o aparelho ficar lento, o jogo baixa sozinho para rodar liso.
+- Quebrar é aos poucos: cada batida arranca um pedaço do bloco, que vai ficando esculpido até cair. Pedra e tijolo aguentam mais batidas que terra e folhas; flores saem de uma vez.
 - Dia e noite (a noite é clarinha), sons feitos na hora.
 - Contas com login, mundos com código para jogar com amigos em tempo real e emotes (sem chat aberto, mais seguro para crianças).
 - Funciona sem internet também (mundo salvo no aparelho).
@@ -20,7 +21,7 @@ Jogo de construir e explorar, **pacífico** (só bichinhos, nada de monstros), q
 | Arraste no lado esquerdo: andar | WASD ou setas |
 | Arraste no lado direito: olhar | Mouse (clique na tela para travar) |
 | Toque: colocar bloco / fazer carinho / conversar com aldeão | Botão direito |
-| Segure o dedo: quebrar | Botão esquerdo |
+| Segure o dedo: bater no bloco (cada batida arranca um pedaço) | Botão esquerdo (clique ou segure) |
 | ⬆ pular · 🕊️ voar · ⬇ descer | Espaço · espaço duas vezes ou F · Shift |
 | Barra de baixo e ＋: escolher blocos | 1–9, rodinha, E |
 
