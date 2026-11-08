@@ -465,7 +465,8 @@ export class Bichos {
     }
     // gravidade
     const s = this.chao(b.x, b.z, b.y);
-    const piso = s ? s.y - (s.agua ? 0.45 : 0) : 0;
+    // sem chão conhecido (pedaço ainda carregando ou buraco fundo): fica onde está em vez de cair pelo mundo
+    const piso = s ? s.y - (s.agua ? 0.45 : 0) : b.y;
     b.vy -= 20 * dt;
     b.y += b.vy * dt;
     if (b.y <= piso) { b.y = piso; b.vy = 0; }

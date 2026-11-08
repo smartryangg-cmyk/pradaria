@@ -54,7 +54,7 @@ await J(() => {
   const g = window.__jogo, j = g.jog, x0 = Math.floor(j.pos.x), z0 = Math.floor(j.pos.z), y = Math.max(30, g.mundo.chao(x0, z0));
   for (let dx = -20; dx <= 20; dx++) for (let dz = -20; dz <= 20; dz++) {
     g.mundo.definir(x0 + dx, y, z0 + dz, 1);
-    for (let h = 1; h <= 8; h++) if (g.mundo.bloco(x0 + dx, y + h, z0 + dz)) g.mundo.definir(x0 + dx, y + h, z0 + dz, 0);
+    for (let h = 1; h <= 40; h++) if (g.mundo.bloco(x0 + dx, y + h, z0 + dz)) g.mundo.definir(x0 + dx, y + h, z0 + dz, 0);
   }
   j.pos.x = x0 + 0.5; j.pos.z = z0 + 0.5; j.pos.y = y + 1;
 });

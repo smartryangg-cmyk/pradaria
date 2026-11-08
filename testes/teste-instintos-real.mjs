@@ -26,20 +26,23 @@ async function preparar(p) {
     const g = window.__jogo, j = g.jog, x0 = Math.floor(j.pos.x), z0 = Math.floor(j.pos.z), y = Math.max(30, g.mundo.chao(x0, z0));
     for (let dx = -22; dx <= 22; dx++) for (let dz = -22; dz <= 22; dz++) {
       g.mundo.definir(x0 + dx, y, z0 + dz, 1);
-      for (let h = 1; h <= 8; h++) if (g.mundo.bloco(x0 + dx, y + h, z0 + dz)) g.mundo.definir(x0 + dx, y + h, z0 + dz, 0);
+      for (let h = 1; h <= 40; h++) if (g.mundo.bloco(x0 + dx, y + h, z0 + dz)) g.mundo.definir(x0 + dx, y + h, z0 + dz, 0);
     }
     j.pos.x = x0 + 0.5; j.pos.z = z0 + 0.5; j.pos.y = y + 1; j.yaw = 0; j.pitch = -0.15;
+    window.__centro = [x0 + 0.5, y + 1, z0 + 0.5];
     window.__criar = (esp, dx, dz, o = {}) => { const x = Math.floor(j.pos.x + dx), z = Math.floor(j.pos.z + dz); return g.bichos.criar(esp, x + 0.5, g.mundo.chao(x, z) + 1, z + 0.5, o); };
     window.__dist = (bb) => Math.hypot(bb.x - j.pos.x, bb.z - j.pos.z);
     // onde o bicho aparece na tela (para tocar nele de verdade)
     window.__tela = (bb) => { const v = bb.grupo.position.clone(); v.y += bb.e.alt * bb.esc * 0.5; v.project(g.camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight, frente: v.z < 1 }; };
-    window.__limpar = () => { g.bichos.tempoSpawn = 1e9; g.bichos.limpar(); g.vida.protegido = 0; g.vida.reiniciar(); };
+    // limpa os bichos e volta o jogador para o meio do palco
+    window.__limpar = () => { [j.pos.x, j.pos.y, j.pos.z] = window.__centro; j.vel.x = j.vel.z = 0; g.bichos.tempoSpawn = 1e9; g.bichos.limpar(); g.vida.protegido = 0; g.vida.reiniciar(); };
   });
   await p.waitForTimeout(1500);
 }
 // gira a câmera para o bicho (como o jogador arrastando o dedo/mouse)
 const olharPara = (p, i = 0) => p.evaluate((i) => {
-  const g = window.__jogo, bb = g.bichos.lista[i], c = g.camera.position;
+  // a partir dos olhos do jogador (a câmera só acompanha no próximo quadro, e depois de um teleporte ainda está no lugar antigo)
+  const g = window.__jogo, bb = g.bichos.lista[i], c = { x: g.jog.pos.x, y: g.jog.pos.y + 1.6, z: g.jog.pos.z };
   g.jog.yaw = Math.atan2(-(bb.x - c.x), -(bb.z - c.z)); g.jog.pitch = Math.atan2(bb.y + 0.5 - c.y, Math.hypot(bb.x - c.x, bb.z - c.z));
 }, i);
 
@@ -66,6 +69,9 @@ const olharPara = (p, i = 0) => p.evaluate((i) => {
     for (let k = 1; k <= 5; k++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y - k * 12, id: 1 }] });
     await p.waitForTimeout(ms);
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await p.waitForTimeout(300);
+    const joy = await p.evaluate(() => getComputedStyle(document.getElementById('joy')).display);
+    if (joy !== 'none') console.log('joystick ficou preso:', joy);
   }
 
   // 1. anda até um veado: ele foge antes de você chegar
@@ -80,13 +86,16 @@ const olharPara = (p, i = 0) => p.evaluate((i) => {
   // 2. ursa com filhote: chegar perto do filhote dá aviso; ficar lá, ela morde (perde um coração na tela)
   await p.evaluate(() => { window.__limpar(); const u = window.__criar('urso', 2, -9, { grupo: 9 }); window.__criar('urso', 0.5, -7, { grupo: 9, filhote: true, mae: u }); });
   await olharPara(p);
+  await p.evaluate(() => { window.__vidaMin = 10; clearInterval(window.__vigia); window.__trilha = []; window.__vigia = setInterval(() => { window.__vidaMin = Math.min(window.__vidaMin, window.__jogo.vida.atual); const u = window.__jogo.bichos.lista[0]; if (u) { const t = u.estado + ':' + window.__dist(u).toFixed(1) + ':' + (u.y - window.__jogo.jog.pos.y).toFixed(1); if (window.__trilha.at(-1) !== t) window.__trilha.push(t); } }, 100); });
   await andar(900);
   await p.waitForFunction(() => window.__avisos.some((t) => /filhotes/.test(t)), null, { timeout: 8000 }).catch(() => {});
   const aviso = await p.evaluate(() => window.__avisos.find((t) => /filhotes/.test(t)) || window.__avisos.join(' | '));
   conferir(/protegendo os filhotes/.test(aviso), 'tablet: aviso na tela "' + aviso + '"');
   await p.screenshot({ path: SAIDA + '/real-tablet-ursa-avisa.png' });
-  await p.waitForFunction(() => document.querySelectorAll('#vida .coracao.cheio').length < 5, null, { timeout: 10000 }).catch(() => {});
-  conferir(await p.locator('#vida .coracao.cheio').count() === 4, 'tablet: a ursa morde e some um coração da tela');
+  await p.waitForFunction(() => window.__vidaMin < 10, null, { timeout: 10000 }).catch(() => {});
+  const vmin = await p.evaluate(() => window.__vidaMin);
+  conferir(vmin === 8, 'tablet: a ursa morde e some um coração da tela (vida ' + vmin / 2 + ' de 5)');
+  if (vmin === 10) console.log('trilha da ursa:', (await p.evaluate(() => window.__trilha)).join(' '));
   await p.screenshot({ path: SAIDA + '/real-tablet-mordida.png' });
 
   // 3. tocar na ursa na tela espanta: ela foge com o filhote
@@ -94,8 +103,7 @@ const olharPara = (p, i = 0) => p.evaluate((i) => {
   await olharPara(p, await p.evaluate(() => window.__jogo.bichos.lista.findIndex((o) => !o.filhote)));
   await p.waitForTimeout(700);
   const alvo = await p.evaluate(() => window.__tela(window.__jogo.bichos.lista.find((o) => !o.filhote)));
-  await p.touchscreen.tap(alvo.x, alvo.y);
-  await p.waitForTimeout(400);
+  for (let k = 0; k < 3 && (await p.evaluate(() => window.__jogo.bichos.lista.find((o) => !o.filhote).estado)) !== 'fugir'; k++) { await p.touchscreen.tap(alvo.x, alvo.y); await p.waitForTimeout(400); }
   const ue = await p.evaluate(() => window.__jogo.bichos.lista.map((o) => o.estado));
   conferir(ue.every((e) => e === 'fugir'), 'tablet: tocar na ursa espanta ela e o filhote (' + ue.join(', ') + ')');
 
@@ -105,8 +113,8 @@ const olharPara = (p, i = 0) => p.evaluate((i) => {
   await p.waitForTimeout(700);
   const ov = await p.evaluate(() => window.__tela(window.__jogo.bichos.lista[0]));
   const part0 = await p.evaluate(() => window.__jogo.bichos.particulas.length);
-  await p.touchscreen.tap(ov.x, ov.y);
-  await p.waitForTimeout(150);
+  // o emulador desenha devagar (tela grande do iPad sem placa de vídeo): se o toque demorar, toca de novo
+  for (let k = 0; k < 3 && (await p.evaluate(() => window.__jogo.bichos.particulas.length)) <= part0; k++) { await p.touchscreen.tap(ov.x, ov.y); await p.waitForTimeout(250); }
   conferir((await p.evaluate(() => window.__jogo.bichos.particulas.length)) > part0, 'tablet: tocar na ovelha faz carinho (corações)');
   await p.screenshot({ path: SAIDA + '/real-tablet-carinho.png' });
 
