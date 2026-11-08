@@ -423,8 +423,10 @@ export class Sala extends DurableObject {
       const econ = econLigada(op) ? await this.econDe(eu.uid) : null;
       // com o mercado, só dá para colocar os blocos que a pessoa já tem
       if (econ && b > 0 && !liberado(econ, b, op)) return;
+      const ed = await this.carregarEdicoes();
+      const k = x + ',' + y + ',' + z;
       // coletar e criar: só coloca o que tem na mochila
-      if (econ && op.sobrevivencia && m.j && b > 0 && lugarVazio(m.de | 0) && !((econ.itens[gastoDe(b)] || 0) > 0)) {
+      if (econ && op.sobrevivencia && m.j && b > 0 && lugarVazio(ed.has(k) ? ed.get(k) | 0 : m.de | 0) && !((econ.itens[gastoDe(b)] || 0) > 0)) {
         ws.send(JSON.stringify({ t: 'econ', s: econ })); // devolve a mochila certa para o aparelho
         return;
       }
@@ -433,15 +435,15 @@ export class Sala extends DurableObject {
       if (agora - eu.janela > 1000) { eu.janela = agora; eu.cota = 0; }
       if (++eu.cota > 25) return;
       ws.serializeAttachment(eu);
-      const ed = await this.carregarEdicoes();
-      const k = x + ',' + y + ',' + z;
       if (!ed.has(k) && ed.size >= MAX_EDICOES) return;
       let natural = !ed.has(k); // ninguém mexeu aqui ainda: é um bloco do mundo original
-      if (natural && b === 0 && econ) {
+      // o que estava ali: se alguém já mexeu, quem sabe é o servidor (não dá para "quebrar um lampião" que não existe)
+      let de = ed.has(k) ? ed.get(k) | 0 : m.de | 0;
+      if (b === 0 && econ && m.j && (natural || op.sobrevivencia)) {
         // coleta só perto do jogador e no máximo 40 itens por minuto (por conta: reconectar não zera)
         const min = Math.floor(Date.now() / 60000), c = (this.coleta ??= new Map()).get(eu.uid) || { min, n: 0 };
         if (c.min !== min) { c.min = min; c.n = 0; }
-        if (Math.hypot(x + 0.5 - eu.p[0], z + 0.5 - eu.p[2]) > 10 || ++c.n > 40) natural = false;
+        if (Math.hypot(x + 0.5 - eu.p[0], z + 0.5 - eu.p[2]) > 10 || ++c.n > 40) { natural = false; if (op.sobrevivencia) de = 0; }
         this.coleta.set(eu.uid, c);
       }
       ed.set(k, b);
@@ -452,7 +454,7 @@ export class Sala extends DurableObject {
       const comprado = !natural && !!(await this.ctx.storage.get('c:' + k));
       if (comprado) await this.ctx.storage.delete('c:' + k);
       if (econ && m.j) { // só o que o jogador fez com as mãos
-        const r = await this.econAplicar(ws, eu, econ, { t: 'bloco', b, x, y, z, de: m.de | 0, natural, comprado }, true);
+        const r = await this.econAplicar(ws, eu, econ, { t: 'bloco', b, x, y, z, de, natural, comprado }, true);
         if (r && r.ok && r.marca && b > 0) await this.ctx.storage.put('c:' + k, 1);
       }
     } else if (m.t === 'vnovo') {
@@ -621,7 +623,7 @@ export class Sala extends DurableObject {
       // no máximo 10 por segundo
       const agora = Date.now();
       if (!eu.jeco || agora - eu.jeco > 1000) { eu.jeco = agora; eu.neco = 0; }
-      if (++eu.neco > 10) return;
+      if (++eu.neco > 10) { if (eu.neco === 11) ws.send(JSON.stringify({ t: 'econ', s: await this.econDe(eu.uid) })); return; } // devolve a mochila certa
       ws.serializeAttachment(eu);
       const econ = await this.econDe(eu.uid);
       await this.econAplicar(ws, eu, econ, m, m.t === 'ev');
@@ -739,7 +741,11 @@ export class Sala extends DurableObject {
 
   async econAplicar(ws, eu, econ, acao, quieto, ctx) {
     const r = aplicar(econ, this.op(), acao, ctx);
-    if (!r.ok) { if (!quieto) ws.send(JSON.stringify({ t: 'econ-erro', msg: r.erro, falta: r.falta, custo: r.custo })); return r; }
+    if (!r.ok) {
+      ws.send(JSON.stringify({ t: 'econ', s: econ })); // o aparelho já tinha mexido na mochila: devolve a certa
+      if (!quieto) ws.send(JSON.stringify({ t: 'econ-erro', msg: r.erro, falta: r.falta, custo: r.custo }));
+      return r;
+    }
     if (!r.mudou) return r;
     // o pedreiro colocou blocos: a sala põe no mundo e todo mundo vê
     if (r.blocos && r.blocos.length) await this.porBlocos(r.blocos, new Set(r.marcar || []));

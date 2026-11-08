@@ -553,9 +553,9 @@ function mostrarColeta(id, n) {
   while (el.childElementCount > 4) el.lastElementChild.remove();
 }
 // depois de quebrar: mostra o que foi para a mochila (a conta de verdade é feita em economia.js)
-function mostrarQueCaiu(b, x, y, z) {
+function mostrarQueCaiu(b, x, y, z, natural) {
   if (!sobrev()) return;
-  for (const [id, n] of oQueCai(b, x, y, z)) { colocarNaBarra(id); mostrarColeta(id, n); }
+  for (const [id, n] of oQueCai(b, x, y, z, natural)) { colocarNaBarra(id); mostrarColeta(id, n); }
 }
 // carinho na ovelha dá lã (uma vez a cada minuto por ovelha)
 function laDaOvelha(bicho) {
@@ -988,7 +988,8 @@ function quebrar(ponto) {
   // cada toque arranca um pedaço; o último derruba o bloco (a ferramenta certa precisa de menos toques)
   const p = raio.ray.at(h.t + 0.001, new THREE.Vector3());
   const total = toquesCom(toquesPara(h.b), h.b, mao);
-  if (comoJogador(() => escav.bater(h, p, total))) { som.quebrar(); mostrarQueCaiu(h.b, h.x, h.y, h.z); } else som.bater(h.b);
+  const natural = !mundo.editado(h.x, h.y, h.z);
+  if (comoJogador(() => escav.bater(h, p, total))) { som.quebrar(); mostrarQueCaiu(h.b, h.x, h.y, h.z, natural); } else som.bater(h.b);
 }
 
 // recolhe a fonte de água mirada; a água corrente que dependia dela seca sozinha
@@ -1270,6 +1271,7 @@ async function jogarOnline(m, volta = null) {
         mundo.carregarEdicoes(msg.edicoes);
         chat.reconectou(msg);
         armas.entrouOnline(sala);
+        if (msg.econ) { mercado.recebeu(msg.econ); desenharBarra(); } // reconectou: a mochila certa é a do servidor
       }
       for (const id of [...outros.keys()]) removerOutro(id);
       for (const j of msg.jogadores) adicionarOutro(j);

@@ -16,10 +16,12 @@ export const LIVRES = new Set([G, TE, PE, AR_, AG, TR, FO, TA, FV, FA, CA, PD]);
 
 // loja: preço para liberar o bloco para sempre neste mundo
 export const LOJA = [
-  [TJ, 12], [VI, 15], [LP, 20], [FE, 8], [TAR, 6], [TRI, 6], [FZ, 10],
+  [TJ, 12], [VI, 15], [LP, 20], [FE, 14], [TAR, 6], [TRI, 14], [FZ, 14],
   [LB, 8], [LV, 10], [LZ, 10], [LM, 10], [LG, 10], [LR, 10],
 ].map(([b, preco]) => ({ b, preco }));
 const PRECO_LOJA = new Map(LOJA.map((x) => [x.b, x.preco]));
+// no "Coletar e criar" a loja entrega LOTE_LOJA de uma vez: o lote nunca pode valer mais na venda do que custa
+// (trigo custava 6 e o lote de 4 vendia por 12: moedas infinitas comprando e vendendo)
 
 // quanto os aldeões pagam por cada coisa coletada (o que não está aqui vale 1)
 const VENDA = { [TR]: 2, 80: 2, 81: 2, 82: 2, [FV]: 3, [FA]: 3, [FZ]: 3, [TRI]: 3, [FE]: 3, [LP]: 4, [VI]: 2, [TJ]: 2, [FAR]: 5, [PAO]: 9 };
@@ -206,7 +208,7 @@ export function aplicar(e, op, a, ctx = {}) {
         if (comprado) { e.compra[g] = Math.max(0, (e.compra[g] || 0) - 1); r.marca = 1; }
       } else if (!a.b) {
         // quebrou: o que cai de um bloco que era comprado continua marcado (senão colocar e quebrar "lavava" a marca)
-        for (const [id, n] of oQueCai(a.de, a.x, a.y, a.z)) { por(e.itens, id, n); if (a.comprado) marcarCompra(e, id, n); }
+        for (const [id, n] of oQueCai(a.de, a.x, a.y, a.z, !!a.natural)) { por(e.itens, id, n); if (a.comprado) marcarCompra(e, id, n); }
       }
     }
     if (a.b > 0) {

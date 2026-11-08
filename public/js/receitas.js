@@ -47,16 +47,17 @@ const VIRA = { [I.GRAMA]: I.TERRA, [I.TERRA_ARADA]: I.TERRA, 80: I.TRONCO, 81: 7
 const EXTRA = { [I.FOLHAS]: [35, I.GRAVETO], [I.CAPIM]: [30, I.TRIGO] };
 const sorteio = (x, y, z) => (((Math.imul(x | 0, 73856093) ^ Math.imul(y | 0, 19349663) ^ Math.imul(z | 0, 83492791)) >>> 0) % 100);
 
-export function oQueCai(b, x = 0, y = 0, z = 0) {
+// natural = bloco do mundo original (o extra só vale nele; senão era só pôr e tirar folha no lugar da sorte)
+export function oQueCai(b, x = 0, y = 0, z = 0, natural = true) {
   if (!Number.isInteger(b) || b <= 0 || (b >= 23 && b <= 30) || b > MAX_BLOCO) return [];
   const r = [[VIRA[b] ?? baseDe(b), 1]];
   const ex = EXTRA[b];
-  if (ex && sorteio(x, y, z) < ex[0]) r.push([ex[1], 1]);
+  if (ex && natural && sorteio(x, y, z) < ex[0]) r.push([ex[1], 1]);
   return r;
 }
 
 // colocar só gasta quando o lugar estava vazio (ar, água ou plantinha); ligar uma alavanca não gasta
-const PLANTAS = new Set([11, 12, 13, 22, 32, 129, 130, 135]);
+const PLANTAS = new Set([11, 12, 13, 22, 32, 75, 129, 130, 135]); // 75 = arbusto seco
 export const lugarVazio = (de) => !de || de === 5 || (de >= 23 && de <= 30) || PLANTAS.has(de);
 export const gastoDe = (b) => baseDe(b);
 
@@ -75,6 +76,10 @@ for (const b of [I.TERRA, I.GRAMA, I.AREIA, I.TERRA_ARADA]) TIPO_DO_BLOCO[b] = '
 // formas (80..99): madeira com machado, pedra/vidro com picareta
 for (const b of [80, 81, 82, 84, 95, 96, 97, 98, 99]) TIPO_DO_BLOCO[b] = 'machado';
 for (const b of [83, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94]) TIPO_DO_BLOCO[b] = 'picareta';
+// troncos das outras árvores, folhas, minérios e cascalho do mundo clássico
+for (const b of [71, 72, 73, 74, 131, 132]) TIPO_DO_BLOCO[b] = 'machado';
+for (const b of [66, 67, 68, 69]) TIPO_DO_BLOCO[b] = 'picareta';
+TIPO_DO_BLOCO[65] = 'pa';
 
 // quantos toques o bloco b precisa com `naMao` na mão (base = toques sem ferramenta)
 export function toquesCom(base, b, naMao) {
@@ -96,6 +101,10 @@ export const GRUPOS = [
 export const RECEITAS = [
   // na mão
   { id: 'tabuas', faz: [I.TABUAS, 4], usa: [[I.TRONCO, 1]], grupo: 'basico' },
+  // troncos das outras árvores também viram tábuas (no mundo clássico quase tudo é pinheiro ou bétula)
+  { id: 'tabuas-pinheiro', faz: [I.TABUAS, 4], usa: [[71, 1]], grupo: 'basico' },
+  { id: 'tabuas-betula', faz: [I.TABUAS, 4], usa: [[73, 1]], grupo: 'basico' },
+  { id: 'tabuas-palmeira', faz: [I.TABUAS, 4], usa: [[131, 1]], grupo: 'basico' },
   { id: 'graveto', faz: [I.GRAVETO, 4], usa: [[I.TABUAS, 2]], grupo: 'basico' },
   { id: 'bancada', faz: [I.BANCADA, 1], usa: [[I.TABUAS, 4]], grupo: 'basico' },
   // ferramentas (bancada)
