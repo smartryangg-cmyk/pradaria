@@ -14,6 +14,8 @@ export const QUALIDADES = {
 // opções que não mudam com o preset (preferência pessoal)
 export const PESSOAIS = { fov: 72, brilho: 1, fpsMax: 0 };
 
+// distância do "sol" até o centro da sombra e altura mínima da luz que faz sombra (seno do ângulo)
+const DIST_SOL = 90, ELEV_MIN = 0.5;
 const tmp = new THREE.Color(), tmp2 = new THREE.Color();
 const C = (h) => new THREE.Color(h);
 // cores do céu ao longo do dia: [zênite, horizonte]
@@ -22,6 +24,15 @@ const CEU = {
   por: [C(0x4a5fa8), C(0xffa463)],
   noite: [C(0x0d1838), C(0x2a3d6e)],
 };
+
+// Sombra some aos poucos perto da borda da área coberta, em vez de acabar numa linha reta no chão.
+{
+  const k = 'shadowmap_pars_fragment', ch = THREE.ShaderChunk[k];
+  const ant = '\t\t}\n\t\treturn shadow;\n\t}\n\tvec2 cubeToUV';
+  if (ch.includes(ant)) {
+    THREE.ShaderChunk[k] = ch.replace(ant, '\t\t}\n\t\tvec2 bordaS = abs( shadowCoord.xy * 2.0 - 1.0 );\n\t\treturn mix( shadow, 1.0, smoothstep( 0.75, 1.0, max( bordaS.x, bordaS.y ) ) );\n\t}\n\tvec2 cubeToUV');
+  }
+}
 
 export function criarGraficos(renderer, cena, camera, atlas) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -173,8 +184,10 @@ export function criarGraficos(renderer, cena, camera, atlas) {
   // ---------- luzes ----------
   const hemi = new THREE.HemisphereLight(0xbfe3ff, 0x6b5a3f, 1.0);
   const sol = new THREE.DirectionalLight(0xffffff, 2.5);
-  sol.shadow.bias = -0.0006;
-  sol.shadow.normalBias = 0.04;
+  // bias pequeno (a câmera da sombra é curta, ver DIST_SOL) e normalBias do tamanho de um pixel da sombra:
+  // a sombra encosta no pé do bloco sem "manchas" nas faces
+  sol.shadow.bias = -0.00015;
+  sol.shadow.normalBias = 0.05;
   cena.add(hemi, sol, sol.target);
   const lampioes = [];
   for (let i = 0; i < 4; i++) {
@@ -201,8 +214,9 @@ export function criarGraficos(renderer, cena, camera, atlas) {
       if (sol.shadow.map) { sol.shadow.map.dispose(); sol.shadow.map = null; }
       const c = sol.shadow.camera;
       c.left = c.bottom = -q.area; c.right = c.top = q.area;
-      c.near = 1; c.far = 260;
+      c.near = 1; c.far = DIST_SOL + q.area * 2.5;
       c.updateProjectionMatrix();
+      sol.shadow.normalBias = Math.max(0.03, (2 * q.area / q.sombra) * 1.2);
     }
     lampioes.forEach((l, i) => { l.visible = i < q.luzes; });
     // força recompilar os materiais (sombra liga/desliga, nº de luzes)
@@ -213,6 +227,9 @@ export function criarGraficos(renderer, cena, camera, atlas) {
 
   const solDir = new THREE.Vector3();
   const alvo = new THREE.Vector3();
+  const luzDir = new THREE.Vector3(), centro = new THREE.Vector3(), olhar = new THREE.Vector3();
+  const rotLuz = new THREE.Matrix4(), ZERO = new THREE.Vector3(), CIMA = new THREE.Vector3(0, 1, 0);
+  const eixoX = new THREE.Vector3(), eixoY = new THREE.Vector3();
   let tempoLuzes = 0;
 
   // tempoDia: 0..1 (0.25 = meio-dia). Retorna a cor da névoa/horizonte.
@@ -241,18 +258,30 @@ export function criarGraficos(renderer, cena, camera, atlas) {
     hemi.intensity = 0.55 + dia * 0.4;
     renderer.toneMappingExposure = (0.95 + noite * 0.2) * brilhoUsuario;
 
-    // sombra segue o jogador, "grudada" em pixels para não tremer
-    const R = q.area || 30;
-    sol.position.copy(foco).addScaledVector(fonte, 120);
-    sol.target.position.copy(foco);
-    if (q.sombra) {
-      const passo = (2 * R) / q.sombra;
-      sol.target.position.x = Math.round(foco.x / passo) * passo;
-      sol.target.position.z = Math.round(foco.z / passo) * passo;
-      sol.position.copy(sol.target.position).addScaledVector(fonte, 120);
-      sol.target.updateMatrixWorld();
-      if (pulos++ >= (q.pular || 0)) { pulos = 0; renderer.shadowMap.needsUpdate = true; }
+    // a luz que faz sombra nunca fica rasante: com o sol quase no horizonte cada degrau do morro
+    // jogava uma faixa escura comprida no chão. O disco do sol no céu continua no lugar certo.
+    luzDir.copy(fonte);
+    if (luzDir.y < ELEV_MIN) {
+      const h = Math.hypot(luzDir.x, luzDir.z) || 1, k = Math.sqrt(1 - ELEV_MIN * ELEV_MIN) / h;
+      luzDir.set(luzDir.x * k, ELEV_MIN, luzDir.z * k);
     }
+    // a área da sombra fica um pouco à frente do jogador (onde ele está olhando)
+    const R = q.area || 30;
+    camera.getWorldDirection(olhar); olhar.y = 0;
+    if (olhar.lengthSq() > 1e-6) olhar.normalize();
+    centro.copy(foco).addScaledVector(olhar, R * 0.4);
+    if (q.sombra) {
+      // "grudada" nos pixels do mapa de sombra, medidos na direção da luz: a borda da sombra não treme ao andar
+      const passo = (2 * R) / q.sombra;
+      rotLuz.lookAt(luzDir, ZERO, CIMA);
+      eixoX.setFromMatrixColumn(rotLuz, 0); eixoY.setFromMatrixColumn(rotLuz, 1);
+      const ax = centro.dot(eixoX), ay = centro.dot(eixoY);
+      centro.addScaledVector(eixoX, Math.round(ax / passo) * passo - ax).addScaledVector(eixoY, Math.round(ay / passo) * passo - ay);
+    }
+    sol.target.position.copy(centro);
+    sol.position.copy(centro).addScaledVector(luzDir, DIST_SOL);
+    sol.target.updateMatrixWorld();
+    if (q.sombra && pulos++ >= (q.pular || 0)) { pulos = 0; renderer.shadowMap.needsUpdate = true; }
 
     ceu.position.copy(camera.position);
 
