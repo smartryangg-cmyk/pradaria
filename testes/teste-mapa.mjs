@@ -6,7 +6,8 @@ const p = await (await b.newContext({ viewport: { width: 1024, height: 700 }, ha
 const erros = []; p.on('pageerror', (e) => erros.push('PAGEERROR ' + e.message)); p.on('console', (m) => { if (m.type() === 'error') erros.push(m.text()); });
 await p.addInitScript(() => { window.__semAuto = true; });
 await p.goto(URL); await p.evaluate(() => localStorage.clear()); await p.reload();
-await p.click('#bt-sozinho'); await p.waitForTimeout(5000);
+const entrar = async () => { await p.click('#bt-sozinho'); await p.waitForTimeout(300); if (await p.isVisible('#m-novo')) await p.click('#m-novo button[type=submit]'); };
+await entrar(); await p.waitForTimeout(5000);
 const mini = await p.evaluate(() => ({ visivel: !document.querySelector('#minimapa').hidden, pedacos: window.__jogo.mapa.pedacos.size }));
 console.log('minimapa', JSON.stringify(mini));
 await p.screenshot({ path: SAIDA + '/mapa-jogo.png' });
@@ -21,7 +22,7 @@ await p.screenshot({ path: SAIDA + '/mapa-com-marca.png' });
 await p.click('#bt-menu'); await p.uncheck('#aj-minimapa'); await p.click('#pausa [data-fechar]');
 const desl = await p.evaluate(() => ({ escondido: document.querySelector('#minimapa').hidden, salvo: JSON.parse(localStorage.getItem('pradaria.ajustes')).minimapa }));
 console.log('desligado', JSON.stringify(desl));
-await p.reload(); await p.click('#bt-sozinho'); await p.waitForTimeout(2500);
+await p.reload(); await entrar(); await p.waitForTimeout(2500);
 console.log('depois de recarregar, escondido =', await p.evaluate(() => document.querySelector('#minimapa').hidden));
 await b.close();
 console.log(erros.length ? erros.join('\n') : 'sem erros');

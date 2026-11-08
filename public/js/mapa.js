@@ -177,15 +177,11 @@ export class Mapa {
     } else if (x < m || y < m || x > w - m || y > h - m) {
       x = Math.max(m, Math.min(w - m, x)); y = Math.max(m, Math.min(h - m, y)); fora = true;
     }
+    // ícone "pino" (a ponta fica embaixo, no lugar marcado)
+    const t = tam * 2.6;
     ctx.save();
     ctx.globalAlpha = fora ? 0.85 : 1;
-    ctx.beginPath();
-    ctx.arc(x, y - tam * 0.9, tam * 0.65, Math.PI * 0.85, Math.PI * 2.15);
-    ctx.lineTo(x, y);
-    ctx.closePath();
-    ctx.fillStyle = '#ffcc00'; ctx.fill();
-    ctx.lineWidth = Math.max(1.5, tam * 0.18); ctx.strokeStyle = '#7a4b00'; ctx.stroke();
-    ctx.beginPath(); ctx.arc(x, y - tam * 0.9, tam * 0.22, 0, Math.PI * 2); ctx.fillStyle = '#7a4b00'; ctx.fill();
+    ctx.drawImage(texturaIcone('pino').image, x - t / 2, y - t * 0.92, t, t);
     ctx.restore();
   }
 
@@ -294,7 +290,7 @@ export class Mapa {
     g.menos.addEventListener('click', () => { this.zoom = Math.max(0.5, this.zoom / 1.5); redesenhar(); });
     g.centrar.addEventListener('click', () => { this.centro = null; redesenhar(); });
     g.limpar.addEventListener('click', () => { this.marca = null; this.salvarMarca(); redesenhar(); });
-    // arrastar para passear pelo mapa; tocar sem arrastar marca um ponto 📍
+    // arrastar para passear pelo mapa; tocar sem arrastar marca um ponto
     const toques = new Map();
     let arrastou = false, distPinca = 0;
     cv.addEventListener('pointerdown', (e) => {
