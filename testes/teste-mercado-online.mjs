@@ -24,7 +24,7 @@ conferir(await a.evaluate(() => window.__jogo.mercado.op.mercado && window.__jog
 conferir((await est(a)).moedas === 10, 'servidor deu 10 moedas iniciais');
 // coloca 10 blocos e quebra 3 do chão
 await a.evaluate(() => {
-  const { mundo, jog } = window.__jogo; const x = Math.floor(jog.pos.x) + 3, z = Math.floor(jog.pos.z);
+  const { mundo: m0, jog, comoJogador } = window.__jogo; const mundo = { alturaEm: (...a) => m0.alturaEm(...a), bloco: (...a) => m0.bloco(...a), definir: (...a) => comoJogador(() => m0.definir(...a)), vilas: m0.vilas }; const x = Math.floor(jog.pos.x) + 3, z = Math.floor(jog.pos.z);
   for (let i = 0; i < 10; i++) mundo.definir(x, 40 + i, z, 1);
   // 3 blocos sólidos do chão que ninguém mexeu ainda
   let n = 0;

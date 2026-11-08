@@ -19,7 +19,7 @@ conferir(await p.isVisible('#econ .econ-alvo'), 'objetivo aparece no HUD');
 await p.screenshot({ path: SAIDA + '/mercado-hud.png' });
 // coloca 10 blocos de grama empilhados no alto
 await p.evaluate(() => {
-  const { mundo, jog } = window.__jogo;
+  const { mundo: m0, jog, comoJogador } = window.__jogo; const mundo = { alturaEm: (...a) => m0.alturaEm(...a), bloco: (...a) => m0.bloco(...a), definir: (...a) => comoJogador(() => m0.definir(...a)), vilas: m0.vilas };
   const x = Math.floor(jog.pos.x) + 3, z = Math.floor(jog.pos.z);
   for (let i = 0; i < 10; i++) mundo.definir(x, 52 + i, z, 1);
 });
@@ -30,7 +30,7 @@ conferir((e.cont.alto || 0) >= 1, 'contou bloco no alto');
 await p.screenshot({ path: SAIDA + '/mercado-festa.png' });
 // quebra 3 blocos naturais (coleta) e 1 colocado (não coleta)
 await p.evaluate(() => {
-  const { mundo, jog } = window.__jogo;
+  const { mundo: m0, jog, comoJogador } = window.__jogo; const mundo = { alturaEm: (...a) => m0.alturaEm(...a), bloco: (...a) => m0.bloco(...a), definir: (...a) => comoJogador(() => m0.definir(...a)), vilas: m0.vilas };
   const x = Math.floor(jog.pos.x) + 3, z = Math.floor(jog.pos.z);
   mundo.definir(x, 61, z, 0); // colocado
   for (let i = 0; i < 3; i++) { const h = mundo.alturaEm(x + 2 + i, z); mundo.definir(x + 2 + i, h, z, 0); }
