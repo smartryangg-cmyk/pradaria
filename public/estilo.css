@@ -328,3 +328,4 @@ details.mais[open] { display: flex; flex-direction: column; gap: 10px; padding-b
 .festa-card em { display: flex; align-items: center; gap: 4px; } .festa-card em .ic-svg { font-size: 22px; }
 .econ-dir .ic-svg { font-size: 18px; }
 @media (max-width: 640px) { #econ { top: calc(max(10px, env(safe-area-inset-top)) + 58px); } .econ-alvo { font-size: 12px; } }
+#mapa-ilha canvas { width: 100%; height: auto; aspect-ratio: 1; border: 3px solid var(--txt); border-radius: 16px; background: #2f6fb0; image-rendering: pixelated; }

@@ -11,11 +11,13 @@ import { Som } from './som.js';
 import { montarBoneco, etiqueta, matModelo, caixa, juntar } from './modelos.js';
 import { conta, api, Sala } from './rede.js';
 import { criarGraficos, QUALIDADES, PESSOAIS } from './graficos.js';
+import { MapaIlha } from './mapa-ilha.js';
+import { ICONE_LUGAR } from './ilha-aventura.js';
 import { icone, preencherIcones, comIcone, nomeEmote } from './icones.js';
 import { Escavacao } from './escavar.js';
 import { Fisica } from './fisica.js';
 import { criarComandos } from './comandos.js';
-import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto } from './opcoes-mundo.js';
+import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto, raioExtraMundo } from './opcoes-mundo.js';
 import { Monstros } from './monstros.js';
 import { vida } from './vida.js';
 import { Mapa } from './mapa.js';
@@ -200,7 +202,7 @@ function abrirPausa() {
   pausado = true;
 }
 function fecharJanelas() {
-  $('#inventario').hidden = true; $('#pausa').hidden = true; $('#mapa').hidden = true;
+  $('#inventario').hidden = true; $('#pausa').hidden = true; $('#mapa').hidden = true; $('#mapa-ilha').hidden = true;
   if (cmd) cmd.fechar();
   mercado.fechar(true);
   pausado = false;
@@ -208,6 +210,23 @@ function fecharJanelas() {
 document.querySelectorAll('[data-aba]').forEach((b) => b.addEventListener('click', () => { abaInv = b.dataset.aba; som.clique(); abrirInventario(); }));
 document.querySelectorAll('[data-fechar]').forEach((b) => b.addEventListener('click', fecharJanelas));
 $('#bt-menu').addEventListener('click', abrirPausa);
+// ---------- Ilha de Aventura: mapa e nome dos lugares ----------
+const mapaIlha = new MapaIlha($('#mapa-ilha'));
+function abrirMapaIlha() {
+  if (!mundo || !mundo.aventura) return;
+  som.iniciar(); som.clique();
+  mapaIlha.preparar(mundo.aventura);
+  mapaIlha.desenhar({ x: jog.pos.x, z: jog.pos.z, yaw: jog.yaw }, [...outros.values()].map((o) => ({ x: o.grupo.position.x, z: o.grupo.position.z })));
+  $('#mapa-ilha').hidden = false; pausado = true;
+}
+$('#bt-mapa-ilha').addEventListener('click', abrirMapaIlha);
+let lugarAtual = null;
+function verLugar() {
+  const L = mundo.aventura.lugarEm(jog.pos.x, jog.pos.z);
+  if (L === lugarAtual) return;
+  lugarAtual = L;
+  if (L && !jog.planando) aviso(L.nome, 2600, ICONE_LUGAR[L.tipo] || 'pino');
+}
 // ---------- tela cheia ----------
 const el = document.documentElement;
 const pedirTela = el.requestFullscreen || el.webkitRequestFullscreen;
@@ -265,7 +284,7 @@ addEventListener('keydown', (e) => {
   else if (e.code === 'KeyM') { if (!$('#mapa').hidden) fecharJanelas(); else if (!pausado) mapa.abrir(); }
 });
 // mundo pequeno/médio: como acaba no mar, dá para enxergar mais longe sem pesar
-const raioVisao = () => Math.min(9, ajustes.dist + TAMANHOS[opcoesMundo.tamanho].raioExtra);
+const raioVisao = () => Math.min(9, ajustes.dist + raioExtraMundo());
 $('#aj-dist').addEventListener('input', (e) => { ajustes.dist = +e.target.value; if (mundo) mundo.raio = raioVisao(); salvarAjustes(); ajustarNevoa(); });
 $('#aj-graf').addEventListener('change', (e) => {
   ajustes.graf = e.target.value;
@@ -548,6 +567,7 @@ function removerOutro(id) {
 
 // ---------- iniciar / sair ----------
 function acharInicio() {
+  if (mundo.aventura) return mundo.aventura.inicio();
   // começa na rua da vila que fica perto do meio do mundo
   const v = mundo.vilas.regiao(0, 0);
   if (v && v.ruas.length) {
@@ -614,8 +634,15 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   jog = new Jogador(mundo);
   let avisoBorda = 0;
   jog.aoBorda = () => { if (tempoTotal - avisoBorda > 6) { avisoBorda = tempoTotal; aviso('Aqui é o fim do mundo! Só mar daqui pra frente', 2200, 'gota'); } };
+  lugarAtual = null;
+  $('#bt-mapa-ilha').hidden = !mundo.aventura;
   if (pos) Object.assign(jog.pos, { x: pos[0], y: pos[1], z: pos[2] });
-  else Object.assign(jog.pos, acharInicio());
+  else {
+    const ini = acharInicio();
+    Object.assign(jog.pos, { x: ini.x, y: ini.y, z: ini.z });
+    // Ilha de Aventura: começa lá no alto e desce planando, escolhendo onde pousar
+    if (ini.planar) { jog.planando = true; setTimeout(() => aviso('Escolha onde pousar! Ande para planar até lá', 4000, 'voar'), 600); }
+  }
   jog.yaw = yaw;
   if (!ctrl) {
     ctrl = new Controles(canvas, jog, {
@@ -807,13 +834,13 @@ async function abrirMundos() {
 }
 
 // ---------- criar mundo: nome + opções (o que vai ter no mundo) + semente ----------
-const iconesOpcoes = (o) => { const n = normalizarOpcoes(o); return (n.tipo !== 'normal' ? icone(TIPOS[n.tipo].icone, 'ic-svg ic-mini') : '') + icone(TAMANHOS[n.tamanho].icone, 'ic-svg ic-mini') + OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => icone(x.icone, 'ic-svg ic-mini')).join(''); };
+const iconesOpcoes = (o) => { const n = normalizarOpcoes(o); return (n.tipo !== 'normal' ? icone(TIPOS[n.tipo].icone, 'ic-svg ic-mini') : '') + (TIPOS[n.tipo].limite ? '' : icone(TAMANHOS[n.tamanho].icone, 'ic-svg ic-mini')) + OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => icone(x.icone, 'ic-svg ic-mini')).join(''); };
 function resumoOpcoes(o) {
   const n = normalizarOpcoes(o);
   const t = TAMANHOS[n.tamanho];
   const com = OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => x.nome);
   const sem = OPCOES_MUNDO.filter((x) => !n[x.id]).map((x) => x.nome.toLowerCase());
-  return (n.tipo !== 'normal' ? TIPOS[n.tipo].nome + ' · ' : '') + `Mundo ${t.nome.toLowerCase()} · ` + (com.join(', ') || 'só blocos') + (sem.length ? ' · sem ' + sem.join(', ') : '');
+  return (n.tipo !== 'normal' ? TIPOS[n.tipo].nome + ' · ' : '') + (TIPOS[n.tipo].limite ? '' : `Mundo ${t.nome.toLowerCase()} · `) + (com.join(', ') || 'só blocos') + (sem.length ? ' · sem ' + sem.join(', ') : '');
 }
 let escolhaNovo = { ...PADRAO_NOVO };
 function desenharOpcoesNovo() {
@@ -863,6 +890,9 @@ function desenharOpcoesNovo() {
   marcarTamanho();
 }
 function marcarTamanho() {
+  // tipos com tamanho fixo (a Ilha de Aventura) escondem a escolha de tamanho
+  const fixo = !!TIPOS[escolhaNovo.tipo]?.limite;
+  $('#n-tamanhos').hidden = fixo; $('#n-tamanhos-titulo').hidden = fixo;
   for (const b of $('#n-tamanhos').children) { const sel = b.dataset.tamanho === escolhaNovo.tamanho; b.setAttribute('aria-pressed', String(sel)); b.setAttribute('aria-checked', String(sel)); }
   for (const b of $('#n-tipos').children) { const sel = b.dataset.tipo === escolhaNovo.tipo; b.setAttribute('aria-pressed', String(sel)); b.setAttribute('aria-checked', String(sel)); }
   // alguns tipos não têm monstrinhos (ex.: Linha do Tempo)
@@ -944,6 +974,7 @@ function laco(agora) {
 
   escav.atualizar(dt, jog.pos.x, jog.pos.z);
   fisica.atualizar(dt);
+  if (mundo.aventura) verLugar();
   // partículas de quebra
   for (let i = partQ.length - 1; i >= 0; i--) {
     const q = partQ[i];
