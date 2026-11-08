@@ -266,13 +266,13 @@ details.mais[open] { display: flex; flex-direction: column; gap: 10px; padding-b
 
 
 /* minimapa e mapa grande */
-#minimapa { position: absolute; top: calc(max(10px, env(safe-area-inset-top)) + 66px); right: max(10px, env(safe-area-inset-right)); width: 124px; height: 124px; padding: 0; border-radius: 50%; border: 3px solid var(--txt); background: #26394d; box-shadow: 0 4px 0 var(--txt); overflow: hidden; cursor: pointer; }
+#minimapa { position: absolute; top: calc(max(10px, env(safe-area-inset-top)) + 70px); right: max(10px, env(safe-area-inset-right)); width: 124px; height: 124px; padding: 0; border-radius: 50%; border: 3px solid var(--txt); background: #26394d; box-shadow: 0 4px 0 var(--txt); overflow: hidden; cursor: pointer; }
 #minimapa canvas { width: 100%; height: 100%; display: block; border-radius: 50%; }
 #minimapa:active { transform: translateY(2px); }
 .norte { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); font: 900 11px system-ui, sans-serif; color: #fff; text-shadow: 0 1px 2px #000; pointer-events: none; }
 @media (max-width: 640px) { #minimapa { width: 96px; height: 96px; } }
 /* celular deitado: os botões de pular/voar ocupam a direita, então o minimapa vai para a esquerda */
-@media (max-height: 480px) { #minimapa { width: 84px; height: 84px; right: auto; left: max(10px, env(safe-area-inset-left)); top: calc(max(10px, env(safe-area-inset-top)) + 62px); } }
+@media (max-height: 480px) { #minimapa { width: 84px; height: 84px; right: auto; left: max(10px, env(safe-area-inset-left)); top: calc(max(10px, env(safe-area-inset-top)) + 72px); } }
 .mapa-caixa { width: min(900px, 100%); height: min(92vh, 900px); padding: 14px; gap: 8px; }
 .mapa-topo { display: flex; align-items: center; justify-content: space-between; }
 .mapa-topo .bt { padding: 9px 16px; }
