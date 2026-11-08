@@ -10,6 +10,8 @@ await p.goto(URL);
 await p.evaluate((g) => { localStorage.clear(); if (g) localStorage.setItem('pradaria.ajustes', JSON.stringify({ graf: g })); }, process.env.GRAF || '');
 await p.reload();
 await p.click('#bt-sozinho');
+// sem mundo salvo, "Jogar sem conta" abre primeiro a tela de criar mundo
+if (await p.isVisible('#m-novo')) await p.click('#m-novo button[type=submit]');
 await p.waitForTimeout(7000);
 const tag = process.env.TAG || 'x';
 for (const [nome, dia, pitch, yaw] of [['meiodia', 0.2, -0.2, 0.8], ['tarde', 0.485, -0.1, 3.3], ['noite', 0.7, -0.05, 2.0]]) {

@@ -9,6 +9,8 @@ p.on('console', (m) => { if (m.type() === 'error') erros.push(m.text()); });
 await p.goto(URL);
 await p.evaluate((sem) => { localStorage.clear(); if (sem) localStorage.setItem('pradaria.local', JSON.stringify({ semente: +sem, edicoes: [] })); }, process.env.SEMENTE || '');
 await p.click('#bt-sozinho');
+// sem mundo salvo, "Jogar sem conta" abre primeiro a tela de criar mundo
+if (await p.isVisible('#m-novo')) await p.click('#m-novo button[type=submit]');
 await p.waitForTimeout(4000);
 const info = await p.evaluate(() => {
   const { mundo, jog } = window.__jogo;

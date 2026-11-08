@@ -6,6 +6,8 @@ const erros = []; p.on('pageerror', (e) => erros.push(e.message));
 await p.goto('http://localhost:8788/#teste');
 await p.evaluate(() => localStorage.clear());
 await p.click('#bt-sozinho');
+// sem mundo salvo, "Jogar sem conta" abre primeiro a tela de criar mundo
+if (await p.isVisible('#m-novo')) await p.click('#m-novo button[type=submit]');
 await p.waitForTimeout(3000);
 const r = await p.evaluate(async () => {
   const { jog, bichos, mundo } = window.__jogo;
