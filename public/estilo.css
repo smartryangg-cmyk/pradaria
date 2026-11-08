@@ -29,6 +29,7 @@ button { font-family: inherit; color: inherit; }
 #mira::before { left: 10px; top: 0; width: 2px; height: 22px; }
 #mira::after { top: 10px; left: 0; height: 2px; width: 22px; }
 body.toque #mira { display: none; }
+body.visao-frente #mira { display: none; }
 
 #topo { position: absolute; top: max(10px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left)); right: max(10px, env(safe-area-inset-right)); display: flex; align-items: center; gap: 10px; }
 #status-linha { flex: 1; min-width: 0; display: flex; }

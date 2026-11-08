@@ -31,6 +31,7 @@ Jogo de construir e explorar, **pacífico** (só bichinhos, nada de monstros), q
 | ⬆ pular · 🕊️ voar · ⬇ descer | Espaço · espaço duas vezes ou F · Shift |
 | Barra de baixo e ＋: escolher blocos | 1–9, rodinha, E |
 | 🧭: comandos (teleporte, casa, amigos, hora) | C |
+| Botão da câmera: ver o próprio boneco (olhos → de trás → de frente) | R (ou F5) |
 | 🚗 garagem · toque no veículo ou "Entrar" · 🚪 Descer · 📯 buzina | G · V · V · H |
 | No veículo: joystick dirige; ⬆ ⬇ sobem e descem avião/helicóptero | WASD; Espaço/Shift |
 
