@@ -83,12 +83,6 @@ body:not(.toque) #botoes-toque, body:not(.toque) #dica-toque { display: none; }
 .girando { width: 46px; height: 46px; margin: 10px auto; border: 6px solid #cfe9c0; border-top-color: var(--verde); border-radius: 50%; animation: gira 1s linear infinite; }
 @keyframes gira { to { transform: rotate(360deg); } }
 
-/* v2: botões de ação e velocímetro */
-#botoes-acao { position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: 210px; display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
-body:not(.toque) #botoes-acao { bottom: 24px; }
-.pilula { border: 0; border-radius: 999px; padding: 14px 22px; font: inherit; font-size: 20px; font-weight: 900; background: #ffe066; color: #3b2f22; box-shadow: var(--sombra); pointer-events: auto; }
-.pilula:active { transform: translateY(3px); box-shadow: 0 3px 0 rgba(0,0,0,.18); }
-#velo { position: absolute; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%); background: rgba(0,0,0,.45); color: #fff; border-radius: 16px; padding: 6px 16px; display: flex; align-items: baseline; gap: 6px; }
-#velo b { font-size: 30px; font-variant-numeric: tabular-nums; } #velo small { opacity: .8; }
-#botoes-toque { bottom: 60px; }
-#dica-toque { bottom: 20px; }
+/* v3: vinheta suave (efeito de câmera, de graça) e seletor de gráficos */
+#vinheta { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(10,20,40,.28) 100%); }
+.campo select { font: inherit; font-size: 16px; padding: 10px; border-radius: 12px; border: 2px solid #e2d6bf; background: #fff; }

@@ -33,14 +33,21 @@ export class Sala {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(`${proto}//${location.host}/api/sala/${encodeURIComponent(this.codigo)}?t=${encodeURIComponent(conta.token || '')}`);
     this.ws = ws;
-    ws.onopen = () => { this.tentativas = 0; this.h.status && this.h.status('online'); };
+    ws.onopen = () => { this.tentativas = 0; this.abriu = true; this.h.status && this.h.status('online'); };
     ws.onmessage = (ev) => {
       let m; try { m = JSON.parse(ev.data); } catch { return; }
+      if (m.t === 'erro' && m.fim) { this.fechada = true; this.h.fim && this.h.fim(m.msg); return; }
       const fn = this.h[m.t];
       if (fn) fn(m);
     };
-    ws.onclose = () => {
+    ws.onclose = (ev) => {
       if (this.fechada) return;
+      // recusado de vez (sala cheia, outro aparelho) ou nunca conseguiu entrar (login vencido): para de tentar
+      if (ev.code >= 4000 || (!this.abriu && this.tentativas >= 4)) {
+        this.fechada = true;
+        this.h.fim && this.h.fim(this.abriu ? 'A conexão com o mundo caiu.' : 'Não consegui entrar neste mundo. Entre na conta de novo.');
+        return;
+      }
       this.h.status && this.h.status('reconectando');
       const espera = Math.min(15000, 1000 * 2 ** this.tentativas++);
       setTimeout(() => !this.fechada && this.conectar(), espera);

@@ -3,16 +3,10 @@ import { DurableObject } from 'cloudflare:workers';
 
 const MAX_BLOCO = 23;
 const MAX_JOGADORES = 12;
-const EMOTES = new Set(['👋', '❤️', '😄', '⭐', '📯']);
-const MODELOS = new Set(['compacto', 'sedan', 'picape', 'van', 'esportivo']);
-// carro do jogador: [modelo, cor, inclinação, rolagem, id do carro estacionado] ou null
-function carroValido(c) {
-  if (!Array.isArray(c) || c.length < 4 || c.length > 5 || !MODELOS.has(c[0])) return null;
-  const cor = Number.isInteger(c[1]) && c[1] >= 0 && c[1] <= 0xffffff ? c[1] : 0xffffff;
-  const ang = (v) => (Number.isFinite(v) ? Math.max(-1, Math.min(1, Math.round(v * 100) / 100)) : 0);
-  const id = typeof c[4] === 'string' && /^-?\d{1,4},-?\d{1,4},\d{1,2}$/.test(c[4]) ? c[4] : '';
-  return [c[0], cor, ang(c[2]), ang(c[3]), id];
-}
+const EMOTES = new Set(['👋', '❤️', '😄', '⭐']);
+const MAX_EDICOES = 200000; // por mundo
+const LONGE = 100000; // ninguém precisa ir mais longe que isso
+const MSG_POR_SEG = 20;
 
 export class Sala extends DurableObject {
   constructor(ctx, env) {
@@ -53,10 +47,24 @@ export class Sala extends DurableObject {
       this.info = { codigo: mundo.codigo, semente: mundo.semente, inicio: Date.now() };
       await this.ctx.storage.put('info', this.info);
     }
-    if (this.ctx.getWebSockets().length >= MAX_JOGADORES) return new Response('sala cheia', { status: 503 });
-
     const par = new WebSocketPair();
     const [cliente, servidor] = Object.values(par);
+    // o mesmo login em outro aparelho/aba: a conexão antiga sai
+    for (const ws of this.ctx.getWebSockets()) {
+      const j = ws.deserializeAttachment();
+      if (j && j.uid === u.id) {
+        try { ws.send(JSON.stringify({ t: 'erro', fim: true, msg: 'Você entrou neste mundo em outro lugar.' })); } catch {}
+        ws.serializeAttachment(null);
+        try { ws.close(4001, 'outro lugar'); } catch {}
+        this.enviarTodos({ t: 'saiu', id: j.id }, ws);
+      }
+    }
+    if (this.ctx.getWebSockets().filter((w) => w.deserializeAttachment()).length >= MAX_JOGADORES) {
+      servidor.accept();
+      servidor.send(JSON.stringify({ t: 'erro', fim: true, msg: 'Este mundo está cheio agora. Tente daqui a pouco!' }));
+      servidor.close(4003, 'cheia');
+      return new Response(null, { status: 101, webSocket: cliente });
+    }
     const id = u.id + '-' + Math.random().toString(36).slice(2, 7);
     const pos = (await this.ctx.storage.get('p:' + u.id)) || null;
     const eu = { id, uid: u.id, nome: u.nome, cor: u.cor, p: pos || [0, 60, 0], r: [0, 0], cota: 0, janela: 0 };
@@ -69,7 +77,7 @@ export class Sala extends DurableObject {
     const dia = (((Date.now() - this.info.inicio) / 600000) + 0.3) % 1;
     servidor.send(JSON.stringify({
       t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia,
-      jogadores: this.jogadores().filter((j) => j.id !== id).map(({ id, nome, cor, p, r, c }) => ({ id, nome, cor, p, r, c })),
+      jogadores: this.jogadores().filter((j) => j.id !== id).map(({ id, nome, cor, p, r }) => ({ id, nome, cor, p, r })),
     }));
     this.enviarTodos({ t: 'entrou', j: { id, nome: u.nome, cor: u.cor, p: eu.p, r: eu.r } }, servidor);
     return new Response(null, { status: 101, webSocket: cliente });
@@ -80,18 +88,26 @@ export class Sala extends DurableObject {
     let m; try { m = JSON.parse(dados); } catch { return; }
     const eu = ws.deserializeAttachment();
     if (!eu) return;
+    if (m.t === 'pos' || m.t === 'emote') {
+      // balde simples por conexão (fica na memória)
+      if (!this.taxa) this.taxa = new Map();
+      const agora = Date.now();
+      let t = this.taxa.get(eu.id);
+      if (!t || agora - t.ini > 1000) { t = { ini: agora, n: 0 }; this.taxa.set(eu.id, t); }
+      if (++t.n > MSG_POR_SEG) return;
+    }
     if (m.t === 'pos' && Array.isArray(m.p) && m.p.length === 3 && m.p.every(Number.isFinite)) {
+      if (Math.abs(m.p[0]) > LONGE || Math.abs(m.p[2]) > LONGE || m.p[1] < -64 || m.p[1] > 512) return;
       eu.p = m.p.map((v) => Math.round(v * 100) / 100);
       eu.r = Array.isArray(m.r) ? m.r.slice(0, 2).map((v) => (Number.isFinite(v) ? v : 0)) : [0, 0];
-      eu.c = carroValido(m.c);
       ws.serializeAttachment(eu);
-      this.enviarTodos({ t: 'pos', id: eu.id, p: eu.p, r: eu.r, c: eu.c }, ws);
+      this.enviarTodos({ t: 'pos', id: eu.id, p: eu.p, r: eu.r }, ws);
       const agora = Date.now();
       if (!eu.salvoEm || agora - eu.salvoEm > 10000) { eu.salvoEm = agora; ws.serializeAttachment(eu); await this.ctx.storage.put('p:' + eu.uid, eu.p); }
     } else if (m.t === 'bloco') {
       const { x, y, z, b } = m;
       if (![x, y, z, b].every(Number.isInteger) || y < 1 || y > 63 || b < 0 || b > MAX_BLOCO) return;
-      if (Math.abs(x) > 1e6 || Math.abs(z) > 1e6) return;
+      if (Math.abs(x) > LONGE || Math.abs(z) > LONGE) return;
       // limite: 25 blocos por segundo por jogador
       const agora = Date.now();
       if (agora - eu.janela > 1000) { eu.janela = agora; eu.cota = 0; }
@@ -99,6 +115,7 @@ export class Sala extends DurableObject {
       ws.serializeAttachment(eu);
       const ed = await this.carregarEdicoes();
       const k = x + ',' + y + ',' + z;
+      if (!ed.has(k) && ed.size >= MAX_EDICOES) return;
       ed.set(k, b);
       await this.ctx.storage.put('b:' + k, b);
       this.enviarTodos({ t: 'bloco', x, y, z, b }, ws);
@@ -112,6 +129,7 @@ export class Sala extends DurableObject {
 
   async sair(ws) {
     const eu = ws.deserializeAttachment();
+    if (eu && this.taxa) this.taxa.delete(eu.id);
     try { ws.close(1000, 'tchau'); } catch {}
     if (!eu) return;
     await this.ctx.storage.put('p:' + eu.uid, eu.p);
