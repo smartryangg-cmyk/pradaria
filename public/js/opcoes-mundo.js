@@ -52,6 +52,7 @@ export function normalizarOpcoes(o) {
     if (typeof o.tipo === 'string' && Object.prototype.hasOwnProperty.call(TIPOS, o.tipo)) r.tipo = o.tipo;
   }
   if (TIPOS[r.tipo].semMonstros) r.monstros = false;
+  if (!r.monstros) r.monstrosMachucam = false;
   return r;
 }
 

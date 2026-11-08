@@ -808,8 +808,11 @@ function marcarTamanho() {
   for (const b of $('#n-tamanhos').children) { const sel = b.dataset.tamanho === escolhaNovo.tamanho; b.setAttribute('aria-pressed', String(sel)); b.setAttribute('aria-checked', String(sel)); }
   for (const b of $('#n-tipos').children) { const sel = b.dataset.tipo === escolhaNovo.tipo; b.setAttribute('aria-pressed', String(sel)); b.setAttribute('aria-checked', String(sel)); }
   // alguns tipos não têm monstrinhos (ex.: Linha do Tempo)
-  const mb = $('#n-lista [data-opcao="monstros"]');
-  if (mb) { const sem = !!TIPOS[escolhaNovo.tipo].semMonstros; mb.disabled = sem; if (sem) { escolhaNovo.monstros = false; mb.setAttribute('aria-pressed', 'false'); } }
+  const sem = !!TIPOS[escolhaNovo.tipo].semMonstros;
+  for (const id of ['monstros', 'monstrosMachucam']) {
+    const mb = $(`#n-lista [data-opcao="${id}"]`);
+    if (mb) { mb.disabled = sem; if (sem) { escolhaNovo[id] = false; mb.setAttribute('aria-pressed', 'false'); } }
+  }
 }
 let modoNovo = 'criar';
 function abrirNovo(modoN) {
