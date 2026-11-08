@@ -13,6 +13,8 @@ import { criarGraficos, QUALIDADES, PESSOAIS } from './graficos.js';
 import { icone, preencherIcones, comIcone, nomeEmote } from './icones.js';
 import { Escavacao } from './escavar.js';
 import { criarComandos } from './comandos.js';
+import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto } from './opcoes-mundo.js';
+import { Monstros } from './monstros.js';
 
 const $ = (s) => document.querySelector(s);
 preencherIcones();
@@ -90,7 +92,7 @@ cena.add(contorno);
 
 // ---------- estado do jogo ----------
 const som = new Som();
-let mundo = null, jog = null, ctrl = null, bichos = null, aldeoes = null, sala = null, escav = null;
+let mundo = null, jog = null, ctrl = null, bichos = null, aldeoes = null, monstros = null, sala = null, escav = null;
 let jogando = false, pausado = false;
 let modo = 'local', mundoAtual = null;
 let barra = [B.GRAMA, B.TERRA, B.PEDRA, B.TABUAS, B.TRONCO, B.VIDRO, B.TIJOLO, B.LA_VERMELHA, B.FLOR_AMARELA];
@@ -156,6 +158,7 @@ function abrirPausa() {
   $('#aj-dist').value = ajustes.dist; $('#aj-qual').value = ajustes.qual; preencherGraficos(); $('#aj-sens').value = ajustes.sens;
   $('#aj-som').checked = ajustes.som; $('#aj-fps').checked = ajustes.fps;
   $('#pausa-mundo').textContent = modo === 'online' ? `Mundo: ${mundoAtual.nome} · código ${mundoAtual.codigo}` : 'Mundo sem internet (salvo neste aparelho)';
+  $('#pausa-opcoes').textContent = 'Neste mundo: ' + resumoOpcoes(opcoesMundo);
   $('#pausa').hidden = false;
   pausado = true;
 }
@@ -221,7 +224,9 @@ addEventListener('keydown', (e) => {
   else if (e.code === 'KeyP') abrirPausa();
   else if (e.code === 'KeyC' && !pausado && e.target.tagName !== 'INPUT') cmd.abrir();
 });
-$('#aj-dist').addEventListener('input', (e) => { ajustes.dist = +e.target.value; if (mundo) mundo.raio = ajustes.dist; salvarAjustes(); ajustarNevoa(); });
+// mundo pequeno/médio: como acaba no mar, dá para enxergar mais longe sem pesar
+const raioVisao = () => Math.min(9, ajustes.dist + TAMANHOS[opcoesMundo.tamanho].raioExtra);
+$('#aj-dist').addEventListener('input', (e) => { ajustes.dist = +e.target.value; if (mundo) mundo.raio = raioVisao(); salvarAjustes(); ajustarNevoa(); });
 $('#aj-graf').addEventListener('change', (e) => {
   ajustes.graf = e.target.value;
   if (ajustes.graf === 'personalizado' && !ajustes.gopc) ajustes.gopc = { ...QUALIDADES.alta };
@@ -306,8 +311,10 @@ function mirar(ponto, alcance = 6) {
   const o = camera.position;
   const hb = mundo.raycast(o, dir, alcance);
   const ha = bichos.atingir(o, dir, hb ? hb.t + 0.01 : alcance);
-  const hv = aldeoes.atingir(o, dir, ha ? ha.t : hb ? hb.t + 0.01 : alcance);
+  const hm = monstros.atingir(o, dir, ha ? ha.t : hb ? hb.t + 0.01 : alcance);
+  const hv = aldeoes.atingir(o, dir, hm ? hm.t : ha ? ha.t : hb ? hb.t + 0.01 : alcance);
   if (hv) return { bloco: null, bicho: null, aldeao: hv.aldeao };
+  if (hm) return { bloco: null, bicho: null, monstro: hm.monstro };
   return { bloco: ha ? null : hb, bicho: ha ? ha.bicho : null };
 }
 
@@ -315,6 +322,7 @@ function usar(ponto) {
   if (!jogando || pausado) return;
   som.iniciar();
   const m = mirar(ponto);
+  if (m.monstro) { monstros.espantar(m.monstro); return; }
   if (m.bicho) { bichos.carinho(m.bicho); return; }
   if (m.aldeao) { aldeoes.conversar(m.aldeao, jog, Math.sin(tempoDia * Math.PI * 2) < -0.15); return; }
   const h = m.bloco;
@@ -335,6 +343,7 @@ function quebrar(ponto) {
   if (!jogando || pausado) return;
   som.iniciar();
   const m = mirar(ponto);
+  if (m.monstro) { monstros.espantar(m.monstro); return; }
   if (m.bicho) { bichos.carinho(m.bicho); return; }
   if (m.aldeao) { aldeoes.conversar(m.aldeao, jog, Math.sin(tempoDia * Math.PI * 2) < -0.15); return; }
   // com a Água na mão, "quebrar" recolhe a água (como um balde)
@@ -420,7 +429,7 @@ function salvarLocal() {
   if (modo !== 'local' || !mundo) return;
   try {
     localStorage.setItem('pradaria.local', JSON.stringify({
-      semente: mundo.semente, edicoes: mundo.listarEdicoes(), pos: [jog.pos.x, jog.pos.y, jog.pos.z], yaw: jog.yaw, dia: tempoDia, barra,
+      semente: mundo.semente, opcoes: { ...opcoesMundo }, edicoes: mundo.listarEdicoes(), pos: [jog.pos.x, jog.pos.y, jog.pos.z], yaw: jog.yaw, dia: tempoDia, barra,
     }));
   } catch {}
   edicoesPendentes = false;
@@ -435,13 +444,16 @@ function limparMundo() {
   if (escav) { for (const k of [...escav.blocos.keys()]) escav.soltar(k); escav.atualizar(10, 0, 0); }
   if (bichos) for (let i = bichos.lista.length - 1; i >= 0; i--) bichos.remover(i);
   if (aldeoes) aldeoes.limpar();
-  mundo = null; bichos = null; aldeoes = null; escav = null;
+  if (monstros) monstros.limpar();
+  mundo = null; bichos = null; aldeoes = null; monstros = null; escav = null;
 }
 
-function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0 }) {
+function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = null }) {
   limparMundo();
+  definirOpcoesMundo(opcoes); // antes do Mundo: a geração (vilas etc.) já lê as opções
+  if (!opcoesMundo.cicloDia) tempoDia = 0.3;
   mundo = new Mundo(cena, matBlocos, matAgua, semente);
-  mundo.raio = ajustes.dist;
+  mundo.raio = raioVisao();
   escav = new Escavacao(cena, mundo, matBlocos, atlasCanvas);
   mundo.carregarEdicoes(edicoes);
   mundo.aoMudarBloco = (x, y, z, b) => {
@@ -449,6 +461,8 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0 }) {
     if (sala) sala.enviar({ t: 'bloco', x, y, z, b });
   };
   jog = new Jogador(mundo);
+  let avisoBorda = 0;
+  jog.aoBorda = () => { if (tempoTotal - avisoBorda > 6) { avisoBorda = tempoTotal; aviso('Aqui é o fim do mundo! Só mar daqui pra frente', 2200, 'gota'); } };
   if (pos) Object.assign(jog.pos, { x: pos[0], y: pos[1], z: pos[2] });
   else Object.assign(jog.pos, acharInicio());
   jog.yaw = yaw;
@@ -467,6 +481,8 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0 }) {
   bichos = new Bichos(cena, mundo, som);
   aldeoes = new Aldeoes(cena, mundo, som, (...a) => bichos.icone(...a));
   aldeoes.aoEntrarVila = (v) => aviso(v.nome, 2600, 'vila');
+  monstros = new Monstros(cena, mundo, som, bichos);
+  monstros.aoSusto = () => aviso('Buu! Toque no monstrinho para espantar', 1800, 'sorriso');
   som.ligado = ajustes.som;
   ajustarNevoa();
   desenharBarra();
@@ -480,16 +496,29 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0 }) {
   setTimeout(() => { $('#dica-toque').style.opacity = 0; }, 9000);
 }
 
-function jogarLocal() {
-  modo = 'local'; mundoAtual = null;
+// sem internet: continua o mundo salvo; se ainda não tem, ou `novo` vem com as opções escolhidas, cria um
+function jogarLocal(novo = null) {
   let salvo = null;
   try { salvo = JSON.parse(localStorage.getItem('pradaria.local') || 'null'); } catch {}
+  if (!salvo && !novo) { abrirNovo('local'); return; }
+  if (novo) salvo = null;
+  modo = 'local'; mundoAtual = null;
   if (salvo && salvo.barra) barra = salvo.barra;
   if (salvo) tempoDia = salvo.dia ?? 0.3;
   iniciarMundo({ semente: salvo ? salvo.semente : Math.floor(Math.random() * 1e9), edicoes: salvo ? salvo.edicoes : [], pos: salvo && salvo.pos, yaw: salvo ? salvo.yaw : 0 });
   cmd.entrouLocal();
   $('#status').innerHTML = comIcone('casa', 'Sem internet');
   aviso('Bem-vindo à Pradaria!', 2500, 'flor');
+  tempoDia = salvo ? salvo.dia ?? 0.3 : 0.3;
+  iniciarMundo({
+    semente: salvo ? salvo.semente : novo.semente ?? Math.floor(Math.random() * 1e9), edicoes: salvo ? salvo.edicoes : [],
+    pos: salvo && salvo.pos, yaw: salvo ? salvo.yaw : 0,
+    // mundos salvos antes das opções existirem continuam do jeito que eram (sem monstros)
+    opcoes: salvo ? salvo.opcoes || PADRAO_MUNDO : novo.opcoes,
+  });
+  if (novo) salvarLocal();
+  $('#status').textContent = '🏡 Sem internet';
+  aviso('Bem-vindo à Pradaria! 🌼', 2500);
 }
 
 async function jogarOnline(m) {
@@ -506,7 +535,7 @@ async function jogarOnline(m) {
         primeiro = false;
         const s = sala; sala = null; // evita que iniciarMundo feche a sala
         tempoDia = msg.dia ?? 0.3;
-        iniciarMundo({ semente: msg.semente, edicoes: msg.edicoes, pos: msg.pos, yaw: 0 });
+        iniciarMundo({ semente: msg.semente, edicoes: msg.edicoes, pos: msg.pos, yaw: 0, opcoes: msg.opcoes || m.opcoes });
         sala = s;
         cmd.entrouOnline(msg);
         $('#status').innerHTML = comIcone('globo', m.nome);
@@ -574,7 +603,7 @@ $('#bt-criar-conta').addEventListener('click', () => abrirConta('criar'));
 $('#bt-sozinho').addEventListener('click', () => { som.iniciar(); jogarLocal(); });
 $('#bt-sozinho2').addEventListener('click', () => { som.iniciar(); jogarLocal(); });
 document.querySelector('[data-voltar]').addEventListener('click', () => mostrarMenu('m-inicio'));
-document.querySelector('[data-voltar-mundos]').addEventListener('click', () => abrirMundos());
+document.querySelector('[data-voltar-mundos]').addEventListener('click', () => (modoNovo === 'local' && !conta.token ? mostrarMenu('m-inicio') : abrirMundos()));
 $('#m-conta').addEventListener('submit', async (e) => {
   e.preventDefault();
   som.iniciar();
@@ -605,7 +634,7 @@ async function abrirMundos() {
       b.className = 'mundo';
       b.innerHTML = `<span class="ic ${m.dono ? 'meu' : 'amigo'}">${icone(m.dono ? 'casa' : 'amigos')}</span><span class="txt"><b></b><small></small></span>${icone('entrar', 'ic-svg seta')}`;
       b.querySelector('b').textContent = m.nome;
-      b.querySelector('small').textContent = `código ${m.codigo}` + (m.dono ? '' : ` · de ${m.nome_dono}`);
+      b.querySelector('small').textContent = `código ${m.codigo}` + (m.dono ? '' : ` · de ${m.nome_dono}`) + ' · ' + iconesOpcoes(m.opcoes);
       b.addEventListener('click', () => { som.iniciar(); jogarOnline(m); });
       l.appendChild(b);
     }
@@ -616,27 +645,69 @@ async function abrirMundos() {
   }
 }
 
+// ---------- criar mundo: nome + opções (o que vai ter no mundo) + semente ----------
+const iconesOpcoes = (o) => { const n = normalizarOpcoes(o); return TAMANHOS[n.tamanho].nome + ' ' + OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => x.emoji).join(''); };
+function resumoOpcoes(o) {
+  const n = normalizarOpcoes(o);
+  const t = TAMANHOS[n.tamanho];
+  const com = OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => x.emoji + ' ' + x.nome);
+  const sem = OPCOES_MUNDO.filter((x) => !n[x.id]).map((x) => x.nome.toLowerCase());
+  return `${t.emoji} mundo ${t.nome.toLowerCase()} · ` + (com.join(', ') || 'só blocos') + (sem.length ? ' · sem ' + sem.join(', ') : '');
+}
+let escolhaNovo = { ...PADRAO_NOVO };
+function desenharOpcoesNovo() {
+  const lt = $('#n-tamanhos');
+  lt.innerHTML = '';
+  for (const [id, t] of Object.entries(TAMANHOS)) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'opcao-mundo'; b.dataset.tamanho = id; b.setAttribute('role', 'radio');
+    b.innerHTML = '<span class="ic"></span><b></b><small></small>';
+    b.querySelector('.ic').textContent = t.emoji; b.querySelector('b').textContent = t.nome; b.querySelector('small').textContent = t.desc;
+    b.addEventListener('click', () => { escolhaNovo.tamanho = id; marcarTamanho(); som.iniciar(); som.clique(); });
+    lt.appendChild(b);
+  }
+  marcarTamanho();
+  const l = $('#n-lista');
+  l.innerHTML = '';
+  for (const o of OPCOES_MUNDO) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'opcao-mundo'; b.dataset.opcao = o.id;
+    b.setAttribute('aria-pressed', String(!!escolhaNovo[o.id]));
+    b.innerHTML = '<span class="ic"></span><span><b></b><small></small></span>';
+    b.querySelector('.ic').textContent = o.emoji;
+    b.querySelector('b').textContent = o.nome;
+    b.querySelector('small').textContent = o.desc;
+    b.addEventListener('click', () => { escolhaNovo[o.id] = !escolhaNovo[o.id]; b.setAttribute('aria-pressed', String(escolhaNovo[o.id])); som.iniciar(); som.clique(); });
+    l.appendChild(b);
+  }
+}
+function marcarTamanho() {
+  for (const b of $('#n-tamanhos').children) { const sel = b.dataset.tamanho === escolhaNovo.tamanho; b.setAttribute('aria-pressed', String(sel)); b.setAttribute('aria-checked', String(sel)); }
+}
 let modoNovo = 'criar';
-$('#bt-novo-mundo').addEventListener('click', () => {
-  modoNovo = 'criar';
-  $('#novo-titulo').textContent = 'Novo mundo';
-  $('#novo-rotulo').firstChild.textContent = 'Nome do mundo';
-  $('#n-nome').value = ''; $('#n-nome').maxLength = 24; $('#n-erro').textContent = '';
+function abrirNovo(modoN) {
+  modoNovo = modoN;
+  const comOpcoes = modoN !== 'codigo';
+  $('#novo-titulo').textContent = modoN === 'codigo' ? 'Entrar no mundo de um amigo' : modoN === 'local' ? 'Novo mundo sem internet' : 'Novo mundo';
+  $('#novo-rotulo').firstChild.textContent = modoN === 'codigo' ? 'Código do mundo' : 'Nome do mundo';
+  $('#novo-rotulo').hidden = modoN === 'local';
+  $('#n-nome').required = modoN !== 'local';
+  $('#n-nome').value = ''; $('#n-nome').maxLength = modoN === 'codigo' ? 8 : 24; $('#n-erro').textContent = '';
+  $('#m-novo button[type=submit]').textContent = modoN === 'codigo' ? 'Entrar' : 'Criar';
+  $('#n-opcoes').hidden = !comOpcoes;
+  if (comOpcoes) { escolhaNovo = { ...PADRAO_NOVO }; $('#n-semente').value = ''; desenharOpcoesNovo(); }
   mostrarMenu('m-novo');
-});
-$('#bt-codigo').addEventListener('click', () => {
-  modoNovo = 'codigo';
-  $('#novo-titulo').textContent = 'Entrar no mundo de um amigo';
-  $('#novo-rotulo').firstChild.textContent = 'Código do mundo';
-  $('#n-nome').value = ''; $('#n-nome').maxLength = 8; $('#n-erro').textContent = '';
-  mostrarMenu('m-novo');
-});
+}
+$('#bt-novo-mundo').addEventListener('click', () => abrirNovo('criar'));
+$('#bt-codigo').addEventListener('click', () => abrirNovo('codigo'));
 $('#m-novo').addEventListener('submit', async (e) => {
   e.preventDefault();
   $('#n-erro').textContent = '';
+  const semente = $('#n-semente').value.trim();
+  if (modoNovo === 'local') { som.iniciar(); jogarLocal({ opcoes: { ...escolhaNovo }, semente: sementeDeTexto(semente) }); return; }
   try {
     const v = $('#n-nome').value.trim();
-    const r = modoNovo === 'criar' ? await api('mundos', { nome: v }) : await api('mundos/entrar', { codigo: v.toUpperCase() });
+    const r = modoNovo === 'criar' ? await api('mundos', { nome: v, opcoes: { ...escolhaNovo }, semente }) : await api('mundos/entrar', { codigo: v.toUpperCase() });
     som.iniciar();
     jogarOnline(r.mundo);
   } catch (err) { $('#n-erro').textContent = err.message; }
@@ -667,6 +738,7 @@ function laco(agora) {
   mundo.atualizar(jog.pos.x, jog.pos.z, ehToque ? 5 : 8);
   bichos.atualizar(dt, jog, tempoTotal);
   aldeoes.atualizar(dt, jog, Math.sin(tempoDia * Math.PI * 2));
+  monstros.atualizar(pausado ? 0 : dt, jog, tempoDia);
 
   // contorno do bloco mirado
   if (!ehToque || miraToque) {
@@ -698,7 +770,7 @@ function laco(agora) {
   }
 
   // ciclo de dia e noite (a noite é clarinha: nada de medo!)
-  tempoDia = (tempoDia + dt / DURACAO_DIA) % 1;
+  if (opcoesMundo.cicloDia) tempoDia = (tempoDia + dt / DURACAO_DIA) % 1;
   const ang = tempoDia * Math.PI * 2;
   const s = Math.sin(ang); // 0.25 -> 1 (meio-dia), 0.75 -> -1 (meia-noite)
   const luz = THREE.MathUtils.clamp(0.62 + s * 0.6, 0.5, 1);
@@ -758,4 +830,4 @@ camera.position.set(0, 40, 0);
 if (conta.token) abrirMundos(); else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, graf, renderer, ajustes, jogarLocal, usar, quebrar, cmd }; }
+if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, graf, renderer, ajustes, jogarLocal, usar, quebrar, cmd }; }

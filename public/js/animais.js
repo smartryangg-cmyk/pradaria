@@ -3,6 +3,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { ESPECIES, montarBicho } from './modelos.js';
 import { texturaIcone, nomeEmote } from './icones.js';
 import { SOLIDO, AGUA, B } from './blocos.js';
+import { opcoesMundo } from './opcoes-mundo.js';
 
 const MAX = 16;
 const LISTA = ['ovelha', 'ovelha', 'porquinho', 'galinha', 'galinha', 'vaca', 'cachorro', 'capivara', 'coelho', 'coelho'];
@@ -42,7 +43,7 @@ export class Bichos {
   }
 
   tentarSpawn(px, py, pz) {
-    if (this.lista.length >= MAX) return;
+    if (this.lista.length >= MAX || !opcoesMundo.animais) return;
     const ang = Math.random() * Math.PI * 2, dist = 14 + Math.random() * 18;
     const x = Math.floor(px + Math.cos(ang) * dist) + 0.5, z = Math.floor(pz + Math.sin(ang) * dist) + 0.5;
     const yTopo = this.mundo.chao(Math.floor(x), Math.floor(z));

@@ -221,3 +221,16 @@ details.mais[open] { display: flex; flex-direction: column; gap: 10px; padding-b
 .cmd.mini .ic .ic-svg { width: 22px; height: 22px; }
 .cmd.verde .ic .ic-svg { color: #fff; }
 #pedido-tp #pedido-ic .ic-svg { width: 36px; height: 36px; }
+/* ---------- opções do mundo novo ---------- */
+.opcoes-mundo { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.opcao-mundo { display: flex; align-items: center; gap: 8px; text-align: left; border: 3px solid #e2d6bf; border-radius: 14px; padding: 9px 10px; background: #fff; font: inherit; color: var(--txt); cursor: pointer; opacity: .55; transition: opacity .15s, border-color .15s; }
+.opcao-mundo .ic { font-size: 26px; line-height: 1; filter: grayscale(1); }
+.opcao-mundo b { display: block; font-size: 15px; }
+.opcao-mundo small { display: block; font-size: 11.5px; opacity: .75; line-height: 1.2; }
+.opcao-mundo[aria-pressed=true] { opacity: 1; border-color: var(--verde); background: #f1fbe9; }
+.opcao-mundo[aria-pressed=true] .ic { filter: none; }
+.opcao-mundo:active { transform: scale(.97); }
+@media (max-width: 380px) { .opcoes-mundo { grid-template-columns: 1fr; } }
+#m-novo { width: min(520px, 100%); }
+.tamanhos-mundo { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px; }
+.tamanhos-mundo .opcao-mundo { flex-direction: column; text-align: center; gap: 2px; }

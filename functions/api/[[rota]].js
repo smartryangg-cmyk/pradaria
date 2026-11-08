@@ -1,5 +1,6 @@
 // API de contas e mundos.  /api/cadastrar  /api/entrar  /api/eu  /api/mundos  /api/mundos/entrar
 import { json, erro, banco, criarToken, usuarioDa, hashSenha, iguais, limitar, codigoNovo } from '../../lib/base.js';
+import { normalizarOpcoes, sementeDeTexto } from '../../public/js/opcoes-mundo.js';
 
 const NOME_OK = /^[A-Za-zÀ-ÿ0-9_]{3,16}$/;
 
@@ -37,27 +38,29 @@ async function entrar(request, env) {
 
 async function listarMundos(env, u) {
   const db = await banco(env);
-  const { results } = await db.prepare(`SELECT m.codigo, m.nome, (m.dono_id = ?1) AS dono, d.nome AS nome_dono
+  const { results } = await db.prepare(`SELECT m.codigo, m.nome, m.opcoes, (m.dono_id = ?1) AS dono, d.nome AS nome_dono
     FROM membros mb JOIN mundos m ON m.id = mb.mundo_id JOIN usuarios d ON d.id = m.dono_id
     WHERE mb.usuario_id = ?1 ORDER BY mb.entrou_em DESC LIMIT 50`).bind(u.id).all();
-  return results.map((m) => ({ ...m, dono: !!m.dono }));
+  return results.map((m) => ({ ...m, dono: !!m.dono, opcoes: normalizarOpcoes(m.opcoes) }));
 }
 
 async function criarMundo(request, env, u) {
-  const { nome = '' } = await corpo(request);
+  const { nome = '', opcoes = null, semente: sementeTxt = '' } = await corpo(request);
   const n = String(nome).trim().slice(0, 24);
+  const op = normalizarOpcoes(opcoes);
+  const escolhida = sementeDeTexto(String(sementeTxt).slice(0, 40));
   if (n.length < 2) return erro('Dê um nome para o mundo.');
   const db = await banco(env);
   const qtd = await db.prepare('SELECT COUNT(*) AS n FROM mundos WHERE dono_id = ?').bind(u.id).first();
   if (qtd.n >= 10) return erro('Você já tem 10 mundos. Esse é o máximo por enquanto.');
   for (let tent = 0; tent < 5; tent++) {
     const codigo = codigoNovo();
-    const semente = crypto.getRandomValues(new Uint32Array(1))[0] % 1000000000;
+    const semente = escolhida ?? crypto.getRandomValues(new Uint32Array(1))[0] % 1000000000;
     try {
-      const m = await db.prepare('INSERT INTO mundos (codigo, nome, dono_id, semente, criado_em) VALUES (?, ?, ?, ?, ?) RETURNING id, codigo, nome')
-        .bind(codigo, n, u.id, semente, Date.now()).first();
+      const m = await db.prepare('INSERT INTO mundos (codigo, nome, dono_id, semente, criado_em, opcoes) VALUES (?, ?, ?, ?, ?, ?) RETURNING id, codigo, nome')
+        .bind(codigo, n, u.id, semente, Date.now(), JSON.stringify(op)).first();
       await db.prepare('INSERT INTO membros (mundo_id, usuario_id, entrou_em) VALUES (?, ?, ?)').bind(m.id, u.id, Date.now()).run();
-      return json({ mundo: { codigo: m.codigo, nome: m.nome, dono: true, nome_dono: u.nome } });
+      return json({ mundo: { codigo: m.codigo, nome: m.nome, dono: true, nome_dono: u.nome, opcoes: op } });
     } catch (e) { if (!/UNIQUE/i.test(String(e))) throw e; }
   }
   return erro('Não consegui criar agora, tente de novo.', 500);
@@ -66,12 +69,12 @@ async function criarMundo(request, env, u) {
 async function entrarMundo(request, env, u) {
   const { codigo = '' } = await corpo(request);
   const db = await banco(env);
-  const m = await db.prepare('SELECT m.id, m.codigo, m.nome, m.dono_id, d.nome AS nome_dono FROM mundos m JOIN usuarios d ON d.id = m.dono_id WHERE m.codigo = ?')
+  const m = await db.prepare('SELECT m.id, m.codigo, m.nome, m.dono_id, m.opcoes, d.nome AS nome_dono FROM mundos m JOIN usuarios d ON d.id = m.dono_id WHERE m.codigo = ?')
     .bind(String(codigo).toUpperCase().trim()).first();
   if (!m) return erro('Não achei nenhum mundo com esse código.', 404);
   await db.prepare('INSERT INTO membros (mundo_id, usuario_id, entrou_em) VALUES (?, ?, ?) ON CONFLICT (mundo_id, usuario_id) DO UPDATE SET entrou_em = excluded.entrou_em')
     .bind(m.id, u.id, Date.now()).run();
-  return json({ mundo: { codigo: m.codigo, nome: m.nome, dono: m.dono_id === u.id, nome_dono: m.nome_dono } });
+  return json({ mundo: { codigo: m.codigo, nome: m.nome, dono: m.dono_id === u.id, nome_dono: m.nome_dono, opcoes: normalizarOpcoes(m.opcoes) } });
 }
 
 export async function onRequest({ request, env, params }) {

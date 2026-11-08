@@ -3,6 +3,7 @@
 // e o servidor continua guardando só o que os jogadores mudaram.
 import { hash3, rngSemente } from './ruido.js';
 import { AR, B, PLANTA } from './blocos.js';
+import { opcoesMundo } from './opcoes-mundo.js';
 
 export const REGIAO = 96; // cada região de 96x96 blocos pode ter uma vila (pedaços de 16 cabem certinho)
 const NIVEL_AGUA = 20; // igual ao de mundo.js
@@ -55,6 +56,7 @@ export class Vilas {
 
   // ---------- planejamento (só números, nada de blocos ainda) ----------
   planejar(rx, rz) {
+    if (!opcoesMundo.vilas) return null; // mundo criado sem vilas
     const s = this.m.semente;
     const origem = rx === 0 && rz === 0; // sempre tem uma vila perto de onde se começa
     if (!origem && hash3(rx, 501, rz, s) > 0.55) return null;
