@@ -1,7 +1,7 @@
 // Sala de um mundo: guarda as edições de blocos e repassa posições/emotes entre os jogadores.
 import { DurableObject } from 'cloudflare:workers';
 
-const MAX_BLOCO = 126; // inclui as peças de engenharia (100..126)
+const MAX_BLOCO = 255; // 0..63 base, 100..126 engenharia, 128..175 eras (blocos-eras.js)
 const MAX_JOGADORES = 12;
 // emotes por nome de ícone (v4); os emojis ficam para quem ainda está com a versão antiga aberta
 const EMOTES = new Set(['acenar', 'coracao', 'sorriso', 'estrela', '👋', '❤️', '😄', '⭐']);

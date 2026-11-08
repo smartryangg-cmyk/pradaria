@@ -246,3 +246,7 @@ details.mais[open] { display: flex; flex-direction: column; gap: 10px; padding-b
 .abas button { display: flex; align-items: center; justify-content: center; gap: 8px; }
 .abas button .ic-svg { width: 24px; height: 24px; }
 .dica-maq .ic-svg { display: inline-block; width: 18px; height: 18px; vertical-align: -3px; }
+
+/* tipo de mundo (Pradaria, Linha do Tempo...) */
+.tipos-mundo { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+.opcao-mundo:disabled { opacity: .3; cursor: default; }
