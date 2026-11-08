@@ -151,6 +151,12 @@ await a.check('#dono-chat-texto'); await a.check('#dono-chat-voz');
 await a.waitForTimeout(1500);
 ok(await bb.isVisible('#bt-chat') && await bb.isVisible('#bt-voz'), 'religado: botões voltam para o Beto');
 
+// pela janela "Editar mundo" também: desligar a voz vale na hora e ninguém recarrega
+await bb.evaluate(() => { window.__marca = 1; });
+const red = await a.evaluate(async (c) => (await (await fetch('/api/mundos/editar', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + localStorage.getItem('pradaria.token') }, body: JSON.stringify({ codigo: c, opcoes: { chatVoz: false } }) })).json()), codigo);
+await a.waitForTimeout(2000);
+ok(red.mundo && red.mundo.opcoes.chatVoz === false && !(await bb.isVisible('#bt-voz')) && await bb.isVisible('#bt-chat'), 'editar mundo: voz desligada na hora para o Beto, texto continua');
+ok(await bb.evaluate(() => window.__marca === 1 && !!window.__jogo.jog), 'editar só o chat não recarrega o mundo de ninguém');
 console.log(erros.length ? 'ERROS NO CONSOLE:\n' + erros.join('\n') : 'console sem erros');
 console.log(falhas ? `${falhas} FALHA(S)` : 'TUDO OK');
 await b.close();
