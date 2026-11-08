@@ -4,6 +4,7 @@
 import { BLOCOS, AR, AGUA, PLANTA } from './blocos.js';
 import { CX, CZ, ALT } from './mundo.js';
 import { REGIAO } from './vilas.js';
+import { ICONE_LUGAR } from './ilha-aventura.js';
 import { texturaIcone } from './icones.js';
 
 const MAX_PEDACOS = 2500; // pedaços lembrados para o mapa grande (~2,5 MB no pior caso)
@@ -207,6 +208,19 @@ export class Mapa {
           ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.strokeText(v.nome, sx, sy + 20);
           ctx.fillStyle = '#fff'; ctx.fillText(v.nome, sx, sy + 20);
         }
+      }
+    }
+    // Ilha de Aventura: todos os lugares com nome aparecem desde o começo (como num mapa de verdade)
+    const ilha = this.mundo && this.mundo.aventura;
+    if (ilha) for (const L of ilha.lugares) {
+      const [sx, sy] = tela(L.x, L.z);
+      if (!dentro(sx, sy)) continue;
+      const t = grande ? 26 : 14;
+      ctx.drawImage(texturaIcone(ICONE_LUGAR[L.tipo] || 'pino').image, sx - t / 2, sy - t / 2, t, t);
+      if (grande) {
+        ctx.textAlign = 'center'; ctx.font = 'bold 13px system-ui, sans-serif';
+        ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.strokeText(L.nome, sx, sy + 20);
+        ctx.fillStyle = '#fff'; ctx.fillText(L.nome, sx, sy + 20);
       }
     }
     // bichinhos: pontinhos rosados

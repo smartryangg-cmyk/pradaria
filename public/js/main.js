@@ -12,11 +12,13 @@ import { Som } from './som.js';
 import { montarBoneco, etiqueta, matModelo, caixa, juntar } from './modelos.js';
 import { conta, api, Sala } from './rede.js';
 import { criarGraficos, QUALIDADES, PESSOAIS } from './graficos.js';
+import { MapaIlha } from './mapa-ilha.js';
+import { ICONE_LUGAR } from './ilha-aventura.js';
 import { icone, preencherIcones, comIcone, nomeEmote } from './icones.js';
 import { Escavacao } from './escavar.js';
 import { Fisica } from './fisica.js';
 import { criarComandos } from './comandos.js';
-import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto } from './opcoes-mundo.js';
+import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto, raioExtraMundo } from './opcoes-mundo.js';
 import { Monstros } from './monstros.js';
 import { vida } from './vida.js';
 import { Mapa } from './mapa.js';
@@ -29,20 +31,52 @@ const CORES = [0x3f6fd9, 0xe8433f, 0x4caf50, 0xf2c72e, 0x9c5bd9, 0xf29ac2, 0xff8
 // ---------- ajustes salvos ----------
 const ehToque = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 if (ehToque) document.body.classList.add('toque');
-const AJ_PADRAO = { dist: ehToque ? 3 : 4, qual: ehToque ? 0.8 : 1, graf: ehToque ? 'media' : 'alta', gopc: null, ...PESSOAIS, auto: true, sens: 0.0055, som: true, fps: false, minimapa: true };
+const AJ_PADRAO = { dist: ehToque ? 3 : 4, qual: ehToque ? 0.8 : 1, graf: 'auto', grafAuto: null, grafTeto: null, grafManual: false, gopc: null, ...PESSOAIS, auto: true, sens: 0.0055, som: true, fps: false, minimapa: true };
 let ajustes = { ...AJ_PADRAO };
 try { Object.assign(ajustes, JSON.parse(localStorage.getItem('pradaria.ajustes') || '{}')); } catch {}
-if (!QUALIDADES[ajustes.graf] && !(ajustes.graf === 'personalizado' && ajustes.gopc)) ajustes.graf = AJ_PADRAO.graf;
+// quem nunca escolheu os gráficos à mão fica no automático (inclusive quem jogou antes desta versão)
+if (!ajustes.grafManual) ajustes.graf = 'auto';
+if (ajustes.graf !== 'auto' && !QUALIDADES[ajustes.graf] && !(ajustes.graf === 'personalizado' && ajustes.gopc)) ajustes.graf = 'auto';
+const NIVEIS = ['baixa', 'media', 'alta', 'ultra'];
+// nível que vale no automático: o que a calibração achou neste aparelho, ou um palpite pela placa de vídeo
+const nivelAuto = () => (NIVEIS.includes(ajustes.grafAuto) ? ajustes.grafAuto : palpiteGrafico());
 // opções gráficas valendo agora: as do preset (ou as personalizadas) + as pessoais
 function opcoesGraficas() {
-  const base = ajustes.graf === 'personalizado' ? { ...QUALIDADES.alta, ...ajustes.gopc, nome: 'Personalizado' } : QUALIDADES[ajustes.graf];
+  const base = ajustes.graf === 'personalizado' ? { ...QUALIDADES.alta, ...ajustes.gopc, nome: 'Personalizado' }
+    : ajustes.graf === 'auto' ? { ...QUALIDADES[nivelAuto()], nome: 'Automático: ' + QUALIDADES[nivelAuto()].nome } : QUALIDADES[ajustes.graf];
   return { ...base, fov: ajustes.fov, brilho: ajustes.brilho, fpsMax: ajustes.fpsMax };
 }
 const salvarAjustes = () => { try { localStorage.setItem('pradaria.ajustes', JSON.stringify(ajustes)); } catch {} };
 
 // ---------- renderização ----------
 const canvas = $('#tela');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'low-power' });
+// no computador pede a placa de vídeo mais forte (notebook com duas placas usaria a fraca)
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: ehToque ? 'default' : 'high-performance' });
+
+// palpite do nível gráfico pelo nome da placa de vídeo e pela memória/núcleos do aparelho
+let palpiteFeito = null;
+function palpiteGrafico() {
+  if (palpiteFeito) return palpiteFeito;
+  let gpu = '';
+  try {
+    const gl = renderer.getContext();
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    gpu = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER) || '');
+  } catch {}
+  const mem = navigator.deviceMemory || 4, nucleos = navigator.hardwareConcurrency || 4;
+  let n;
+  if (/swiftshader|llvmpipe|software|microsoft basic/i.test(gpu)) n = 'baixa';
+  else if (/rtx|gtx 1[06-9]|gtx [2-9]|radeon (rx|pro)|apple m[1-9]|arc a/i.test(gpu)) n = 'ultra';
+  else if (/adreno.*\b[3-5]\d\d\b|mali-[t4]|mali-g[57]\d\b|powervr|videocore|tegra/i.test(gpu)) n = 'baixa';
+  else if (/adreno.*\b(6[0-3]\d)\b|mali-g[67]\d/i.test(gpu)) n = 'media';
+  else if (/intel|iris|uhd|apple gpu|adreno|mali|radeon|geforce|nvidia/i.test(gpu)) n = ehToque ? 'media' : 'alta';
+  else n = ehToque ? 'media' : 'alta';
+  // aparelho com pouca memória ou poucos núcleos não passa de certo nível
+  if (mem <= 2 || nucleos <= 2) n = 'baixa';
+  else if (ehToque && (mem <= 3 || nucleos <= 4) && n !== 'baixa') n = 'media';
+  palpiteFeito = n;
+  return n;
+}
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 const cena = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 400);
@@ -208,7 +242,7 @@ function abrirPausa() {
   pausado = true;
 }
 function fecharJanelas() {
-  $('#inventario').hidden = true; $('#pausa').hidden = true; $('#mapa').hidden = true; $('#garagem').hidden = true;
+  $('#inventario').hidden = true; $('#pausa').hidden = true; $('#mapa').hidden = true; $('#mapa-ilha').hidden = true; $('#garagem').hidden = true;
   if (cmd) cmd.fechar();
   mercado.fechar(true);
   pausado = false;
@@ -216,6 +250,23 @@ function fecharJanelas() {
 document.querySelectorAll('[data-aba]').forEach((b) => b.addEventListener('click', () => { abaInv = b.dataset.aba; som.clique(); abrirInventario(); }));
 document.querySelectorAll('[data-fechar]').forEach((b) => b.addEventListener('click', fecharJanelas));
 $('#bt-menu').addEventListener('click', abrirPausa);
+// ---------- Ilha de Aventura: mapa e nome dos lugares ----------
+const mapaIlha = new MapaIlha($('#mapa-ilha'));
+function abrirMapaIlha() {
+  if (!mundo || !mundo.aventura) return;
+  som.iniciar(); som.clique();
+  mapaIlha.preparar(mundo.aventura);
+  mapaIlha.desenhar({ x: jog.pos.x, z: jog.pos.z, yaw: jog.yaw }, [...outros.values()].map((o) => ({ x: o.grupo.position.x, z: o.grupo.position.z })));
+  $('#mapa-ilha').hidden = false; pausado = true;
+}
+$('#bt-mapa-ilha').addEventListener('click', abrirMapaIlha);
+let lugarAtual = null;
+function verLugar() {
+  const L = mundo.aventura.lugarEm(jog.pos.x, jog.pos.z);
+  if (L === lugarAtual) return;
+  lugarAtual = L;
+  if (L && !jog.planando) aviso(L.nome, 2600, ICONE_LUGAR[L.tipo] || 'pino');
+}
 // ---------- tela cheia ----------
 const el = document.documentElement;
 const pedirTela = el.requestFullscreen || el.webkitRequestFullscreen;
@@ -273,10 +324,12 @@ addEventListener('keydown', (e) => {
   else if (e.code === 'KeyM') { if (!$('#mapa').hidden) fecharJanelas(); else if (!pausado) mapa.abrir(); }
 });
 // mundo pequeno/médio: como acaba no mar, dá para enxergar mais longe sem pesar
-const raioVisao = () => Math.min(9, ajustes.dist + TAMANHOS[opcoesMundo.tamanho].raioExtra);
+const raioVisao = () => Math.min(9, ajustes.dist + raioExtraMundo());
 $('#aj-dist').addEventListener('input', (e) => { ajustes.dist = +e.target.value; if (mundo) mundo.raio = raioVisao(); salvarAjustes(); ajustarNevoa(); });
 $('#aj-graf').addEventListener('change', (e) => {
   ajustes.graf = e.target.value;
+  ajustes.grafManual = ajustes.graf !== 'auto';
+  if (ajustes.graf === 'auto') { ajustes.grafTeto = null; calib.reiniciar(); }
   if (ajustes.graf === 'personalizado' && !ajustes.gopc) ajustes.gopc = { ...QUALIDADES.alta };
   salvarAjustes(); aplicarGraficos(); preencherGraficos(); segundosLentos = 0;
 });
@@ -289,6 +342,7 @@ const PESS = [['aj-fov', 'fov'], ['aj-brilho', 'brilho'], ['aj-fpsmax', 'fpsMax'
 function preencherGraficos() {
   const o = opcoesGraficas();
   $('#aj-graf').value = ajustes.graf;
+  $('#aj-graf option[value=auto]').textContent = `Automático (agora: ${QUALIDADES[nivelAuto()].nome})`;
   for (const [id, k, t] of OPC) { const el = $('#' + id); if (t === 'bool') el.checked = !!o[k]; else el.value = o[k]; }
   for (const [id, k] of PESS) $('#' + id).value = ajustes[k];
   $('#aj-auto').checked = ajustes.auto;
@@ -302,7 +356,7 @@ for (const [id, k, t] of OPC) $('#' + id).addEventListener(t === 'bool' ? 'chang
   ajustes.gopc = { sombra: o.sombra, area: o.area, luzes: o.luzes, pular: 0, vento: o.vento, ondas: o.ondas, nuvens: o.nuvens, vinheta: o.vinheta, teto: o.teto };
   ajustes.gopc[k] = t === 'bool' ? e.target.checked : +e.target.value;
   if (k === 'sombra' && ajustes.gopc.sombra && !ajustes.gopc.area) ajustes.gopc.area = 32;
-  ajustes.graf = 'personalizado';
+  ajustes.graf = 'personalizado'; ajustes.grafManual = true;
   salvarAjustes(); aplicarGraficos(); preencherGraficos();
 });
 for (const [id, k] of PESS) $('#' + id).addEventListener('input', (e) => { ajustes[k] = +e.target.value; salvarAjustes(); aplicarGraficos(); preencherGraficos(); });
@@ -563,6 +617,7 @@ function removerOutro(id) {
 
 // ---------- iniciar / sair ----------
 function acharInicio() {
+  if (mundo.aventura) return mundo.aventura.inicio();
   // começa na rua da vila que fica perto do meio do mundo
   const v = mundo.vilas.regiao(0, 0);
   if (v && v.ruas.length) {
@@ -609,6 +664,7 @@ function limparMundo() {
 }
 
 function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = null, veiculos = [] }) {
+  segundosJogando = 0; calib.reiniciar();
   limparMundo();
   definirOpcoesMundo(opcoes); // antes do Mundo: a geração (vilas etc.) já lê as opções
   if (!opcoesMundo.cicloDia) tempoDia = 0.3;
@@ -630,8 +686,15 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   jog = new Jogador(mundo);
   let avisoBorda = 0;
   jog.aoBorda = () => { if (tempoTotal - avisoBorda > 6) { avisoBorda = tempoTotal; aviso('Aqui é o fim do mundo! Só mar daqui pra frente', 2200, 'gota'); } };
+  lugarAtual = null;
+  $('#bt-mapa-ilha').hidden = !mundo.aventura;
   if (pos) Object.assign(jog.pos, { x: pos[0], y: pos[1], z: pos[2] });
-  else Object.assign(jog.pos, acharInicio());
+  else {
+    const ini = acharInicio();
+    Object.assign(jog.pos, { x: ini.x, y: ini.y, z: ini.z });
+    // Ilha de Aventura: começa lá no alto e desce planando, escolhendo onde pousar
+    if (ini.planar) { jog.planando = true; setTimeout(() => aviso('Escolha onde pousar! Ande para planar até lá', 4000, 'voar'), 600); }
+  }
   jog.yaw = yaw;
   if (!ctrl) {
     ctrl = new Controles(canvas, jog, {
@@ -827,13 +890,13 @@ async function abrirMundos() {
 }
 
 // ---------- criar mundo: nome + opções (o que vai ter no mundo) + semente ----------
-const iconesOpcoes = (o) => { const n = normalizarOpcoes(o); return (n.tipo !== 'normal' ? icone(TIPOS[n.tipo].icone, 'ic-svg ic-mini') : '') + icone(TAMANHOS[n.tamanho].icone, 'ic-svg ic-mini') + OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => icone(x.icone, 'ic-svg ic-mini')).join(''); };
+const iconesOpcoes = (o) => { const n = normalizarOpcoes(o); return (n.tipo !== 'normal' ? icone(TIPOS[n.tipo].icone, 'ic-svg ic-mini') : '') + (TIPOS[n.tipo].limite ? '' : icone(TAMANHOS[n.tamanho].icone, 'ic-svg ic-mini')) + OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => icone(x.icone, 'ic-svg ic-mini')).join(''); };
 function resumoOpcoes(o) {
   const n = normalizarOpcoes(o);
   const t = TAMANHOS[n.tamanho];
   const com = OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => x.nome);
   const sem = OPCOES_MUNDO.filter((x) => !n[x.id]).map((x) => x.nome.toLowerCase());
-  return (n.tipo !== 'normal' ? TIPOS[n.tipo].nome + ' · ' : '') + `Mundo ${t.nome.toLowerCase()} · ` + (com.join(', ') || 'só blocos') + (sem.length ? ' · sem ' + sem.join(', ') : '');
+  return (n.tipo !== 'normal' ? TIPOS[n.tipo].nome + ' · ' : '') + (TIPOS[n.tipo].limite ? '' : `Mundo ${t.nome.toLowerCase()} · `) + (com.join(', ') || 'só blocos') + (sem.length ? ' · sem ' + sem.join(', ') : '');
 }
 let escolhaNovo = { ...PADRAO_NOVO };
 function desenharOpcoesNovo() {
@@ -883,6 +946,9 @@ function desenharOpcoesNovo() {
   marcarTamanho();
 }
 function marcarTamanho() {
+  // tipos com tamanho fixo (a Ilha de Aventura) escondem a escolha de tamanho
+  const fixo = !!TIPOS[escolhaNovo.tipo]?.limite;
+  $('#n-tamanhos').hidden = fixo; $('#n-tamanhos-titulo').hidden = fixo;
   for (const b of $('#n-tamanhos').children) { const sel = b.dataset.tamanho === escolhaNovo.tamanho; b.setAttribute('aria-pressed', String(sel)); b.setAttribute('aria-checked', String(sel)); }
   for (const b of $('#n-tipos').children) { const sel = b.dataset.tipo === escolhaNovo.tipo; b.setAttribute('aria-pressed', String(sel)); b.setAttribute('aria-checked', String(sel)); }
   // alguns tipos não têm monstrinhos (ex.: Linha do Tempo)
@@ -969,6 +1035,7 @@ function laco(agora) {
 
   escav.atualizar(dt, jog.pos.x, jog.pos.z);
   fisica.atualizar(dt);
+  if (mundo.aventura) verLugar();
   // partículas de quebra
   for (let i = partQ.length - 1; i >= 0; i--) {
     const q = partQ[i];
@@ -1027,10 +1094,37 @@ function laco(agora) {
 }
 // se o aparelho sofrer, deixa os gráficos mais leves sozinho (uma vez por nível)
 let segundosLentos = 0, segundosJogando = 0;
+// Automático: começa no palpite e calibra jogando. Sobra fôlego por uns segundos → sobe um nível;
+// engasga → desce e marca esse nível como teto deste aparelho (para não ficar subindo e descendo).
+const calib = {
+  bons: 0, ruins: 0, aguardar: 0,
+  reiniciar() { this.bons = 0; this.ruins = 0; this.aguardar = 4; },
+  passo(fps) {
+    if (this.aguardar > 0) { this.aguardar--; return; }
+    const alvo = ajustes.fpsMax || 60; // tela de 60 Hz não passa de ~60
+    const atual = NIVEIS.indexOf(nivelAuto());
+    const teto = NIVEIS.includes(ajustes.grafTeto) ? NIVEIS.indexOf(ajustes.grafTeto) : NIVEIS.length - 1;
+    this.bons = fps >= alvo * 0.9 ? this.bons + 1 : 0;
+    this.ruins = fps < alvo * 0.62 ? this.ruins + 1 : 0;
+    let novo = atual;
+    if (this.ruins >= 3 && atual > 0) { novo = atual - 1; ajustes.grafTeto = NIVEIS[novo]; }
+    else if (this.bons >= 5 && atual < teto) novo = atual + 1;
+    if (novo === atual) {
+      if (this.ruins >= 3 && atual === 0 && ajustes.qual > 0.6) { ajustes.qual = Math.max(0.6, +(ajustes.qual - 0.1).toFixed(1)); salvarAjustes(); redimensionar(); this.reiniciar(); }
+      return;
+    }
+    ajustes.grafAuto = NIVEIS[novo];
+    salvarAjustes(); aplicarGraficos(); preencherGraficos();
+    this.reiniciar();
+    if (novo < atual) aviso('Ajustei os gráficos para rodar liso', 2200, 'brilho');
+  },
+};
 function vigiarDesempenho(fps) {
-  if (!jogando || pausado || document.hidden || window.__semAuto || !ajustes.auto) return;
+  if (!jogando || pausado || document.hidden || window.__semAuto) return;
   segundosJogando++;
   if (segundosJogando < 6) return; // espera o mundo carregar
+  if (ajustes.graf === 'auto') { calib.passo(fps); return; }
+  if (!ajustes.auto) return;
   segundosLentos = fps < 24 ? segundosLentos + 1 : 0;
   if (segundosLentos >= 5) {
     segundosLentos = 0;
@@ -1055,4 +1149,4 @@ camera.position.set(0, 40, 0);
 if (conta.token) abrirMundos(); else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, garagem, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, camera, graf, renderer, ajustes, jogarLocal, usar, quebrar, cmd, mapa }; }
+if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, garagem, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, camera, graf, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa }; }
