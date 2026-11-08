@@ -19,6 +19,13 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # para contar os commits (número da versão)
+      - name: Versão do jogo (aparece na tela inicial e na pausa)
+        run: |
+          N=$(git rev-list --count HEAD); H=$(git rev-parse --short HEAD); D=$(TZ=America/Sao_Paulo date +%d/%m/%Y)
+          printf "// Gerado na publicação (publicar.yml).\nexport const VERSAO = { numero: '%s', hash: '%s', data: '%s' };\n" "$N" "$H" "$D" > public/js/versao.js
+          cat public/js/versao.js
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -56,6 +63,7 @@ jobs:
         run: |
           sleep 20
           curl -sf https://pradaria.pages.dev/ -o /dev/null && echo "site ok"
+          curl -sf https://pradaria.pages.dev/js/versao.js | tee /dev/stderr | grep -q "$(git rev-parse --short HEAD)" && echo "versão no ar ok" || echo "::warning::versao.js no ar ainda não mostra este commit"
           curl -sf https://pradaria.pages.dev/api/saude | tee /tmp/saude.json
           grep -q '"banco":true' /tmp/saude.json && grep -q '"sala":true' /tmp/saude.json
           curl -sf https://pradaria.pages.dev/.well-known/assetlinks.json | grep -q dev.pradaria.jogo && echo 'assetlinks ok' || echo '::warning::assetlinks.json não está no ar (o app Android vai mostrar a barra de endereço)'

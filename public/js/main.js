@@ -25,6 +25,7 @@ import { Monstros } from './monstros.js';
 import { vida } from './vida.js';
 import { Mapa } from './mapa.js';
 import { Mercado } from './mercado.js';
+import { VERSAO } from './versao.js';
 import { preencherDono, contaModo, ligarApagarConta } from './dono.js';
 
 const $ = (s) => document.querySelector(s);
@@ -482,7 +483,7 @@ function verLugar() {
 const el = document.documentElement;
 const pedirTela = el.requestFullscreen || el.webkitRequestFullscreen;
 const emTelaCheia = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
-const ehApp = matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone || new URLSearchParams(location.search).get('app') === 'android';
+const ehApp = matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone || new URLSearchParams(location.search).get('app') === 'android' || new URLSearchParams(location.search).has('appv');
 function alternarTela() {
   som.iniciar();
   if (emTelaCheia()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
@@ -514,6 +515,15 @@ const ehIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platfor
 function mostrarInstalar(sim) { document.querySelectorAll('.instalar').forEach((b) => { b.hidden = !sim || !!ehApp; }); }
 addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); pedidoInstalar = e; mostrarInstalar(true); });
 addEventListener('appinstalled', () => { pedidoInstalar = null; mostrarInstalar(false); aviso('Pronto! O Pradaria está na sua tela de início!', 3500, 'estrela'); });
+// ---------- versão (tela inicial e pausa) ----------
+// o app Android abre o site com ?appv=1.0.N (o jogo navega só pelo #, então o endereço continua com ela)
+const versaoApp = /^[\w.]{1,20}$/.test(new URLSearchParams(location.search).get('appv') || '') ? new URLSearchParams(location.search).get('appv') : null;
+function textoVersao() {
+  const jogo = VERSAO.numero === 'teste' ? 'Versão de teste' : `Versão ${VERSAO.numero}` + (VERSAO.data ? ` · ${VERSAO.data}` : '') + (VERSAO.hash ? ` · ${VERSAO.hash}` : '');
+  const app = versaoApp ? ` · App Android ${versaoApp}` : (new URLSearchParams(location.search).get('app') === 'android' ? ' · App Android' : '');
+  return jogo + app;
+}
+document.querySelectorAll('.versao').forEach((el) => { el.textContent = textoVersao(); });
 // no Android (fora do app) oferece baixar o APK, que abre o jogo em tela cheia
 if (/Android/i.test(navigator.userAgent) && !ehApp) document.querySelectorAll('.baixar-apk').forEach((b) => { b.hidden = false; });
 if (ehIOS) mostrarInstalar(true); // no iPhone/iPad não tem pedido automático: mostramos o passo a passo

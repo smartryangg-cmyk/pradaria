@@ -395,3 +395,4 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 .bancada-status .ic-svg { width: 24px; height: 24px; flex: none; }
 .bancada-status.ok { background: #e3f6d9; color: var(--verde-borda); }
 .bancada-status.longe { background: #fff1d6; color: #8a5a14; }
+.versao { margin: 8px 0 0; text-align: center; font-size: 12px; font-weight: 600; color: var(--txt2); opacity: .75; user-select: text; }
