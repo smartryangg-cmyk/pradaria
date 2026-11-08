@@ -6,7 +6,9 @@ const p = await (await b.newContext({ viewport: { width: 1024, height: 700 } }))
 const erros = []; p.on('pageerror', (e) => erros.push('PAGEERROR ' + e.message)); p.on('console', (m) => { if (m.type() === 'error') erros.push(m.text()); });
 await p.addInitScript(() => { window.__semAuto = true; });
 await p.goto(URL); await p.evaluate(() => localStorage.clear()); await p.reload();
-await p.click('#bt-sozinho'); await p.waitForTimeout(4000);
+await p.click('#bt-sozinho');
+if (await p.isVisible('#m-novo')) await p.click('#m-novo button[type=submit]');
+await p.waitForTimeout(4000);
 await p.click('#bt-menu'); await p.waitForTimeout(300);
 for (const v of ['ultra', 'baixa', 'media', 'alta']) { await p.selectOption('#aj-graf', v); await p.waitForTimeout(300); }
 await p.click('#mais-graf summary');

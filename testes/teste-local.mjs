@@ -9,6 +9,8 @@ await p.goto('http://localhost:8765/#teste');
 await p.waitForTimeout(800);
 await p.screenshot({ path: '' + (process.env.SAIDA || '/tmp') + '/menu.png' });
 await p.click('#bt-sozinho');
+// sem mundo salvo, "Jogar sem conta" abre primeiro a tela de criar mundo
+if (await p.isVisible('#m-novo')) await p.click('#m-novo button[type=submit]');
 await p.waitForTimeout(6000);
 await p.screenshot({ path: '' + (process.env.SAIDA || '/tmp') + '/jogo1.png' });
 const info = await p.evaluate(() => { const j = window.__jogo.jog; return { pos: j.pos, chunks: window.__jogo.mundo.chunks.size, bichos: window.__jogo.bichos.lista.map(b => b.especie) }; });

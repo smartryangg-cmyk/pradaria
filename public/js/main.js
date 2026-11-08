@@ -24,6 +24,7 @@ import { Monstros } from './monstros.js';
 import { vida } from './vida.js';
 import { Mapa } from './mapa.js';
 import { Mercado } from './mercado.js';
+import { preencherDono, contaModo, ligarApagarConta } from './dono.js';
 
 const $ = (s) => document.querySelector(s);
 preencherIcones();
@@ -242,7 +243,9 @@ function abrirPausa() {
   if (document.pointerLockElement) document.exitPointerLock();
   $('#aj-dist').value = ajustes.dist; $('#aj-qual').value = ajustes.qual; preencherGraficos(); $('#aj-sens').value = ajustes.sens;
   $('#aj-som').checked = ajustes.som; $('#aj-fps').checked = ajustes.fps; $('#aj-minimapa').checked = ajustes.minimapa;
-  $('#pausa-mundo').textContent = modo === 'online' ? `Mundo: ${mundoAtual.nome} · código ${mundoAtual.codigo}` : 'Mundo sem internet (salvo neste aparelho)';
+  // o código só aparece para o dono (é ele quem decide quem entra)
+  $('#pausa-mundo').textContent = modo === 'online' ? `Mundo: ${mundoAtual.nome}` + (mundoAtual.dono ? ` · código ${mundoAtual.codigo}` : '') : 'Mundo sem internet (salvo neste aparelho)';
+  preencherDono(modo === 'online' ? mundoAtual : null, () => abrirPausa());
   $('#pausa-opcoes').textContent = 'Neste mundo: ' + resumoOpcoes(opcoesMundo);
   $('#pausa').hidden = false;
   pausado = true;
@@ -787,7 +790,7 @@ async function jogarOnline(m) {
         mercado.iniciar({ opcoes: msg.opcoes, estado: msg.econ, sala: s });
         desenharBarra();
         $('#status').innerHTML = comIcone('globo', m.nome);
-        aviso(`Bem-vindo, ${conta.usuario.nome}! Código do mundo: ${m.codigo}`, 3500, 'flor');
+        aviso(`Bem-vindo, ${conta.usuario.nome}!` + (m.dono ? ` Código do mundo: ${m.codigo}` : ''), 3500, 'flor');
       } else {
         mundo.carregarEdicoes(msg.edicoes);
       }
@@ -838,6 +841,7 @@ function abrirConta(m) {
   $('#c-ok').textContent = m === 'entrar' ? 'Entrar' : 'Criar e jogar';
   $('#c-senha').autocomplete = m === 'entrar' ? 'current-password' : 'new-password';
   $('#c-cores').hidden = m === 'entrar';
+  contaModo(m);
   $('#c-erro').textContent = '';
   const cc = $('#c-cores');
   if (!cc.childElementCount) CORES.forEach((c, i) => {
@@ -871,6 +875,7 @@ $('#m-conta').addEventListener('submit', async (e) => {
   $('#c-ok').disabled = false;
 });
 $('#bt-sair-conta').addEventListener('click', () => { conta.salvar(null); conta.usuario = null; mostrarMenu('m-inicio'); });
+ligarApagarConta(() => mostrarMenu('m-inicio'));
 
 async function abrirMundos() {
   mostrarMenu('m-carregando');
@@ -887,7 +892,7 @@ async function abrirMundos() {
       b.className = 'mundo';
       b.innerHTML = `<span class="ic ${m.dono ? 'meu' : 'amigo'}">${icone(m.dono ? 'casa' : 'amigos')}</span><span class="txt"><b></b><small></small></span>${icone('entrar', 'ic-svg seta')}`;
       b.querySelector('b').textContent = m.nome;
-      b.querySelector('small').textContent = `código ${m.codigo}` + (m.dono ? '' : ` · de ${m.nome_dono}`);
+      b.querySelector('small').textContent = m.dono ? `código ${m.codigo}` : `de ${m.nome_dono}`;
       b.querySelector('small').insertAdjacentHTML('beforeend', `<span class="ops-mini">${iconesOpcoes(m.opcoes)}</span>`);
       b.addEventListener('click', () => { som.iniciar(); jogarOnline(m); });
       l.appendChild(b);

@@ -124,6 +124,12 @@
     <h2>Pausa</h2>
     <p id="pausa-mundo" class="sub"></p>
     <p id="pausa-opcoes" class="sub"></p>
+    <details class="mais" id="pausa-dono" hidden>
+      <summary>Quem pode entrar no meu mundo</summary>
+      <p class="sub">Código: <b id="dono-codigo"></b>. Só passe o código para amigos que você conhece.</p>
+      <div id="dono-membros"></div>
+      <button class="bt" type="button" id="dono-trocar">Trocar o código</button>
+    </details>
     <label class="campo">Gráficos
       <select id="aj-graf">
         <option value="auto">Automático (o melhor que este aparelho aguenta)</option>
@@ -218,6 +224,10 @@
     <label class="campo">Nome de jogador<input id="c-nome" autocomplete="username" maxlength="16" required></label>
     <label class="campo">Senha<input id="c-senha" type="password" autocomplete="current-password" minlength="4" required></label>
     <div id="c-cores" class="cores" hidden></div>
+    <div id="c-adulto" hidden>
+      <label class="campo linha"><input id="c-adulto-ok" type="checkbox"> Um adulto responsável deixou criar esta conta</label>
+      <p class="sub"><a href="pais.html" target="_blank" rel="noopener">Informações para pais e responsáveis</a></p>
+    </div>
     <p id="c-erro" class="erro"></p>
     <button class="bt verde grande" type="submit" id="c-ok">Entrar</button>
     <button class="bt" type="button" data-voltar><span data-icone="voltar"></span>Voltar</button>
@@ -236,6 +246,8 @@
     <button class="bt instalar" hidden><span data-icone="baixar"></span>Instalar o jogo</button>
     <a class="bt baixar-apk" href="https://github.com/smartryangg-cmyk/pradaria/releases/latest/download/pradaria.apk" hidden><span data-icone="celular"></span>Baixar app para Android</a>
     <button class="bt fraco" id="bt-sair-conta"><span data-icone="sair"></span>Sair da conta</button>
+    <button class="bt fraco" id="bt-apagar-conta">Apagar minha conta</button>
+    <p class="sub"><a href="pais.html" target="_blank" rel="noopener">Para pais e responsáveis</a></p>
   </div>
 
   <form class="caixa" id="m-novo" hidden>

@@ -81,9 +81,10 @@ conferir(op2.tamanho === 'pequeno' && op2.monstros, 'mundo salvo guarda as opç�
 
 // ---------- online: o servidor guarda as opções ----------
 const q = await pagina(true);
-const nome = 'Opc' + (Date.now() % 100000);
+const nome = 'Opc' + (Date.now() % 10000);
 await q.click('#bt-criar-conta');
 await q.fill('#c-nome', nome); await q.fill('#c-senha', 'senha123');
+if (await q.isVisible('#c-adulto-ok')) await q.check('#c-adulto-ok');
 await q.click('#c-ok');
 await q.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
 await q.click('#bt-novo-mundo');

@@ -18,8 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
-      ANDROID_KEYSTORE_SENHA: ${{ secrets.ANDROID_KEYSTORE_SENHA }}
+      # a chave oficial só entra no main (código revisado); nas outras branches o APK sai com chave temporária
+      KEYSTORE_B64: ${{ github.ref == 'refs/heads/main' && secrets.ANDROID_KEYSTORE_B64 || '' }}
+      ANDROID_KEYSTORE_SENHA: ${{ github.ref == 'refs/heads/main' && secrets.ANDROID_KEYSTORE_SENHA || '' }}
       VERSAO_CODIGO: ${{ github.run_number }}
       VERSAO_NOME: 1.0.${{ github.run_number }}
     steps:

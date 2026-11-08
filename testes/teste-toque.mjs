@@ -6,7 +6,10 @@ const erros = []; p.on('pageerror', (e) => erros.push(e.message));
 await p.goto((process.env.URL || 'http://localhost:8788') + '/#teste');
 await p.evaluate(() => localStorage.clear());
 await p.tap('#bt-sozinho');
-await p.waitForTimeout(3000);
+// sem mundo salvo, "Jogar sem conta" abre primeiro a tela de criar mundo
+if (await p.isVisible('#m-novo')) await p.tap('#m-novo button[type=submit]');
+await p.waitForFunction(() => window.__jogo && window.__jogo.jog, null, { timeout: 20000 });
+await p.waitForTimeout(1500);
 await p.evaluate(() => { window.__jogo.jog.pitch = -0.5; });
 await p.waitForTimeout(300);
 const vp = p.viewportSize();

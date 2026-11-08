@@ -14,6 +14,7 @@ async function jogador(nome, toque) {
   await p.goto(URL);
   await p.click('#bt-criar-conta');
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
+  if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
   await p.click('#c-ok');
   await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
   return p;
@@ -38,7 +39,7 @@ const longe = await pos(a);
 ok(dist(casa, longe) > 200, 'lugar longe: andou ' + Math.round(dist(casa, longe)) + ' passos');
 // guarda o lugar longe com um desenho
 await a.click('#bt-comandos'); await a.click('#comandos .cmd:has-text("Guardar este lugar")');
-await a.click('.icones button:has-text("🌊")');
+await a.click('.icones button[aria-label="Desenho onda"]');
 await a.click('#comandos [data-fechar-cmd]');
 await cmd(a, 'Ir para casa');
 ok(dist(await pos(a), casa) < 1, 'ir para casa');

@@ -351,3 +351,9 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 .econ-dir .ic-svg { font-size: 18px; }
 @media (max-width: 640px) { #econ { top: calc(max(10px, env(safe-area-inset-top)) + 58px); } .econ-alvo { font-size: 12px; } }
 #mapa-ilha canvas { width: 100%; height: auto; aspect-ratio: 1; border: 3px solid var(--txt); border-radius: 16px; background: #2f6fb0; image-rendering: pixelated; }
+/* dono do mundo e conta */
+#pausa-dono #dono-membros { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 10px; font-weight: 700; }
+.dono-membro { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dono-membro .bt { min-height: 40px; padding: 6px 10px; font-size: 14px; color: #c62828; }
+#c-adulto .campo.linha { font-size: 14px; }
+.sub a { color: inherit; }

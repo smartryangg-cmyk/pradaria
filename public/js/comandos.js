@@ -1,6 +1,7 @@
 // Comandos visuais: teleportar (casa, começo, lugares salvos, amigos), mudar a hora e voltar.
 // Tudo com botões grandes, sem precisar digitar nada.
 import { NIVEL_AGUA } from './mundo.js';
+import { limiteMundo } from './opcoes-mundo.js';
 import { icone, NOMES_ICONES, nomeLugar } from './icones.js';
 
 const $ = (s) => document.querySelector(s);
@@ -64,9 +65,18 @@ export function criarComandos(j) {
   function irLonge() {
     const jog = j.jog(), mundo = j.mundo();
     if (!jog || !mundo) return;
-    for (let t = 0; t < 16; t++) {
-      const a = Math.random() * Math.PI * 2, d = 250 + Math.random() * 650;
-      const x = Math.floor(jog.pos.x + Math.cos(a) * d), z = Math.floor(jog.pos.z + Math.sin(a) * d);
+    // em ilha (mundo pequeno/médio) sorteia dentro da ilha; antes sempre caía no mar e nunca achava terra
+    const lim = limiteMundo();
+    for (let t = 0; t < 40; t++) {
+      let a, x, z;
+      if (lim) {
+        x = Math.floor((Math.random() * 2 - 1) * (lim - 12)); z = Math.floor((Math.random() * 2 - 1) * (lim - 12));
+        a = Math.atan2(z - jog.pos.z, x - jog.pos.x);
+        if (Math.hypot(x - jog.pos.x, z - jog.pos.z) < Math.min(250, lim * 0.6)) continue;
+      } else {
+        a = Math.random() * Math.PI * 2; const d = 250 + Math.random() * 650;
+        x = Math.floor(jog.pos.x + Math.cos(a) * d); z = Math.floor(jog.pos.z + Math.sin(a) * d);
+      }
       if (Math.abs(x) > 90000 || Math.abs(z) > 90000) continue;
       const h = mundo.chao(x, z);
       if (h > mundo.nivelAgua + 1 && h < mundo.nivelAgua + 30) { teleportar(x + 0.5, h + 1.2, z + 0.5, a, 'Uau, um lugar novo para explorar!', 'mapa'); return; }
@@ -125,6 +135,10 @@ export function criarComandos(j) {
     $('#pedido-txt').textContent = m.tipo === 'ir' ? `${m.nome} quer vir até você` : `${m.nome} está chamando você para ir até lá`;
     $('#pedido-ic').innerHTML = icone(m.tipo === 'ir' ? 'acenar' : 'brilho');
     $('#pedido-tp').hidden = false;
+    // os botões só funcionam depois de um instante (a criança pode estar tocando na tela para quebrar blocos)
+    $('#pedido-sim').disabled = true; $('#pedido-nao').disabled = true;
+    clearTimeout(mostrarPedido.libera);
+    mostrarPedido.libera = setTimeout(() => { $('#pedido-sim').disabled = false; $('#pedido-nao').disabled = false; }, 1200);
     j.som.oi();
     clearTimeout(mostrarPedido.t);
     mostrarPedido.t = setTimeout(() => responder(false, true), 28000);
