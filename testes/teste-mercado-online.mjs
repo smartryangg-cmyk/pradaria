@@ -5,7 +5,7 @@ const BASE = process.env.BASE || 'http://localhost:8788';
 const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const erros = [], falhas = [];
 const conferir = (ok, msg) => { console.log((ok ? 'OK   ' : 'FALHA ') + msg); if (!ok) falhas.push(msg); };
-const sfx = Date.now() % 100000;
+const sfx = Date.now() % 10000;
 async function jogador(nome) {
   const p = await (await b.newContext({ viewport: { width: 1024, height: 700 } })).newPage();
   p.on('pageerror', (e) => erros.push(nome + ' ' + e.message));

@@ -22,7 +22,7 @@ const ICONES_LUGAR = new Set(['estrela', 'arvore', 'castelo', 'onda', 'montanha'
   '⭐', '🌳', '🏰', '🌊', '⛰️', '🌸', '🐑', '🍎', '💎', '🌻']);
 const TP_ESPERA = 30000; // um pedido de teleporte vale por 30 s
 const TP_INTERVALO = 4000; // e cada um pode pedir de 4 em 4 s
-const TP_ALVO_INTERVALO = 10000; // e cada um recebe no máximo um pedido a cada 10 s
+const TP_ALVO_INTERVALO = 4000; // e cada um recebe no máximo um pedido a cada 4 s
 
 // posição [x, y, z] (e giro opcional) dentro dos limites do mundo
 function posOk(p) {
@@ -190,7 +190,7 @@ export class Sala extends DurableObject {
   pedirTeleporte(ws, eu, m) {
     const agora = Date.now();
     if (m.tipo !== 'ir' && m.tipo !== 'chamar') return;
-    // a espera vale por pessoa (não por conexão: reconectar não zera) e cada um recebe no máximo um pedido a cada 10 s
+    // a espera vale por pessoa (não por conexão: reconectar não zera) e cada um recebe no máximo um pedido a cada 4 s
     if (!this.tpUid) this.tpUid = new Map();
     const ultimo = this.tpUid.get(eu.uid) || 0;
     if (agora - ultimo < TP_INTERVALO || (eu.tpEm && agora - eu.tpEm < TP_INTERVALO)) {
