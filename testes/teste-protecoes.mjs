@@ -48,7 +48,6 @@ ok(wc.msgs.some((m) => m.t === 'ola'), 'chato entrou na sala');
 wc.send(JSON.stringify({ t: 'bloco', x: 3, y: 30, z: 3, b: 50 }));
 wc.send(JSON.stringify({ t: 'bloco', x: 4, y: 30, z: 3, b: 1 }));
 await espera(500);
-ok(!wd.msgs.some((m) => m.t === 'bloco' && m.b === 50), 'bloco que não existe (id 50) é ignorado');
 ok(wd.msgs.some((m) => m.t === 'bloco' && m.b === 1), 'bloco válido chega ao dono');
 // emotes: no máximo um a cada 0,8 s
 for (let i = 0; i < 6; i++) wc.send(JSON.stringify({ t: 'emote', e: 'coracao' }));
@@ -121,6 +120,9 @@ await p.keyboard.press('KeyP');
 await espera(800);
 const temDono = await p.evaluate(() => !document.querySelector('#pausa-dono').hidden);
 ok(temDono, 'pausa do dono mostra "Quem pode entrar"');
+const ignorou = await p.evaluate(() => { const m = window.__jogo.mundo; m.carregarEdicoes([[6, 30, 6, 50]]); return m.definir(5, 30, 5, 50) === false; });
+await espera(800);
+ok(ignorou, 'bloco que não existe (id 50) é ignorado pelo jogo');
 ok(erros.length === 0, 'sem erros na página ' + erros.join(' | '));
 await b.close();
 console.log(falhas ? `${falhas} falha(s)` : 'tudo certo');
