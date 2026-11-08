@@ -62,7 +62,8 @@ ok(lugarB === 1, 'B sentou no banco do passageiro (' + lugarB + ')');
 await a.waitForTimeout(500);
 const aVeB = await a.evaluate((id) => window.__jogo.garagem.veic.mapa.get(id).ocup[1] !== null, vid);
 ok(aVeB, 'A vê B sentado');
-// A dirige
+// A dirige (sem aldeões por perto: o carro freia sozinho para eles)
+await a.evaluate(() => window.__jogo.aldeoes.limpar());
 await a.keyboard.down('KeyW'); await a.waitForTimeout(2200); await a.keyboard.up('KeyW');
 await a.waitForTimeout(800);
 const pa = await a.evaluate(() => { const v = window.__jogo.garagem.dentro.v; return [v.x, v.z]; });
