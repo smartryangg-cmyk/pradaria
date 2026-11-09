@@ -3,6 +3,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { rngSemente } from './ruido.js';
 import { DEFS_ERAS, PINTORES } from './blocos-eras.js';
 import { M, DEFS_MEC, PINTORES_MEC } from './blocos-mecanismos.js';
+import { MV, DEFS_MOVEIS, PINTORES_MOVEIS } from './moveis.js';
 export { M };
 
 export const AR = 0;
@@ -150,6 +151,8 @@ for (let d = 0; d < 4; d++) def(E.ESTEIRA + d, 'Esteira', [T.ESTEIRA, T.METAL, T
 
 // mecanismos das construções (portas, catavento, mó, forno...): IDs 47..59, veja blocos-mecanismos.js
 for (const [id, nome, tiles, o] of DEFS_MEC) def(id, nome, tiles, o);
+// móveis das casas (cama, cadeira, mesa, balcão, estantes): IDs 176..187, veja moveis.js
+for (const [id, nome, tiles, o] of DEFS_MOVEIS) def(id, nome, tiles, o);
 
 // blocos das eras (mundo Linha do Tempo): IDs 128..175, veja blocos-eras.js
 for (const [id, nome, tiles, o] of DEFS_ERAS) def(id, nome, tiles, o);
@@ -182,6 +185,7 @@ export const INVENTARIO = [
   B.CACTO, B.CASCALHO, B.CARVAO, B.FERRO, B.OURO, B.DIAMANTE,
   B.TRONCO_PINHEIRO, B.FOLHAS_PINHEIRO, B.TRONCO_BETULA, B.FOLHAS_SELVA, B.ARBUSTO_SECO,
   M.PORTA, M.FORNO, M.FARINHA, M.PAO,
+  MV.CAMA, MV.CADEIRA, MV.MESA, MV.BALCAO, MV.ESTANTE, MV.ESTANTE_PAO,
 ];
 // aba "Engenharia" do inventário
 export const INVENTARIO_MAQUINAS = [
@@ -311,6 +315,7 @@ function pintarLegado(img) {
   pintarCriacao(img); // depois: se usar algum tile livre das eras, a arte nova vale
   // mecanismos das construções (tiles 41..47 e 120)
   for (const [t, fn] of Object.entries(PINTORES_MEC)) pintarTile(img, +t, fn);
+  for (const [t, fn] of Object.entries(PINTORES_MOVEIS)) pintarTile(img, +t, fn);
 }
 
 // Pinta o atlas com tiles de T pixels. Os desenhos são pensados em "unidades de 16" (u,v = 0..16),

@@ -22,6 +22,7 @@ const FALAS = {
   pescador: ['O mar está calminho hoje', 'Vi um peixinho colorido!', 'Adoro o barulho das ondas'],
   artesao: ['Estou fazendo uma cadeira nova', 'Tábua por tábua se faz uma casa!', 'Gostou do telhado da minha casa?'],
   florista: ['Essas flores são para você!', 'Flor azul é a minha preferida', 'Plantei flores na praça'],
+  lojista: ['A loja está aberta!', 'Hoje chegou mercadoria nova', 'Quer vender alguma coisa? É só pedir!', 'Se precisar de ajuda, me contrata!'],
   noite: ['Boa noite! Hora de dormir', 'Zzz...', 'Amanhã a gente brinca mais!'],
 };
 const PRESENTES = ['maca', 'milho', 'cenoura', 'pao', 'flor', 'morango', 'ovo', 'bolo']; // nomes de ícones (icones.js)
@@ -37,6 +38,7 @@ export function montarAldeao(r, oficio) {
   const corpo = [caixa(0.52, 0.62, 0.3, roupa, 0, 0.93, 0)];
   if (oficio === 'fazendeiro') corpo.push(caixa(0.46, 0.5, 0.04, 0x3f6fa0, 0, 0.88, 0.15), caixa(0.08, 0.14, 0.04, 0x3f6fa0, -0.15, 1.18, 0.15), caixa(0.08, 0.14, 0.04, 0x3f6fa0, 0.15, 1.18, 0.15));
   if (oficio === 'padeiro') corpo.push(caixa(0.44, 0.52, 0.04, 0xfafafa, 0, 0.86, 0.15));
+  if (oficio === 'lojista') corpo.push(caixa(0.44, 0.52, 0.04, 0x3f8f5a, 0, 0.86, 0.15), caixa(0.12, 0.08, 0.02, 0xf2c72e, 0.12, 1.08, 0.18));
   if (oficio === 'artesao') corpo.push(caixa(0.16, 0.6, 0.32, 0x7a5634, -0.19, 0.94, 0), caixa(0.16, 0.6, 0.32, 0x7a5634, 0.19, 0.94, 0));
   if (oficio === 'florista') corpo.push(caixa(0.54, 0.22, 0.32, roupa, 0, 0.66, 0)); // saia rodada
   g.add(malha(juntar(corpo)));
@@ -69,7 +71,7 @@ export function montarAldeao(r, oficio) {
 }
 
 // balãozinho de fala
-function balao(texto) {
+export function balao(texto) {
   const linhas = [];
   for (const palavra of texto.split(' ')) {
     const ult = linhas[linhas.length - 1];
@@ -146,6 +148,9 @@ export class Aldeoes {
     if (noite && a.casa) { if (!(a.no.est === a.casa && a.no.dentro)) this.rota(a, v, a.no, { est: a.casa, dentro: true }); return; }
     const r = Math.random();
     const ests = v.estruturas.filter((e) => e.frente);
+    // de dia, o padeiro trabalha na padaria e o lojista na loja da vila
+    const trabalho = a.oficio === 'padeiro' ? v.padaria : a.oficio === 'lojista' ? v.loja : null;
+    if (trabalho && r < 0.65) { if (!(a.no.est === trabalho && a.no.dentro)) this.rota(a, v, a.no, { est: trabalho, dentro: true }); else a.espera = 6 + Math.random() * 8; return; }
     if (r < 0.3 && ests.length) {
       const e = a.oficio === 'fazendeiro' && v.fazendas.length && Math.random() < 0.6 ? v.fazendas[Math.floor(Math.random() * v.fazendas.length)] : ests[Math.floor(Math.random() * ests.length)];
       this.rota(a, v, a.no, { est: e, dentro: e === a.casa && Math.random() < 0.5 });
@@ -171,6 +176,9 @@ export class Aldeoes {
       if (!oficio) {
         const op = v.estilo === 'praia' ? ['pescador', 'pescador', 'padeiro', 'florista', 'artesao'] : ['fazendeiro', 'padeiro', 'artesao', 'florista'];
         oficio = op[Math.floor(r() * op.length)];
+        // a padaria e a loja da vila sempre têm quem trabalhe nelas
+        if (i === 0 && v.padaria) oficio = 'padeiro';
+        if (i === 1 && v.loja) oficio = 'lojista';
       }
       const mod = montarAldeao(r, oficio);
       const no = l.est ? { est: l.est, dentro: false } : { rua: i % v.ruas.length, t: 3 };

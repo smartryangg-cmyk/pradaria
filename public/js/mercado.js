@@ -2,6 +2,7 @@
 // As regras ficam em economia.js. Online quem decide é a sala (servidor); sem internet, o próprio aparelho.
 import { icone, comIcone } from './icones.js';
 import { opcoesEcon, econLigada, estadoNovo, normalizar, aplicar, liberado, LOJA, LOTE_LOJA, precoVenda, objetivosDoMundo, objetivosAtivos, OBJETIVOS } from './economia.js';
+import { OFICIOS, HORA_INI, HORA_FIM, livreDe } from './trabalho.js';
 
 const $ = (s) => document.querySelector(s);
 const CHAVE_LOCAL = 'pradaria.econ';
@@ -54,10 +55,21 @@ export class Mercado {
   enviar(acao, quieto) {
     if (!this.ligado) return;
     if (this.sala) { this.sala.enviar(acao); return; }
-    const r = aplicar(this.e, this.op, acao);
-    if (!r.ok) { if (!quieto) this.ui.aviso(r.erro, 2200, 'moeda'); return; }
+    const antes = this.e;
+    const copia = JSON.parse(JSON.stringify(antes));
+    const r = aplicar(this.e, this.op, acao, { pos: this.ui.pos ? this.ui.pos() : null });
+    if (!r.ok) { if (!quieto) this.ui.aviso(r.erro, 2200, 'moeda'); this.ui.erro && this.ui.erro(r); return; }
+    if (!r.mudou) return;
+    // o pedreiro colocou blocos (sem internet quem põe no mundo é o próprio jogo)
+    if (r.blocos && r.blocos.length && this.ui.porBlocos) this.ui.porBlocos(r.blocos);
     this.salvarLocal();
-    this.recebeu(this.e, r.feitos);
+    this.recebeu(this.e, r.feitos, null, r, copia);
+  }
+  // os trabalhadores contam o tempo: online a sala mede sozinha; sem internet manda quanto passou
+  turno(dt, hora) {
+    if (!this.op.mercado || !this.e.equipe.length) return;
+    if (this.sala) this.sala.enviar({ t: 'turno' });
+    else this.enviar({ t: 'turno', dt, hora }, true);
   }
   evento(e, n = 1) { this.enviar({ t: 'ev', e, n }, true); }
   // só sem internet (online o servidor conta pela própria mensagem do bloco)
@@ -91,9 +103,13 @@ export class Mercado {
   }
 
   // estado novo (do servidor ou daqui mesmo)
-  recebeu(estado, feitos = [], msg) {
+  recebeu(estado, feitos = [], msg, extra, antes) {
     const moedasAntes = this.e.moedas;
+    antes = antes || this.e;
     this.e = normalizar(estado, this.op);
+    // trabalho: avisos (obra pronta, alguém pediu as contas...) e festinha do que foi feito
+    if (extra && extra.msgs) extra.msgs.forEach((m, i) => setTimeout(() => this.ui.aviso(m, 3500, 'amigos'), i * 1800));
+    if (this.ui.trabalhoMudou) this.ui.trabalhoMudou(antes, this.e, extra);
     for (const id of feitos || []) {
       const o = OBJETIVOS.find((x) => x.id === id);
       if (!o) continue;
@@ -108,7 +124,7 @@ export class Mercado {
     if (!$('#mochila').hidden) this.desenharMochila();
     if (!$('#objetivos').hidden) this.desenharObjetivos();
   }
-  erro(msg) { this.ui.aviso(msg, 2200, 'moeda'); }
+  erro(msg, r) { this.ui.aviso(msg, 2200, 'moeda'); if (r && this.ui.erro) this.ui.erro(r); }
 
   // ---------- tela ----------
   montarTela() {
@@ -137,6 +153,8 @@ export class Mercado {
   }
 
   atualizarHud() {
+    const neg = $('#bt-negocios');
+    if (neg) neg.hidden = !this.op.mercado;
     const box = $('#econ');
     box.hidden = !this.op.mercado && !this.op.objetivos;
     if (box.hidden) return;
@@ -185,6 +203,7 @@ export class Mercado {
   abrirLoja(aldeao) {
     if (!this.op.mercado) return false;
     this.vendedor = aldeao ? `${aldeao.nome} · ${aldeao.vila.nome}` : '';
+    this.aldeao = aldeao || null;
     this.abrir(this.wLoja);
     this.desenharLoja();
     return true;
@@ -196,7 +215,7 @@ export class Mercado {
     w.sub.insertAdjacentHTML('beforeend', moedaHtml(this.e.moedas));
     w.corpo.innerHTML = '';
     const abas = el('div', 'linha-bts econ-abas');
-    for (const [k, ic, t] of [['vender', 'moeda', 'Vender'], ['comprar', 'tijolos', 'Comprar']]) {
+    for (const [k, ic, t] of [['vender', 'moeda', 'Vender'], ['comprar', 'tijolos', 'Comprar'], ['contratar', 'amigos', 'Contratar']]) {
       const b = elIc('button', 'bt com-ic' + (this.abaLoja === k ? ' verde' : ''), ic, t);
       b.addEventListener('click', () => { this.abaLoja = k; this.ui.som.clique(); this.desenharLoja(); });
       abas.appendChild(b);
@@ -204,8 +223,9 @@ export class Mercado {
     w.corpo.appendChild(abas);
     const lista = el('div', 'econ-lista');
     if (this.abaLoja === 'vender') {
-      const itens = Object.entries(this.e.itens).filter(([, n]) => n > 0);
-      if (!itens.length) lista.appendChild(el('div', 'vazio', 'Sua mochila está vazia. Quebre blocos pelo mundo (terra, troncos, flores…) e traga aqui para vender!'));
+      // o que você comprou aqui os moradores não compram de volta
+      const itens = Object.keys(this.e.itens).map((k) => [k, livreDe(this.e, +k)]).filter(([, n]) => n > 0);
+      if (!itens.length) lista.appendChild(el('div', 'vazio', 'Nada para vender. Quebre blocos pelo mundo (terra, troncos, flores…) e traga aqui! O que você comprou na loja os moradores não compram de volta.'));
       for (const [k, n] of itens) {
         const b = +k, p = precoVenda(b);
         const bt = el('button', 'bt verde econ-bt'); bt.innerHTML = moedaHtml('+' + p * n);
@@ -216,6 +236,28 @@ export class Mercado {
         const d = el('span', 'econ-dir'); d.append(um, bt);
         lista.appendChild(this.linhaItem(b, n, d));
       }
+    } else if (this.abaLoja === 'contratar') {
+      // contratar um morador: o primeiro dia de salário é pago na hora
+      const quem = this.aldeao ? this.aldeao.nome : 'um morador';
+      lista.appendChild(el('div', 'econ-dica', `${quem} pode trabalhar para você, das ${HORA_INI}h às ${HORA_FIM}h. O salário sai das suas moedas.`));
+      for (const [of, o] of Object.entries(OFICIOS)) {
+        const tem = this.e.equipe.filter((x) => x.of === of).length;
+        const d = el('span', 'econ-dir');
+        const bt = el('button', 'bt econ-bt' + (this.e.moedas >= o.salario && tem < o.max ? ' verde' : ''));
+        bt.innerHTML = `Contratar ${moedaHtml(o.salario)}`;
+        bt.dataset.oficio = of;
+        bt.disabled = tem >= o.max;
+        bt.addEventListener('click', () => { this.ui.som.clique(); this.enviar({ t: 'contratar', of, nome: this.aldeao ? this.aldeao.nome : undefined }); });
+        d.appendChild(bt);
+        const l = el('div', 'econ-linha');
+        const nm = el('span', 'econ-nome', `${o.nome} · ${o.salario} moedas por dia`);
+        nm.appendChild(el('small', '', o.desc + (tem ? ` · você tem ${tem}` : '') + (o.precisa && !this.e.neg[o.precisa] ? ` · precisa de uma ${o.precisa} (o pedreiro constrói)` : '')));
+        l.append(elIc('span', 'econ-ic', o.ic), nm, d);
+        lista.appendChild(l);
+      }
+      const ver = elIc('button', 'bt com-ic', 'amigos', 'Ver meus negócios');
+      ver.addEventListener('click', () => { this.ui.som.clique(); this.ui.abrirNegocios && this.ui.abrirNegocios(); });
+      lista.appendChild(ver);
     } else {
       for (const { b, preco } of LOJA) {
         const tem = !this.op.sobrevivencia && this.e.comprados.includes(b);

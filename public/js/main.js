@@ -28,6 +28,9 @@ import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, ESTILOS, norm
 import { vida } from './vida.js';
 import { Mapa } from './mapa.js';
 import { Mercado } from './mercado.js';
+import { Negocios } from './negocios.js';
+import { MV } from './moveis.js';
+import { horaDe } from './trabalho.js';
 import { VERSAO } from './versao.js';
 import { preencherDono, contaModo, ligarApagarConta } from './dono.js';
 import { Armas } from './armas.js';
@@ -251,7 +254,28 @@ const mercado = new Mercado({
   pausar: () => { if (document.pointerLockElement) document.exitPointerLock(); pausado = true; },
   retomar: () => { pausado = false; },
   outros: () => [...outros.entries()].map(([id, o]) => ({ id, nome: o.nome })),
+  // trabalhadores contratados (negocios.js / trabalho.js)
+  pos: () => (jog ? [jog.pos.x, jog.pos.y, jog.pos.z] : null),
+  porBlocos: (l) => porBlocosObra(l, false),
+  trabalhoMudou: (antes, depois, extra) => negocios.estadoMudou(antes, depois, extra),
+  erro: (r) => negocios.respostaObra(false, r),
+  abrirNegocios: () => negocios.abrir(),
 });
+const negocios = new Negocios({
+  cena, mercado, som, aviso,
+  icone: (b, t) => iconeBloco(atlasCanvas, b, t),
+  nomeBloco: nomeDe,
+  pausar: () => { if (document.pointerLockElement) document.exitPointerLock(); pausado = true; },
+  retomar: () => { pausado = false; },
+  mundo: () => mundo, dia: () => tempoDia, sobrev: () => sobrev(), bichos: () => bichos,
+  posJog: () => (jog ? [jog.pos.x, jog.pos.y, jog.pos.z] : null),
+});
+// blocos que o pedreiro colocou (sem internet: daqui mesmo; online: vêm da sala)
+function porBlocosObra(l, daRede) {
+  if (!mundo) return;
+  for (const [x, y, z, b] of l) mundo.definir(x, y, z, b, daRede);
+}
+$('#bt-negocios').addEventListener('click', () => { som.clique(); negocios.abrir(); });
 
 const qtd = (id) => mercado.qtd(id);
 
@@ -549,6 +573,7 @@ function fecharJanelas() {
   $('#inventario').hidden = true; $('#pausa').hidden = true; $('#mapa').hidden = true; $('#mapa-ilha').hidden = true; $('#garagem').hidden = true;
   if (cmd) cmd.fechar();
   mercado.fechar(true);
+  negocios.fechar(true);
   pausado = false;
 }
 document.querySelectorAll('[data-fechar]').forEach((b) => b.addEventListener('click', fecharJanelas));
@@ -795,6 +820,8 @@ function mirar(ponto, alcance = 6) {
   const hb = mundo.raycast(o, dir, alcance);
   const ha = bichos.atingir(o, dir, hb ? hb.t + 0.01 : alcance);
   const hv = aldeoes.atingir(o, dir, ha ? ha.t : hb ? hb.t + 0.01 : alcance);
+  const ht = negocios.atingir(o, dir, hv ? hv.t : ha ? ha.t : hb ? hb.t + 0.01 : alcance);
+  if (ht) return { bloco: null, bicho: null, trabalhador: ht.npc };
   if (hv) return { bloco: null, bicho: null, aldeao: hv.aldeao };
   const hc = garagem.mirado(o, dir, ha ? ha.t : hb ? hb.t + 0.01 : alcance);
   if (hc) return { bloco: null, bicho: null, veiculo: hc.veiculo };
@@ -810,6 +837,7 @@ function usar(ponto) {
   if (m.veiculo) { garagem.pedirEntrar(m.veiculo); return; }
   if (m.bicho) { fazerCarinho(m.bicho); return; }
   if (m.aldeao) { conversarCom(m.aldeao); return; }
+  if (m.trabalhador) { negocios.tocar(m.trabalhador); return; }
   const h = m.bloco;
   if (!h) return;
   // tocar na bancada abre o livro de receitas
@@ -839,6 +867,12 @@ function usar(ponto) {
   if (novo === E.ESTEIRA) {
     const fx = -Math.sin(jog.yaw), fz = -Math.cos(jog.yaw);
     novo = E.ESTEIRA + (Math.abs(fx) > Math.abs(fz) ? (fx > 0 ? 0 : 2) : (fz > 0 ? 1 : 3));
+  }
+  // cama: cabeceira do lado de lá; cadeira: virada para quem colocou
+  if (novo === MV.CAMA || novo === MV.CADEIRA) {
+    const fx = -Math.sin(jog.yaw), fz = -Math.cos(jog.yaw);
+    const d = Math.abs(fx) > Math.abs(fz) ? (fx > 0 ? 0 : 2) : (fz > 0 ? 1 : 3);
+    novo += novo === MV.CAMA ? d : (d + 2) & 3;
   }
   comoJogador(() => mundo.definir(x, y, z, novo));
   som.colocar();
@@ -927,9 +961,8 @@ function quebrar(ponto) {
   if (m.veiculo) return;
   if (m.bicho) { fazerCarinho(m.bicho); return; }
   if (m.aldeao) { conversarCom(m.aldeao); return; }
+  if (m.trabalhador) { negocios.tocar(m.trabalhador); return; }
   if (armas.empunhando || !podeConstruir()) return; // sem construção ninguém quebra bloco
-  // com a Água na mão, "quebrar" recolhe a água (como um balde)
-  if (barra[slotSel] === B.AGUA && recolherAgua(ponto)) return;
   // com a Água na mão, "quebrar" recolhe a água (como um balde); coletando, a mão vazia também pega
   const mao = naMao();
   if ((mao === B.AGUA || (sobrev() && !mao)) && recolherAgua(ponto)) return;
@@ -1041,6 +1074,7 @@ function limparMundo() {
   if (escav) { for (const k of [...escav.blocos.keys()]) escav.soltar(k); escav.atualizar(10, 0, 0); }
   if (bichos) for (let i = bichos.lista.length - 1; i >= 0; i--) bichos.remover(i);
   if (aldeoes) aldeoes.limpar();
+  negocios.limpar();
   mecanismos.usarMundo(null);
   mundo = null; bichos = null; aldeoes = null; escav = null; fisica = null;
   mercado.parar();
@@ -1234,14 +1268,15 @@ async function jogarOnline(m, volta = null) {
       o.alvoYaw = msg.r[0]; o.alvoPitch = msg.r[1]; o.acao = msg.a | 0;
     },
     bloco: (msg) => { if (mundo) mundo.definir(msg.x, msg.y, msg.z, msg.b, true); },
+    blocos: (msg) => { if (Array.isArray(msg.l)) porBlocosObra(msg.l, true); },
     emote: (msg) => {
       const o = outros.get(msg.id);
       const nome = nomeEmote(msg.e); // aceita nome novo ou emoji de versão antiga
       if (o && bichos && nome) bichos.icone(nome, o.grupo.position.x, o.grupo.position.y + 2.7, o.grupo.position.z, 2, 0.6);
     },
     erro: (msg) => { aviso(msg.msg || 'Erro', 3000); },
-    econ: (msg) => { mercado.recebeu(msg.s, msg.feitos, msg.msg); desenharBarra(); },
-    'econ-erro': (msg) => mercado.erro(msg.msg),
+    econ: (msg) => { mercado.recebeu(msg.s, msg.feitos, msg.msg, msg); desenharBarra(); },
+    'econ-erro': (msg) => mercado.erro(msg.msg, msg),
     // o dono editou o mundo: nome novo vale na hora; opções novas recarregam o mundo (no mesmo lugar)
     'mundo-editado': (msg) => {
       clearTimeout(esperarEdicao);
@@ -1472,6 +1507,7 @@ $('#m-novo').addEventListener('submit', async (e) => {
 });
 
 // ---------- laço principal ----------
+let turnoAcum = 0;
 let ultimo = performance.now(), acumPos = 0, quadros = 0, tempoFps = 0, tempoTotal = 0, ultimoPasso = 0;
 let miraToque = null;
 const passoAntes = { x: 0, z: 0 };
@@ -1506,6 +1542,10 @@ function laco(agora) {
   bichos.atualizar(pausado ? 0 : dt, jog, tempoTotal, tempoDia);
   aldeoes.atualizar(dt, jog, Math.sin(tempoDia * Math.PI * 2));
   mecanismos.atualizar(pausado ? 0 : dt, jog, graf.U.uVento.value === 0);
+  negocios.atualizar(dt, jog, tempoDia);
+  // os trabalhadores contam o tempo a cada 3 s (online quem mede é a sala)
+  turnoAcum += dt;
+  if (turnoAcum >= 3) { mercado.turno(turnoAcum, horaDe(tempoDia)); turnoAcum = 0; }
   if (!pausado) vida.atualizar(dt);
   armas.quadro(dt, pausado || garagem.dentro);
   if (garagem.dentro || visao.terceira) armas.mao.visible = false;

@@ -6,6 +6,11 @@ import { lugarVazio, gastoDe, ULTIMO_ITEM } from '../../public/js/receitas.js';
 import { normalizarOpcoes } from '../../public/js/opcoes-mundo.js';
 import { normalizarSkin } from '../../public/js/skin.js';
 import { filtrarChat } from '../../public/js/chat-filtro.js';
+import { horaDe, MAX_TURNO } from '../../public/js/trabalho.js';
+
+// ações dos trabalhadores contratados (trabalho.js)
+const ACOES_TRABALHO = new Set(['contratar', 'demitir', 'obra', 'cancelar-obra', 'depositar', 'retirar', 'turno']);
+const ALTURA_MAX = 95; // igual ao ALT - 1 de public/js/mundo.js
 
 const MAX_BLOCO = 255; // 0..63 base, 100..126 engenharia, 128..175 eras (blocos-eras.js)
 // o cliente ignora ids que não existem (antes um id desconhecido travava o mundo de todos); aqui só o intervalo
@@ -187,7 +192,8 @@ export class Sala extends DurableObject {
     // as opções do mundo vêm do banco (D1) a cada entrada
     const opcoes = mundo.opcoes && typeof mundo.opcoes === 'object' ? mundo.opcoes : {};
     const op = opcoesEcon(opcoes);
-    if (JSON.stringify(op) !== JSON.stringify(this.info.econ)) { this.info.econ = op; await this.ctx.storage.put('info', this.info); }
+    const cicloDia = opcoes.cicloDia !== false;
+    if (JSON.stringify(op) !== JSON.stringify(this.info.econ) || this.info.cicloDia !== cicloDia) { this.info.econ = op; this.info.cicloDia = cicloDia; await this.ctx.storage.put('info', this.info); }
     // regras que o servidor faz valer: construção (colocar/quebrar) e armas
     const regras = { construcao: opcoes.construcao !== false, armas: opcoes.armas === true };
     if (JSON.stringify(regras) !== JSON.stringify(this.info.regras)) { this.info.regras = regras; await this.ctx.storage.put('info', this.info); }
@@ -396,7 +402,7 @@ export class Sala extends DurableObject {
       if (!eu.salvoEm || agora - eu.salvoEm > 10000) { eu.salvoEm = agora; ws.serializeAttachment(eu); await this.ctx.storage.put('p:' + eu.uid, eu.p); }
     } else if (m.t === 'bloco') {
       const { x, y, z, b } = m;
-      if (![x, y, z].every(Number.isInteger) || y < 1 || y > 63 || !blocoOk(b)) return;
+      if (![x, y, z].every(Number.isInteger) || y < 1 || y > ALTURA_MAX || !blocoOk(b)) return;
       if (Math.abs(x) > LONGE || Math.abs(z) > LONGE) return;
       // mundo sem construção: ninguém coloca nem quebra blocos com as mãos
       if (m.j && !this.regras().construcao) return;
@@ -539,6 +545,28 @@ export class Sala extends DurableObject {
       ws.serializeAttachment(eu);
       const econ = await this.econDe(eu.uid);
       await this.econAplicar(ws, eu, econ, m, m.t === 'ev');
+    } else if (ACOES_TRABALHO.has(m.t)) {
+      const op = this.op();
+      if (!op.mercado) return;
+      const agora = Date.now();
+      const econ = await this.econDe(eu.uid);
+      if (m.t === 'turno') {
+        // o tempo quem mede é a sala (pelo relógio dela), e a hora do dia também
+        if (!this.turnos) this.turnos = new Map();
+        const ult = this.turnos.get(eu.uid);
+        this.turnos.set(eu.uid, agora);
+        if (!ult || agora - ult < 1500) return;
+        const dt = (agora - ult) / 1000;
+        const dia = this.info.cicloDia === false ? 0.3 : this.diaAgora();
+        m = { t: 'turno', dt: dt > MAX_TURNO * 2 ? 0 : Math.min(MAX_TURNO, dt), hora: horaDe(dia) };
+        if (!m.dt || !econ.equipe.length) return;
+      } else {
+        if (!eu.jtr || agora - eu.jtr > 1000) { eu.jtr = agora; eu.ntr = 0; }
+        if (++eu.ntr > 6) return;
+        ws.serializeAttachment(eu);
+        m = { ...m, nome: typeof m.nome === 'string' ? m.nome.slice(0, 24) : undefined };
+      }
+      await this.econAplicar(ws, eu, econ, m, m.t === 'turno', { pos: eu.p });
     } else if (m.t === 'dar') {
       if (!this.op().mercado) return;
       const agora = Date.now();
@@ -624,12 +652,33 @@ export class Sala extends DurableObject {
     return e;
   }
 
-  async econAplicar(ws, eu, econ, acao, quieto) {
-    const r = aplicar(econ, this.op(), acao);
-    if (!r.ok) { if (!quieto) ws.send(JSON.stringify({ t: 'econ-erro', msg: r.erro })); return; }
+  async econAplicar(ws, eu, econ, acao, quieto, ctx) {
+    const r = aplicar(econ, this.op(), acao, ctx);
+    if (!r.ok) { if (!quieto) ws.send(JSON.stringify({ t: 'econ-erro', msg: r.erro, falta: r.falta, custo: r.custo })); return; }
     if (!r.mudou) return;
+    // o pedreiro colocou blocos: a sala põe no mundo e todo mundo vê
+    if (r.blocos && r.blocos.length) await this.porBlocos(r.blocos);
     await this.ctx.storage.put('e:' + eu.uid, econ);
-    ws.send(JSON.stringify({ t: 'econ', s: econ, feitos: r.feitos }));
+    ws.send(JSON.stringify({ t: 'econ', s: econ, feitos: r.feitos, msgs: r.msgs && r.msgs.length ? r.msgs : undefined, vendas: r.vendas || undefined, paes: r.paes || undefined }));
+  }
+
+  // blocos colocados pela própria sala (obras do pedreiro): guarda e manda para todos de uma vez
+  async porBlocos(lista) {
+    const ed = await this.carregarEdicoes();
+    const ok = [];
+    let lote = {};
+    let n = 0;
+    for (const [x, y, z, b] of lista) {
+      if (![x, y, z].every(Number.isInteger) || y < 1 || y > ALTURA_MAX || !blocoOk(b)) continue;
+      const k = x + ',' + y + ',' + z;
+      if (!ed.has(k) && ed.size >= MAX_EDICOES) break;
+      ed.set(k, b);
+      lote['b:' + k] = b;
+      ok.push([x, y, z, b]);
+      if (++n === 128) { await this.ctx.storage.put(lote); lote = {}; n = 0; }
+    }
+    if (n) await this.ctx.storage.put(lote);
+    if (ok.length) this.enviarTodos({ t: 'blocos', l: ok });
   }
 
   async webSocketClose(ws) { await this.sair(ws); }
