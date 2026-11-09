@@ -2,6 +2,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { rngSemente } from './ruido.js';
 import { DEFS_ERAS, PINTORES } from './blocos-eras.js';
+import { pintarAtlas, reduzir, TILES_PINTADOS } from './texturas.js';
 import { M, DEFS_MEC, PINTORES_MEC } from './blocos-mecanismos.js';
 import { MV, DEFS_MOVEIS, PINTORES_MOVEIS } from './moveis.js';
 export { M };
@@ -205,45 +206,14 @@ export const LINHAS = 32; // tiles 64..127: eras (blocos-eras.js); 128..: bancad
 function hex(c) { return [(c >> 16) & 255, (c >> 8) & 255, c & 255]; }
 
 const var_ = (c, r, amt) => { const k = 1 + (r() - 0.5) * amt; return [c[0] * k, c[1] * k, c[2] * k, 255]; };
-const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-const esc = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
-const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
-const fracP = (v) => v - Math.floor(v);
 
-// ruído suave que "dá a volta" no tile, para a textura emendar sem costura entre blocos. (u,v) em 0..1
-function ruidoTile(semente, per = 4) {
-  const r = rngSemente(semente);
-  const g = Array.from({ length: per * per }, () => r());
-  const v = (i, j) => g[((j % per + per) % per) * per + ((i % per + per) % per)];
-  return (u, w) => {
-    const fx = u * per, fy = w * per;
-    const i = Math.floor(fx), j = Math.floor(fy);
-    let tx = fx - i, ty = fy - j;
-    tx = tx * tx * (3 - 2 * tx); ty = ty * ty * (3 - 2 * ty);
-    const a = v(i, j) + (v(i + 1, j) - v(i, j)) * tx;
-    const b = v(i, j + 1) + (v(i + 1, j + 1) - v(i, j + 1)) * tx;
-    return a + (b - a) * ty;
-  };
-}
-// células (Voronoi) que também dão a volta no tile: pedrinhas, folhas, pedras do calçamento
-function celulasTile(semente, n, esticaY = 1) {
-  const r = rngSemente(semente);
-  const c = Array.from({ length: n }, () => [r(), r(), r()]);
-  return (u, w) => {
-    let d1 = 9, d2 = 9, id = 0, ddx = 0, ddy = 0;
-    for (let i = 0; i < n; i++) {
-      let dx = u - c[i][0], dy = w - c[i][1];
-      dx -= Math.round(dx); dy -= Math.round(dy);
-      dy *= esticaY;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      if (d < d1) { d2 = d1; d1 = d; id = i; ddx = dx; ddy = dy; } else if (d < d2) d2 = d;
-    }
-    return { d1, d2, borda: d2 - d1, id, val: c[id][2], dx: ddx, dy: ddy };
-  };
-}
+// ---------- texturas ----------
+// A arte de todos os tiles está em texturas.js (pintada em "unidades de 16", com relevo).
+// Resoluções: 16px (Leve, ícones, partículas, mapa), 32px (Bonita) e 64px (Linda/Ultra).
+// As UVs são as mesmas em todas; trocar a resolução é só trocar a imagem da textura.
 
-// Tiles "antigos" de 16px: quem pinta com pintarTile(img, idx, fn) continua funcionando;
-// no atlas detalhado esses tiles são ampliados (pixelado) a partir dos 16px.
+// Caminho antigo e compatível: quem quiser um tile simples de 16px pinta com pintarTile(img, idx, fn)
+// dentro de pintarLegado. Esses tiles valem onde texturas.js não pinta nada e são ampliados (pixelado).
 const tilesLegado = new Set();
 function pintarTile(img, idx, fn) {
   tilesLegado.add(idx);
@@ -256,436 +226,105 @@ function pintarTile(img, idx, fn) {
     img.data[i] = c[0]; img.data[i + 1] = c[1]; img.data[i + 2] = c[2]; img.data[i + 3] = c[3] ?? 255;
   }
 }
-// tiles que ainda não têm versão detalhada (desenhados em 16px com pintarTile)
+// tiles de 16px "à moda antiga": valem só onde texturas.js não pinta (ex.: itens 130..136)
 function pintarLegado(img) {
-  const verde = hex(0x6cc04a), terra = hex(0x8a5a3b), pedra = hex(0x8c8f96), areia = hex(0xecd9a0); // cores base usadas pelos tiles antigos
-  // 24 terra de plantar (sulcos)
-  pintarTile(img, 24, (x, y, r) => var_(y % 4 < 2 ? hex(0x5e3a22) : hex(0x7a4d2e), r, 0.18));
-  // 25 trigo (fundo transparente): talos com espigas douradas
-  pintarTile(img, 25, (x, y, r) => {
-    const talo = x % 3 === 1;
-    const topo = [5, 3, 6, 4, 2, 5, 3, 6, 4, 2, 5, 3, 6, 4, 3, 5][x];
-    if (!talo || y < topo) return [0, 0, 0, 0];
-    if (y < topo + 5) return var_(hex(0xe8b93c), r, 0.25);
-    return var_(hex(0x9cbf4a), r, 0.2);
-  });
-  // 26 feno (topo) e 27 feno (lado, com amarração)
-  pintarTile(img, 26, (x, y, r) => var_(r() < 0.2 ? hex(0xc99a2e) : hex(0xe6c056), r, 0.2));
-  pintarTile(img, 27, (x, y, r) => var_(y === 4 || y === 11 ? hex(0x8a5a2b) : (x + y * 3) % 5 === 0 ? hex(0xc99a2e) : hex(0xe6c056), r, 0.15));
-  // ---------- mundo clássico (tiles 28..40) ----------
-  // cacto: lado com listras e espinhos, topo com miolo
-  pintarTile(img, 28, (x, y, r) => {
-    if (x === 0 || x === 15) return var_(hex(0x2f6b2a), r, 0.1);
-    if ((x === 3 || x === 8 || x === 12) && y % 4 === 1) return [236, 236, 200, 255];
-    return var_(x % 5 === 2 ? hex(0x3d8a35) : hex(0x4ea443), r, 0.12);
-  });
-  pintarTile(img, 29, (x, y, r) => {
-    const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5));
-    return var_(d > 6.5 ? hex(0x2f6b2a) : d < 3 ? hex(0x7cc56a) : hex(0x4ea443), r, 0.1);
-  });
-  // cascalho
-  pintarTile(img, 30, (x, y, r) => { const t = r(); return var_(t < 0.25 ? hex(0x6f6c6a) : t < 0.5 ? hex(0x9a9592) : t < 0.6 ? hex(0x5a5654) : hex(0x868280), r, 0.1); });
-  // minérios: pedra com pedrinhas coloridas
-  const minerio = (cor, brilho) => (x, y, r) => {
-    const m = ((x * 7 + y * 13) % 17 < 3 && (x + y) % 3 !== 0) || (Math.abs(x - 5) < 2 && Math.abs(y - 10) < 2) || (Math.abs(x - 11) < 2 && Math.abs(y - 4) < 2);
-    if (m) return var_(r() < 0.3 ? hex(brilho) : hex(cor), r, 0.12);
-    return var_(r() < 0.12 ? hex(0x767980) : pedra, r, 0.18);
-  };
-  pintarTile(img, 31, minerio(0x2b2b2e, 0x4a4a50));
-  pintarTile(img, 32, minerio(0xc9906a, 0xe8b894));
-  pintarTile(img, 33, minerio(0xf2c72e, 0xfff2a0));
-  pintarTile(img, 34, minerio(0x45d6d0, 0xb8fffb));
-  // rocha-mãe
-  pintarTile(img, 35, (x, y, r) => { const t = r(); return var_(t < 0.3 ? hex(0x2a2a2e) : t < 0.6 ? hex(0x55565c) : hex(0x3d3e44), r, 0.1); });
-  // pinheiro (casca escura) e folhas escuras
-  pintarTile(img, 36, (x, y, r) => var_(x % 3 === 0 ? hex(0x3b2716) : hex(0x55391f), r, 0.18));
-  pintarTile(img, 37, (x, y, r) => var_(r() < 0.3 ? hex(0x2a5a32) : hex(0x386e40), r, 0.25));
-  // bétula: casca branca com manchas
-  pintarTile(img, 38, (x, y, r) => {
-    const mancha = (y * 5 + (x >> 2) * 3) % 7 === 0 && x % 4 !== 3;
-    return var_(mancha ? hex(0x3a3a36) : hex(0xe6e2d6), r, 0.08);
-  });
-  // folhas da selva (verde vivo)
-  pintarTile(img, 39, (x, y, r) => var_(r() < 0.25 ? hex(0x2f9a2a) : hex(0x46b83a), r, 0.3));
-  // arbusto seco (fundo transparente)
-  pintarTile(img, 40, (x, y, r) => {
-    const galho = (x === 7 && y > 6) || (Math.abs(x - 7 - (12 - y) * 0.6) < 0.7 && y > 3 && y < 12) || (Math.abs(x - 7 + (13 - y) * 0.7) < 0.7 && y > 5 && y < 13);
-    return galho ? var_(hex(0x8a6a3a), r, 0.2) : [0, 0, 0, 0];
-  });
-  pintarMaquinas(img);
-  // tiles 64..127 (blocos das eras): neve, grama com neve, gelo e arenito do mundo clássico também vêm daqui.
-  // Sem eles esses blocos ficam invisíveis e o terreno parece cheio de buracos.
-  for (const t in PINTORES) pintarTile(img, +t, PINTORES[t]);
-  pintarCriacao(img); // depois: se usar algum tile livre das eras, a arte nova vale
-  // mecanismos das construções (tiles 41..47 e 120)
+  for (const t in PINTORES) pintarTile(img, +t, PINTORES[t]); // eras (texturas.js pinta por cima)
+  pintarCriacao(img);
   for (const [t, fn] of Object.entries(PINTORES_MEC)) pintarTile(img, +t, fn);
   for (const [t, fn] of Object.entries(PINTORES_MOVEIS)) pintarTile(img, +t, fn);
 }
-
-// Pinta o atlas com tiles de T pixels. Os desenhos são pensados em "unidades de 16" (u,v = 0..16),
-// então o mesmo bloco fica igual em 16px e mais detalhado em 32px.
-function gerarAtlas(T) {
-  const cv = document.createElement('canvas');
-  cv.width = COLS * T; cv.height = LINHAS * T;
-  const ctx = cv.getContext('2d');
-  const img = ctx.createImageData(cv.width, cv.height);
-  const W = COLS * T, S = T / 16;
-  const P = (idx, fn) => {
-    const ox = (idx % COLS) * T, oy = Math.floor(idx / COLS) * T;
-    const r = rngSemente(idx * 7919 + 13 + T);
-    for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
-      const c = fn(x, y, r, x / S, y / S); // x,y em pixels · u,v em unidades de 16
-      const i = ((oy + y) * W + ox + x) * 4;
-      img.data[i] = Math.max(0, Math.min(255, c[0])); img.data[i + 1] = Math.max(0, Math.min(255, c[1]));
-      img.data[i + 2] = Math.max(0, Math.min(255, c[2])); img.data[i + 3] = c[3] ?? 255;
-    }
-  };
-  const N = (sem, per) => { const f = ruidoTile(sem, per); return (x, y) => f(x / T, y / T); };
-  const px = 1 / S; // um pixel, em unidades de 16
-
-  // ---- grama: manchas suaves, folhinhas com luz em cima e sombra embaixo (relevo pintado) ----
-  const nG = N(101, 4), nG2 = N(102, 8);
-  const marcaG = new Int8Array(T * T);
-  {
-    const rr = rngSemente(103 + T);
-    for (let k = 0; k < T * T * 0.06; k++) {
-      const x = Math.floor(rr() * T), y = Math.floor(rr() * T), h = Math.max(1, Math.round(S * (1 + rr())));
-      for (let j = 0; j < h; j++) marcaG[((y + j) % T) * T + x] = 1;
-      marcaG[((y + h) % T) * T + x] = -1;
-    }
-  }
-  const gramaPx = (x, y, r) => {
-    const t = clamp01(nG(x, y) * 0.8 + nG2(x, y) * 0.45 - 0.12);
-    let c = mix(hex(0x56a83a), hex(0x80cd52), t);
-    const m = marcaG[(y % T) * T + x];
-    if (m > 0) c = mix(c, hex(0xa6e57a), 0.7);
-    else if (m < 0) c = esc(c, 0.8);
-    return var_(c, r, 0.08);
-  };
-  // ---- terra: torrões e pedrinhas com luz/sombra ----
-  const nT = N(201, 4), nT2 = N(202, 8), pedT = celulasTile(203, 9);
-  const terraPx = (x, y, r) => {
-    let c = mix(hex(0x744829), hex(0x9a6a48), clamp01(nT(x, y) * 0.8 + nT2(x, y) * 0.4 - 0.1));
-    const q = pedT(x / T, y / T);
-    const raio = 0.05 + q.val * 0.04;
-    if (q.d1 < raio) {
-      c = mix(hex(0x9d8670), hex(0xb9a48c), q.val);
-      if (q.dy < -raio * 0.3) c = esc(c, 1.15); else if (q.dy > raio * 0.35) c = esc(c, 0.78);
-    } else if (q.d1 < raio + 0.6 / T) c = esc(c, 0.7);
-    if (r() < 0.06) c = esc(c, 0.78);
-    return var_(c, r, 0.1);
-  };
-  P(0, (x, y, r) => gramaPx(x, y, r));
-  // 1 grama lado: franja irregular que "escorre", sombrinha embaixo
-  {
-    const rr = rngSemente(303);
-    const fr = Array.from({ length: 16 }, () => 2 + Math.floor(rr() * 2) + (rr() < 0.3 ? 2 + Math.floor(rr() * 2.5) : 0));
-    const jit = Array.from({ length: T }, () => (rr() < 0.4 ? px : 0));
-    P(1, (x, y, r, u, v) => {
-      const h = fr[Math.floor(u)] + jit[x];
-      if (v < h) { const c = gramaPx(x, (y + 5 * S) % T, r); const k = 1.05 - (v / h) * 0.25; return [c[0] * k, c[1] * k, c[2] * k, 255]; }
-      const c = terraPx(x, y, r);
-      if (v < h + px * Math.max(1, S)) return [c[0] * 0.66, c[1] * 0.66, c[2] * 0.66, 255];
-      return c;
-    });
-  }
-  P(2, (x, y, r) => terraPx(x, y, r));
-  // 3 pedra: manchas em duas escalas, veios claros/escuros suaves e grãos (sem desenho que "repete")
-  {
-    const nP = N(401, 4), nP2 = N(402, 8), nP3 = N(403, 16);
-    P(3, (x, y, r) => {
-      const t = clamp01(nP(x, y) * 0.45 + nP2(x, y) * 0.5 + nP3(x, y) * 0.3 - 0.12);
-      let c = mix(hex(0x80838b), hex(0x9fa2a9), t);
-      const veio = Math.abs(nP2(x, y) - 0.5);
-      if (veio < 0.025) c = esc(c, 0.86); else if (veio < 0.05) c = esc(c, 1.05);
-      const q = r();
-      if (q < 0.05) c = esc(c, 0.88); else if (q < 0.08) c = esc(c, 1.08);
-      return var_(c, r, 0.06);
-    });
-  }
-  // 4 areia: ondinhas de vento e grãos
-  {
-    const nA = N(501, 4);
-    P(4, (x, y, r, u, v) => {
-      const onda = Math.sin((v + nA(x, y) * 4) * 1.5) * 0.04;
-      let c = esc(hex(0xecd9a0), 0.97 + onda);
-      const q = r();
-      if (q < 0.07) c = hex(0xd5bb80); else if (q < 0.11) c = hex(0xfbefc6); else if (q < 0.12) c = hex(0xb9a27a);
-      return var_(c, r, 0.05);
-    });
-  }
-  // 5 água (o shader da água não usa; serve para ícone)
-  P(5, (x, y, r) => { const c = var_(hex(0x3aa6c8), r, 0.1); c[3] = 255; return c; });
-  // 6 tronco topo: anéis tortinhos, miolo escuro, rachadura e casca na borda
-  {
-    const nR = N(601, 4);
-    P(6, (x, y, r, u, v) => {
-      const b = Math.min(u, v, 16 - u, 16 - v);
-      if (b < 1.2) return var_(r() < 0.35 ? hex(0x4a3019) : hex(0x6b4a2b), r, 0.12);
-      const d = Math.hypot(u - 8, v - 8) + nR(x, y) * 1.5;
-      if (d < 0.9) return var_(hex(0x7d5a35), r, 0.08);
-      if (Math.abs(u - 8 - (v - 8) * 0.15) < px * 0.9 && v > 9 && v < 14) return var_(hex(0x7d5a35), r, 0.1);
-      const anel = fracP(d * 0.55);
-      const c = anel < 0.22 ? hex(0xa77d4a) : mix(hex(0xd0aa72), hex(0xbb9460), anel);
-      return var_(b < 2 ? esc(c, 0.86) : c, r, 0.06);
-    });
-  }
-  // 7 tronco lado: casca com sulcos ondulados e placas com relevo
-  {
-    const nC = N(701, 4), nC2 = N(702, 8);
-    P(7, (x, y, r, u, v) => {
-      const onda = (nC(x, y) - 0.5) * 2.4;
-      const f = fracP((u + onda) / 4); // 4 placas por bloco
-      let c = esc(hex(0x7a5634), 0.85 + nC2(x, y) * 0.3);
-      if (f < 0.16) c = hex(0x452b16);
-      else if (f < 0.26) c = esc(c, 1.18); // beirada da placa pega luz
-      else if (f > 0.86) c = esc(c, 0.8);
-      if (r() < 0.05) c = esc(c, 0.85);
-      return var_(c, r, 0.08);
-    });
-  }
-  // 8 folhas: folhinhas recortadas (células) com centro claro, beirada escura e vãos
-  {
-    const cel = celulasTile(801, 26, 1.3);
-    const nF = N(802, 4);
-    P(8, (x, y, r) => {
-      const q = cel(x / T, y / T);
-      const luz = clamp01(nF(x, y) * 0.9 + q.val * 0.4 - 0.15);
-      let c = mix(hex(0x2f7426), hex(0x63bb45), luz);
-      if (q.borda < 0.012) c = hex(0x1d4f18); // vão entre folhas
-      else if (q.dy < -0.02 && q.d1 > 0.025) c = esc(c, 1.12); // topo da folha pega luz
-      else if (q.dy > 0.03) c = esc(c, 0.86);
-      if (r() < 0.04) c = hex(0x86d264);
-      return var_(c, r, 0.08);
-    });
-  }
-  // 9 tábuas: 4 tábuas com tom próprio, veio, frestas com relevo e preguinhos
-  {
-    const rr = rngSemente(901);
-    const tomT = [0, 1, 2, 3].map(() => 0.9 + rr() * 0.18);
-    const nV = N(902, 8);
-    P(9, (x, y, r, u, v) => {
-      const t = Math.floor(v / 4), lv = v - t * 4;
-      const junta = t % 2 ? 4 : 11;
-      if (lv >= 4 - px || Math.abs(u - junta) < px * 0.6) return var_(hex(0x6e4a28), r, 0.08);
-      if (Math.abs(u - (junta + 1.5)) < 0.6 && Math.abs(lv - 1.5) < 0.6) return [96, 80, 70, 255];
-      if (Math.abs(u - (junta - 1.6)) < 0.6 && Math.abs(lv - 1.5) < 0.6) return [96, 80, 70, 255];
-      const veio = Math.sin(u * 0.7 + nV(x, y) * 7 + t * 2.3) * 0.07 + Math.sin(u * 2.9 + t) * 0.02;
-      let k = tomT[t] + veio;
-      if (lv < px) k += 0.1; else if (lv > 4 - 2 * px) k -= 0.1;
-      return var_(esc(hex(0xc8995a), k), r, 0.05);
-    });
-  }
-  // 10 vidro (moldura + reflexo + centro transparente)
-  P(10, (x, y, r, u, v) => {
-    const b = Math.min(u, v, 16 - u, 16 - v);
-    if (b < 1) return [220, 240, 255, 255];
-    if (b < 1 + px) return [160, 190, 210, 255];
-    const dg = u - v;
-    if ((dg > 0 && dg < 1.2 && u > 3 && u < 9) || (dg > 2.2 && dg < 2.8 && u > 5 && u < 10)) return [255, 255, 255, 190];
-    return [180, 220, 255, 0];
-  });
-  // 11 tijolo: tom por tijolo, argamassa funda, luz em cima/esquerda e sombra embaixo/direita
-  {
-    const rr = rngSemente(1101);
-    const tomB = Array.from({ length: 16 }, () => 0.84 + rr() * 0.24);
-    P(11, (x, y, r, u, v) => {
-      const linha = Math.floor(v / 4), desl = linha % 2 ? 4 : 0;
-      const lu = (u + desl) % 8, lv = v - linha * 4;
-      if (lv >= 4 - px || lu >= 8 - px) return var_(hex(0xcfc6b8), r, 0.08);
-      let k = tomB[linha * 2 + (Math.floor((u + desl) / 8) & 1)];
-      if (lv < px || lu < px) k *= 1.14; else if (lv >= 4 - 2 * px || lu >= 8 - 2 * px) k *= 0.82;
-      const c = r() < 0.05 ? hex(0x8f3c2a) : hex(0xb5523b);
-      return var_(esc(c, k), r, 0.08);
-    });
-  }
-  // flores e capim (fundo transparente)
-  const flor = (cor, centro) => (x, y, r, u, v) => {
-    const dx = u - 8, dy = v - 6, d = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
-    if (d < 1.5) return var_(hex(centro), r, 0.1);
-    const pet = 4.2 * (0.72 + 0.28 * Math.cos(a * 5));
-    if (d < pet) return var_(esc(hex(cor), 1.08 - (d / pet) * 0.25), r, 0.08);
-    if (Math.abs(u - 8) < 1 && v > 9) return var_(esc(hex(0x3f8f2c), u < 8 ? 1.1 : 0.9), r, 0.1);
-    if (v > 10.5 && ((Math.abs(u - 5.5 - (v - 11) * 0.3) < 0.8 && v < 14) || (Math.abs(u - 10.5 + (v - 11) * 0.3) < 0.8 && v < 13))) return var_(hex(0x4fa83a), r, 0.15);
-    return [0, 0, 0, 0];
-  };
-  P(12, flor(0xe8433f, 0xffe066));
-  P(13, flor(0xffd23f, 0xb5651d));
-  P(23, flor(0x5a8cff, 0xffffff));
-  P(14, (x, y, r, u, v) => {
-    const i = Math.floor(u);
-    const h = [9, 13, 6, 11, 14, 8, 12, 10, 5, 13, 9, 12, 7, 11, 10, 8][i];
-    const alto = 16 - v;
-    if (alto < h && (i % 2 === 0 || alto < h - 3)) return var_(mix(hex(0x3f9a2c), hex(0x8ad864), alto / h), r, 0.15);
-    return [0, 0, 0, 0];
-  });
-  // lãs: fiozinhos em diagonal
-  const nL = N(1501, 8);
-  const la = (c) => (x, y, r, u, v) => {
-    const fio = Math.sin((u + v) * 2.2 + nL(x, y) * 4) * 0.06 + Math.sin((u - v) * 1.7) * 0.03;
-    return var_(esc(hex(c), 0.97 + fio), r, 0.08);
-  };
-  P(15, la(0xf2f2ee));
-  P(16, la(0xd9473c));
-  P(17, la(0x3f6fd9));
-  P(18, la(0xf2c72e));
-  P(19, la(0x5cb83a));
-  P(20, la(0xf29ac2));
-  // 21 pedrisco: pedras arredondadas com luz em cima e sombra embaixo, rejunte escuro
-  {
-    const cel = celulasTile(2101, 9, 1.15);
-    P(21, (x, y, r) => {
-      const q = cel(x / T, y / T);
-      if (q.borda < 0.03) return var_(hex(0x55575c), r, 0.1);
-      const base = [hex(0x9a9ca3), hex(0x84868d), hex(0x908a83)][q.id % 3];
-      let k = 1 - q.dy * 2.2 - q.dx * 0.8;
-      if (q.borda < 0.055) k *= 0.85;
-      return var_(esc(base, Math.max(0.7, Math.min(1.25, k))), r, 0.08);
-    });
-  }
-  // 22 lampião: moldura de madeira, grade e luz quentinha
-  P(22, (x, y, r, u, v) => {
-    const b = Math.min(u, v, 16 - u, 16 - v);
-    if (b < 2) return var_(b < px ? hex(0x4a3019) : hex(0x6b4a2b), r, 0.12);
-    if (Math.abs(u - 8) < px * 0.8 || Math.abs(v - 8) < px * 0.8) return var_(hex(0x5a3d22), r, 0.1);
-    const d = Math.hypot(u - 8, v - 8);
-    return [255, 236 - d * 8, 130 - d * 7, 255];
-  });
-  // tiles antigos de 16px, ampliados para T
-  const leg = { data: new Uint8ClampedArray(COLS * TILE * LINHAS * TILE * 4) };
-  tilesLegado.clear();
-  pintarLegado(leg);
+let legado = null;
+function aplicarLegado(dados, T) {
+  if (!legado) { legado = { data: new Uint8ClampedArray(COLS * TILE * LINHAS * TILE * 4) }; tilesLegado.clear(); pintarLegado(legado); }
+  const W = COLS * T, S = T / TILE, pintados = new Set(TILES_PINTADOS);
   for (const idx of tilesLegado) {
+    if (pintados.has(idx)) continue;
     const ox = (idx % COLS) * T, oy = Math.floor(idx / COLS) * T;
     const lx = (idx % COLS) * TILE, ly = Math.floor(idx / COLS) * TILE;
     for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
       const i = ((oy + y) * W + ox + x) * 4, j = ((ly + Math.floor(y / S)) * COLS * TILE + lx + Math.floor(x / S)) * 4;
-      for (let k = 0; k < 4; k++) img.data[i + k] = leg.data[j + k];
+      for (let k = 0; k < 4; k++) dados[i + k] = legado.data[j + k];
     }
   }
+  return dados;
+}
+function canvasDe(dados, T) {
+  const cv = document.createElement('canvas');
+  cv.width = COLS * T; cv.height = LINHAS * T;
+  // o 16px é lido muitas vezes (partículas, ícones, mapa)
+  const ctx = cv.getContext('2d', T === TILE ? { willReadFrequently: true } : undefined);
+  const img = ctx.createImageData(cv.width, cv.height);
+  img.data.set(aplicarLegado(dados, T));
   ctx.putImageData(img, 0, 0);
   return cv;
 }
 
-// Atlas: 16px (leve, ícones e partículas) e 32px (mais detalhado). As coordenadas UV são as mesmas;
-// trocar a resolução é só trocar a imagem da textura (tex.userData.definirHD(true/false)).
+// pinta o atlas de T px em workers (divide os tiles entre eles); sem worker, pinta aqui mesmo
+function pintarEmWorkers(T) {
+  const n = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1));
+  let ws;
+  try { ws = Array.from({ length: n }, () => new Worker(new URL('./texturas-worker.js', import.meta.url), { type: 'module' })); }
+  catch { return Promise.resolve(pintarAtlas(T)); }
+  // reparte por custo parecido: alterna os tiles entre os workers
+  const listas = ws.map(() => []);
+  TILES_PINTADOS.forEach((idx, k) => listas[k % n].push(idx));
+  const W = COLS * T, total = new Uint8ClampedArray(W * LINHAS * T * 4);
+  return Promise.all(ws.map((w, k) => new Promise((ok, falha) => {
+    w.onmessage = (e) => {
+      const { lista, dados } = e.data;
+      for (const idx of lista) {
+        const ox = (idx % COLS) * T, oy = Math.floor(idx / COLS) * T;
+        for (let y = 0; y < T; y++) { const i = ((oy + y) * W + ox) * 4; total.set(dados.subarray(i, i + T * 4), i); }
+      }
+      w.terminate(); ok();
+    };
+    w.onerror = (e) => { w.terminate(); falha(e); };
+    w.postMessage({ id: k, T, lista: listas[k] });
+  }))).then(() => total, () => pintarAtlas(T));
+}
+
+// Atlas: começa em 16px (feito do 32px reduzido). tex.userData.definirResolucao(16|32|64) troca a imagem;
+// 32 e 64 são gerados na primeira vez que forem pedidos (64 em workers, sem travar o jogo).
 export function criarAtlas() {
-  const cv16 = gerarAtlas(TILE);
-  let cvHD = null;
+  const t0 = performance.now();
+  const d32 = pintarAtlas(32);
+  const cv16 = canvasDe(reduzir(d32, 32), TILE);
+  const canvases = { 16: cv16 };
+  let d32guardado = d32, pedido64 = null;
+  const tempos = { 16: performance.now() - t0 };
   const tex = new THREE.CanvasTexture(cv16);
   tex.magFilter = THREE.NearestFilter;
   // mipmaps "pixelados": tira a cintilação ao longe sem borrar de perto
   tex.minFilter = THREE.NearestMipmapNearestFilter;
   tex.generateMipmaps = true;
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.userData.hd = false;
-  tex.userData.definirHD = (hd) => {
-    if (hd === tex.userData.hd) return;
-    if (hd && !cvHD) cvHD = gerarAtlas(TILE * 2);
-    tex.image = hd ? cvHD : cv16;
-    tex.userData.hd = hd;
+  tex.userData.resolucao = 16;
+  tex.userData.tempos = tempos; // ms de geração por resolução (medição)
+  let alvo = 16;
+  const usar = (res) => {
+    if (alvo !== res || !canvases[res] || tex.userData.resolucao === res) return;
+    tex.dispose(); // o tamanho muda: a GPU precisa de uma textura nova (a antiga tem tamanho fixo)
+    tex.image = canvases[res];
+    tex.userData.resolucao = res;
     tex.needsUpdate = true;
   };
+  tex.userData.definirResolucao = (res) => {
+    res = res >= 64 ? 64 : res >= 32 ? 32 : 16;
+    alvo = res;
+    if (res === 32 && !canvases[32]) {
+      const t1 = performance.now();
+      canvases[32] = canvasDe(d32guardado || pintarAtlas(32), 32);
+      d32guardado = null;
+      tempos[32] = performance.now() - t1;
+    }
+    if (res === 64 && !canvases[64] && !pedido64) {
+      const t1 = performance.now();
+      pedido64 = pintarEmWorkers(64).then((d) => { canvases[64] = canvasDe(d, 64); tempos[64] = performance.now() - t1; usar(alvo); });
+    }
+    usar(res);
+  };
+  tex.userData.definirHD = (hd) => tex.userData.definirResolucao(hd ? 32 : 16); // nome antigo
   return { tex, canvas: cv16 };
-}
-
-// arte das peças de engenharia (tiles 48..63)
-function pintarMaquinas(img) {
-  const metalBase = hex(0x9aa3ad), metalEsc = hex(0x6d7680);
-  const metal = (x, y, r) => {
-    const borda = x === 0 || y === 0 || x === 15 || y === 15;
-    const rebite = (x === 2 || x === 13) && (y === 2 || y === 13);
-    return var_(borda ? metalEsc : rebite ? hex(0xd7dde3) : metalBase, r, 0.08);
-  };
-  // 48 fio (cobre apagado) / 49 fio ligado (vermelho brilhante)
-  pintarTile(img, 48, (x, y, r) => var_((x + y) % 4 === 0 ? hex(0x7a3b22) : hex(0x9b4f2c), r, 0.1));
-  pintarTile(img, 49, (x, y, r) => var_((x + y) % 4 === 0 ? hex(0xffb03a) : hex(0xff4a2a), r, 0.08));
-  // 50 botão vermelho
-  pintarTile(img, 50, (x, y, r) => {
-    const d = Math.hypot(x - 7.5, y - 7.5);
-    if (d < 4.2) return var_(d < 2 && x < 8 && y < 8 ? hex(0xff9a8a) : hex(0xe23a2a), r, 0.06);
-    if (d < 6.5) return var_(hex(0x5d6670), r, 0.08);
-    return [0, 0, 0, 0];
-  });
-  // 51 lâmpada apagada / 52 acesa
-  const lamp = (acesa) => (x, y, r) => {
-    const borda = x < 1 || y < 1 || x > 14 || y > 14;
-    if (borda) return var_(hex(0x5d6670), r, 0.08);
-    const grade = x % 5 === 0 || y % 5 === 0;
-    if (grade) return var_(acesa ? hex(0xffe9a8) : hex(0x7d868f), r, 0.05);
-    const d = Math.hypot(x - 7.5, y - 7.5);
-    return acesa ? [255, 245 - d * 4, 170 - d * 6, 255] : var_(hex(0xc7c2a8), r, 0.1);
-  };
-  pintarTile(img, 51, lamp(false));
-  pintarTile(img, 52, lamp(true));
-  // 53 portão fechado (tábuas com faixas de metal) / 54 aberto (só a moldura)
-  pintarTile(img, 53, (x, y, r) => {
-    if (y === 3 || y === 12) return var_(hex(0x4d5560), r, 0.08);
-    return var_(x % 4 === 0 ? hex(0x8a6236) : hex(0xb98a50), r, 0.12);
-  });
-  pintarTile(img, 54, (x, y, r) => (x < 2 || x > 13 || y < 1 || y > 14 ? var_(hex(0x8a6236), r, 0.12) : [0, 0, 0, 0]));
-  // 55 metal (lado das máquinas)
-  pintarTile(img, 55, metal);
-  // 56 ventilador (hélice vista de cima)
-  pintarTile(img, 56, (x, y, r) => {
-    const dx = x - 7.5, dy = y - 7.5, d = Math.hypot(dx, dy);
-    if (d > 7.3) return metal(x, y, r);
-    if (d < 1.6) return var_(hex(0xf2c72e), r, 0.05);
-    const a = Math.atan2(dy, dx);
-    const pa = Math.sin(a * 3 + d * 0.25) > 0.35;
-    return var_(pa ? hex(0x3fa7d9) : hex(0x2b3138), r, 0.08);
-  });
-  // 57 trampolim (lona listrada)
-  pintarTile(img, 57, (x, y, r) => {
-    if (x < 2 || y < 2 || x > 13 || y > 13) return var_(hex(0x3f6fd9), r, 0.08);
-    return var_(((x + y) >> 2) % 2 ? hex(0xf2c72e) : hex(0xe8433f), r, 0.06);
-  });
-  // 58 esteira (seta para cima da imagem)
-  pintarTile(img, 58, (x, y, r) => {
-    if (x < 2 || x > 13) return var_(hex(0x5d6670), r, 0.08);
-    const ay = (y + 16) % 8; // duas setas
-    const seta = Math.abs(x - 7.5) < 4.5 - ay * 0.0 && ay >= Math.abs(x - 7.5) - 0.5 && ay <= Math.abs(x - 7.5) + 2.5;
-    return var_(seta ? hex(0xf2c72e) : y % 2 ? hex(0x2b3138) : hex(0x3a424b), r, 0.06);
-  });
-  // 59 sino (sino dourado no metal)
-  pintarTile(img, 59, (x, y, r) => {
-    const larg = y < 3 ? 1 : y < 11 ? 2 + (y - 3) * 0.55 : y < 13 ? 6.5 : -1;
-    if (Math.abs(x - 7.5) < larg) return var_(y === 11 || y === 12 ? hex(0xc9962a) : hex(0xf2c72e), r, 0.08);
-    if (y === 14 && Math.abs(x - 7.5) < 1.5) return var_(hex(0xc9962a), r, 0.05);
-    return metal(x, y, r);
-  });
-  // 60 canhão de confete (pontinhos coloridos)
-  const cores = [0xe8433f, 0xf2c72e, 0x3f6fd9, 0x5cb83a, 0xf29ac2, 0xffffff];
-  pintarTile(img, 60, (x, y, r) => {
-    const d = Math.hypot(x - 7.5, y - 7.5);
-    if (d > 6.5) return metal(x, y, r);
-    if (d > 5) return var_(hex(0x2b3138), r, 0.05);
-    return r() < 0.45 ? [...hex(cores[Math.floor(r() * cores.length)]), 255] : var_(hex(0x1c2228), r, 0.05);
-  });
-  // 61 sensor de noite (lua e estrelinhas)
-  pintarTile(img, 61, (x, y, r) => {
-    if (x < 1 || y < 1 || x > 14 || y > 14) return var_(hex(0x5d6670), r, 0.08);
-    const d = Math.hypot(x - 7, y - 7), d2 = Math.hypot(x - 9.5, y - 5.5);
-    if (d < 4.5 && d2 > 3.6) return var_(hex(0xfff1b0), r, 0.05);
-    if ((x === 3 && y === 11) || (x === 12 && y === 12) || (x === 12 && y === 3)) return [255, 255, 255, 255];
-    return var_(hex(0x1d2a5a), r, 0.1);
-  });
-  // 62 pisca-pisca (luz em faixas)
-  pintarTile(img, 62, (x, y, r) => {
-    if (x < 1 || y < 1 || x > 14 || y > 14) return var_(hex(0x5d6670), r, 0.08);
-    const d = Math.hypot(x - 7.5, y - 7.5);
-    if (d < 3) return var_(hex(0x7dff8a), r, 0.05);
-    return var_(Math.floor(d) % 2 ? hex(0x2e7d3a) : hex(0x245f2d), r, 0.08);
-  });
-  // 63 alavanca (ícone)
-  pintarTile(img, 63, (x, y, r) => {
-    if (y >= 11 && y <= 14 && x >= 3 && x <= 12) return var_(hex(0x84868d), r, 0.1);
-    const t = (14 - y) / 12; const cx = 7.5 + (1 - t) * -3 + t * 3;
-    if (y < 11 && y > 3 && Math.abs(x - (5 + (11 - y) * 0.55)) < 1.1) return var_(hex(0x9a7040), r, 0.1);
-    void cx;
-    if (Math.hypot(x - 10, y - 3) < 2.2) return var_(hex(0xe23a2a), r, 0.06);
-    return [0, 0, 0, 0];
-  });
 }
 
 // bancada (128 topo, 129 lado) e itens (130..136): graveto e ferramentas, desenhados na diagonal

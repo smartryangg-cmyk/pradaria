@@ -471,7 +471,8 @@ vec3 gDirBorda = vec3(0.0);`)
     ligarDefine(matBlocos, 'BORDA', rica);
     ligarDefine(matBlocos, 'BORDA_LUZ', rica);
     ligarDefine(matBlocos, 'FOG_SOL', rica);
-    if (atlas.userData && atlas.userData.definirHD) atlas.userData.definirHD(rica);
+    // texturas: 16px no Leve, 32px na Bonita, 64px na Linda/Ultra
+    if (atlas.userData && atlas.userData.definirResolucao) atlas.userData.definirResolucao(!q.sombra ? 16 : q.sombra < 2048 ? 32 : 64);
 
     // lampiões perto acendem de noite
     tempoLuzes -= dt;

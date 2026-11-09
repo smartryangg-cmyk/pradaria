@@ -9,6 +9,7 @@ const BASICO = [
   '/js/opcoes-mundo.js', '/js/instintos.js', '/js/vida.js', '/js/energia.js', '/js/mapa.js', '/js/economia.js', '/js/mercado.js', '/js/receitas.js', '/js/ilha-aventura.js', '/js/mapa-ilha.js', '/js/gerador.js', '/js/gerador-worker.js', '/js/veiculos.js', '/js/garagem.js', '/js/lugares-veiculos.js', '/js/posefeitos.js', '/js/dono.js', '/js/armas.js', '/js/armas-dados.js', '/js/versao.js', '/js/visao.js', '/js/skin.js', '/js/personagem.js', '/js/editar-mundo.js', '/js/suave.js', '/js/arquivo-mundo.js', '/js/mecanismos.js', '/js/blocos-mecanismos.js', '/js/blocos-eras.js', '/js/chat.js', '/js/chat-filtro.js', '/js/voz.js',
   '/js/casas.js', '/js/trabalho.js', '/js/negocios.js', '/js/moveis.js',
   '/js/formas.js', '/js/formas-defs.js',
+  '/js/texturas.js', '/js/texturas-worker.js',
 ];
 
 self.addEventListener('install', (e) => {
