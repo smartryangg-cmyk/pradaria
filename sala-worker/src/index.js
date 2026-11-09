@@ -23,7 +23,13 @@ const MAX_EDICOES = 200000; // por mundo
 const LONGE = 100000; // ninguém precisa ir mais longe que isso
 const MSG_POR_SEG = 30;
 // veículos: tipo -> número de lugares (igual ao public/js/veiculos.js)
-const LUGARES = { carro: 4, jipe: 4, esportivo: 2, quadriciclo: 2, moto: 2, bicicleta: 1, skate: 1, trator: 2, caminhao: 6, onibus: 9, barco: 4, submarino: 2, aviao: 2, helicoptero: 4 };
+const LUGARES = { carro: 4, jipe: 4, esportivo: 2, quadriciclo: 2, moto: 2, bicicleta: 1, skate: 1, trator: 2, caminhao: 6, onibus: 9, barco: 4, submarino: 2, aviao: 2, helicoptero: 4,
+  tanque: 2, jipeArmado: 4, helicopteroGuerra: 4, viatura: 4 };
+// mundo de Guerra (public/js/guerra.js): veículos que só existem nas vagas da base, do forte e da delegacia
+const MILITARES = new Set(['tanque', 'jipeArmado', 'helicopteroGuerra', 'viatura']);
+// armas dos veículos: alcance da metralhadora e raio da bomba do canhão (igual ao public/js/guerra-veiculos.js)
+const ARMA_VEIC = { tanque: { raio: 4.2 }, jipeArmado: { alcance: 55 }, helicopteroGuerra: { alcance: 65 } };
+const VAGA_OK = /^[a-z0-9]{1,6}$/;
 const MAX_VEICULOS = 40; // por mundo
 const MAX_VEICULOS_POR_JOGADOR = 6;
 const MAX_PARADOS = 40; // veículos que moram nas vilas/portos (aparecem quando alguém chega perto)
@@ -205,7 +211,7 @@ export class Sala extends DurableObject {
     const cicloDia = opcoes.cicloDia !== false;
     if (JSON.stringify(op) !== JSON.stringify(this.info.econ) || this.info.cicloDia !== cicloDia) { this.info.econ = op; this.info.cicloDia = cicloDia; await this.ctx.storage.put('info', this.info); }
     // regras que o servidor faz valer: construção (colocar/quebrar) e armas
-    const regras = { construcao: opcoes.construcao !== false, armas: opcoes.armas === true };
+    const regras = { construcao: opcoes.construcao !== false, armas: opcoes.armas === true || opcoes.tipo === 'guerra' };
     if (JSON.stringify(regras) !== JSON.stringify(this.info.regras)) { this.info.regras = regras; await this.ctx.storage.put('info', this.info); }
     const chat = chatDe(opcoes);
     if (JSON.stringify(chat) !== JSON.stringify(this.info.chat)) await this.mudarChat(chat);
@@ -229,7 +235,7 @@ export class Sala extends DurableObject {
     }
     const id = u.id + '-' + Math.random().toString(36).slice(2, 7);
     const pos = (await this.ctx.storage.get('p:' + u.id)) || null;
-    const eu = { id, uid: u.id, nome: u.nome, cor: u.cor, skin: normalizarSkin(u.skin, u.cor), dono: !!u.dono, p: pos || [0, 60, 0], r: [0, 0], cota: 0, janela: 0, semVeiculos: opcoes.veiculos === false };
+    const eu = { id, uid: u.id, nome: u.nome, cor: u.cor, skin: normalizarSkin(u.skin, u.cor), dono: !!u.dono, p: pos || [0, 60, 0], r: [0, 0], cota: 0, janela: 0, semVeiculos: opcoes.veiculos === false, guerra: opcoes.tipo === 'guerra' };
     this.ctx.acceptWebSocket(servidor);
     servidor.serializeAttachment(eu);
 
@@ -447,7 +453,7 @@ export class Sala extends DurableObject {
         if (r && r.ok && r.marca && b > 0) await this.ctx.storage.put('c:' + k, 1);
       }
     } else if (m.t === 'vnovo') {
-      if (eu.semVeiculos || !LUGARES[m.tipo] || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
+      if (eu.semVeiculos || !LUGARES[m.tipo] || MILITARES.has(m.tipo) || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
       const cor = Number.isInteger(m.cor) && m.cor >= 0 && m.cor < 8 ? m.cor : 0;
       // com o mercado ligado, só sai da garagem o que a pessoa comprou ou montou (e do jeito que guardou)
       const econV = await this.econDe(eu.uid);
@@ -483,7 +489,7 @@ export class Sala extends DurableObject {
       await this.ctx.storage.put('vpar', [...par]);
       const vs = await this.carregarVeiculos();
       const ocup = this.ocupacao();
-      const moram = [...vs.values()].filter((v) => v.k).sort((a, b) => a.t - b.t);
+      const moram = [...vs.values()].filter((v) => v.k && !MILITARES.has(v.tipo)).sort((a, b) => a.t - b.t);
       if (moram.length >= MAX_PARADOS) {
         const tirar = moram.find((v) => !(ocup.get(v.id) || []).some(Boolean));
         if (!tirar) return;
@@ -555,6 +561,8 @@ export class Sala extends DurableObject {
       this.enviarTodos({ t: 'vfim', id: v.id });
     } else if (m.t === 'tiro' || m.t === 'arma' || m.t === 'acerto' || m.t === 'caiu' || m.t === 'pegar' || m.t === 'pegos') {
       if (this.regras().armas) this.armas(ws, eu, m);
+    } else if (m.t === 'gveic' || m.t === 'gx' || m.t === 'gdano' || m.t === 'gexp') {
+      if (eu.guerra) await this.guerra(ws, eu, m);
     } else if (m.t === 'buzina') {
       if (!eu.v || eu.v[0] !== m.id) return;
       this.enviarTodos({ t: 'buzina', id: m.id }, ws);
@@ -657,6 +665,77 @@ export class Sala extends DurableObject {
       await this.ctx.storage.put({ ['e:' + eu.uid]: de, ['e:' + ja.uid]: para });
       ws.send(JSON.stringify({ t: 'econ', s: de, msg: `Você deu ${m.n | 0} moedas para ${ja.nome}!` }));
       alvo.send(JSON.stringify({ t: 'econ', s: para, msg: `${eu.nome} te deu ${m.n | 0} moedas de presente!` }));
+    }
+  }
+
+  // ---------- mundo de Guerra ----------
+  // gveic: veículo de uma vaga (id fixo "g" + vaga); some e volta para a vaga quando fica abandonado longe dela
+  // gx: estrelas de procurado e tiros dos veículos (só o desenho, para os outros verem)
+  // gdano / gexp: metralhadora ou bomba do canhão acertando outro jogador (a sala confere e manda o dano)
+  async guerra(ws, eu, m) {
+    const agora = Date.now();
+    if (m.t === 'gveic') {
+      if (eu.semVeiculos || !VAGA_OK.test(String(m.k)) || !MILITARES.has(m.tipo) || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
+      // no máximo 6 pedidos a cada 4 s por jogador (uma base tem 3 vagas, a delegacia 2)
+      if (!eu.gvEm || agora - eu.gvEm > 4000) { eu.gvEm = agora; eu.gvN = 0; }
+      if (++eu.gvN > 6) return;
+      ws.serializeAttachment(eu);
+      if (Math.hypot(eu.p[0] - m.p[0], eu.p[2] - m.p[2]) > 120) return;
+      const vs = await this.carregarVeiculos();
+      const id = 'g' + m.k;
+      const pub = { id, tipo: m.tipo, cor: 0, p: m.p.map((x) => arrV(x)), r: arrV(m.r, 1000) };
+      const v = vs.get(id);
+      if (v) {
+        const ocupado = (this.ocupacao().get(id) || []).some(Boolean);
+        const longeDaVaga = Math.hypot(v.p[0] - pub.p[0], v.p[2] - pub.p[2]) > 30;
+        const alguemPerto = this.jogadores().some((j) => Math.hypot(j.p[0] - v.p[0], j.p[2] - v.p[2]) < 50);
+        if (ocupado || !longeDaVaga || alguemPerto) { ws.send(JSON.stringify({ t: 'vnovo', v: pubV(v) })); return; }
+        vs.delete(id);
+        this.enviarTodos({ t: 'vfim', id });
+      }
+      // mora na vaga (k): qualquer um dirige, ninguém guarda na garagem; volta para a vaga abastecido e consertado
+      const novo = { ...pub, dono: null, k: id, t: agora, c: 1, d: 0 };
+      vs.set(id, novo);
+      await this.ctx.storage.put('v:' + id, novo);
+      this.enviarTodos({ t: 'vnovo', v: pubV(novo) });
+    } else if (m.t === 'gx') {
+      const f = (a) => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite) ? a.map((x) => arrV(x)) : null;
+      if (m.k === 'estrelas') {
+        const n = Math.max(0, Math.min(5, m.n | 0));
+        eu.estrelas = n; ws.serializeAttachment(eu);
+        this.enviarTodos({ t: 'gx', k: 'estrelas', id: eu.id, n }, ws);
+      } else if ((m.k === 'tiro' || m.k === 'rajada') && eu.v) {
+        const o = f(m.o), d = f(m.k === 'tiro' ? m.d : m.f);
+        if (!o || !d) return;
+        this.enviarTodos(m.k === 'tiro' ? { t: 'gx', k: 'tiro', id: eu.id, o, d } : { t: 'gx', k: 'rajada', id: eu.id, o, f: d }, ws);
+      }
+    } else {
+      // quem atira tem que estar no lugar do atirador de um veículo armado
+      if (!eu.v || eu.v[1] !== 0) return;
+      const v = (await this.carregarVeiculos()).get(eu.v[0]);
+      const A = v && ARMA_VEIC[v.tipo];
+      if (!A) return;
+      const t = this.taxaGuerra || (this.taxaGuerra = new Map());
+      let q = t.get(eu.id);
+      if (!q || agora - q.ini > 1000) { q = { ini: agora, n: 0 }; t.set(eu.id, q); }
+      const sentadoEmTanque = (j) => { if (!j.v) return false; const w = this.veiculos.get(j.v[0]); return !!w && w.tipo === 'tanque'; };
+      if (m.t === 'gdano' && A.alcance) {
+        if (++q.n > 12) return;
+        const [wsA, alvo] = this.conexaoDe(String(m.alvo));
+        if (!alvo || alvo.id === eu.id || sentadoEmTanque(alvo)) return;
+        if (Math.hypot(alvo.p[0] - v.p[0], alvo.p[1] - v.p[1], alvo.p[2] - v.p[2]) > A.alcance + 6) return;
+        try { wsA.send(JSON.stringify({ t: 'gx', k: 'dano', n: 1, de: eu.nome })); } catch {}
+      } else if (m.t === 'gexp' && A.raio) {
+        const p = Array.isArray(m.p) && m.p.length === 3 && m.p.every(Number.isFinite) ? m.p : null;
+        if (!p || (eu.expEm && agora - eu.expEm < 1800) || Math.hypot(p[0] - v.p[0], p[2] - v.p[2]) > 140) return;
+        eu.expEm = agora; ws.serializeAttachment(eu);
+        for (const w of this.ctx.getWebSockets()) {
+          const j = w.deserializeAttachment();
+          if (!j || j.id === eu.id || sentadoEmTanque(j)) continue;
+          const d = Math.hypot(j.p[0] - p[0], j.p[1] + 0.9 - p[1], j.p[2] - p[2]);
+          if (d < A.raio) try { w.send(JSON.stringify({ t: 'gx', k: 'dano', n: Math.max(1, Math.round(5 * (1 - d / A.raio))), de: eu.nome, exp: 1 })); } catch {}
+        }
+      }
     }
   }
 

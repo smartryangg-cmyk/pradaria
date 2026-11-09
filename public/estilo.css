@@ -583,3 +583,32 @@ body.mirando #mira::before { left: 4px; top: 4px; }
 /* ---------- pergunta "Você tem 16 anos ou mais?" (idade.js) ---------- */
 #idade { z-index: 40; }
 .idade-txt { font-size: 18px; text-align: center; margin: 8px 0 14px; }
+/* ---------- mundo de Guerra (guerra.js) ---------- */
+#procurado { position: absolute; top: calc(max(10px, env(safe-area-inset-top)) + 64px); left: 50%; transform: translateX(-50%); display: flex; gap: 4px; padding: 4px 10px; border-radius: 999px; background: var(--hud-fundo); pointer-events: none; }
+#procurado .est .ic-svg { width: 26px; height: 26px; display: block; filter: grayscale(1) brightness(.5); opacity: .45; transition: filter .2s, opacity .2s; }
+#procurado .est.cheia .ic-svg { filter: none; opacity: 1; }
+#procurado.vista .est.cheia { animation: pisca-estrela .6s infinite alternate; }
+@keyframes pisca-estrela { from { transform: scale(1); } to { transform: scale(1.18); } }
+#pena { position: absolute; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 124px); left: 50%; transform: translateX(-50%); display: grid; grid-template-columns: auto auto; align-items: center; column-gap: 8px; padding: 8px 16px; border-radius: 16px; background: rgba(40, 40, 50, .8); color: #fff; font-weight: 900; font-size: 20px; pointer-events: none; text-align: left; }
+#pena .ic-svg { width: 28px; height: 28px; grid-row: span 2; }
+#pena small { font-weight: 700; font-size: 13px; opacity: .85; }
+#veic-arma { position: absolute; left: 50%; bottom: calc(max(14px, env(safe-area-inset-bottom)) + 58px); transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; background: rgba(0,0,0,.45); color: #fff; font-weight: 900; pointer-events: none; }
+#veic-arma .ic-svg { width: 22px; height: 22px; }
+body.veic-armado #mira { display: block !important; }
+#bt-arsenal { position: absolute; left: 50%; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 130px); transform: translateX(-50%); }
+#bt-veic-atirar { position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: 120px; background: #e85d3a; }
+#bt-veic-atirar.ativo { transform: scale(.92); background: #c4421f; }
+body:not(.toque) #bt-veic-atirar { display: none; }
+#guerra-ferida { position: fixed; inset: 0; pointer-events: none; opacity: 0; box-shadow: inset 0 0 120px 40px rgba(255, 120, 60, .55); }
+#guerra-ferida.vai { animation: ferida .5s ease-out; }
+@keyframes ferida { from { opacity: 1; } to { opacity: 0; } }
+body.guerra #bt-voar { display: none; }
+#missoes .caixa { max-width: 520px; }
+#missoes-lista { display: flex; flex-direction: column; gap: 8px; max-height: 56vh; overflow-y: auto; margin-bottom: 12px; }
+.missao { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 10px; background: #fff; border-radius: 14px; padding: 8px 12px; box-shadow: 0 3px 0 #e2d6bf; text-align: left; }
+.missao .ic .ic-svg { width: 34px; height: 34px; display: block; }
+.missao .txt { display: flex; flex-direction: column; } .missao small { opacity: .7; }
+.missao .estado { font-weight: 900; } .missao .estado .ic-svg { width: 28px; height: 28px; display: block; }
+.missao.feita { background: #e7f7dc; }
+.missao.feita .txt b { text-decoration: line-through; text-decoration-thickness: 2px; }
+@media (max-width: 640px) { #procurado .est .ic-svg { width: 20px; height: 20px; } #procurado { top: calc(max(10px, env(safe-area-inset-top)) + 56px); } #pena { font-size: 16px; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 100px); } }
