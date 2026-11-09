@@ -15,7 +15,12 @@ export async function onRequest({ request, env, params }) {
   if (!m) return erro('Você não está nesse mundo', 403);
   const url = new URL(request.url);
   url.searchParams.delete('t');
-  const req = new Request(url.toString(), request);
+  // cabeçalhos novos: só os do WebSocket passam. Nada que o jogador mande (x-admin, x-usuario, x-mundo...) chega à sala;
+  // x-admin só existe nos pedidos que a própria API faz pelo binding (apagar, exportar, importar, editar).
+  const cab = new Headers();
+  for (const k of ['upgrade', 'connection', 'sec-websocket-key', 'sec-websocket-version', 'sec-websocket-protocol', 'sec-websocket-extensions'])
+    if (request.headers.has(k)) cab.set(k, request.headers.get(k));
+  const req = new Request(url.toString(), { method: 'GET', headers: cab });
   req.headers.set('x-usuario', JSON.stringify({ id: u.id, nome: u.nome, cor: u.cor, dono: m.dono_id === u.id, skin: normalizarSkin(m.skin, u.cor) }));
   req.headers.set('x-mundo', JSON.stringify({ codigo, semente: m.semente, opcoes: normalizarOpcoes(m.opcoes) }));
   // a sala tem nome fixo: quando o dono troca o código, os blocos construídos continuam lá

@@ -9,7 +9,7 @@ const ipx = () => '10.' + Math.floor(Math.random() * 250) + '.' + Math.floor(Mat
 async function api(caminho, corpo, token) {
   const r = await fetch(BASE + '/api/' + caminho, {
     method: corpo ? 'POST' : 'GET',
-    headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}), 'cf-connecting-ip': ipx() },
+    headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}), ...(BASE.includes('localhost') ? { 'cf-connecting-ip': ipx() } : {}) },
     body: corpo ? JSON.stringify(corpo) : undefined,
   });
   let d = null; try { d = await r.json(); } catch {}
@@ -45,7 +45,8 @@ ok((await blocosDoDono()).length === 3, 'mundo começa com 3 blocos');
 
 // ---------- 1) cabeçalhos falsos na sala ----------
 const ex = await salaCru(mundo.codigo, chato.token, { 'x-admin': 'exportar' });
-ok(!/edicoes/.test(ex.texto), `x-admin: exportar não vaza os blocos (${ex.status} ${ex.texto.slice(0, 60)})`);
+// um membro já recebe os blocos ao entrar ('ola'); o furo era a resposta de administrador (JSON puro, sem virar WebSocket)
+ok(ex.status === 101 && !/^\{"edicoes"/.test(ex.texto), `x-admin: exportar é ignorado, vira conexão normal (${ex.status} ${ex.texto.slice(0, 40)})`);
 await salaCru(mundo.codigo, chato.token, { 'x-admin': 'importar' }, { edicoes: [[0, 30, 0, 9], [1, 30, 0, 9]] });
 await salaCru(mundo.codigo, chato.token, { 'x-admin': 'apagar' });
 await salaCru(mundo.codigo, chato.token, { 'x-admin': 'editar' }, { nome: 'Hackeado', opcoes: { monstros: true }, recarregar: true });
