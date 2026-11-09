@@ -27,12 +27,18 @@ async function vigiarAvisos(p) {
 }
 // palco: gramado plano, com um buraco (cercado natural) na frente para o bicho não fugir
 async function preparar(p) {
+  // espera os pedaços do mundo em volta terminarem de carregar (senão o palco é montado num pedaço que ainda vai ser gerado)
+  await p.evaluate(() => { const j = window.__jogo.jog; window.__jogo.mundo.atualizar(j.pos.x, j.pos.z, 400); });
+  await p.waitForTimeout(2500);
   await p.evaluate(() => {
     const g = window.__jogo, j = g.jog, x0 = Math.floor(j.pos.x), z0 = Math.floor(j.pos.z), y = Math.max(30, g.mundo.chao(x0, z0));
-    for (let dx = -18; dx <= 18; dx++) for (let dz = -18; dz <= 18; dz++) {
-      g.mundo.definir(x0 + dx, y, z0 + dz, 1);
-      for (let h = 1; h <= 40; h++) if (g.mundo.bloco(x0 + dx, y + h, z0 + dz)) g.mundo.definir(x0 + dx, y + h, z0 + dz, 0);
-    }
+    window.__palco = () => {
+      for (let dx = -18; dx <= 18; dx++) for (let dz = -18; dz <= 18; dz++) {
+        for (let h = -2; h <= 0; h++) g.mundo.definir(x0 + dx, y + h, z0 + dz, 1); // chão firme (buracos e cavernas não vazam)
+        for (let h = 1; h <= 40; h++) if (g.mundo.bloco(x0 + dx, y + h, z0 + dz)) g.mundo.definir(x0 + dx, y + h, z0 + dz, 0);
+      }
+    };
+    window.__palco();
     j.voando = false;
     // os moradores de uma vila perto passeiam pelo palco: não podem ficar na frente do bicho (abrem a lojinha)
     g.aldeoes.atingir = () => null;
@@ -52,6 +58,8 @@ async function preparar(p) {
     window.__vidaMin = 10; window.__vigia = setInterval(() => { window.__vidaMin = Math.min(window.__vidaMin, g.vida.atual); }, 100);
   });
   await p.waitForTimeout(1500);
+  await p.evaluate(() => window.__palco()); // de novo, por cima de algum pedaço que terminou de gerar depois
+  await p.waitForTimeout(500);
 }
 const qtd = (p, id) => p.evaluate((id) => window.__jogo.mercado.qtd(id), id);
 
@@ -69,6 +77,8 @@ async function segurarNoBicho(p, cdp, achar, ms, ate) {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     if (ate && await p.evaluate(ate)) return;
   }
+  console.log('segurou e não deu:', await p.evaluate((f) => { const bb = eval(f)(); const g = window.__jogo; return JSON.stringify({ golpes: window.__golpes.slice(-6), b: bb && [bb.especie, bb.x.toFixed(1), bb.y.toFixed(1), bb.z.toFixed(1), bb.vida, bb.estado], j: [g.jog.pos.x.toFixed(1), g.jog.pos.y.toFixed(1), g.jog.pos.z.toFixed(1), g.jog.yaw.toFixed(2), g.jog.pitch.toFixed(2)], telas: [...document.querySelectorAll('.janela:not([hidden]), [role=dialog]:not([hidden])')].map((e) => e.id) }); }, achar.toString()));
+  await p.screenshot({ path: SAIDA + '/caca-falha-segurar.png' });
 }
 
 // ================= TABLET sem internet =================
@@ -113,6 +123,7 @@ if (!process.env.SO_ONLINE) {
   await p.screenshot({ path: SAIDA + '/caca-tablet-ovelha-tomba.png' });
   await p.waitForFunction(() => !window.__jogo.bichos.lista.includes(window.__ov), null, { timeout: 5000 }).catch(() => {});
   const sumiu = await p.evaluate(() => !window.__jogo.bichos.lista.includes(window.__ov));
+  if (!sumiu) { console.log('ovelha:', await p.evaluate(() => JSON.stringify({ g: window.__golpes, o: [window.__ov.x, window.__ov.y, window.__ov.z, window.__ov.vida, window.__ov.estado], j: [window.__jogo.jog.pos.x, window.__jogo.jog.pos.y, window.__jogo.jog.pos.z], inv: !document.querySelector('#inventario').hidden, loja: !document.querySelector('#loja').hidden }))); await p.screenshot({ path: SAIDA + '/caca-falha-ovelha.png' }); }
   conferir(await p.evaluate(() => window.__tombou) && sumiu, 'tablet: a ovelha tomba de lado e some (sem sangue)');
   await p.waitForTimeout(500);
   const depois = { c: await qtd(p, CARNE), l: await qtd(p, LA) };
@@ -198,8 +209,12 @@ if (!process.env.SO_ONLINE) {
   await A.waitForTimeout(600);
   const pA = await A.evaluate(() => window.__jogo.bichos.particulas.length);
   await A.evaluate(() => { window.__md = []; document.addEventListener('mousedown', (e) => window.__md.push(e.button + ':' + (e.target.id || e.target.tagName) + ':' + !!document.pointerLockElement), true); });
-  await A.mouse.down({ button: 'right' }); await A.mouse.up({ button: 'right' });
-  await A.waitForTimeout(400);
+  // o emulador sem placa de vídeo desenha devagar: se o clique sair antes da câmera virar, mira e clica de novo
+  for (let k = 0; k < 3 && (await A.evaluate(() => window.__jogo.bichos.particulas.length)) <= pA; k++) {
+    await A.evaluate(() => window.__olhar(window.__pq)); await A.waitForTimeout(500);
+    await A.mouse.down({ button: 'right' }); await A.mouse.up({ button: 'right' });
+    await A.waitForTimeout(400);
+  }
   const pq0 = await A.evaluate(() => ({ p: window.__jogo.bichos.particulas.length, v: window.__pq.vida, m: window.__pq.vidaMax }));
   if (pq0.p <= pA) console.log('carinhos chamados:', await A.evaluate(() => window.__carinhos), 'mousedown:', await A.evaluate(() => window.__md.join(' ')), 'mira:', await A.evaluate(() => { const g = window.__jogo; return JSON.stringify(g.jog.pos) + ' pq ' + [window.__pq.x, window.__pq.y, window.__pq.z].map((v) => v.toFixed(1)) + ' ' + window.__pq.estado; }), 'golpes:', await A.evaluate(() => window.__golpes.join(' ')));
   conferir(pq0.p > pA && pq0.v === pq0.m, `pc: clique direito faz carinho no porquinho (vida ${pq0.v}/${pq0.m})`);
