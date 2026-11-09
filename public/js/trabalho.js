@@ -129,7 +129,7 @@ export function obraCabe(e, o) {
 }
 
 // a ação de trabalho (economia.js chama). Devolve null se não é de trabalho; senão { erro } ou { ok, blocos?, msgs? }
-// ctx: { por(itens,id,n), tirar(itens,id,n), guardavel(id), precoLoja(id), MAX_MOEDAS, pos: [x,y,z] onde o jogador está }
+// ctx: { por(itens,id,n), tirar(itens,id,n), guardavel(id), vendivel(id), precoLoja(id), MAX_MOEDAS, pos: [x,y,z] onde o jogador está }
 const PERTO = 12;
 export const pertoDe = (pos, p) => !!(pos && p && Math.abs(pos[0] - p.x) <= PERTO && Math.abs(pos[2] - p.z) <= PERTO && Math.abs(pos[1] - p.y) <= 10);
 export function aplicarTrabalho(e, op, a, ctx) {
@@ -222,6 +222,7 @@ export function aplicarTrabalho(e, op, a, ctx) {
     } else {
       if (!ctx.guardavel(b)) return { erro: '?' };
       if (t === 'depositar') {
+        if (ctx.vendivel && !ctx.vendivel(b)) return { erro: 'Formas não vão para a vitrine: elas são para construir.' };
         const m = Math.min(n, livreDe(e, b), MAX_ESTOQUE - (N.vitrine[b] || 0));
         if (m <= 0) return { erro: e.itens[b] ? 'Revender o que você comprou não vale: a vitrine é para o que você colheu ou fez.' : 'Você não tem isso na mochila.' };
         ctx.tirar(e.itens, b, m); N.vitrine[b] = (N.vitrine[b] || 0) + m;
