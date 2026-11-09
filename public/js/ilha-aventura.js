@@ -4,7 +4,8 @@
 // tudo, pontes sobre o rio, e muita coisa para explorar e se esconder atrás.
 // Tudo nasce da semente: todos os jogadores veem a mesma ilha e o servidor guarda só as edições.
 import { criarRuido, hash3, rngSemente } from './ruido.js';
-import { AR, B, PLANTA } from './blocos.js';
+import { AR, B, E, M, PLANTA } from './blocos.js';
+import { opcoesMundo } from './opcoes-mundo.js';
 
 const NA = 20; // nível da água (igual ao de mundo.js)
 const ALT = 64;
@@ -21,7 +22,7 @@ const TIPOS = {
   vila: { r: 18, nomes: ['Vila do Tatu', 'Recanto das Pitangas', 'Vilarejo do Sabiá', 'Aldeia do Caqui'] },
   fazenda: { r: 25, nomes: ['Fazenda Boa Vista', 'Sítio do Milho Verde', 'Rancho das Ovelhas'] },
   fabrica: { r: 22, q: true, nomes: ['Fábrica de Brinquedos', 'Fábrica de Doces'] },
-  patio: { r: 18, q: true, nomes: ['Pátio dos Contêineres', 'Armazém Colorido'] },
+  patio: { r: 18, q: true, nomes: ['Bosque das Corujas', 'Clareira do Tatu'] }, // (era o pátio de contêineres; virou um bosque de árvores de verdade)
   castelo: { r: 16, q: true, nomes: ['Castelinho da Colina', 'Castelo das Andorinhas'] },
   acampamento: { r: 12, nomes: ['Acampamento Vagalume', 'Camping das Estrelas'] },
   catavento: { r: 14, nomes: ['Colina dos Cata-ventos', 'Morro do Vento'] },
@@ -30,7 +31,7 @@ const TIPOS = {
   porto: { r: 15, nomes: ['Porto Sereno', 'Cais das Gaivotas'] },
 };
 // ícone (icones.js) de cada tipo de lugar, para o aviso e os mapas
-export const ICONE_LUGAR = { cidade: 'vila', vila: 'casa', fazenda: 'milho', fabrica: 'engrenagem', patio: 'bloco', castelo: 'castelo', acampamento: 'estrela', catavento: 'flor', mirante: 'montanha', farol: 'pino', porto: 'onda' };
+export const ICONE_LUGAR = { cidade: 'vila', vila: 'casa', fazenda: 'milho', fabrica: 'engrenagem', patio: 'arvore', castelo: 'castelo', acampamento: 'estrela', catavento: 'flor', mirante: 'montanha', farol: 'pino', porto: 'onda' };
 const ORDEM = ['cidade', 'cidade', 'fabrica', 'fazenda', 'vila', 'patio', 'castelo', 'fazenda', 'vila', 'acampamento', 'catavento'];
 const CORES_CONT = [B.LA_VERMELHA, B.LA_AZUL, B.LA_AMARELA, B.LA_VERDE, B.LA_ROSA, B.LA_BRANCA];
 const TELHADOS = [B.LA_VERMELHA, B.LA_AZUL, B.TABUAS, B.LA_VERDE, B.LA_AMARELA];
@@ -245,11 +246,10 @@ export class IlhaAventura {
         });
       } else if (t === 'casas') {
         for (const [cx, cz, lado] of [[x0 + 4, z0 + 3, -1], [x1 - 4, z0 + 3, -1], [x0 + 4, z1 - 3, 1], [x1 - 4, z1 - 3, 1]]) this.casa(L, cx, cz, 0, lado, rng, 'tijolo');
-      } else if (t === 'quadra') {
-        L.pecas.push({ tipo: 'quadra', r: [x0 + 1, z0 + 3, x1 - 1, z1 - 3], y });
-      } else if (t === 'mercado') {
-        L.pecas.push({ tipo: 'galpao', r: [x0 + 2, z0 + 3, x1 - 2, z1 - 3], y, parede: B.TABUAS, teto: B.LA_VERDE, aberto: true });
-        for (let i = 0; i < 3; i++) L.pecas.push({ tipo: 'barraca_feira', x: x0 + 5 + i * 4, z: z0 + 8, y, cor: CORES_CONT[i] });
+      } else {
+        // (a quadra sem bola e a feira de mentira saíram: no lugar, casas de verdade, com porta e forno)
+        const rc = rngSemente((Math.imul(x0, 2654435761) ^ Math.imul(z0, 40503) ^ this.s) >>> 0);
+        for (const [cx, cz, lado] of [[x0 + 4, z0 + 3, -1], [x1 - 4, z0 + 3, -1], [x0 + 4, z1 - 3, 1], [x1 - 4, z1 - 3, 1]]) this.casa(L, cx, cz, 0, lado, rc, 'campo');
       }
     }
   }
@@ -258,7 +258,6 @@ export class IlhaAventura {
     const y = L.y, cx = (x0 + x1) >> 1, cz = (z0 + z1) >> 1;
     L.pecas.push({ tipo: 'fonte', x: cx, z: cz, y, r: [cx - 3, cz - 3, cx + 3, cz + 3] });
     for (const [ax, az] of [[x0 + 2, z0 + 2], [x1 - 2, z0 + 2], [x0 + 2, z1 - 2], [x1 - 2, z1 - 2]]) L.pecas.push({ tipo: 'arvore', x: ax, z: az, y, r: [ax - 2, az - 2, ax + 2, az + 2] });
-    for (const [bx, bz] of [[cx, z0 + 1], [cx, z1 - 1], [x0 + 1, cz], [x1 - 1, cz]]) L.pecas.push({ tipo: 'banco', x: bx, z: bz, y });
     for (const [lx, lz] of [[cx - 5, cz], [cx + 5, cz], [cx, cz - 5], [cx, cz + 5]]) L.pecas.push({ tipo: 'poste', x: lx, z: lz, y });
   }
 
@@ -292,7 +291,6 @@ export class IlhaAventura {
     const { x, z, y } = L;
     this.casa(L, x - 8, z - 8, 0, 1, rng, 'campo', true); // celeiro
     this.casa(L, x + 9, z - 9, 0, 1, rng); // casa da fazenda
-    L.pecas.push({ tipo: 'silo', x: x - 1, z: z - 13, y }, { tipo: 'silo', x: x + 3, z: z - 13, y });
     for (const [ox, oz] of [[-14, 4], [-2, 4], [10, 4], [-14, 13], [-2, 13]]) {
       const r = [x + ox, z + oz, x + ox + 8, z + oz + 6];
       L.pecas.push({ tipo: 'campo', r, y, porta: [r[0] + 4, r[1]], frente: [r[0] + 4, r[1] - 1] });
@@ -309,31 +307,20 @@ export class IlhaAventura {
     L.pecas.push({ tipo: 'piso', r: [x - 21, z - 21, x + 21, z + 21], y, mat: B.PEDRISCO });
     L.pecas.push({ tipo: 'muro', r: [x - 21, z - 21, x + 21, z + 21], y, mat: B.TIJOLO, alto: 2 });
     L.pecas.push({ tipo: 'galpao', r: [x - 12, z - 9, x + 12, z + 5], y, parede: B.TIJOLO, teto: B.PEDRISCO, alto: 7 });
-    L.pecas.push({ tipo: 'chamine', x: x - 7, z: z - 12, y }, { tipo: 'chamine', x: x + 7, z: z - 12, y });
-    this.conteineres(L, rng, x - 18, z + 10, x + 18, z + 18, 5);
+    // linha de produção: esteira em volta (dá para andar nela) com caixas de presente passando
+    L.pecas.push({ tipo: 'esteiras', r: [x - 9, z - 6, x + 9, z - 1], y });
     L.pecas.push({ tipo: 'poste', x: x - 15, z: z + 8, y }, { tipo: 'poste', x: x + 15, z: z + 8, y });
   }
 
-  conteineres(L, rng, x0, z0, x1, z1, n) {
-    const ocup = [];
-    for (let k = 0; k < n * 8 && ocup.length < n; k++) {
-      const longoX = rng() < 0.5;
-      const w = longoX ? 7 : 3, l = longoX ? 3 : 7;
-      const cx = x0 + Math.floor(rng() * Math.max(1, x1 - x0 - w)), cz = z0 + Math.floor(rng() * Math.max(1, z1 - z0 - l));
-      const r = [cx, cz, cx + w - 1, cz + l - 1];
-      if (ocup.some((o) => r[0] <= o[2] + 1 && r[2] >= o[0] - 1 && r[1] <= o[3] + 1 && r[3] >= o[1] - 1)) continue;
-      ocup.push(r);
-      const cor = CORES_CONT[Math.floor(rng() * CORES_CONT.length)];
-      L.pecas.push({ tipo: 'conteiner', r, y: L.y, cor, longoX, abre: rng() < 0.5 ? 1 : -1 });
-      if (rng() < 0.4) L.pecas.push({ tipo: 'conteiner', r, y: L.y + 3, cor: CORES_CONT[Math.floor(rng() * CORES_CONT.length)], longoX, fechado: true });
-    }
-  }
 
   montar_patio(L, rng) {
+    // bosque: árvores de verdade (dá para cortar e colher madeira)
     const { x, z, y } = L;
-    L.pecas.push({ tipo: 'piso', r: [x - 17, z - 17, x + 17, z + 17], y, mat: B.PEDRISCO });
-    this.conteineres(L, rng, x - 16, z - 16, x + 16, z + 16, 12);
-    L.pecas.push({ tipo: 'guindaste', x: x + 14, z: z - 14, y, r: [x, z - 16, x + 16, z - 12] });
+    for (let k = 0; k < 14; k++) {
+      const ax = x - 14 + Math.floor(rng() * 29), az = z - 14 + Math.floor(rng() * 29);
+      if (L.pecas.some((q) => Math.abs(q.x - ax) < 5 && Math.abs(q.z - az) < 5)) continue;
+      L.pecas.push({ tipo: 'arvore', x: ax, z: az, y, r: [ax - 2, az - 2, ax + 2, az + 2] });
+    }
   }
 
   montar_castelo(L) {
@@ -353,7 +340,12 @@ export class IlhaAventura {
 
   montar_catavento(L, rng) {
     const { x, z, y } = L;
-    for (const [ox, oz] of [[-7, -5], [6, -6], [0, 7]]) L.pecas.push({ tipo: 'catavento', x: x + ox, z: z + oz, y, r: [x + ox - 4, z + oz - 2, x + ox + 4, z + oz + 2], fase: rng() < 0.5 });
+    // moinhos de vento de verdade (vilas.js pintarMoinho): a hélice olha para fora da colina
+    for (const [ox, oz] of [[-7, -5], [6, -6], [0, 7]]) {
+      const [fx, fz] = Math.abs(ox) > Math.abs(oz) ? [Math.sign(ox), 0] : [0, Math.sign(oz)];
+      L.pecas.push({ tipo: 'catavento', x: x + ox, z: z + oz, y, fx, fz, r: [x + ox - 5, z + oz - 5, x + ox + 5, z + oz + 5] });
+    }
+    void rng;
   }
 
   montar_mirante(L) {
@@ -377,7 +369,6 @@ export class IlhaAventura {
     L.pecas.push({ tipo: 'cais', x: x + ax[0] * 12, z: z + ax[1] * 12, y, dx: ax[0], dz: ax[1], r: ax[0] ? [x + ax[0] * 12 - (ax[0] < 0 ? 40 : 0), z - 3, x + ax[0] * 12 + (ax[0] > 0 ? 40 : 0), z + 3] : [x - 3, z + ax[1] * 12 - (ax[1] < 0 ? 40 : 0), x + 3, z + ax[1] * 12 + (ax[1] > 0 ? 40 : 0)] });
     const gx = x - ax[0] * 6 - ax[1] * 6, gz = z - ax[1] * 6 - ax[0] * 6;
     L.pecas.push({ tipo: 'galpao', r: [gx - 6, gz - 5, gx + 6, gz + 5], y, parede: B.TABUAS, teto: B.LA_AZUL, alto: 5 });
-    this.conteineres(L, rng, x + (ax[1] ? 2 : -12), z + (ax[0] ? 2 : -12), x + 12, z + 12, 4);
   }
 
   // ---------- consultas ----------
@@ -472,7 +463,7 @@ export class IlhaAventura {
         if (m.d < 2.6) {
           const faixa = m.d < 0.5 && Math.floor(comp / 3) % 2 === 0;
           chao(x, h, z, faixa ? B.LA_BRANCA : B.PEDRA);
-          for (let k = 1; k <= 6; k++) { const b = get(x, h + k, z); if (b === B.TRONCO || b === B.FOLHAS || PLANTA[b]) put(x, h + k, z, AR); }
+          for (let k = 1; k <= 6; k++) { const b = get(x, h + k, z); if ((b === B.TRONCO || b === 80) || b === B.FOLHAS || PLANTA[b]) put(x, h + k, z, AR); }
         } else if (m.d < 3.6) chao(x, h, z, B.PEDRISCO);
       }
     }
@@ -486,7 +477,7 @@ export class IlhaAventura {
       const x = ox + 2 + Math.floor(rl() * 12), z = oz + 2 + Math.floor(rl() * 12), qual = rl();
       if (this.semArvore(x, z)) continue;
       const h = this.altura(x, z);
-      if (h <= NA + 1 || get(x, h + 1, z) === B.TRONCO || get(x, h + 1, z) === B.FOLHAS) continue;
+      if (h <= NA + 1 || get(x, h + 1, z) === B.TRONCO || get(x, h + 1, z) === 80 || get(x, h + 1, z) === B.FOLHAS) continue;
       if (qual < 0.45) { // pedra grande
         for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) if (rl() < 0.75) { put(x + a, h + 1, z + b, B.PEDRA); if (!a && !b || rl() < 0.3) put(x + a, h + 2, z + b, B.PEDRA); }
       } else if (qual < 0.75) { // tora caída
@@ -508,28 +499,14 @@ export class IlhaAventura {
       if (p.faixa === 'z' && x === p.meio && Math.floor(z / 3) % 2 === 0) b = B.LA_BRANCA;
       if (p.faixa === 'x' && z === p.meio && Math.floor(x / 3) % 2 === 0) b = B.LA_BRANCA;
       chao(x, p.y, z, b);
-      for (let k = 1; k <= 6; k++) { const q = get(x, p.y + k, z); if (q === B.TRONCO || q === B.FOLHAS || PLANTA[q]) put(x, p.y + k, z, AR); }
+      for (let k = 1; k <= 6; k++) { const q = get(x, p.y + k, z); if (q === B.TRONCO || q === 80 || q === B.FOLHAS || PLANTA[q]) put(x, p.y + k, z, AR); }
     }
   }
 
   pintar_poste({ put }, p) {
-    put(p.x, p.y + 1, p.z, B.TRONCO); put(p.x, p.y + 2, p.z, B.TRONCO); put(p.x, p.y + 3, p.z, B.LAMPIAO);
+    put(p.x, p.y + 1, p.z, B.TRONCO); put(p.x, p.y + 2, p.z, B.TRONCO); this.m.vilas.lampiao(put, p.x, p.y + 3, p.z);
   }
 
-  pintar_banco({ put }, p) { put(p.x, p.y + 1, p.z, B.TABUAS); }
-
-  pintar_arvore({ put, get }, p) {
-    const { x, y, z } = p;
-    put(x, y, z, B.GRAMA);
-    for (let i = 1; i <= 5; i++) put(x, y + i, z, B.TRONCO);
-    for (let dy = 3; dy <= 6; dy++) {
-      const rad = dy <= 4 ? 2 : 1;
-      for (let dx = -rad; dx <= rad; dx++) for (let dz = -rad; dz <= rad; dz++) {
-        if (rad === 2 && Math.abs(dx) === 2 && Math.abs(dz) === 2) continue;
-        if (get(x + dx, y + dy, z + dz) === AR) put(x + dx, y + dy, z + dz, B.FOLHAS);
-      }
-    }
-  }
 
   pintar_fonte({ put }, p) {
     const { x, y, z } = p;
@@ -563,7 +540,7 @@ export class IlhaAventura {
         if (!bx && !bz) { put(x, y + k, z, AR); continue; }
         if (bx && bz) { put(x, y + k, z, B.PEDRA); continue; }
         // porta larga no térreo (lado z1)
-        if (z === z1 && andar === 0 && rel <= 2 && Math.abs(x - porta) <= 1) { put(x, y + k, z, AR); continue; }
+        if (z === z1 && andar === 0 && rel <= 2 && Math.abs(x - porta) <= 1) { put(x, y + k, z, M.PORTA); continue; }
         const ao = bz ? x - x0 : z - z0;
         put(x, y + k, z, (rel === 2 || rel === 3) && ao % 3 !== 0 ? B.VIDRO : p.parede);
       }
@@ -581,26 +558,23 @@ export class IlhaAventura {
     put(porta, y + 3, z1 + 1, B.LAMPIAO);
   }
 
-  pintar_quadra({ put, dentro }, p) {
-    const [x0, z0, x1, z1] = p.r, y = p.y, mx = (x0 + x1) >> 1;
-    for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
-      if (!dentro(x, z)) continue;
-      const borda = x === x0 || x === x1 || z === z0 || z === z1;
-      put(x, y, z, borda || x === mx || (Math.abs(x - mx) + 0 === 0) ? B.LA_BRANCA : B.LA_VERDE);
-      put(x, y + 1, z, AR);
+
+  pintar_arvore({ put, get }, p) {
+    const { x, y, z } = p;
+    put(x, y, z, B.GRAMA);
+    for (let i = 1; i <= 5; i++) put(x, y + i, z, B.TRONCO);
+    for (let dy = 3; dy <= 6; dy++) {
+      const rad = dy <= 4 ? 2 : 1;
+      for (let dx = -rad; dx <= rad; dx++) for (let dz = -rad; dz <= rad; dz++) {
+        if (rad === 2 && Math.abs(dx) === 2 && Math.abs(dz) === 2) continue;
+        if (get(x + dx, y + dy, z + dz) === AR) put(x + dx, y + dy, z + dz, B.FOLHAS);
+      }
     }
-    // gols
-    const zm = (z0 + z1) >> 1;
-    for (const gx of [x0, x1]) for (let dz = -1; dz <= 1; dz++) {
-      put(gx, y + 1, zm + dz, AR);
-      if (Math.abs(dz) === 1) { put(gx, y + 1, zm + dz * 2, B.LA_BRANCA); put(gx, y + 2, zm + dz * 2, B.LA_BRANCA); }
-      put(gx, y + 3, zm + dz, B.LA_BRANCA);
-    }
-    for (const gx of [x0, x1]) { put(gx, y + 3, zm - 2, B.LA_BRANCA); put(gx, y + 3, zm + 2, B.LA_BRANCA); }
   }
 
   pintar_galpao({ put, dentro }, p) {
     const [x0, z0, x1, z1] = p.r, y = p.y, H = p.alto || 5;
+    const maq = opcoesMundo.maquinas !== false;
     const porta = (x0 + x1) >> 1;
     for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
       if (!dentro(x, z)) continue;
@@ -611,7 +585,7 @@ export class IlhaAventura {
         if (bx || bz) {
           b = bx && bz ? B.TRONCO : p.parede;
           if (p.aberto && (z === z1 || z === z0) && !(bx && bz) && k <= H - 1) b = AR; // mercado: aberto na frente e atrás
-          else if (bz && Math.abs(x - porta) <= 2 && k <= 4) b = AR; // portão grande dos dois lados
+          else if (bz && Math.abs(x - porta) <= 2 && k <= 4) b = maq ? E.PORTAO : AR; // portão grande dos dois lados (abre ao pisar na placa)
           else if (k === H - 1 && !(bx && bz) && (x + z) % 3 !== 0) b = B.VIDRO;
         }
         put(x, y + k, z, b);
@@ -619,39 +593,30 @@ export class IlhaAventura {
       put(x, y + H + 1, z, p.teto);
     }
     if (!p.aberto) put(porta + 3, y + 3, z1 + 1, B.LAMPIAO);
+    // placas de pisar na frente do portão, por dentro e por fora: quem chega abre
+    if (maq && !p.aberto) for (const [zz, zp] of [[z1, z1 + 1], [z1, z1 - 1], [z0, z0 - 1], [z0, z0 + 1]]) if (dentro(porta, zp)) { void zz; put(porta, y + 1, zp, E.PLACA); }
   }
 
-  pintar_barraca_feira({ put }, p) {
-    const { x, y, z } = p;
-    for (let dx = -1; dx <= 1; dx++) { put(x + dx, y + 1, z, B.TABUAS); put(x + dx, y + 4, z, p.cor); put(x + dx, y + 4, z + 1, p.cor); }
-    put(x - 1, y + 2, z + 1, B.TRONCO); put(x - 1, y + 3, z + 1, B.TRONCO); put(x + 1, y + 2, z + 1, B.TRONCO); put(x + 1, y + 3, z + 1, B.TRONCO);
-  }
-
-  pintar_conteiner({ put, dentro }, p) {
-    const [x0, z0, x1, z1] = p.r, y = p.y;
-    for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
-      if (!dentro(x, z)) continue;
-      // ponta aberta (dá para entrar)
-      const ponta = p.longoX ? (p.abre > 0 ? x === x1 : x === x0) : (p.abre > 0 ? z === z1 : z === z0);
-      const lado = p.longoX ? z === z0 || z === z1 : x === x0 || x === x1;
-      const fundo = p.longoX ? x === x0 || x === x1 : z === z0 || z === z1;
-      for (let k = 1; k <= 3; k++) {
-        let b = p.cor;
-        const meio = !lado && k < 3;
-        if (meio && !fundo) b = AR;
-        if (meio && ponta && !p.fechado) b = AR;
-        put(x, y + k, z, b);
-      }
+  pintar_esteiras({ put }, p) {
+    const [x0, z0, x1, z1] = p.r, y = p.y + 1;
+    const maq = opcoesMundo.maquinas !== false;
+    // anel de esteiras girando no sentido horário (+x em cima, +z na direita, -x embaixo, -z na esquerda)
+    for (let x = x0; x <= x1; x++) { put(x, y, z0, x < x1 ? E.ESTEIRA : E.ESTEIRA + 1); put(x, y, z1, x > x0 ? E.ESTEIRA + 2 : E.ESTEIRA + 3); }
+    for (let z = z0 + 1; z < z1; z++) { put(x1, y, z, E.ESTEIRA + 1); put(x0, y, z, E.ESTEIRA + 3); }
+    // mesa no meio com caixas coloridas e um sino que toca quando a alavanca liga
+    for (let x = x0 + 2; x <= x1 - 2; x++) for (let z = z0 + 2; z <= z1 - 2; z++) put(x, y, z, B.TABUAS);
+    for (let x = x0 + 3; x <= x1 - 2; x += 4) put(x, y + 1, z0 + 2, CORES_CONT[(x - x0) % CORES_CONT.length]);
+    if (maq) {
+      const xm = (x0 + x1) >> 1;
+      put(xm, y + 1, z1 - 2, E.ALAVANCA); put(xm + 1, y + 1, z1 - 2, E.FIO); put(xm + 2, y + 1, z1 - 2, E.SINO);
+      put(xm - 1, y + 1, z1 - 2, E.FIO); put(xm - 2, y + 1, z1 - 2, E.CONFETE);
+      // pisca-piscas com lâmpadas (na fileira de trás, longe da alavanca)
+      for (let x = x0 + 5; x <= x1 - 2; x += 4) { put(x, y + 1, z0 + 2, E.PISCA); put(x, y + 2, z0 + 2, E.LAMPADA); }
     }
   }
 
-  pintar_chamine({ put }, p) {
-    const topo = Math.min(ALT - 3, p.y + 20);
-    for (let yy = p.y + 1; yy <= topo; yy++) for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
-      const borda = Math.abs(dx) === 1 || Math.abs(dz) === 1;
-      put(p.x + dx, yy, p.z + dz, borda ? (yy >= topo - 1 ? B.LA_BRANCA : B.TIJOLO) : AR);
-    }
-  }
+
+
 
   pintar_muro({ put, dentro }, p) {
     const [x0, z0, x1, z1] = p.r, xm = (x0 + x1) >> 1, zm = (z0 + z1) >> 1;
@@ -671,33 +636,16 @@ export class IlhaAventura {
     }
   }
 
-  pintar_silo({ put }, p) {
-    const topo = p.y + 10;
-    for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) {
-      const d = dx * dx + dz * dz;
-      if (d > 5) continue;
-      for (let yy = p.y + 1; yy <= topo; yy++) put(p.x + dx, yy, p.z + dz, d >= 4 ? B.LA_BRANCA : AR);
-      put(p.x + dx, topo + 1, p.z + dz, B.LA_VERMELHA);
-      if (d <= 2) put(p.x + dx, topo + 2, p.z + dz, B.LA_VERMELHA);
-    }
-    put(p.x, p.y + 1, p.z + 2, AR); put(p.x, p.y + 2, p.z + 2, AR); // portinha
-  }
 
   pintar_fardo({ put }, p) {
     put(p.x, p.y + 1, p.z, B.FENO); put(p.x + 1, p.y + 1, p.z, B.FENO);
     if (p.alto) put(p.x, p.y + 2, p.z, B.FENO);
   }
 
-  pintar_guindaste({ put }, p) {
-    const topo = Math.min(ALT - 4, p.y + 16);
-    for (let yy = p.y + 1; yy <= topo; yy++) for (const [a, b] of [[0, 0], [1, 0], [0, 1], [1, 1]]) put(p.x + a, yy, p.z + b, (yy - p.y) % 4 === 0 ? B.PEDRISCO : B.LA_AMARELA);
-    for (let k = -12; k <= 3; k++) put(p.x + k, topo + 1, p.z, B.LA_AMARELA);
-    put(p.x + 1, topo + 2, p.z, B.VIDRO); put(p.x + 1, topo + 2, p.z + 1, B.LA_AMARELA);
-    for (let yy = topo; yy >= topo - 6; yy--) put(p.x - 10, yy, p.z, B.TRONCO);
-  }
 
   pintar_castelo({ put, dentro }, p) {
     const [x0, z0, x1, z1] = p.r, y = p.y, xm = (x0 + x1) >> 1, zm = (z0 + z1) >> 1;
+    const maq = opcoesMundo.maquinas !== false;
     for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
       if (!dentro(x, z)) continue;
       const bx = x === x0 || x === x1, bz = z === z0 || z === z1;
@@ -713,10 +661,12 @@ export class IlhaAventura {
       }
       if (bx || bz) {
         const portao = (bz && Math.abs(x - xm) <= 1) || (bx && Math.abs(z - zm) <= 1);
-        for (let k = 1; k <= 6; k++) put(x, y + k, z, portao && k <= 3 ? AR : B.PEDRA);
+        for (let k = 1; k <= 6; k++) put(x, y + k, z, portao && k <= 3 ? (maq ? E.PORTAO : AR) : B.PEDRA);
         if ((x + z) % 2 === 0) put(x, y + 7, z, B.PEDRA);
       }
     }
+    // placas de pisar dos dois lados de cada portão: o portão abre quando alguém chega
+    if (maq) for (const [px, pz] of [[xm, z0 - 1], [xm, z0 + 1], [xm, z1 - 1], [xm, z1 + 1], [x0 - 1, zm], [x0 + 1, zm], [x1 - 1, zm], [x1 + 1, zm]]) if (dentro(px, pz)) put(px, y + 1, pz, E.PLACA);
     // escadinha de pedra para subir na muralha (lado de dentro, perto do portão norte)
     for (let k = 0; k < 5; k++) put(xm + 3 + k, y + 1 + k, z0 + 1, B.PEDRA);
     for (let x = xm + 3; x <= xm + 8; x++) put(x, y + 6, z0 + 1, B.PEDRA);
@@ -744,22 +694,7 @@ export class IlhaAventura {
     }
   }
 
-  pintar_catavento({ put }, p) {
-    const { x, y, z } = p;
-    for (let k = 1; k <= 9; k++) for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
-      const borda = Math.abs(a) === 1 || Math.abs(b) === 1;
-      put(x + a, y + k, z + b, borda ? (k > 7 ? B.LA_VERMELHA : B.LA_BRANCA) : AR);
-    }
-    put(x, y + 1, z - 1, AR); put(x, y + 2, z - 1, AR);
-    put(x, y + 10, z, B.LA_VERMELHA);
-    // hélice de 4 pás no plano x-y, na frente (z+2)
-    const cy = y + 8, fz = z + 2;
-    put(x, cy, z + 1, B.TRONCO); put(x, cy, fz, B.TRONCO);
-    for (let k = 1; k <= 4; k++) {
-      const pas = p.fase ? [[k, k], [-k, -k], [k, -k], [-k, k]] : [[k, 0], [-k, 0], [0, k], [0, -k]];
-      for (const [a, b] of pas) if (cy + b > 0 && cy + b < ALT) put(x + a, cy + b, fz, B.LA_BRANCA);
-    }
-  }
+  pintar_catavento(ctx, p) { this.m.vilas.pintarMoinho(ctx, p); }
 
   // torre com escada em caracol por fora e mirante em cima (mirante e farol)
   pintar_torre({ put }, p) {
@@ -790,9 +725,10 @@ export class IlhaAventura {
     put(x + ea, yp, z + eb, AR); put(x + Math.sign(ea) * 3, yp + 1, z + Math.sign(eb) * 3, AR);
     if (p.farol) {
       for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
-        put(x + a, yp + 1, z + b, a || b ? B.VIDRO : B.LAMPIAO);
-        put(x + a, yp + 2, z + b, a || b ? B.VIDRO : B.LAMPIAO);
-        put(x + a, yp + 3, z + b, B.LA_VERMELHA);
+        const luz = opcoesMundo.maquinas === false ? B.LAMPIAO : E.LAMPADA;
+        put(x + a, yp + 1, z + b, a || b ? B.VIDRO : luz);
+        put(x + a, yp + 2, z + b, a || b ? B.VIDRO : luz);
+        put(x + a, yp + 3, z + b, !a && !b && luz === E.LAMPADA ? E.SENSOR : B.LA_VERMELHA); // sensor de noite acende o farol
       }
     } else {
       // telhadinho

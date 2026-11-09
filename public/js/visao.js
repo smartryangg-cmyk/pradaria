@@ -30,7 +30,7 @@ export class Visao {
   constructor(cena) {
     this.cena = cena;
     this.modo = 0;
-    this.boneco = null; this.cor = null;
+    this.boneco = null;
     this.golpe = 1; this.ultGolpe = -1e9;
     this.dist = 0; // distância atual da câmera (0 na 1ª pessoa)
     this.olho = new THREE.Vector3();
@@ -61,13 +61,9 @@ export class Visao {
 
   esconder() { if (this.boneco && this.boneco.grupo.parent) this.boneco.grupo.parent.remove(this.boneco.grupo); }
 
-  // cria (ou troca de cor) o boneco do jogador
-  meuBoneco(cor) {
-    if (this.boneco && this.cor === cor) return this.boneco;
-    this.esconder();
-    if (this.boneco) this.boneco.grupo.traverse((x) => x.geometry && x.geometry.dispose());
-    this.boneco = montarBoneco(cor);
-    this.cor = cor;
+  // cria o boneco do jogador (skin = função que devolve o personagem; trocar de roupa usa vestirBoneco)
+  meuBoneco(skin) {
+    if (!this.boneco) this.boneco = montarBoneco(typeof skin === 'function' ? skin() : skin);
     return this.boneco;
   }
 
@@ -120,7 +116,8 @@ export class Visao {
   }
 
   // anima o boneco e posiciona a câmera. Devolve false quando quem manda é o veículo.
-  quadro(dt, jog, camera, mundo, cor, dirigindo, ent) {
+  // skin = função que devolve o personagem (ou o próprio); ent = entradas dos controles
+  quadro(dt, jog, camera, mundo, skin, dirigindo, ent) {
     if (!jog || !mundo || dirigindo) { this.esconder(); this.dist = 0; this.med.ok = false; return false; }
     this.medir(dt, jog, ent, mundo);
     if (!this.terceira) {
@@ -132,10 +129,10 @@ export class Visao {
       camera.rotation.set(jog.pitch, jog.yaw, 0, 'YXZ');
       return true;
     }
-    const b = this.meuBoneco(cor);
+    const b = this.meuBoneco(skin);
     if (b.grupo.parent !== this.cena) this.cena.add(b.grupo);
     const yaw = jog.yaw, pitch = jog.pitch, m = this.med;
-    b.grupo.position.set(jog.pos.x, jog.pos.y + (jog.degrauY ?? 0), jog.pos.z); // degrauY: sobe o degrau suave
+    b.grupo.position.set(jog.pos.x, jog.yVisual ?? jog.pos.y + (jog.degrauY ?? 0), jog.pos.z); // yVisual: sobe o degrau suave
     if (this.golpe < 1) this.golpe = Math.min(1, this.golpe + dt / GOLPE);
     animarBoneco(b, {
       vx: m.vx, vz: m.vz, vy: jog.vel.y, y: jog.pos.y, yaw, pitch,

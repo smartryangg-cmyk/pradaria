@@ -6,7 +6,7 @@ Jogo de construir e explorar, **pacífico** (só bichinhos, nada de monstros), q
 - 22 blocos para construir (grama, pedra, tábuas, vidro, tijolo, lãs coloridas, flores, lampião…).
 - **Vilas** espalhadas pelo mundo (sempre tem uma pertinho de onde se começa): casas com telhado colorido, caminha e lampião, ruas com postes, praça com poço, plantações de trigo e celeiro com feno. Quatro estilos: do campo, de tijolinho, da praia (telhado de feno) e da serra. Cada vila tem nome (ex.: "Vila do Girassol").
 - **Aldeões** que passeiam, acenam quando você chega, conversam com um toque (às vezes dão um presentinho) e dormem em casa à noite.
-- **Veículos** (botão 🚗 = garagem): carro conversível, jipe, esportivo, quadriciclo, moto, bicicleta, skate, trator, caminhão, ônibus, barco, avião e helicóptero, em 8 cores. Aparecem na sua frente, sobem degraus de um bloco, boiam na água e freiam sozinhos na frente dos bichos e das pessoas (ninguém se machuca). Amigos entram como passageiros e todo mundo vê quem está dentro; cada um tem sua buzina. Ficam salvos no mundo.
+- **Veículos** (botão 🚗 = garagem): carro conversível, jipe, esportivo, quadriciclo, moto, bicicleta, skate, trator, caminhão, ônibus, barco, avião e helicóptero, em 8 cores. Aparecem na sua frente e têm física de verdade (leve para tablet): suspensão nas 4 rodas que balança ao frear, acelerar e pousar, derrapagem leve em curva rápida (gelo e areia escorregam mais), sobem degraus de um bloco aos poucos, saltam de rampas, batem e quicam nas paredes, boiam por empuxo (barco balança com as ondas; carro boia baixinho com o motor fraco), avião só decola com velocidade e helicóptero paira; freiam sozinhos na frente dos bichos e das pessoas (ninguém se machuca). Amigos entram como passageiros e todo mundo vê quem está dentro; cada um tem sua buzina. Ficam salvos no mundo.
 - Bichos: ovelha, porquinho, galinha, vaca, coelho, capivara e o Caramelo (que segue você depois de um carinho).
 - Visual caprichado já no padrão: sol que faz sombra de verdade, céu com degradê, pôr do sol rosado e estrelas, água que reflete o céu e brilha, folhas e flores balançando com o vento, lampiões que iluminam a noite, névoa na cor do horizonte.
 - Três níveis de gráficos (Linda, Bonita, Leve). Se o aparelho ficar lento, o jogo baixa sozinho para rodar liso.
@@ -15,8 +15,12 @@ Jogo de construir e explorar, **pacífico** (só bichinhos, nada de monstros), q
 - **Mercado** (opcional, escolhido ao criar o mundo): quebrar blocos do mundo enche a mochila; na loja da vila (toque num aldeão) você vende o que coletou e compra blocos especiais (tijolo, vidro, lampião, lãs…). Dá para presentear moedas a um amigo online. Online quem guarda e confere as moedas é a sala (servidor).
 - **Coletar e criar** (vem ligado nos mundos novos; desligado = blocos à vontade): começa de mão vazia, o que você quebra vai para a mochila e colocar gasta. Livro de receitas só com toques (mostra o que tem e o que falta, sem grade para decorar): tronco vira tábuas, gravetos, **Bancada** (toque nela para abrir as receitas), picaretas, machados e pás de madeira e de pedra (quebram 2x e 3x mais rápido os blocos do tipo delas), tijolo, vidro, lampião, lãs coloridas com flores e as peças de engenharia. Carinho na ovelha dá lã. É a mesma mochila do Mercado (vender sai dela e comprar traz 4 do bloco). Regras em `public/js/receitas.js`, usadas pelo jogo e pela sala.
 - **Missões** (opcional): 21 desafios tranquilos (colocar blocos, fazer carinho, conversar com aldeões, plantar flores, explorar…) que aparecem de 3 em 3 e dão moedas (ou estrelas, se o mercado estiver desligado). Regras em `public/js/economia.js`, usadas pelo jogo e pela sala.
+- **Nadar**: boia com a cabeça para fora, mergulha, nada para onde olha embaixo d'água e sobe na beirada andando contra ela. Embaixo d'água a visão fica azul-esverdeada com bolhas subindo e o som abafado; a barra de bolhas mostra o fôlego (sem perigo: acabou o fôlego, a água leva você para cima; com "Monstros machucam", perde meio coração por vez).
 - Dia e noite (a noite é clarinha), sons feitos na hora.
-- Contas com login, mundos com código para jogar com amigos em tempo real e emotes (sem chat aberto, mais seguro para crianças).
+- Contas com login, mundos com código para jogar com amigos em tempo real e emotes.
+- **Chat de texto** (botão do balão, tecla T ou Enter): palavrão vira asteriscos e telefone, link, e-mail, rede social, endereço e senha não são enviados (o filtro roda no aparelho e de novo na sala, `public/js/chat-filtro.js`); no máximo 1 mensagem a cada 1,2 s e 6 a cada 15 s por pessoa. Quem entra vê as últimas mensagens. Tocar no nome de alguém silencia essa pessoa só para você.
+- **Chat de voz** (botão do microfone): áudio direto entre os aparelhos (WebRTC, `public/js/voz.js`), a sala só passa os recados. O microfone só liga enquanto você segura o botão "Segure" (ou a tecla B); botão de mudo para não ouvir ninguém e silenciar por pessoa. Sem microfone, dá para entrar só ouvindo.
+- O dono do mundo liga e desliga o chat de texto e o de voz na criação ou depois, na pausa (vale na hora para todos).
 - Menu de comandos 🧭 só com botões (sem digitar): marcar casa e voltar para ela, guardar lugares com desenhos, ir para o começo do mundo, ir para um lugar novo bem longe, voltar para onde estava, ir até um amigo ou chamar um amigo (o amigo precisa tocar em "Pode!") e mudar a hora do dia (online, só o dono do mundo).
 - Funciona sem internet também (mundo salvo no aparelho).
 
@@ -31,8 +35,10 @@ Jogo de construir e explorar, **pacífico** (só bichinhos, nada de monstros), q
 | Toque: colocar bloco / fazer carinho / conversar com aldeão | Botão direito |
 | Segure o dedo: bater no bloco (cada batida arranca um pedaço) | Botão esquerdo (clique ou segure) |
 | ⬆ pular · 🕊️ voar · ⬇ descer (voando/nadando) | Espaço · espaço duas vezes ou F · Shift (voando/nadando) |
+| Na água: ⬆ nada para cima · ⬇ mergulha · olhar para baixo e andar mergulha para frente · andar contra a beirada sobe para a terra | Espaço · Shift · W olhando para baixo |
 | Barra de baixo e ＋: escolher blocos | 1–9, rodinha, E |
 | 🧭: comandos (teleporte, casa, amigos, hora) | C |
+| Balão: chat de texto · Microfone: entrar na voz · Segure: falar | T ou Enter · B (segurar) |
 | Botão da câmera: ver o próprio boneco (olhos → de trás → de frente) | R (ou F5) |
 | 🚗 garagem · toque no veículo ou "Entrar" · 🚪 Descer · 📯 buzina | G · V · V · H |
 | No veículo: joystick dirige; ⬆ ⬇ sobem e descem avião/helicóptero | WASD; Espaço/Shift |

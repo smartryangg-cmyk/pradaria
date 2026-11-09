@@ -29,7 +29,8 @@ export class Controles {
         if (!e.repeat) {
           this.puloPendente = true; // apertou e soltou entre dois quadros: o pulo não se perde
           const ag = performance.now();
-          if (ag - this.ultimoEspaco < 300) this.cb.alternarVoo();
+          // na água o espaço é para nadar para cima (apertar várias vezes não liga o voo)
+          if (ag - this.ultimoEspaco < 300 && !(this.jog && this.jog.naAgua)) this.cb.alternarVoo();
           this.ultimoEspaco = ag;
         }
       }

@@ -222,17 +222,18 @@ const voltar = (p, extra = '') => p.evaluate((extra) => {
   let n = await ler(p);
   await p.screenshot({ path: D('10-boiando') });
   ok(n.naAgua && n.raiz < 0.4, `na água parado: boiando em pé (corpo ${n.raiz}, na água ${n.naAgua})`);
+  // Shift na água desce (não corre)
+  await p.keyboard.down('ShiftLeft'); await p.waitForTimeout(200);
+  n = await ler(p);
+  await p.keyboard.up('ShiftLeft');
+  ok(n.naAgua && n.estado.descer && !n.estado.correr, `Shift na água: desce ${JSON.stringify(n.estado)}`);
+  await p.waitForTimeout(400);
   await p.keyboard.down('KeyW'); await p.waitForTimeout(1300);
   const nad = await amostrar(p, 600);
   await p.screenshot({ path: D('11-nadando') });
   await p.keyboard.up('KeyW');
   n = nad.at(-1);
   ok(nad.some((e) => e.raiz > 1) && amplitude(nad, 'membros', 0) > 1.5, `nadando para a frente: corpo deitado (${n.raiz}) e braçadas (${n.membros})`);
-  // Shift na água desce (não corre)
-  await p.keyboard.down('ShiftLeft'); await p.waitForTimeout(200);
-  n = await ler(p);
-  await p.keyboard.up('ShiftLeft');
-  ok(n.estado.descer && !n.estado.correr, 'Shift na água: desce');
   await voltar(p); await p.waitForTimeout(500);
 
   // voando: F, anda com W

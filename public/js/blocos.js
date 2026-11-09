@@ -2,6 +2,11 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { rngSemente } from './ruido.js';
 import { DEFS_ERAS, PINTORES } from './blocos-eras.js';
+import { M, DEFS_MEC, PINTORES_MEC } from './blocos-mecanismos.js';
+import { MV, DEFS_MOVEIS, PINTORES_MOVEIS } from './moveis.js';
+export { M };
+import { DEFS_FORMAS, INVENTARIO_FORMAS } from './formas-defs.js';
+export { INVENTARIO_FORMAS };
 
 export const AR = 0;
 export const B = {
@@ -146,6 +151,13 @@ def(E.TRAMPOLIM, 'Trampolim', [T.TRAMP, T.METAL, T.METAL]);
 for (let d = 0; d < 4; d++) def(E.ESTEIRA + d, 'Esteira', [T.ESTEIRA, T.METAL, T.METAL], { forma: 'esteira' });
 
 
+// mecanismos das construções (portas, catavento, mó, forno...): IDs 47..59, veja blocos-mecanismos.js
+for (const [id, nome, tiles, o] of DEFS_MEC) def(id, nome, tiles, o);
+// formas que não são cubos (80..99): veja formas-defs.js e formas.js
+for (const [id, nome, tiles, o] of DEFS_FORMAS) def(id, nome, tiles, o);
+// móveis das casas (cama, cadeira, mesa, balcão, estantes): IDs 176..187, veja moveis.js
+for (const [id, nome, tiles, o] of DEFS_MOVEIS) def(id, nome, tiles, o);
+
 // blocos das eras (mundo Linha do Tempo): IDs 128..175, veja blocos-eras.js
 for (const [id, nome, tiles, o] of DEFS_ERAS) def(id, nome, tiles, o);
 
@@ -176,11 +188,14 @@ export const INVENTARIO = [
   B.FLOR_VERMELHA, B.FLOR_AMARELA, B.FLOR_AZUL, B.CAPIM, B.TRIGO, B.AGUA,
   B.CACTO, B.CASCALHO, B.CARVAO, B.FERRO, B.OURO, B.DIAMANTE,
   B.TRONCO_PINHEIRO, B.FOLHAS_PINHEIRO, B.TRONCO_BETULA, B.FOLHAS_SELVA, B.ARBUSTO_SECO,
+  M.PORTA, M.FORNO, M.FARINHA, M.PAO,
+  MV.CAMA, MV.CADEIRA, MV.MESA, MV.BALCAO, MV.ESTANTE, MV.ESTANTE_PAO,
 ];
 // aba "Engenharia" do inventário
 export const INVENTARIO_MAQUINAS = [
   E.ALAVANCA, E.BOTAO, E.PLACA, E.SENSOR, E.PISCA, E.FIO,
   E.LAMPADA, E.PORTAO, E.VENTILADOR, E.SINO, E.CONFETE, E.TRAMPOLIM, E.ESTEIRA,
+  M.CATAVENTO, M.CABO, M.MO, M.SARILHO,
 ];
 
 export const TILE = 16;
@@ -298,7 +313,13 @@ function pintarLegado(img) {
     return galho ? var_(hex(0x8a6a3a), r, 0.2) : [0, 0, 0, 0];
   });
   pintarMaquinas(img);
-  pintarCriacao(img);
+  // tiles 64..127 (blocos das eras): neve, grama com neve, gelo e arenito do mundo clássico também vêm daqui.
+  // Sem eles esses blocos ficam invisíveis e o terreno parece cheio de buracos.
+  for (const t in PINTORES) pintarTile(img, +t, PINTORES[t]);
+  pintarCriacao(img); // depois: se usar algum tile livre das eras, a arte nova vale
+  // mecanismos das construções (tiles 41..47 e 120)
+  for (const [t, fn] of Object.entries(PINTORES_MEC)) pintarTile(img, +t, fn);
+  for (const [t, fn] of Object.entries(PINTORES_MOVEIS)) pintarTile(img, +t, fn);
 }
 
 // Pinta o atlas com tiles de T pixels. Os desenhos são pensados em "unidades de 16" (u,v = 0..16),
@@ -737,12 +758,16 @@ export function uvTile(idx) {
   return [u0, v0, u1, v1];
 }
 
+// ícones feitos à mão (formas redondas): formas.js registra aqui ICONES_ESPECIAIS.fn(ctx, id, tam, atlas)
+export const ICONES_ESPECIAIS = { fn: null };
+
 // desenha o ícone de um bloco em um canvas pequeno (para a barra e o inventário)
 export function iconeBloco(atlasCanvas, id, tam = 40) {
   const cv = document.createElement('canvas');
   cv.width = cv.height = tam;
   const ctx = cv.getContext('2d');
   ctx.imageSmoothingEnabled = false;
+  if (ICONES_ESPECIAIS.fn && ICONES_ESPECIAIS.fn(ctx, id, tam, atlasCanvas)) return cv;
   const src = (t) => [(t % COLS) * TILE, Math.floor(t / COLS) * TILE];
   if (!id) return cv; // mão vazia
   if (ehItem(id)) {

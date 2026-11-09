@@ -5,7 +5,11 @@ import * as THREE from '../vendor/three.module.min.js';
 import { AR, B, BLOCOS, SOLIDO, OPACO, PLANTA, AGUA, uvTile } from './blocos.js';
 
 export const CAI = new Uint8Array(256);
-CAI[B.AREIA] = 1; CAI[B.PEDRISCO] = 1;
+CAI[B.AREIA] = 1; CAI[B.PEDRISCO] = 1; CAI[B.CASCALHO] = 1;
+const TRONCO = new Uint8Array(256), FOLHA = new Uint8Array(256);
+TRONCO[B.TRONCO] = TRONCO[B.TRONCO_PINHEIRO] = TRONCO[B.TRONCO_BETULA] = 1;
+TRONCO[80] = TRONCO[81] = TRONCO[82] = 1; // troncos redondos das árvores (formas-defs.js)
+FOLHA[B.FOLHAS] = FOLHA[B.FOLHAS_PINHEIRO] = FOLHA[B.FOLHAS_SELVA] = 1;
 
 const FACES = [
   { n: [1, 0, 0], c: [[1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]], t: 2 },
@@ -112,7 +116,7 @@ export class Fisica {
     const m = this.mundo, R = 5, A = 9;
     let tem = false;
     for (let dy = -1; dy <= 1 && !tem; dy++) for (let dx = -1; dx <= 1 && !tem; dx++) for (let dz = -1; dz <= 1; dz++) {
-      if (m.bloco(x0 + dx, y0 + dy, z0 + dz) === B.FOLHAS) { tem = true; break; }
+      if (FOLHA[m.bloco(x0 + dx, y0 + dy, z0 + dz)]) { tem = true; break; }
     }
     if (!tem) return;
     this.depois(0.6, 'f' + x0 + ',' + y0 + ',' + z0, () => {
@@ -120,24 +124,25 @@ export class Fisica {
       const ok = new Map(), fila = [];
       for (let dx = -A; dx <= A; dx++) for (let dz = -A; dz <= A; dz++) for (let dy = -A; dy <= A; dy++) {
         const x = x0 + dx, y = y0 + dy, z = z0 + dz;
-        if (m.bloco(x, y, z) === B.TRONCO) { const k = x + ',' + y + ',' + z; ok.set(k, 0); fila.push([x, y, z, 0]); }
+        if (TRONCO[m.bloco(x, y, z)]) { const k = x + ',' + y + ',' + z; ok.set(k, 0); fila.push([x, y, z, 0]); }
       }
       while (fila.length) {
         const [x, y, z, d] = fila.shift();
         if (d >= 4) continue;
         for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
           const nx = x + dx, ny = y + dy, nz = z + dz, k = nx + ',' + ny + ',' + nz;
-          if (ok.has(k) || m.bloco(nx, ny, nz) !== B.FOLHAS) continue;
+          if (ok.has(k) || !FOLHA[m.bloco(nx, ny, nz)]) continue;
           ok.set(k, d + 1); fila.push([nx, ny, nz, d + 1]);
         }
       }
       for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) for (let dy = -R; dy <= R; dy++) {
         const x = x0 + dx, y = y0 + dy, z = z0 + dz;
-        if (m.bloco(x, y, z) !== B.FOLHAS || ok.has(x + ',' + y + ',' + z) || m.editado(x, y, z)) continue;
+        const fb = m.bloco(x, y, z);
+        if (!FOLHA[fb] || ok.has(x + ',' + y + ',' + z) || m.editado(x, y, z)) continue;
         this.depois(0.4 + Math.random() * 3.5, 'F' + x + ',' + y + ',' + z, () => {
-          if (m.bloco(x, y, z) !== B.FOLHAS) return;
+          if (m.bloco(x, y, z) !== fb) return;
           m.definir(x, y, z, AR);
-          this.aoFolha && this.aoFolha(x, y, z);
+          this.aoFolha && this.aoFolha(x, y, z, fb);
         });
       }
     });

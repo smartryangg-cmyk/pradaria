@@ -9,8 +9,28 @@ export class Som {
     this.ctx = new AC();
     this.mestre = this.ctx.createGain();
     this.mestre.gain.value = 0.35;
-    this.mestre.connect(this.ctx.destination);
+    // filtro do "abafado" embaixo d'água (aberto = som normal)
+    this.filtro = this.ctx.createBiquadFilter();
+    this.filtro.type = 'lowpass'; this.filtro.frequency.value = 20000;
+    this.mestre.connect(this.filtro);
+    this.filtro.connect(this.ctx.destination);
+    if (this.abafado) this.abafar(true);
   }
+
+  // embaixo d'água tudo soa abafado
+  abafar(sim) {
+    this.abafado = !!sim;
+    if (!this.filtro) return;
+    this.filtro.frequency.setTargetAtTime(sim ? 650 : 20000, this.ctx.currentTime, sim ? 0.05 : 0.12);
+  }
+
+  // tchibum ao cair na água (forca 0..1)
+  splash(forca = 0.5) {
+    this.ruido(0.25 + forca * 0.35, { vol: 0.25 + forca * 0.35, freq: 900 + forca * 1400 });
+    this.tom(320, 0.18, { tipo: 'sine', vol: 0.12 + forca * 0.12, ate: 110 });
+  }
+  // blub das bolhas de ar
+  bolha() { const f = 380 + Math.random() * 260; this.tom(f, 0.09, { tipo: 'sine', vol: 0.12, ate: f * 1.9 }); }
 
   tom(freq, dur, { tipo = 'sine', vol = 0.5, ate = null, atraso = 0, vibrato = 0 } = {}) {
     if (!this.ctx || !this.ligado) return;
@@ -101,8 +121,24 @@ export class Som {
     this.mg.gain.setTargetAtTime(0.06 + v * 0.06, t, 0.1);
   }
 
-  bicho(tipo) {
+  // bravo = rosnado/aviso (o bicho está mandando você se afastar)
+  bicho(tipo, bravo = false) {
+    if (bravo) {
+      switch (tipo) {
+        case 'cobra': this.ruido(0.9, { vol: 0.25, freq: 5000 }); this.ruido(0.5, { vol: 0.15, freq: 7000, atraso: 0.3 }); return; // chocalho/sibilo
+        case 'cocó': for (let i = 0; i < 5; i++) this.tom(1100, 0.05, { tipo: 'square', vol: 0.12, ate: 900, atraso: i * 0.07 }); return;
+        case 'muu': this.tom(150, 0.6, { tipo: 'sawtooth', vol: 0.22, ate: 90 }); this.ruido(0.3, { vol: 0.15, freq: 300 }); return;
+        default: this.tom(110, 0.7, { tipo: 'sawtooth', vol: 0.2, vibrato: 28, ate: 90 }); this.ruido(0.5, { vol: 0.12, freq: 400 }); return; // rosnado
+      }
+    }
     switch (tipo) {
+      case 'veado': this.tom(700, 0.15, { tipo: 'triangle', vol: 0.2, ate: 450 }); break;
+      case 'lobo': this.tom(380, 0.25, { tipo: 'triangle', vol: 0.18, ate: 300 }); break;
+      case 'uivo': this.tom(330, 2.2, { tipo: 'sine', vol: 0.12, ate: 520, vibrato: 5 }); this.tom(520, 1.4, { tipo: 'sine', vol: 0.08, ate: 380, atraso: 1.6 }); break;
+      case 'raposa': this.tom(900, 0.1, { tipo: 'square', vol: 0.1, ate: 1300 }); this.tom(950, 0.1, { tipo: 'square', vol: 0.1, ate: 1300, atraso: 0.18 }); break;
+      case 'urso': this.tom(95, 0.5, { tipo: 'sawtooth', vol: 0.2, ate: 70 }); break;
+      case 'onca': for (let i = 0; i < 4; i++) this.tom(120, 0.14, { tipo: 'sawtooth', vol: 0.16, ate: 80, atraso: i * 0.22 }); break; // esturro
+      case 'cobra': this.ruido(0.4, { vol: 0.15, freq: 6000 }); break;
       case 'bee': this.tom(330, 0.5, { tipo: 'sawtooth', vol: 0.18, vibrato: 18, ate: 300 }); break;
       case 'muu': this.tom(170, 0.9, { tipo: 'sawtooth', vol: 0.18, ate: 115 }); break;
       case 'oinc': this.tom(500, 0.12, { tipo: 'square', vol: 0.12, ate: 380 }); this.tom(560, 0.12, { tipo: 'square', vol: 0.12, ate: 400, atraso: 0.16 }); break;
