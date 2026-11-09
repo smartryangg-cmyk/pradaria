@@ -28,7 +28,8 @@ export const ESTILOS = {
 
 // direções das ruas e a posição de cada uma no anel da praça
 const DIRS = [[1, 0, 0], [0, 1, 2], [-1, 0, 4], [0, -1, 6]];
-export const ANEL = [[3, 0], [3, 3], [0, 3], [-3, 3], [-3, 0], [-3, -3], [0, -3], [3, -3]];
+// caminho dos moradores em volta do poço (as quinas em 2,2 passam entre o poço e os lampiões da praça, que ficam em 3,3)
+export const ANEL = [[3, 0], [2, 2], [0, 3], [-2, 2], [-3, 0], [-2, -2], [0, -3], [2, -2]];
 
 export class Vilas {
   constructor(mundo) {
