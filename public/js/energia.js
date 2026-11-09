@@ -7,6 +7,7 @@
 //    olhando os blocos. Mesmo mundo => mesmo resultado.
 //  * Tudo que é elétrico e encosta conduz: fio, lâmpada, portão, ventilador, sino e confete.
 //    Um grupo de peças encostadas fica ligado se alguma fonte ligada encostar nele.
+import { desenharMovel } from './moveis.js';
 import { E, M, ESTEIRA_DIRS, BLOCOS, OPACO, SOLIDO, BRILHO, uvTile } from './blocos.js';
 const ALT_MAX = 96; // altura do mundo (igual a ALT de mundo.js)
 
@@ -251,6 +252,8 @@ export function desenharForma(A, get, x, y, z, b) {
     C(0.92, 0.25, 0.4, 1, 0.65, 0.48, 55); // manivela
     C(0.47, 0.05, 0.47, 0.53, 0.35, 0.53, 9); // corda
     C(0.36, -0.25, 0.36, 0.64, 0.05, 0.64, 55); // balde
+  } else if (f === 'movel') {
+    desenharMovel((x0, y0, z0, x1, y1, z1, t, g, tt) => caixa(A, get, x, y, z, x0, y0, z0, x1, y1, z1, t, luz, g, tt), b);
   } else if (f === 'esteira') {
     const d = b - E.ESTEIRA;
     caixa(A, get, x, y, z, 0, 0, 0, 1, 1, 1, def.tiles[2], 0, GIRO_ESTEIRA[d], def.tiles[0]);
