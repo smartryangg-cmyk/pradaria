@@ -22,6 +22,8 @@ export const OPCOES_MUNDO = [
   { id: 'chatVoz', icone: 'microfone', nome: 'Chat de voz', desc: 'Falar com os amigos segurando o botão do microfone', padrao: true, semRecarregar: true },
   { id: 'selvagens', icone: 'pata', nome: 'Animais selvagens', desc: 'Lobos, raposas, ursos, onças, cobras e veados com instintos de verdade', padrao: true },
   { id: 'selvagensMachucam', icone: 'coracao', nome: 'Animais podem machucar', desc: 'Corações de vida. Bicho provocado morde. Luz e um toque espantam', padrao: false },
+  { id: 'construcao', icone: 'tijolos', nome: 'Construção', desc: 'Colocar e quebrar blocos. Desligado: só explorar', padrao: true },
+  { id: 'armas', icone: 'arma', nome: 'Armas', desc: 'Armas de brinquedo, munição e batalha entre amigos', padrao: false, antigos: false },
 ];
 // padrao = como vem marcado ao criar; antigos = valor nos mundos criados antes da opção existir (se faltar, usa padrao)
 // terreno = a opção muda o terreno gerado (ao editar um mundo já criado, o dono recebe um aviso)
