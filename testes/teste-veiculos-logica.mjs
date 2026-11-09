@@ -90,6 +90,9 @@ ok(!!posto, 'a vila tem posto com garagem (' + (posto && posto.k) + ')');
 await ev((pt) => { const j = window.__jogo.jog; j.pos.x = pt.x + 2; j.pos.z = pt.z + 2; j.pos.y = window.__jogo.mundo.chao(Math.floor(pt.x + 2), Math.floor(pt.z + 2)) + 1.05; j.voando = false; window.__jogo.garagem.tempoLugares = 0; }, posto);
 await p.waitForTimeout(2500);
 ok(await ev(() => window.__jogo.garagem.postos.size) > 0, 'o posto aparece no mundo');
+// vai até onde o posto foi construído (pode ficar uns blocos adiante, em chão livre)
+await ev(() => { const g = [...window.__jogo.garagem.postos.values()][0], j = window.__jogo.jog; j.pos.x = g.x + 1.5; j.pos.z = g.z + 1.5; j.pos.y = window.__jogo.mundo.chao(Math.floor(g.x + 1.5), Math.floor(g.z + 1.5)) + 1.05; });
+await p.waitForTimeout(800);
 ok(await p.isVisible('#bt-garagem-lugar'), 'perto do posto aparece o botão Garagem');
 await p.screenshot({ path: SAIDA + '/posto-garagem.png' });
 await tocar('#bt-garagem-lugar');
