@@ -210,7 +210,7 @@ for (const [atrasoMin, atrasoMax] of [[0, 0.1], [0.2, 0.45]]) {
     calmo();
     cubo(X - 4, X + 4, Y, Y, Z - 14, Z + 4, 0); cubo(X - 4, X + 4, Y + 1, Y + 1, Z - 14, Z - 6, 0);
     cubo(X - 4, X + 4, Y, Y, Z - 3, Z + 4, B.PEDRA); // plataforma; beirada em z = Z-3
-    cubo(X - 4, X + 4, Y - 8, Y - 8, Z - 20, Z - 4, B.PEDRA); // chão lá embaixo
+    cubo(X - 4, X + 4, Y - 8, Y - 8, Z - 20, Z - 4, B.FENO); // chão lá embaixo: feno, para estas quedas não tirarem corações (senão desmaia e o teleporte do desmaio estraga os testes seguintes)
     por(X + 0.5, Y + 1, Z + 2.5, 0);
     await espera(300);
   });
@@ -256,7 +256,7 @@ const agReal = await J(async () => {
   const { X, Y, Z, cubo, por, B, calmo, espera, ate } = window.__t; const g = window.__jogo, j = g.jog;
   calmo();
   cubo(X - 4, X + 4, Y - 8, Y + 14, Z - 20, Z + 4, 0);
-  cubo(X - 4, X + 4, Y, Y, Z - 3, Z + 4, B.PEDRA); cubo(X - 4, X + 4, Y - 8, Y - 8, Z - 20, Z - 4, B.PEDRA);
+  cubo(X - 4, X + 4, Y, Y, Z - 3, Z + 4, B.PEDRA); cubo(X - 4, X + 4, Y - 8, Y - 8, Z - 20, Z - 4, B.FENO);
   por(X + 0.5, Y + 1, Z + 2.5, 0);
   if (!j._orig) { j._orig = j.atualizar; j.atualizar = function (dt, ent) { return j._orig.call(this, dt, { ...ent, agachar: !!window.__agachar }); }; }
   window.__agachar = true;
@@ -274,6 +274,7 @@ conferir(agR.menorY === 1 && agR.agachado && agR.olhos < 1.3, 'jogando: agachado
 conferir(agR2 < 0, 'jogando: soltou agachar e continuou andando: cai da beirada', agR2);
 await J(() => { const j = window.__jogo.jog; j.atualizar = j._orig; delete j._orig; });
 
+conferir(await J(() => window.__jogo.vida.atual === 10 && document.querySelector('#desmaio').hidden), 'quedas no feno do teclado não tiraram corações (sem desmaio no meio dos testes)', await J(() => window.__jogo.vida.atual));
 // queda com corações: cair 10 blocos tira 3 corações (6 meios)
 const quedas = {};
 for (const [nome, prep] of [['pedra10', 'pedra'], ['agua10', 'agua'], ['feno10', 'feno'], ['trampolim10', 'trampolim'], ['pedra4', 'pedra4'], ['voando', 'voando'], ['rapida40', 'rapida']]) {
@@ -286,6 +287,8 @@ for (const [nome, prep] of [['pedra10', 'pedra'], ['agua10', 'agua'], ['feno10',
     if (tipo === 'agua') { cubo(X - 3, X + 3, Y - 3, Y - 3, Z - 5, Z + 3, B.PEDRA); cubo(X - 2, X + 2, Y - 2, Y, Z - 4, Z + 2, B.PEDRA); cubo(X - 1, X + 1, Y - 2, Y, Z - 3, Z + 1, B.AGUA); }
     if (tipo === 'feno') cubo(X - 1, X + 1, Y, Y, Z - 1, Z + 1, B.FENO);
     if (tipo === 'trampolim') cubo(X - 1, X + 1, Y, Y, Z - 1, Z + 1, E.TRAMPOLIM);
+    // se algum teste anterior fez desmaiar, espera o desmaio acabar (ele teleporta e dá 6 s de proteção)
+    while (!document.querySelector('#desmaio').hidden) await espera(100);
     g.vida.reiniciar(); g.vida.protegido = 0;
     await espera(200);
     const pousos = []; const pousouOrig = g.jog.pousou.bind(g.jog);
@@ -304,6 +307,7 @@ for (const [nome, prep] of [['pedra10', 'pedra'], ['agua10', 'agua'], ['feno10',
     while (performance.now() - t0 < 12000) { menorY = Math.min(menorY, g.jog.pos.y); if ((g.jog.noChao || tipo === "trampolim") && menorY < Y + 2) break; await new Promise((r) => requestAnimationFrame(r)); }
     if (tipo === 'trampolim') await espera(1500);
     await espera(200);
+    delete g.jog.pousou;
     const r = { vida: g.vida.atual, cheios: document.querySelectorAll('#vida .coracao.cheio').length, y: g.jog.pos.y - Y, menorY: menorY - Y, naAgua: g.jog.naAgua, pousos };
     g.jog.pousou = pousouOrig;
     return r;
