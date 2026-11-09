@@ -28,7 +28,7 @@ async function criarConta(p, nome, aperta) {
 const naSala = (p) => p.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala && !document.querySelector('#hud').hidden, null, { timeout: 60000 });
 const noJogo = (p) => p.waitForFunction(() => window.__jogo && window.__jogo.jog && !document.querySelector('#hud').hidden, null, { timeout: 60000 });
 // uma torrezinha de blocos em lugar conhecido (bem no alto, longe do chão)
-const TORRE = [[3, 58, 4, 8], [3, 59, 4, 8], [3, 60, 4, 6], [4, 60, 4, 8], [5, 60, 4, 6]]; // tábuas e tronco: livres no mercado e nunca soltos no ar no terreno natural
+const TORRE = [[3, 58, 4, 8], [3, 59, 4, 8], [3, 60, 4, 8], [4, 60, 4, 8], [5, 60, 4, 8]]; // tábuas: livres no mercado e nunca soltas no ar no terreno natural (tronco pode vir de árvore no alto do morro)
 const blocosEm = (p) => p.evaluate((t) => t.map(([x, y, z]) => window.__jogo.mundo.bloco(x, y, z)), TORRE);
 async function baixar(p, aperta) {
   const [d] = await Promise.all([p.waitForEvent('download'), aperta(p, '#e-exportar')]);
