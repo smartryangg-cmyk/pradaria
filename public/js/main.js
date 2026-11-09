@@ -942,6 +942,11 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   jog = new Jogador(mundo);
   let avisoBorda = 0;
   jog.aoBorda = () => { if (tempoTotal - avisoBorda > 6) { avisoBorda = tempoTotal; aviso('Aqui é o fim do mundo! Só mar daqui pra frente', 2200, 'gota'); } };
+  // queda alta: baque sempre; com corações ligados, tira meio coração por bloco acima de 4
+  jog.aoQueda = (blocos, dano, machucou) => {
+    som.tom(machucou ? 140 : 110, 0.14, { tipo: 'sine', vol: machucou ? 0.4 : 0.22, ate: 60 }); som.passo();
+    if (machucou) aviso('Ai, que tombo! Quedas altas machucam', 1800, 'coracao');
+  };
   lugarAtual = null;
   $('#bt-mapa-ilha').hidden = !mundo.aventura;
   if (pos) Object.assign(jog.pos, { x: pos[0], y: pos[1], z: pos[2] });
@@ -1285,7 +1290,7 @@ function laco(agora) {
   }
   const dirigindo = garagem.camera(camera);
   if (!visao.quadro(dt, jog, camera, mundo, corMeuBoneco(), dirigindo) && !dirigindo) {
-    camera.position.set(jog.pos.x, jog.pos.y + OLHOS, jog.pos.z);
+    camera.position.set(jog.pos.x, jog.pos.y + jog.alturaOlhos + jog.olhosY, jog.pos.z); // olhos (mais baixos agachado) + degrau suave e baque da queda
     camera.rotation.set(jog.pitch, jog.yaw, 0, 'YXZ');
   }
 
