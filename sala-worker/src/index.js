@@ -5,7 +5,8 @@ import { opcoesEcon, econLigada, normalizar, aplicar, dar, liberado, temVeiculo,
 import { lugarVazio, gastoDe, ULTIMO_ITEM } from '../../public/js/receitas.js';
 import { normalizarOpcoes } from '../../public/js/opcoes-mundo.js';
 import { normalizarSkin } from '../../public/js/skin.js';
-import { filtrarChat } from '../../public/js/chat-filtro.js';
+import { filtrarChat, contarDigitos } from '../../public/js/chat-filtro.js';
+import { candidatoSeguro, sdpSemIp } from '../../public/js/voz-filtro.js';
 import { horaDe, MAX_TURNO } from '../../public/js/trabalho.js';
 import { blocosDaObra, PLANTAS, ESTILOS_OBRA } from '../../public/js/casas.js';
 
@@ -296,6 +297,15 @@ export class Sala extends DurableObject {
       ws.send(JSON.stringify({ t: 'chat-erro', msg: 'Você acabou de mandar essa mensagem.' }));
       return;
     }
+    // telefone picado em várias mensagens ("98 76" + "54 32"...): no máximo 4 algarismos a cada 2 minutos
+    c.dig = (c.dig || []).filter((d) => agora - d.em < 120000);
+    const nd = contarDigitos(f.texto);
+    if (nd && c.dig.reduce((a, d) => a + d.n, 0) + nd >= 5) {
+      ws.send(JSON.stringify({ t: 'chat-erro', msg: 'Não dá para mandar números de telefone no chat.' }));
+      this.chatUid.set(eu.uid, c);
+      return;
+    }
+    if (nd) c.dig.push({ em: agora, n: nd });
     c.em.push(agora); c.ult = f.texto.toLowerCase(); c.ultEm = agora;
     this.chatUid.set(eu.uid, c);
     const msg = { t: 'chat', id: eu.id, nome: eu.nome, txt: f.texto };
@@ -329,9 +339,12 @@ export class Sala extends DurableObject {
       const [alvoWs, alvo] = this.conexaoDe(m.para);
       if (!alvoWs || !alvo.voz || alvo.id === eu.id) return;
       const d = {};
-      if (m.d.sdp && typeof m.d.sdp === 'object' && (m.d.sdp.type === 'offer' || m.d.sdp.type === 'answer') && typeof m.d.sdp.sdp === 'string') d.sdp = { type: m.d.sdp.type, sdp: m.d.sdp.sdp };
-      else if (m.d.ice && typeof m.d.ice === 'object' && typeof m.d.ice.candidate === 'string') d.ice = { candidate: m.d.ice.candidate, sdpMid: typeof m.d.ice.sdpMid === 'string' ? m.d.ice.sdpMid : null, sdpMLineIndex: Number.isInteger(m.d.ice.sdpMLineIndex) ? m.d.ice.sdpMLineIndex : null };
-      else return;
+      // o IP de casa da criança nunca passa para os outros: só endereços da rede de casa (ou .local) e de servidor de retransmissão
+      if (m.d.sdp && typeof m.d.sdp === 'object' && (m.d.sdp.type === 'offer' || m.d.sdp.type === 'answer') && typeof m.d.sdp.sdp === 'string') d.sdp = { type: m.d.sdp.type, sdp: sdpSemIp(m.d.sdp.sdp) };
+      else if (m.d.ice && typeof m.d.ice === 'object' && typeof m.d.ice.candidate === 'string') {
+        if (m.d.ice.candidate && !candidatoSeguro(m.d.ice.candidate)) return;
+        d.ice = { candidate: m.d.ice.candidate, sdpMid: typeof m.d.ice.sdpMid === 'string' ? m.d.ice.sdpMid : null, sdpMLineIndex: Number.isInteger(m.d.ice.sdpMLineIndex) ? m.d.ice.sdpMLineIndex : null };
+      } else return;
       alvoWs.send(JSON.stringify({ t: 'voz-sinal', de: eu.id, d }));
     } else if (m.t === 'voz-fala') {
       // aviso de "está falando" (para o desenho em cima da cabeça), no máximo 4 por segundo
