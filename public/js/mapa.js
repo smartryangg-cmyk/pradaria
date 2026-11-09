@@ -223,10 +223,10 @@ export class Mapa {
         ctx.fillStyle = '#fff'; ctx.fillText(L.nome, sx, sy + 20);
       }
     }
-    // bichinhos: pontinhos rosados
+    // bichinhos: pontinhos rosados (caçadores em laranja)
     if (this.bichos) for (const b of this.bichos.lista) {
       const [sx, sy] = tela(b.x, b.z);
-      if (dentro(sx, sy)) this.ponto(ctx, sx, sy, grande ? 3.5 : 2.2, '#ffb3c7', 'rgba(90,40,50,.8)');
+      if (dentro(sx, sy)) this.ponto(ctx, sx, sy, grande ? 3.5 : 2.2, b.I && b.I.presas ? '#ff8a3c' : '#ffb3c7', 'rgba(90,40,50,.8)');
     }
     // amigos: bolinha da cor da camiseta (e o nome no mapa grande)
     if (this.outros) for (const o of this.outros.values()) {

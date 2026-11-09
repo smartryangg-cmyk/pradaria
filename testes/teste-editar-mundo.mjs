@@ -48,7 +48,7 @@ await toque(B, '#m-novo button[type=submit]');
 await naSala(B);
 await B.waitForTimeout(1500);
 const antesB = await op(B);
-conferir(antesB.monstros === false && antesB.veiculos === true && antesB.cicloDia === true, 'amigo começa com as opções de quando foi criado');
+conferir(antesB.selvagensMachucam === false && antesB.veiculos === true && antesB.cicloDia === true, 'amigo começa com as opções de quando foi criado');
 await toque(B, '#bt-menu');
 conferir(await B.isHidden('#bt-editar-mundo'), 'amigo (não dono) não vê o botão de editar');
 await toque(B, '#pausa [data-fechar]');
@@ -57,7 +57,7 @@ await B.evaluate(() => { const j = window.__jogo.jog; j.voando = true; j.pos.x +
 await B.waitForTimeout(600);
 const posB = await B.evaluate(() => { const j = window.__jogo.jog; return [j.pos.x, j.pos.y, j.pos.z]; });
 // o amigo não consegue editar nem pelo servidor
-const r403 = await B.evaluate(async (c) => { const r = await fetch('/api/mundos/editar', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + localStorage.getItem('pradaria.token') }, body: JSON.stringify({ codigo: c, nome: 'Roubei', opcoes: { monstros: true } }) }); return r.status; }, codigo);
+const r403 = await B.evaluate(async (c) => { const r = await fetch('/api/mundos/editar', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + localStorage.getItem('pradaria.token') }, body: JSON.stringify({ codigo: c, nome: 'Roubei', opcoes: { selvagensMachucam: true } }) }); return r.status; }, codigo);
 conferir(r403 === 403, 'servidor recusa edição de quem não é dono (' + r403 + ')');
 
 // ---------- dono edita dentro do jogo ----------
@@ -79,9 +79,9 @@ await A.fill('#e-nome', 'Fazenda@Feliz');
 await A.click('#e-salvar');
 await A.waitForFunction(() => /só letras/.test(document.querySelector('#e-erro').textContent));
 conferir(true, 'nome com símbolo é barrado');
-// liga monstros que machucam (liga os monstrinhos junto), desliga veículos e o dia e noite
-await A.click('#e-lista [data-opcao=monstrosMachucam]');
-conferir(await A.getAttribute('#e-lista [data-opcao=monstros]', 'aria-pressed') === 'true', 'ligar "monstros machucam" liga os monstrinhos');
+// liga "animais podem machucar" (liga os selvagens junto), desliga veículos e o dia e noite
+await A.click('#e-lista [data-opcao=selvagensMachucam]');
+conferir(await A.getAttribute('#e-lista [data-opcao=selvagens]', 'aria-pressed') === 'true', 'ligar "animais podem machucar" liga os selvagens');
 await A.click('#e-lista [data-opcao=veiculos]');
 await A.click('#e-lista [data-opcao=cicloDia]');
 conferir(/recarregar/.test(await A.textContent('#e-aviso')), 'avisa que quem está jogando vai recarregar');
@@ -93,17 +93,17 @@ conferir(!/terreno/.test(await A.textContent('#e-aviso')), 'desfazer vilas tira 
 await A.fill('#e-nome', 'Fazenda Nova');
 await A.click('#e-salvar');
 // os dois recarregam com as opções novas
-await A.waitForFunction(() => window.__jogo.opcoesMundo.monstros === true && !document.querySelector('#hud').hidden && window.__jogo.jog, null, { timeout: 60000 });
-await B.waitForFunction(() => window.__jogo.opcoesMundo.monstros === true && !document.querySelector('#hud').hidden && window.__jogo.jog, null, { timeout: 60000 });
+await A.waitForFunction(() => window.__jogo.opcoesMundo.selvagensMachucam === true && !document.querySelector('#hud').hidden && window.__jogo.jog, null, { timeout: 60000 });
+await B.waitForFunction(() => window.__jogo.opcoesMundo.selvagensMachucam === true && !document.querySelector('#hud').hidden && window.__jogo.jog, null, { timeout: 60000 });
 await B.waitForTimeout(1500);
 for (const [nome, p] of [['dono', A], ['amigo', B]]) {
   const o = await op(p);
-  conferir(o.monstros && o.monstrosMachucam && o.veiculos === false && o.cicloDia === false, `${nome}: opções novas valem (monstros+machucam, sem veículos, sempre dia)`);
+  conferir(o.selvagens && o.selvagensMachucam && o.veiculos === false && o.cicloDia === false, `${nome}: opções novas valem (selvagens+machucam, sem veículos, sempre dia)`);
   conferir(o.tamanho === 'medio' && o.tipo === 'normal', `${nome}: tamanho e tipo continuam`);
   conferir(await p.evaluate(() => window.__jogo.garagem.ligados()) === false, `${nome}: garagem desligada`);
   conferir(/Fazenda Nova/.test(await p.textContent('#status')), `${nome}: nome novo aparece no topo`);
 }
-conferir(await B.evaluate(() => window.__jogo.vida.ligada()), 'amigo: corações ligados (monstros machucam)');
+conferir(await B.evaluate(() => window.__jogo.vida.ligada()), 'amigo: corações ligados (animais podem machucar)');
 const posB2 = await B.evaluate(() => { const j = window.__jogo.jog; return [j.pos.x, j.pos.y, j.pos.z]; });
 const dist = Math.hypot(posB2[0] - posB[0], posB2[2] - posB[2]);
 conferir(dist < 1.5, 'amigo continua no mesmo lugar depois de recarregar (' + dist.toFixed(2) + ' blocos)');
@@ -144,7 +144,7 @@ await A.waitForTimeout(500);
 await B.waitForFunction(() => window.__jogo.opcoesMundo.animais === false && window.__jogo.opcoesMundo.veiculos === true && window.__jogo.jog && !document.querySelector('#hud').hidden, null, { timeout: 60000 });
 conferir(true, 'amigo recebe a edição feita pela lista (sem bichinhos, com veículos)');
 const banco = await A.evaluate(async () => (await (await fetch('/api/mundos', { headers: { authorization: 'Bearer ' + localStorage.getItem('pradaria.token') } })).json()).mundos[0]);
-conferir(banco.nome === 'Fazenda Nova' && banco.opcoes.animais === false && banco.opcoes.veiculos === true && banco.opcoes.monstros === true, 'banco guardou nome e opções');
+conferir(banco.nome === 'Fazenda Nova' && banco.opcoes.animais === false && banco.opcoes.veiculos === true && banco.opcoes.selvagensMachucam === true, 'banco guardou nome e opções');
 // só nome: amigo não recarrega, só vê o nome novo
 await A.click('#lista-mundos .bt-editar');
 await A.fill('#e-nome', 'Fazenda do Sol');
@@ -167,11 +167,11 @@ await naSala(B);
 await toque(B, '#bt-menu');
 await toque(B, '#bt-editar-mundo');
 await B.waitForSelector('#editar-mundo:not([hidden])');
-await toque(B, '#e-lista [data-opcao=monstros]');
+await toque(B, '#e-lista [data-opcao=selvagensMachucam]');
 await B.screenshot({ path: SAIDA + '/editar-tablet-jogo.png' });
 await toque(B, '#e-salvar');
-await B.waitForFunction(() => window.__jogo.opcoesMundo.monstros === true && window.__jogo.jog && !document.querySelector('#hud').hidden, null, { timeout: 60000 });
-conferir(true, 'tablet: dono liga monstrinhos pela pausa e o mundo recarrega');
+await B.waitForFunction(() => window.__jogo.opcoesMundo.selvagensMachucam === true && window.__jogo.jog && !document.querySelector('#hud').hidden, null, { timeout: 60000 });
+conferir(true, 'tablet: dono liga "animais podem machucar" pela pausa e o mundo recarrega');
 await toque(B, '#bt-menu');
 await toque(B, '#bt-sair-mundo');
 await B.waitForSelector('#m-mundos:not([hidden])');

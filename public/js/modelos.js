@@ -1,6 +1,7 @@
 // Modelos 3D feitos de caixinhas (bichos e jogadores), com cores e sombreamento embutidos.
 import * as THREE from '../vendor/three.module.min.js';
 import { PELES, CORES_CABELO, CORES_OLHOS, CORES_ROUPA, PADRAO, normalizarSkin, skinDeCor } from './skin.js';
+import { opcoesMundo } from './opcoes-mundo.js';
 
 export const matModelo = new THREE.MeshLambertMaterial({ vertexColors: true });
 function malha(geo) { const m = new THREE.Mesh(geo, matModelo); m.castShadow = true; return m; }
@@ -8,18 +9,40 @@ function malha(geo) { const m = new THREE.Mesh(geo, matModelo); m.castShadow = t
 const SOMBRA = [0.95, 0.95, 1, 0.85, 0.92, 0.92];
 
 // cria geometria de caixa com cor por face; o = deslocamento do centro
+// No estilo Natural 3D (mundo suave) as caixas maiores ganham cantos redondos.
 export function caixa(w, h, d, cor, ox = 0, oy = 0, oz = 0) {
-  const g = new THREE.BoxGeometry(w, h, d);
+  const redonda = opcoesMundo.estilo === 'suave' && Math.min(w, h, d) >= 0.12;
+  const s = redonda ? 4 : 1;
+  const g = new THREE.BoxGeometry(w, h, d, s, s, s);
+  if (redonda) arredondar(g, w, h, d, Math.min(w, h, d) * 0.32);
   g.translate(ox, oy, oz);
   const c = new THREE.Color(cor);
-  const cols = new Float32Array(24 * 3);
-  for (let f = 0; f < 6; f++) for (let v = 0; v < 4; v++) {
-    const i = (f * 4 + v) * 3;
+  const pf = (s + 1) * (s + 1); // vértices por face
+  const cols = new Float32Array(6 * pf * 3);
+  for (let f = 0; f < 6; f++) for (let v = 0; v < pf; v++) {
+    const i = (f * pf + v) * 3;
     cols[i] = c.r * SOMBRA[f]; cols[i + 1] = c.g * SOMBRA[f]; cols[i + 2] = c.b * SOMBRA[f];
   }
   g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
   g.deleteAttribute('uv');
   return g;
+}
+
+// cantos redondos (raio r): cada vértice fica a r de uma caixa menor dentro; a normal aponta para fora dela
+function arredondar(g, w, h, d, r) {
+  const p = g.attributes.position, n = g.attributes.normal;
+  const ix = w / 2 - r, iy = h / 2 - r, iz = d / 2 - r;
+  // grade de 4 por face: o meio da face vai até onde começa a curva (m - r), a borda fica na aresta
+  const encolhe = (v, m) => { const t = Math.abs(v) / m; return Math.sign(v) * (t <= 0.5 ? t * 2 * (m - r) : m - r + (t - 0.5) * 2 * r); };
+  for (let i = 0; i < p.count; i++) {
+    let x = encolhe(p.getX(i), w / 2), y = encolhe(p.getY(i), h / 2), z = encolhe(p.getZ(i), d / 2);
+    const cx = Math.max(-ix, Math.min(ix, x)), cy = Math.max(-iy, Math.min(iy, y)), cz = Math.max(-iz, Math.min(iz, z));
+    let nx = x - cx, ny = y - cy, nz = z - cz;
+    const l = Math.hypot(nx, ny, nz);
+    if (l < 1e-6) { nx = n.getX(i); ny = n.getY(i); nz = n.getZ(i); } else { nx /= l; ny /= l; nz /= l; }
+    p.setXYZ(i, cx + nx * r, cy + ny * r, cz + nz * r);
+    n.setXYZ(i, nx, ny, nz);
+  }
 }
 
 export function juntar(geos) {
@@ -82,7 +105,14 @@ export const ESPECIES = {
   },
   galinha: {
     nome: 'Galinha', vel: 0.8, alt: 0.8, raio: 0.25, som: 'cocó',
-    montar() {
+    montar(r, filhote) {
+      if (filhote) return { // pintinho
+        corpo: [caixa(0.42, 0.42, 0.5, 0xffe066, 0, 0.42, 0)],
+        cabeca: [caixa(0.3, 0.3, 0.28, 0xffe066, 0, 0, 0), caixa(0.12, 0.08, 0.12, 0xf29a32, 0, -0.03, 0.18),
+          caixa(0.06, 0.06, 0.02, 0x222222, -0.09, 0.05, 0.145), caixa(0.06, 0.06, 0.02, 0x222222, 0.09, 0.05, 0.145)],
+        cabecaPos: [0, 0.75, 0.22],
+        pernas: [[0.07, 0.24, 0.07, 0xf29a32, [[-0.1, 0.24, 0], [0.1, 0.24, 0]]]],
+      };
       return {
         corpo: [caixa(0.42, 0.42, 0.55, 0xfafafa, 0, 0.5, 0), caixa(0.06, 0.3, 0.38, 0xeeeeee, -0.24, 0.52, -0.02), caixa(0.06, 0.3, 0.38, 0xeeeeee, 0.24, 0.52, -0.02)],
         cabeca: [caixa(0.28, 0.32, 0.26, 0xfafafa, 0, 0, 0), caixa(0.14, 0.08, 0.14, 0xf2b632, 0, -0.02, 0.18),
@@ -148,10 +178,108 @@ export const ESPECIES = {
       };
     },
   },
+
+  // ---------- bichos selvagens (instintos em instintos.js) ----------
+  veado: {
+    nome: 'Veado', vel: 1.1, alt: 1.3, raio: 0.38, som: 'veado',
+    montar(r) {
+      const c = 0xa8743f, claro = 0xf0e2c8;
+      const chifre = r < 0.5 ? [caixa(0.05, 0.3, 0.05, 0x7a5a3a, -0.13, 0.36, -0.02), caixa(0.05, 0.3, 0.05, 0x7a5a3a, 0.13, 0.36, -0.02),
+        caixa(0.18, 0.05, 0.05, 0x7a5a3a, -0.2, 0.45, -0.02), caixa(0.18, 0.05, 0.05, 0x7a5a3a, 0.2, 0.45, -0.02)] : [];
+      return {
+        corpo: [caixa(0.5, 0.5, 1.0, c, 0, 0.98, 0), caixa(0.4, 0.2, 0.7, claro, 0, 0.74, 0), caixa(0.16, 0.16, 0.1, 0xffffff, 0, 1.1, -0.53),
+          caixa(0.24, 0.45, 0.24, c, 0, 1.28, 0.42)],
+        cabeca: [caixa(0.3, 0.3, 0.42, c, 0, 0, 0.1), caixa(0.1, 0.2, 0.06, c, -0.17, 0.2, -0.02), caixa(0.1, 0.2, 0.06, c, 0.17, 0.2, -0.02),
+          caixa(0.12, 0.08, 0.04, 0x222222, 0, -0.04, 0.32), caixa(0.06, 0.06, 0.02, 0x222222, -0.1, 0.06, 0.2), caixa(0.06, 0.06, 0.02, 0x222222, 0.1, 0.06, 0.2), ...chifre],
+        cabecaPos: [0, 1.55, 0.55],
+        pernas: [[0.1, 0.75, 0.1, 0x8a5a2e, [[-0.16, 0.75, 0.38], [0.16, 0.75, 0.38], [-0.16, 0.75, -0.38], [0.16, 0.75, -0.38]]]],
+      };
+    },
+  },
+  lobo: {
+    nome: 'Lobo', vel: 1.4, alt: 1.0, raio: 0.36, som: 'lobo',
+    montar(r) {
+      const c = r < 0.7 ? 0x8d939b : 0x6b6560, claro = 0xd9d6d0;
+      return {
+        corpo: [caixa(0.46, 0.46, 1.0, c, 0, 0.72, 0), caixa(0.5, 0.5, 0.36, c, 0, 0.76, 0.3), caixa(0.36, 0.14, 0.7, claro, 0, 0.5, 0),
+          caixa(0.14, 0.14, 0.5, c, 0, 0.78, -0.7), caixa(0.14, 0.14, 0.12, claro, 0, 0.74, -0.98)],
+        cabeca: [caixa(0.4, 0.38, 0.36, c, 0, 0, 0.05), caixa(0.22, 0.18, 0.26, claro, 0, -0.08, 0.32),
+          caixa(0.08, 0.07, 0.04, 0x222222, 0, -0.02, 0.46), caixa(0.1, 0.18, 0.06, c, -0.13, 0.26, -0.04), caixa(0.1, 0.18, 0.06, c, 0.13, 0.26, -0.04),
+          caixa(0.07, 0.05, 0.02, 0xf2c94c, -0.1, 0.06, 0.235), caixa(0.07, 0.05, 0.02, 0xf2c94c, 0.1, 0.06, 0.235)],
+        cabecaPos: [0, 0.98, 0.62],
+        pernas: [[0.12, 0.5, 0.12, c, [[-0.13, 0.5, 0.32], [0.13, 0.5, 0.32], [-0.13, 0.5, -0.32], [0.13, 0.5, -0.32]]]],
+      };
+    },
+  },
+  raposa: {
+    nome: 'Raposa', vel: 1.3, alt: 0.7, raio: 0.28, som: 'raposa',
+    montar() {
+      const c = 0xe07a2e, claro = 0xfaf0e0, pe = 0x2e2420;
+      return {
+        corpo: [caixa(0.32, 0.32, 0.7, c, 0, 0.45, 0), caixa(0.24, 0.12, 0.4, claro, 0, 0.32, 0.12),
+          caixa(0.2, 0.2, 0.46, c, 0, 0.48, -0.55), caixa(0.2, 0.2, 0.14, claro, 0, 0.48, -0.84)],
+        cabeca: [caixa(0.32, 0.28, 0.28, c, 0, 0, 0.02), caixa(0.16, 0.12, 0.2, claro, 0, -0.07, 0.22), caixa(0.07, 0.06, 0.04, 0x222222, 0, -0.04, 0.33),
+          caixa(0.09, 0.16, 0.05, c, -0.1, 0.2, -0.02), caixa(0.09, 0.16, 0.05, c, 0.1, 0.2, -0.02),
+          caixa(0.06, 0.05, 0.02, 0x222222, -0.08, 0.04, 0.165), caixa(0.06, 0.05, 0.02, 0x222222, 0.08, 0.04, 0.165)],
+        cabecaPos: [0, 0.66, 0.42],
+        pernas: [[0.08, 0.3, 0.08, pe, [[-0.09, 0.3, 0.22], [0.09, 0.3, 0.22], [-0.09, 0.3, -0.22], [0.09, 0.3, -0.22]]]],
+      };
+    },
+  },
+  urso: {
+    nome: 'Urso', vel: 0.9, alt: 1.35, raio: 0.6, som: 'urso',
+    montar(r) {
+      const c = r < 0.75 ? 0x6b4a2f : 0x2f2a28, focinho = 0xc9a27a;
+      return {
+        corpo: [caixa(1.0, 0.9, 1.5, c, 0, 1.0, 0), caixa(0.9, 0.3, 0.5, c, 0, 1.5, 0.35)],
+        cabeca: [caixa(0.62, 0.56, 0.5, c, 0, 0, 0.05), caixa(0.32, 0.26, 0.2, focinho, 0, -0.1, 0.36), caixa(0.12, 0.09, 0.04, 0x222222, 0, -0.02, 0.47),
+          caixa(0.16, 0.16, 0.08, c, -0.25, 0.32, -0.04), caixa(0.16, 0.16, 0.08, c, 0.25, 0.32, -0.04),
+          caixa(0.08, 0.08, 0.02, 0x111111, -0.15, 0.08, 0.305), caixa(0.08, 0.08, 0.02, 0x111111, 0.15, 0.08, 0.305)],
+        cabecaPos: [0, 1.25, 0.88],
+        pernas: [[0.3, 0.6, 0.3, c, [[-0.3, 0.6, 0.48], [0.3, 0.6, 0.48], [-0.3, 0.6, -0.48], [0.3, 0.6, -0.48]]]],
+      };
+    },
+  },
+  onca: {
+    nome: 'Onça', vel: 1.2, alt: 0.95, raio: 0.42, som: 'onca',
+    montar(r) {
+      const preta = r < 0.12; // onça-preta: mesma espécie, pelagem escura
+      const c = preta ? 0x2c2a2e : 0xe2a948, m = preta ? 0x1a181c : 0x3a2a1a, claro = preta ? 0x3a383c : 0xf6e6c4;
+      const manchas = [];
+      for (const [x, y, z] of [[-0.29, 0.8, 0.3], [0.29, 0.75, 0.1], [-0.29, 0.7, -0.2], [0.29, 0.85, -0.35], [0, 0.98, 0.15], [0.12, 0.98, -0.25], [-0.15, 0.98, -0.05], [-0.29, 0.86, -0.42], [0.29, 0.68, 0.38]])
+        manchas.push(caixa(x === 0 || Math.abs(x) < 0.2 ? 0.12 : 0.02, x === 0 || Math.abs(x) < 0.2 ? 0.02 : 0.1, 0.12, m, x, y, z));
+      return {
+        corpo: [caixa(0.56, 0.48, 1.15, c, 0, 0.75, 0), caixa(0.44, 0.14, 0.9, claro, 0, 0.51, 0), ...manchas,
+          caixa(0.12, 0.12, 0.7, c, 0, 0.78, -0.9), caixa(0.13, 0.13, 0.14, m, 0, 0.74, -1.25)],
+        cabeca: [caixa(0.46, 0.4, 0.4, c, 0, 0, 0.05), caixa(0.26, 0.18, 0.14, claro, 0, -0.1, 0.28), caixa(0.09, 0.07, 0.04, 0x5a3a2a, 0, -0.04, 0.36),
+          caixa(0.12, 0.12, 0.06, c, -0.17, 0.24, -0.04), caixa(0.12, 0.12, 0.06, c, 0.17, 0.24, -0.04),
+          caixa(0.08, 0.06, 0.02, 0xc8e06a, -0.11, 0.06, 0.255), caixa(0.08, 0.06, 0.02, 0xc8e06a, 0.11, 0.06, 0.255)],
+        cabecaPos: [0, 0.95, 0.66],
+        pernas: [[0.15, 0.5, 0.15, c, [[-0.17, 0.5, 0.38], [0.17, 0.5, 0.38], [-0.17, 0.5, -0.38], [0.17, 0.5, -0.38]]]],
+      };
+    },
+  },
+  cobra: {
+    nome: 'Cobra', vel: 0.6, alt: 0.3, raio: 0.3, som: 'cobra',
+    montar(r) {
+      const c = r < 0.5 ? 0x5d9a3a : 0x9a7a4a, f = r < 0.5 ? 0x3e6e26 : 0x6a4e2e;
+      const seg = [];
+      // corpo em zigue-zague, deitado no chão
+      for (let i = 0; i < 6; i++) seg.push(caixa(0.16, 0.14, 0.24, i % 2 ? f : c, Math.sin(i * 1.3) * 0.12, 0.08, -0.05 - i * 0.2));
+      seg.push(caixa(0.1, 0.1, 0.2, f, Math.sin(7.8) * 0.12, 0.06, -1.25));
+      return {
+        corpo: seg,
+        cabeca: [caixa(0.22, 0.14, 0.26, c, 0, 0, 0.06), caixa(0.04, 0.04, 0.02, 0x111111, -0.07, 0.04, 0.17), caixa(0.04, 0.04, 0.02, 0x111111, 0.07, 0.04, 0.17),
+          caixa(0.03, 0.02, 0.1, 0xd23b4a, 0, -0.03, 0.24)],
+        cabecaPos: [0, 0.12, 0.1],
+        pernas: [],
+      };
+    },
+  },
 };
 
-export function montarBicho(especie, r) {
-  const m = ESPECIES[especie].montar(r);
+export function montarBicho(especie, r, filhote = false) {
+  const m = ESPECIES[especie].montar(r, filhote);
   const g = new THREE.Group();
   g.add(malha(juntar(m.corpo)));
   const cab = malha(juntar(m.cabeca));
