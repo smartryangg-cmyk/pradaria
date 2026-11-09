@@ -25,7 +25,7 @@ const dono = await cadastrar('Dono' + sfx); const amigo = await cadastrar('Amigo
 ok(dono.token && amigo.token && chato.token, 'cadastro normal funciona');
 ok((await api('mundos', { nome: 'me chama 11 98765 4321' }, dono.token)).status === 400, 'nome de mundo com telefone barrado');
 ok((await api('mundos', { nome: 'Ilha‮texto' }, dono.token)).status === 400, 'nome de mundo com caractere estranho barrado');
-const { mundo } = await api('mundos', { nome: 'Fazenda da Capivara' }, dono.token);
+const { mundo } = await api('mundos', { nome: 'Fazenda da Capivara', opcoes: { sobrevivencia: false } }, dono.token);
 ok(mundo && mundo.codigo.length === 8, 'mundo criado com código de 8 letras');
 
 // entrar com código
@@ -47,7 +47,7 @@ const wc = await ws(chato.token, mundo.codigo);
 ok(wc.msgs.some((m) => m.t === 'ola'), 'chato entrou na sala');
 // bloco inválido não é guardado; bloco válido é
 wc.send(JSON.stringify({ t: 'bloco', x: 3, y: 30, z: 3, b: 50 }));
-wc.send(JSON.stringify({ t: 'bloco', x: 4, y: 30, z: 3, b: 1 }));
+wc.send(JSON.stringify({ t: 'bloco', x: 4, y: 30, z: 3, b: 1, de: 0, j: 1 })); // colocado com a mão
 await espera(500);
 ok(wd.msgs.some((m) => m.t === 'bloco' && m.b === 1), 'bloco válido chega ao dono');
 // membro tentando se passar pelo servidor com um cabeçalho "x-admin" (antes apagava o mundo do dono)
@@ -111,13 +111,16 @@ const ataque = {
   opcoes: JSON.parse('{"__proto__": {"admin": true}, "armas": true, "mercado": "sim", "moedas": 99999, "tamanho": "infinito"}'),
   edicoes: [[1, 30, 1, 3], [2, 500, 2, 3], [3, 30, 3, 999], [4, 30, 4, -1], [5, 30.5, 5, 3], ['x', 1, 1, 1], [6, 30, 6], { a: 1 }, [7, 90, 7, 1]],
 };
+// o arquivo liga Armas: sem ter respondido "16 anos ou mais" não importa
+ok((await api('mundos/importar', { arquivo: ataque }, dono.token)).status === 403, 'arquivo com Armas: sem a resposta "16 ou mais" não importa (403)');
+await api('eu/idade', { mais16: true }, dono.token);
 const imp = await api('mundos/importar', { arquivo: ataque }, dono.token);
 ok(imp.mundo && imp.mundo.codigo, 'arquivo com lixo importa só o que vale (' + imp.status + ')');
 if (imp.mundo) {
   const arq = await api('mundos/exportar', { codigo: imp.mundo.codigo }, dono.token);
   const blocos = (arq.edicoes || []).map((e) => e.join(',')).sort().join(' ');
   ok(blocos === '1,30,1,3 7,90,7,1', 'blocos inválidos descartados e o alto (y 90) guardado: ' + blocos);
-  ok(arq.opcoes && !('armas' in arq.opcoes) && !('moedas' in arq.opcoes) && !('admin' in arq.opcoes) && arq.opcoes.mercado !== 'sim' && arq.opcoes.tamanho !== 'infinito', 'opções desconhecidas ou erradas ignoradas');
+  ok(arq.opcoes && arq.opcoes.armas === true && !('moedas' in arq.opcoes) && !('admin' in arq.opcoes) && arq.opcoes.mercado !== 'sim' && arq.opcoes.tamanho !== 'infinito', 'opções desconhecidas ou erradas ignoradas');
 }
 ok((await api('mundos/importar', { arquivo: { ...ataque, nome: 'liga 11 98765 4321' }, nome: 'liga 11 98765 4321' }, dono.token)).status === 400, 'arquivo com telefone no nome barrado');
 const enorme = await fetch(BASE + '/api/mundos/importar', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + dono.token, 'cf-connecting-ip': ipx() }, body: '{"arquivo":{"edicoes":[' + '[1,30,1,3],'.repeat(900000) + '[1,30,1,3]]}}' });
