@@ -621,6 +621,11 @@ export class Sala extends DurableObject {
       const agora = Date.now();
       if (!eu.jeco || agora - eu.jeco > 1000) { eu.jeco = agora; eu.neco = 0; }
       if (++eu.neco > 10) return;
+      // bicho derrubado: leva vários golpes, então mais de um a cada 1,5 s não é de verdade
+      if (m.t === 'ev' && m.e === 'caca') {
+        if (eu.cacaEm && agora - eu.cacaEm < 1500) return;
+        eu.cacaEm = agora;
+      }
       ws.serializeAttachment(eu);
       const econ = await this.econDe(eu.uid);
       await this.econAplicar(ws, eu, econ, m, m.t === 'ev');

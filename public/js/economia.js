@@ -10,6 +10,8 @@ const G = 1, TE = 2, PE = 3, AR_ = 4, AG = 5, TR = 6, FO = 7, TA = 8, VI = 9, TJ
   LB = 14, LV = 15, LZ = 16, LM = 17, LG = 18, LR = 19, PD = 20, LP = 21, FZ = 22, TAR = 31, TRI = 32, FE = 33;
 // farinha e pão (blocos-mecanismos.js): saem do moinho de vento e do forno
 const FAR = 57, PAO = 58;
+// itens que caem dos bichos (blocos.js ITEM)
+const CAR = 1007, COU = 1008;
 
 // blocos que todo mundo já tem desde o começo (os outros se compram na loja da vila)
 export const LIVRES = new Set([G, TE, PE, AR_, AG, TR, FO, TA, FV, FA, CA, PD]);
@@ -22,7 +24,7 @@ export const LOJA = [
 const PRECO_LOJA = new Map(LOJA.map((x) => [x.b, x.preco]));
 
 // quanto os aldeões pagam por cada coisa coletada (o que não está aqui vale 1)
-const VENDA = { [TR]: 2, 80: 2, 81: 2, 82: 2, [FV]: 3, [FA]: 3, [FZ]: 3, [TRI]: 3, [FE]: 3, [LP]: 4, [VI]: 2, [TJ]: 2, [FAR]: 5, [PAO]: 9 };
+const VENDA = { [TR]: 2, 80: 2, 81: 2, 82: 2, [FV]: 3, [FA]: 3, [FZ]: 3, [TRI]: 3, [FE]: 3, [LP]: 4, [VI]: 2, [TJ]: 2, [FAR]: 5, [PAO]: 9, [CAR]: 3, [COU]: 4 };
 export const precoVenda = (b) => VENDA[b] || 1;
 // formas feitas na bancada (83..99: coluna, cerca, bola, rampa...) são para construir: ninguém compra.
 // Uma receita faz várias de uma vez (1 vidro = 4 vidros finos), então vender dava mais moedas que a matéria-prima.
@@ -64,7 +66,19 @@ export const OBJETIVOS = [
 export const ATIVOS = 3; // quantos objetivos aparecem por vez
 
 // eventos que o jogador pode contar (com o máximo aceito de uma vez)
-export const EVENTOS = { carinho: 1, conversa: 1, voar: 1, emote: 1, andar: 80, la: 1 };
+export const EVENTOS = { carinho: 1, conversa: 1, voar: 1, emote: 1, andar: 80, la: 1, caca: 1 };
+
+// o que um bicho deixa quando cai (animais.js). Filhote é pequeno: só o primeiro item, um só.
+// (o cachorro não entra: é bicho de estimação e não pode ser atacado)
+export const CAI_BICHO = {
+  ovelha: [[CAR, 1], [LB, 2]], porquinho: [[CAR, 2]], galinha: [[CAR, 1]], vaca: [[CAR, 2], [COU, 1]],
+  capivara: [[CAR, 1], [COU, 1]], coelho: [[CAR, 1]], veado: [[CAR, 2], [COU, 1]], lobo: [[COU, 1]],
+  raposa: [[COU, 1]], urso: [[CAR, 2], [COU, 2]], onca: [[COU, 1]], cobra: [[COU, 1]],
+};
+export function caiDoBicho(especie, filhote) {
+  const l = Object.prototype.hasOwnProperty.call(CAI_BICHO, especie) ? CAI_BICHO[especie] : [];
+  return filhote ? l.slice(0, 1).map(([id]) => [id, 1]) : l;
+}
 const MAX_ITEM = 9999, MAX_MOEDAS = 999999;
 
 // ---------- veículos (só valem com a opção Veículos ligada no mundo) ----------
@@ -172,6 +186,7 @@ function contar(e, op, k, n) {
 //  { t:'comprar', b }        libera o bloco b (no "Coletar e criar": traz LOTE_LOJA dele)
 //  { t:'criar', r, bancada } receita r (receitas.js); bancada = tem uma bancada perto (a sala confere)
 //  { t:'ev', e:'la' }        carinho na ovelha deu lã (só no "Coletar e criar")
+//  { t:'ev', e:'caca', b, f } derrubou um bicho da espécie b (f = filhote): o que cai vai para a mochila
 //  { t:'moer' }              trigo da mochila vira farinha (no moinho girando)
 //  { t:'assar' }             farinha da mochila vira pão (no forno aceso)
 //  trabalhadores (trabalho.js): contratar, demitir, obra, cancelar-obra, depositar, retirar, turno
@@ -194,6 +209,11 @@ export function aplicar(e, op, a, ctx = {}) {
     if (a.e === 'la') {
       if (!op.sobrevivencia) return falha('?');
       por(e.itens, LB, 1);
+    } else if (a.e === 'caca') {
+      if (!op.sobrevivencia && !op.mercado) return falha('?');
+      const cai = caiDoBicho(String(a.b), !!a.f);
+      if (!cai.length) return falha('?');
+      for (const [id, q] of cai) por(e.itens, id, q);
     } else r.feitos = contar(e, op, a.e, n);
     r.mudou = true;
   } else if (a.t === 'bloco') {

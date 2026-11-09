@@ -32,6 +32,7 @@ import { Mercado } from './mercado.js';
 import { Negocios } from './negocios.js';
 import { MV } from './moveis.js';
 import { horaDe } from './trabalho.js';
+import { caiDoBicho } from './economia.js';
 import { VERSAO } from './versao.js';
 import { preencherDono, contaModo, ligarApagarConta } from './dono.js';
 import { Armas } from './armas.js';
@@ -969,6 +970,12 @@ function eventoEnergia(tipo, x, y, z) {
 let porJogador = false;
 function comoJogador(fn) { porJogador = true; try { return fn(); } finally { porJogador = false; } }
 
+// segurar o dedo (ou clicar) num bicho bate nele; com ferramenta na mão o golpe é mais forte
+const FORCA = { [ITEM.PICARETA_MADEIRA]: 2, [ITEM.MACHADO_MADEIRA]: 2, [ITEM.PA_MADEIRA]: 2, [ITEM.PICARETA_PEDRA]: 3, [ITEM.MACHADO_PEDRA]: 3, [ITEM.PA_PEDRA]: 3 };
+function baterNoBicho(b) {
+  const r = bichos.bater(b, FORCA[naMao()] || 1);
+  if (r && !b.vidaMax) aviso('O cachorro é seu amigo! Faça carinho com um toque rápido', 2200, 'coracao');
+}
 function fazerCarinho(b) { if (!bichos.carinho(b)) return; mercado.evento('carinho'); laDaOvelha(b); } // bicho selvagem: o toque espanta (não conta como carinho)
 function conversarCom(a) {
   aldeoes.conversar(a, jog, Math.sin(tempoDia * Math.PI * 2) < -0.15);
@@ -985,7 +992,7 @@ function quebrar(ponto) {
   const m = mirar(ponto);
   if (m.pessoa) { guerra.socar(m.pessoa); return; }
   if (m.veiculo) return;
-  if (m.bicho) { fazerCarinho(m.bicho); return; }
+  if (m.bicho) { baterNoBicho(m.bicho); return; }
   if (m.aldeao) { conversarCom(m.aldeao); return; }
   if (m.trabalhador) { negocios.tocar(m.trabalhador); return; }
   if (armas.empunhando || !podeConstruir()) return; // sem construção ninguém quebra bloco
@@ -1177,7 +1184,14 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   mecanismos.usarMundo(mundo);
   // bicho provocado (mãe com filhotes, urso surpreendido, cobra pisada...) avisa antes e morde se você insistir
   let ultimoAvisoBicho = -99;
-  bichos.aoAvisar = (b) => {
+  bichos.aoAvisar = (b, bravo) => {
+    if (bravo) { // apanhou e veio para cima
+      if (tempoTotal - ultimoAvisoBicho < 4) return;
+      ultimoAvisoBicho = tempoTotal;
+      const quem = b.I.nome || 'o bicho';
+      aviso(quem[0].toUpperCase() + quem.slice(1) + ' ficou bravo e veio para cima! Afaste-se', 2200, 'pata');
+      return;
+    }
     if (tempoTotal - ultimoAvisoBicho < 12) return;
     ultimoAvisoBicho = tempoTotal;
     const mae = bichos.lista.some((o) => o.mae === b);
@@ -1189,6 +1203,13 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
     const quem = b.I.nome || 'o bicho';
     if (dano && vida.dano(dano)) { som.tom(200, 0.15, { tipo: 'sine', vol: 0.3, ate: 120 }); aviso('Ai! ' + quem[0].toUpperCase() + quem.slice(1) + ' te mordeu. Acenda uma luz ou toque para espantar', 2000, 'coracao'); }
     else aviso(quem[0].toUpperCase() + quem.slice(1) + ' te deu um empurrão. Deixe ' + (quem.startsWith('a ') ? 'ela' : 'ele') + ' em paz', 1800, 'pata');
+  };
+  // bicho derrubado: o que ele deixa vai para a mochila (se o mundo tiver mochila: Coletar e criar ou Mercado)
+  bichos.aoCair = (b) => {
+    const cai = caiDoBicho(b.especie, b.filhote);
+    if (!cai.length || !(sobrev() || mercado.op.mercado)) return;
+    mercado.enviar({ t: 'ev', e: 'caca', b: b.especie, f: b.filhote ? 1 : 0 }, true);
+    for (const [id, n] of cai) mostrarColeta(id, n);
   };
   vida.reiniciar();
   armas.comecar();

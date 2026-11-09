@@ -2,6 +2,9 @@
 // fogem quando a gente chega perto demais, ficam curiosos, mães protegem os filhotes, predadores caçam com
 // fome e as presas fogem deles. Os de fazenda ganham carinho com um toque; os selvagens não gostam de toque:
 // tocar neles é "fazer barulho" e eles fogem. Com "Animais podem machucar", quem for provocado morde.
+// Segurar o dedo (ou clicar, no computador) bate no bicho: cada um aguenta alguns golpes e reage pelo instinto
+// (foge e avisa o bando, ou enfrenta: urso, onça, mãe com filhotes, lobos e vacas em grupo). Quando a vida
+// acaba ele tomba de lado e some numa nuvenzinha de brilho (nada de sangue); o que cai vai para a mochila.
 //
 // Desempenho (tablet fraco): o "pensar" (olhar em volta, decidir) roda só de 0,3 em 0,3 s por bicho,
 // espalhado entre os quadros; a cada quadro só anda e anima. Longe do jogador fica escondido e parado.
@@ -36,6 +39,7 @@ export class Bichos {
     this.aoMorder = null; // (bicho, dano) => {}  main.js tira vida e empurra
     this.aoAvisar = null; // (bicho) => {}         main.js mostra o aviso "está bravo"
     this.aoCacar = null; // (predador, presa, pegou) => {}
+    this.aoCair = null; // (bicho) => {}            main.js põe na mochila o que caiu
   }
 
   chao(x, z, yRef) {
@@ -64,7 +68,10 @@ export class Bichos {
       estado: 'vagar', vel: 0, pensa: Math.random() * PENSAR, folego: I.folego, fome: Math.random() * 0.5,
       medo: 0, de: null, alvo: null, filhote, mae, grupoId: grupo, esc, deita: 0, cabX: 0,
       calmo: 0, olhaLuz: 0, luz: null, avisou: 0, mordeu: 0, distJog: 99,
+      vidaMax: I.vida ? Math.max(1, Math.round(I.vida * (filhote ? 0.5 : 1))) : 0, golpeEm: 0, golpe: 0,
+      empX: 0, empZ: 0, semGolpe: 99, cura: 0, provocado: 0, caindo: 0,
     };
+    b.vida = b.vidaMax;
     b.grupo.position.set(x, y, z);
     this.cena.add(b.grupo);
     this.lista.push(b);
@@ -160,6 +167,7 @@ export class Bichos {
       if (dist > 40) { b.grupo.visible = false; continue; }
       b.grupo.visible = true;
       if (dt <= 0) continue; // pausado
+      if (b.caindo > 0) { this.tombar(b, dt, i); continue; }
       b.pensa -= dt;
       if (b.pensa <= 0) { b.pensa = PENSAR * (0.8 + Math.random() * 0.4); this.pensar(b, ctx, jog); }
       this.agir(b, dt, jog);
@@ -198,7 +206,7 @@ export class Bichos {
     let pred = null, dPred = I.alerta;
     let cx = 0, cz = 0, nb = 0, filhoteAmeacado = false;
     for (const o of this.lista) {
-      if (o === b) continue;
+      if (o === b || o.caindo) continue;
       const ox = o.x - b.x, oz = o.z - b.z;
       const d = Math.abs(ox) + Math.abs(oz);
       if (d > 24) continue;
@@ -242,7 +250,8 @@ export class Bichos {
       // se o jogador se afastou (ou saiu voando), o bicho se acalma
       b.defendendo = filhoteAmeacado;
       const longe = Math.max(I.territorio || 0, filhoteAmeacado ? I.defende : 0, 3) * 1.5 + 1;
-      if (voando || (dist > longe && !(b.estado === 'atacar' && b.cacandoGente && dist < 18))) { this.mudar(b, 'vagar', 2); b.calmo = 6; b.cacandoGente = false; }
+      const segueBravo = b.estado === 'atacar' && (b.cacandoGente || b.provocado > 0) && dist < 18;
+      if (voando || (dist > longe && !segueBravo)) { this.mudar(b, 'vagar', 2); b.calmo = 6; b.cacandoGente = false; }
       return;
     }
     if (!voando) {
@@ -339,6 +348,10 @@ export class Bichos {
     b.timer -= dt;
     if (b.calmo > 0) b.calmo -= dt;
     if (b.segue > 0) b.segue -= dt;
+    if (b.provocado > 0) b.provocado -= dt;
+    // ferido: sem apanhar por um tempo, vai sarando sozinho
+    b.semGolpe += dt;
+    if (b.vida < b.vidaMax && b.semGolpe > 15) { b.cura += dt; if (b.cura >= 5) { b.cura = 0; b.vida++; } }
     let vel = 0;
     switch (b.estado) {
       case 'fugir':
@@ -388,7 +401,7 @@ export class Bichos {
         break;
       case 'cacar': {
         const a = b.alvo;
-        if (!a || !this.lista.includes(a)) { b.estado = 'vagar'; b.alvo = null; b.timer = 1; break; }
+        if (!a || a.caindo || !this.lista.includes(a)) { b.estado = 'vagar'; b.alvo = null; b.timer = 1; break; }
         const dx = a.x - b.x, dz = a.z - b.z, d = Math.hypot(dx, dz);
         b.dir = angulo(dx, dz);
         // espreita devagar e dispara no fim (o fôlego acaba rápido nos felinos)
@@ -453,9 +466,7 @@ export class Bichos {
       const s = this.chao(nx, nz, b.y);
       const altura = s ? s.y - b.y : -99;
       const podeAgua = b.e.nada || b.estado === 'seguir' || b.paraAgua || b.estado === 'fugir' && b.I.foge_agua;
-      const alto = b.e.alt * b.esc > 1;
-      if (s && altura <= 1.05 && altura > -3 && (!s.agua || podeAgua) && !SOLIDO[this.mundo.bloco(Math.floor(nx), Math.floor(s.y), Math.floor(nz))]
-        && !SOLIDO[this.mundo.bloco(Math.floor(nx), Math.floor(s.y) + (alto ? 1 : 0), Math.floor(nz))]) {
+      if (this.cabe(b, nx, nz, s, podeAgua)) {
         b.x = nx; b.z = nz;
         if (altura > 0.05 && b.vy <= 0 && b.y <= Math.floor(b.y) + 0.01) b.vy = 6;
       } else if (b.estado !== 'seguir' && b.estado !== 'atacar') {
@@ -465,6 +476,14 @@ export class Bichos {
       }
       if (b.e.pula && b.vy === 0) b.vy = vel > 2 ? 5 : 4;
     }
+    // empurrão do golpe (vai perdendo força)
+    if (b.empX || b.empZ) {
+      const nx = b.x + b.empX * dt, nz = b.z + b.empZ * dt;
+      if (this.cabe(b, nx, nz, this.chao(nx, nz, b.y), false)) { b.x = nx; b.z = nz; }
+      const f = Math.max(0, 1 - dt * 5);
+      b.empX *= f; b.empZ *= f;
+      if (Math.abs(b.empX) + Math.abs(b.empZ) < 0.05) b.empX = b.empZ = 0;
+    }
     // gravidade
     const s = this.chao(b.x, b.z, b.y);
     // sem chão conhecido (pedaço ainda carregando ou buraco fundo): fica onde está em vez de cair pelo mundo
@@ -472,6 +491,15 @@ export class Bichos {
     b.vy -= 20 * dt;
     b.y += b.vy * dt;
     if (b.y <= piso) { b.y = piso; b.vy = 0; }
+  }
+
+  // dá para o bicho ficar em (nx, nz)? (degrau de até 1 bloco, sem parede, água só se puder)
+  cabe(b, nx, nz, s, podeAgua) {
+    if (!s) return false;
+    const altura = s.y - b.y;
+    const alto = b.e.alt * b.esc > 1;
+    return altura <= 1.05 && altura > -3 && (!s.agua || podeAgua) && !SOLIDO[this.mundo.bloco(Math.floor(nx), Math.floor(s.y), Math.floor(nz))]
+      && !SOLIDO[this.mundo.bloco(Math.floor(nx), Math.floor(s.y) + (alto ? 1 : 0), Math.floor(nz))];
   }
 
   animar(b, dt, tempo) {
@@ -501,6 +529,13 @@ export class Bichos {
     // avisando: tremidinha de raiva (rosnado, chocalho)
     const treme = b.estado === 'avisar' ? Math.sin(tempo * 40) * 0.03 : 0;
     b.grupo.position.set(b.x + treme, b.y - desce, b.z);
+    // golpe: amassa um pouquinho e volta (no lugar de sangue)
+    if (b.golpe > 0 || b.amassado) {
+      b.golpe = Math.max(0, b.golpe - dt);
+      const k = b.golpe * 1.6;
+      b.grupo.scale.set(b.esc * (1 + k * 0.5), b.esc * (1 - k), b.esc * (1 + k * 0.5));
+      b.amassado = b.golpe > 0;
+    }
     // zzz de quem dorme perto do jogador
     if (b.estado === 'dormir' && b.distJog < 14) {
       b.zzz = (b.zzz || Math.random() * 3) - dt;
@@ -531,6 +566,7 @@ export class Bichos {
     let melhor = null, tm = max;
     for (const b of this.lista) {
       if (!b.grupo.visible) continue;
+      if (b.caindo) continue;
       const r = b.e.raio * b.esc + 0.15;
       const min = [b.x - r, b.y, b.z - r], mx = [b.x + r, b.y + b.e.alt * b.esc, b.z + r];
       let t0 = 0, t1 = tm;
@@ -574,6 +610,76 @@ export class Bichos {
     this.fugir(b, 'jog', 6, true);
     // a mãe leva os filhotes junto
     for (const o of this.lista) if (o.mae === b) { o.estado = 'fugir'; o.medo = 6; o.de = 'jog'; }
+  }
+
+  // golpe do jogador (segurar o dedo, ou clicar no computador). forca: mão 1, ferramenta de madeira 2, de pedra 3.
+  // Devolve 'caiu' quando a vida acaba, true quando acertou, false quando ainda não dá (um golpe a cada 0,45 s).
+  bater(b, forca = 1) {
+    if (b.caindo || !this.lista.includes(b)) return false;
+    const agora = performance.now();
+    if (agora - b.golpeEm < 450) return false;
+    b.golpeEm = agora; b.semGolpe = 0; b.cura = 0;
+    // pulinho para trás, longe de quem bateu
+    const dx = b.x - this._px, dz = b.z - this._pz, n = Math.hypot(dx, dz) || 1;
+    b.empX = (dx / n) * 5; b.empZ = (dz / n) * 5;
+    if (b.vy === 0) b.vy = 3;
+    b.golpe = 0.22;
+    this.icone('estrela', b.x, b.y + b.e.alt * b.esc + 0.2, b.z, 0.6, 0.32);
+    // o cachorro é de estimação: não se machuca, só chora e sai correndo
+    if (!b.vidaMax) { this.som.tom(900, 0.18, { tipo: 'sine', vol: 0.2, ate: 600 }); b.segue = 0; this.fugir(b, 'jog', 4); return true; }
+    b.vida -= forca;
+    this.som.bicho(b.e.som, true);
+    if (b.vida <= 0) { this.cair(b); return 'caiu'; }
+    this.reagir(b);
+    return true;
+  }
+
+  // apanhou: cada bicho faz o que faria na natureza
+  reagir(b) {
+    const I = b.I, rev = I.revida || 'foge';
+    b.calmo = 0; b.cacandoGente = false; b.segue = 0;
+    const mae = I.defende && this.lista.some((o) => o.mae === b);
+    const bando = this.lista.filter((o) => o !== b && !o.caindo && !o.filhote && o.especie === b.especie && o.grupoId === b.grupoId && Math.hypot(o.x - b.x, o.z - b.z) < 14);
+    let enfrenta = mae || rev === 'sempre' || (rev === 'bando' && bando.length > 0) || (rev === 'bote' && b.distJog < (I.bote || 1.5) + 1);
+    if (b.vida <= b.vidaMax * 0.34 && !mae) enfrenta = false; // ferido demais: foge para salvar a pele
+    if (b.filhote) enfrenta = false;
+    if (!enfrenta) {
+      b.folego = I.folego;
+      this.fugir(b, 'jog', 6, true);
+      for (const o of this.lista) if (o.mae === b) { o.estado = 'fugir'; o.medo = 6; o.de = 'jog'; }
+      // filhote apanhou: a mãe vem defender
+      if (b.filhote && b.mae && !b.mae.caindo && this.lista.includes(b.mae) && b.mae.I.defende) this.enfrentar(b.mae);
+      return;
+    }
+    this.enfrentar(b);
+    if (rev === 'bando') for (const o of bando) this.enfrentar(o); // a matilha (ou a boiada) vem junto
+  }
+
+  enfrentar(b) {
+    b.estado = 'atacar'; b.alvo = 'jog'; b.medo = 0; b.calmo = 0;
+    b.timer = b.I.naoPersegue ? 0.6 : 4; b.provocado = 8; b.mordeu = 0;
+    if (this.aoAvisar) this.aoAvisar(b, true);
+  }
+
+  // a vida acabou: tomba de lado e some (tombar); o bando foge, os filhotes ficam por conta própria
+  cair(b) {
+    b.caindo = 1.1; b.estado = 'caido'; b.vel = 0; b.alvo = null; b.empX *= 0.4; b.empZ *= 0.4;
+    for (const o of this.lista) {
+      if (o.mae === b) { o.mae = null; o.estado = 'fugir'; o.medo = 6; o.de = 'jog'; }
+      else if (o !== b && o.especie === b.especie && o.estado !== 'atacar' && Math.hypot(o.x - b.x, o.z - b.z) < 12) this.fugir(o, 'jog', 6);
+      if (o.alvo === b) { o.alvo = null; o.estado = 'vagar'; o.timer = 1; }
+    }
+    if (this.aoCair) this.aoCair(b);
+  }
+
+  tombar(b, dt, i) {
+    b.caindo -= dt;
+    b.grupo.rotation.z = Math.min(1, (1.1 - b.caindo) / 0.35) * (Math.PI / 2);
+    this.mover(b, dt);
+    b.grupo.position.set(b.x, b.y, b.z);
+    if (b.caindo > 0) return;
+    for (let k = 0; k < 4; k++) this.icone('brilho', b.x + (Math.random() - 0.5), b.y + 0.2 + Math.random() * 0.5, b.z + (Math.random() - 0.5), 0.8 + k * 0.15, 0.4);
+    this.remover(i);
   }
 
   // ícone flutuante (coração do carinho, emotes dos jogadores)
