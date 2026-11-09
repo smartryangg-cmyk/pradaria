@@ -44,6 +44,8 @@ body.visao-frente #mira { display: none; }
 .redondo.ativo, .redondo:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--txt); background: #fff6d6; }
 #bt-menu { width: 50px; height: 50px; border-radius: 16px; font-size: 26px; }
 #bt-voar.ligado { background: var(--amarelo); }
+#bt-agachar.ligado { background: var(--amarelo); }
+#joy.correndo { border-color: var(--amarelo); background: rgba(255,214,90,.22); }
 
 #emotes { display: flex; gap: 6px; padding: 5px; border-radius: 16px; background: var(--hud-fundo); }
 #emotes button { width: 44px; height: 44px; border-radius: 12px; border: 0; background: #fff8e8; font-size: 30px; display: grid; place-items: center; padding: 0; box-shadow: 0 3px 0 #c9b68f; cursor: pointer; }
@@ -257,7 +259,7 @@ body:not(.toque) #veic-botoes { bottom: 90px; }
 .pilula:active { transform: translateY(3px); box-shadow: 0 3px 0 rgba(0,0,0,.18); }
 #velo { position: fixed; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%); background: rgba(0,0,0,.45); color: #fff; border-radius: 16px; padding: 6px 16px; display: flex; align-items: baseline; gap: 6px; }
 #velo b { font-size: 30px; font-variant-numeric: tabular-nums; } #velo small { opacity: .8; }
-body.dirigindo #barra, body.dirigindo #mira, body.dirigindo #bt-voar, body.dirigindo #dica-toque { display: none; }
+body.dirigindo #barra, body.dirigindo #mira, body.dirigindo #bt-voar, body.dirigindo #bt-agachar, body.dirigindo #dica-toque { display: none; }
 body.dirigindo #botoes-toque { bottom: 60px; }
 #garagem .caixa { max-width: 640px; }
 #garagem-cores { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 4px 0 12px; }

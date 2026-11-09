@@ -25,10 +25,12 @@ Jogo de construir e explorar, **pacífico** (só bichinhos, nada de monstros), q
 | Tablet / celular | Computador |
 |---|---|
 | Arraste no lado esquerdo: andar | WASD ou setas |
+| Toque duas vezes no joystick e segure (ou empurre até a borda): correr | Shift (no chão) ou Ctrl + andar |
+| Botão de agachar (liga e desliga) | Segure Z |
 | Arraste no lado direito: olhar | Mouse (clique na tela para travar) |
 | Toque: colocar bloco / fazer carinho / conversar com aldeão | Botão direito |
 | Segure o dedo: bater no bloco (cada batida arranca um pedaço) | Botão esquerdo (clique ou segure) |
-| ⬆ pular · 🕊️ voar · ⬇ descer | Espaço · espaço duas vezes ou F · Shift |
+| ⬆ pular · 🕊️ voar · ⬇ descer (voando/nadando) | Espaço · espaço duas vezes ou F · Shift (voando/nadando) |
 | Barra de baixo e ＋: escolher blocos | 1–9, rodinha, E |
 | 🧭: comandos (teleporte, casa, amigos, hora) | C |
 | Botão da câmera: ver o próprio boneco (olhos → de trás → de frente) | R (ou F5) |

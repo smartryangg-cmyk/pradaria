@@ -253,8 +253,8 @@ export class Sala extends DurableObject {
       eu.p = m.p.map((v) => Math.round(v * 100) / 100);
       eu.r = Array.isArray(m.r) ? m.r.slice(0, 2).map((v) => (Number.isFinite(v) ? v : 0)) : [0, 0];
       ws.serializeAttachment(eu);
-      // a = o que o boneco está fazendo (1 batendo, 2 voando, 4 na água, 8 no ar): só para a animação
-      this.enviarTodos({ t: 'pos', id: eu.id, p: eu.p, r: eu.r, a: (m.a | 0) & 15 }, ws);
+      // a = o que o boneco está fazendo (1 batendo, 2 voando, 4 na água, 8 no ar, 16 correndo, 32 agachado): só para a animação
+      this.enviarTodos({ t: 'pos', id: eu.id, p: eu.p, r: eu.r, a: (m.a | 0) & 63 }, ws);
       const agora = Date.now();
       if (!eu.salvoEm || agora - eu.salvoEm > 10000) { eu.salvoEm = agora; ws.serializeAttachment(eu); await this.ctx.storage.put('p:' + eu.uid, eu.p); }
     } else if (m.t === 'bloco') {

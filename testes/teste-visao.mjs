@@ -52,8 +52,14 @@ await p.screenshot({ path: `${SAIDA}/visao-1-andando.png` });
 await p.keyboard.up('KeyW');
 ok(pernas.some((r) => Math.abs(r) > 0.2), 'andando: braços e pernas mexem ' + pernas.join(','));
 // pula
-await p.keyboard.down('Space'); await p.waitForTimeout(150);
-const pulo = await p.evaluate(() => window.__jogo.visao.boneco.membros.map((m) => +m.rotation.x.toFixed(2)));
+// (o primeiro quadro do pulo é o impulso, agachadinho; depois vem a pose do ar)
+await p.keyboard.down('Space');
+let pulo = [];
+for (let i = 0; i < 12; i++) {
+  await p.waitForTimeout(40);
+  pulo = await p.evaluate(() => window.__jogo.visao.boneco.membros.map((m) => +m.rotation.x.toFixed(2)));
+  if (pulo[2] < -0.3 && pulo[3] > 0.2) break;
+}
 await p.keyboard.up('Space');
 ok(pulo[2] < -0.3 && pulo[3] > 0.2, 'pulando: pernas abertas ' + pulo.join(','));
 await p.waitForTimeout(800);
