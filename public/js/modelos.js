@@ -1,6 +1,7 @@
 // Modelos 3D feitos de caixinhas (bichos e jogadores), com cores e sombreamento embutidos.
 import * as THREE from '../vendor/three.module.min.js';
 import { PELES, CORES_CABELO, CORES_OLHOS, CORES_ROUPA, PADRAO, normalizarSkin, skinDeCor } from './skin.js';
+import { opcoesMundo } from './opcoes-mundo.js';
 
 export const matModelo = new THREE.MeshLambertMaterial({ vertexColors: true });
 function malha(geo) { const m = new THREE.Mesh(geo, matModelo); m.castShadow = true; return m; }
@@ -8,18 +9,40 @@ function malha(geo) { const m = new THREE.Mesh(geo, matModelo); m.castShadow = t
 const SOMBRA = [0.95, 0.95, 1, 0.85, 0.92, 0.92];
 
 // cria geometria de caixa com cor por face; o = deslocamento do centro
+// No estilo Natural 3D (mundo suave) as caixas maiores ganham cantos redondos.
 export function caixa(w, h, d, cor, ox = 0, oy = 0, oz = 0) {
-  const g = new THREE.BoxGeometry(w, h, d);
+  const redonda = opcoesMundo.estilo === 'suave' && Math.min(w, h, d) >= 0.12;
+  const s = redonda ? 4 : 1;
+  const g = new THREE.BoxGeometry(w, h, d, s, s, s);
+  if (redonda) arredondar(g, w, h, d, Math.min(w, h, d) * 0.32);
   g.translate(ox, oy, oz);
   const c = new THREE.Color(cor);
-  const cols = new Float32Array(24 * 3);
-  for (let f = 0; f < 6; f++) for (let v = 0; v < 4; v++) {
-    const i = (f * 4 + v) * 3;
+  const pf = (s + 1) * (s + 1); // vértices por face
+  const cols = new Float32Array(6 * pf * 3);
+  for (let f = 0; f < 6; f++) for (let v = 0; v < pf; v++) {
+    const i = (f * pf + v) * 3;
     cols[i] = c.r * SOMBRA[f]; cols[i + 1] = c.g * SOMBRA[f]; cols[i + 2] = c.b * SOMBRA[f];
   }
   g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
   g.deleteAttribute('uv');
   return g;
+}
+
+// cantos redondos (raio r): cada vértice fica a r de uma caixa menor dentro; a normal aponta para fora dela
+function arredondar(g, w, h, d, r) {
+  const p = g.attributes.position, n = g.attributes.normal;
+  const ix = w / 2 - r, iy = h / 2 - r, iz = d / 2 - r;
+  // grade de 4 por face: o meio da face vai até onde começa a curva (m - r), a borda fica na aresta
+  const encolhe = (v, m) => { const t = Math.abs(v) / m; return Math.sign(v) * (t <= 0.5 ? t * 2 * (m - r) : m - r + (t - 0.5) * 2 * r); };
+  for (let i = 0; i < p.count; i++) {
+    let x = encolhe(p.getX(i), w / 2), y = encolhe(p.getY(i), h / 2), z = encolhe(p.getZ(i), d / 2);
+    const cx = Math.max(-ix, Math.min(ix, x)), cy = Math.max(-iy, Math.min(iy, y)), cz = Math.max(-iz, Math.min(iz, z));
+    let nx = x - cx, ny = y - cy, nz = z - cz;
+    const l = Math.hypot(nx, ny, nz);
+    if (l < 1e-6) { nx = n.getX(i); ny = n.getY(i); nz = n.getZ(i); } else { nx /= l; ny /= l; nz /= l; }
+    p.setXYZ(i, cx + nx * r, cy + ny * r, cz + nz * r);
+    n.setXYZ(i, nx, ny, nz);
+  }
 }
 
 export function juntar(geos) {

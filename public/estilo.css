@@ -477,3 +477,4 @@ body.dirigindo #botoes-toque { bottom: 60px; }
   #chat-log { bottom: 74px; width: 70vw; font-size: 13px; }
   #chat-caixa { bottom: 66px; }
 }
+#n-estilos, #e-estilos { grid-template-columns: repeat(2, 1fr); }
