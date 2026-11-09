@@ -180,7 +180,7 @@ const garagem = new Garagem({
   cena, camera, som, aviso: (t, ms, ic) => aviso(t, ms, ic), outros,
   corBoneco: () => meuSkin(),
   sala: () => sala, euId: () => euId, jog: () => jog, mundo: () => mundo, bichos: () => bichos, aldeoes: () => aldeoes,
-  pausar: (sim) => { pausado = sim; },
+  pausar: (sim) => { pausado = sim; }, mercado: () => mercado,
 });
 
 // câmera: com os olhos, de trás ou de frente (vendo o próprio boneco)
@@ -255,6 +255,7 @@ const mercado = new Mercado({
   pausar: () => { if (document.pointerLockElement) document.exitPointerLock(); pausado = true; },
   retomar: () => { pausado = false; },
   outros: () => [...outros.entries()].map(([id, o]) => ({ id, nome: o.nome })),
+  mudou: () => garagem.mudouEcon(), // comprou/montou um veículo
   // trabalhadores contratados (negocios.js / trabalho.js)
   pos: () => (jog ? [jog.pos.x, jog.pos.y, jog.pos.z] : null),
   porBlocos: (l) => porBlocosObra(l, false),
@@ -1059,7 +1060,7 @@ function salvarLocal() {
   if (modo !== 'local' || !mundo) return;
   try {
     localStorage.setItem('pradaria.local', JSON.stringify({
-      semente: mundo.semente, opcoes: { ...opcoesMundo }, edicoes: mundo.listarEdicoes(), pos: [jog.pos.x, jog.pos.y, jog.pos.z], yaw: jog.yaw, dia: tempoDia, barra, veiculos: garagem.lista(),
+      semente: mundo.semente, opcoes: { ...opcoesMundo }, edicoes: mundo.listarEdicoes(), pos: [jog.pos.x, jog.pos.y, jog.pos.z], yaw: jog.yaw, dia: tempoDia, barra, veiculos: garagem.lista(), veiculosP: garagem.listaCriados(),
     }));
   } catch {}
   edicoesPendentes = false;
@@ -1087,7 +1088,7 @@ function limparMundo() {
   mercado.parar();
 }
 
-function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = null, veiculos = [], guardado = null }) {
+function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = null, veiculos = [], veiculosP = [], guardado = null }) {
   vestirMeusBonecos(meuSkin()); // pode ter trocado de conta desde o último mundo
   segundosJogando = 0; calib.reiniciar();
   limparMundo();
@@ -1178,7 +1179,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   $('#dica-toque').style.opacity = 1;
   mapa.usarMundo(mundo, 'pradaria.mapa.' + (modo === 'online' && mundoAtual ? mundoAtual.codigo : 'local'));
   aplicarMinimapa();
-  garagem.comecar(mundo, veiculos);
+  garagem.comecar(mundo, veiculos, veiculosP);
   som.ligado = ajustes.som;
   ajustarNevoa();
   desenharBarra();
@@ -1211,7 +1212,7 @@ function jogarLocal(novo = null) {
     pos: salvo && salvo.pos, yaw: salvo ? salvo.yaw : 0,
     // mundos salvos antes das opções existirem continuam do jeito que eram
     opcoes: salvo ? salvo.opcoes || PADRAO_MUNDO : novo.opcoes,
-    veiculos: salvo && salvo.veiculos,
+    veiculos: salvo && salvo.veiculos, veiculosP: salvo && salvo.veiculosP,
     guardado: salvo ? { barra: salvo.barra } : null,
   });
   if (novo) salvarLocal();
@@ -1256,7 +1257,7 @@ async function jogarOnline(m, volta = null) {
       garagem.ola(msg);
     },
     vnovo: (m) => garagem.mensagem(m), vassento: (m) => garagem.mensagem(m), vmov: (m) => garagem.mensagem(m),
-    vfim: (m) => garagem.mensagem(m), buzina: (m) => garagem.mensagem(m),
+    vfim: (m) => garagem.mensagem(m), buzina: (m) => garagem.mensagem(m), vestado: (m) => garagem.mensagem(m),
     entrou: (msg) => { adicionarOutro(msg.j); aviso(`${msg.j.nome} entrou no mundo`, 1800, 'acenar'); som.oi(); },
     skin: (msg) => {
       const o = outros.get(msg.id);

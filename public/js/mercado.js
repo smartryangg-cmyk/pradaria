@@ -123,8 +123,33 @@ export class Mercado {
     if (!$('#loja').hidden) this.desenharLoja();
     if (!$('#mochila').hidden) this.desenharMochila();
     if (!$('#objetivos').hidden) this.desenharObjetivos();
+    if (this.ui.mudou) this.ui.mudou();
   }
   erro(msg, r) { this.ui.aviso(msg, 2200, 'moeda'); if (r && this.ui.erro) this.ui.erro(r); }
+
+  // ---------- veículos (garagem.js) ----------
+  // chave, compra ou montagem de veículo: vale mesmo com mercado e missões desligados (sem mercado a chave é de graça)
+  veiculo(acao) {
+    if (this.sala) { this.sala.enviar(acao); return; }
+    const r = aplicar(this.e, this.op, acao);
+    if (!r.ok) { this.ui.aviso(r.erro, 2400, 'chave'); return; }
+    this.salvarLocal();
+    this.recebeu(this.e, r.feitos);
+  }
+  // guardou um veículo (sem internet; online a sala anota sozinha)
+  guardarVeiculo(tipo, s) {
+    if (this.sala) return;
+    aplicar(this.e, this.op, { t: 'garagem', tipo, s, agora: Date.now() });
+    this.salvarLocal();
+  }
+  // abastecer/consertar no posto sem internet: devolve true se deu (com o mercado ligado, paga em moedas)
+  servico(k, falta) {
+    const r = aplicar(this.e, this.op, { t: 'servico', k, falta });
+    if (!r.ok) { this.ui.aviso(r.erro + ' Venda coisas na loja da vila!', 2600, 'moeda'); return false; }
+    this.salvarLocal();
+    if (this.op.mercado) { this.pulsar(); this.atualizarHud(); }
+    return true;
+  }
 
   // ---------- tela ----------
   montarTela() {
