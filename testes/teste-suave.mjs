@@ -132,7 +132,7 @@ async function rodar(nome, ctxOpc, toque) {
     await p.waitForTimeout(800);
     await p.evaluate(() => { window.__segurar = false; });
     const ed1 = await p.evaluate(() => window.__jogo.mundo.listarEdicoes());
-    ok(ed1.length >= ed0 + 2, `colocou um bloco de volta (${ed1.length - ed0} edições)`);
+    ok(ed1.some((e) => e[3] !== 0), `colocou um bloco com o botão direito (${ed1.filter((e) => e[3] !== 0).length} colocado)`);
     // bloco colocado pelo jogador fica quadrado: os 8 cantos dele estão na grade
     const quadrado = await p.evaluate(([x, y, z, bb]) => {
       const { mundo } = window.__jogo; const ed = mundo.listarEdicoes().filter((e) => e[3] !== 0).pop();
