@@ -170,9 +170,19 @@ vec3 gDirBorda = vec3(0.0);`)
   // cor da névoa "como aparece na tela", aplicada logo antes de desenhar (já com a exposição final)
   const nev = { h: new THREE.Color(), sol: new THREE.Color(), gmax: 0.47, dir: new THREE.Vector3() };
   const cA = new THREE.Color(), cB = new THREE.Color();
+  // embaixo d'água (agua.js liga com submerso(cor)): névoa e fundo da tela na cor da água, sem céu
+  const sub = { ativo: false, cor: new THREE.Color(), fundo: new THREE.Color() };
   cena.onBeforeRender = (rend, sc, cam) => {
     if (!sc.fog) return;
     const exp = rend.toneMappingExposure;
+    if (sub.ativo) {
+      // Ultra desenha em HDR numa textura e faz o tone mapping depois: aí a cor vai linear
+      if (rend.getRenderTarget()) sc.fog.color.copy(sub.cor); else telaLinear(sub.cor, exp, sc.fog.color);
+      UF.uFogSolCor.value.setRGB(0, 0, 0);
+      sc.background = sub.fundo.copy(sc.fog.color);
+      return;
+    }
+    if (sc.background === sub.fundo) sc.background = null;
     telaLinear(nev.h, exp, sc.fog.color);
     // brilho do sol na névoa: diferença (em sRGB, como o shader mistura) entre horizonte e horizonte+sol
     telaLinear(cA.copy(nev.h).add(cB.copy(nev.sol).multiplyScalar(nev.gmax)), exp, cA);
@@ -494,11 +504,22 @@ vec3 gDirBorda = vec3(0.0);`)
     return U.uHorizonte.value;
   }
 
+  // cor (linear) da água em volta da câmera, ou null para voltar ao normal
+  function submerso(cor) {
+    const ativo = !!cor;
+    if (ativo) sub.cor.copy(cor);
+    if (ativo === sub.ativo) return;
+    sub.ativo = ativo;
+    ceu.visible = !ativo;
+    // de baixo a superfície também aparece (a face de cima da água fica de costas para a câmera)
+    matAgua.side = ativo ? THREE.DoubleSide : THREE.FrontSide;
+  }
+
   function ajustarNevoa(perto, longe, cor) {
     matAgua.uniforms.uNevoaPerto.value = perto;
     matAgua.uniforms.uNevoaLonge.value = longe;
     if (cor) matAgua.uniforms.uNevoaCor.value.copy(cor);
   }
 
-  return { matBlocos, matAgua, atualizar, aplicar, ajustarNevoa, U, get q() { return q; } };
+  return { matBlocos, matAgua, atualizar, aplicar, ajustarNevoa, submerso, U, get q() { return q; }, get embaixoDagua() { return sub.ativo; } };
 }

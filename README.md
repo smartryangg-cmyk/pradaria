@@ -15,6 +15,7 @@ Jogo de construir e explorar, **pacífico** (só bichinhos, nada de monstros), q
 - **Mercado** (opcional, escolhido ao criar o mundo): quebrar blocos do mundo enche a mochila; na loja da vila (toque num aldeão) você vende o que coletou e compra blocos especiais (tijolo, vidro, lampião, lãs…). Dá para presentear moedas a um amigo online. Online quem guarda e confere as moedas é a sala (servidor).
 - **Coletar e criar** (vem ligado nos mundos novos; desligado = blocos à vontade): começa de mão vazia, o que você quebra vai para a mochila e colocar gasta. Livro de receitas só com toques (mostra o que tem e o que falta, sem grade para decorar): tronco vira tábuas, gravetos, **Bancada** (toque nela para abrir as receitas), picaretas, machados e pás de madeira e de pedra (quebram 2x e 3x mais rápido os blocos do tipo delas), tijolo, vidro, lampião, lãs coloridas com flores e as peças de engenharia. Carinho na ovelha dá lã. É a mesma mochila do Mercado (vender sai dela e comprar traz 4 do bloco). Regras em `public/js/receitas.js`, usadas pelo jogo e pela sala.
 - **Missões** (opcional): 21 desafios tranquilos (colocar blocos, fazer carinho, conversar com aldeões, plantar flores, explorar…) que aparecem de 3 em 3 e dão moedas (ou estrelas, se o mercado estiver desligado). Regras em `public/js/economia.js`, usadas pelo jogo e pela sala.
+- **Nadar**: boia com a cabeça para fora, mergulha, nada para onde olha embaixo d'água e sobe na beirada andando contra ela. Embaixo d'água a visão fica azul-esverdeada com bolhas subindo e o som abafado; a barra de bolhas mostra o fôlego (sem perigo: acabou o fôlego, a água leva você para cima; com "Monstros machucam", perde meio coração por vez).
 - Dia e noite (a noite é clarinha), sons feitos na hora.
 - Contas com login, mundos com código para jogar com amigos em tempo real e emotes (sem chat aberto, mais seguro para crianças).
 - Menu de comandos 🧭 só com botões (sem digitar): marcar casa e voltar para ela, guardar lugares com desenhos, ir para o começo do mundo, ir para um lugar novo bem longe, voltar para onde estava, ir até um amigo ou chamar um amigo (o amigo precisa tocar em "Pode!") e mudar a hora do dia (online, só o dono do mundo).
@@ -29,6 +30,7 @@ Jogo de construir e explorar, **pacífico** (só bichinhos, nada de monstros), q
 | Toque: colocar bloco / fazer carinho / conversar com aldeão | Botão direito |
 | Segure o dedo: bater no bloco (cada batida arranca um pedaço) | Botão esquerdo (clique ou segure) |
 | ⬆ pular · 🕊️ voar · ⬇ descer | Espaço · espaço duas vezes ou F · Shift |
+| Na água: ⬆ nada para cima · ⬇ mergulha · olhar para baixo e andar mergulha para frente · andar contra a beirada sobe para a terra | Espaço · Shift · W olhando para baixo |
 | Barra de baixo e ＋: escolher blocos | 1–9, rodinha, E |
 | 🧭: comandos (teleporte, casa, amigos, hora) | C |
 | Botão da câmera: ver o próprio boneco (olhos → de trás → de frente) | R (ou F5) |
