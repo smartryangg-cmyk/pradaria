@@ -55,7 +55,7 @@ export const ESTILOS = {
 // historia = "Linha do Tempo": começa na era dos dinossauros e evolui com a experiência (eras-regras.js)
 export const TIPOS = {
   normal: { icone: 'flor', nome: 'Pradaria', desc: 'O mundo de sempre, com vilas e bichinhos' },
-  historia: { icone: 'ampulheta', nome: 'Linha do Tempo', desc: 'Começa com os dinossauros e evolui pela história', semSelvagens: true, oculto: true }, // os bichos de cada era vêm de eras-regras.js; oculto até as eras ficarem prontas
+  historia: { icone: 'ampulheta', nome: 'Linha do Tempo', desc: 'Começa com os dinossauros e evolui pela história', semSelvagens: true }, // os bichos de cada era vêm de fauna-eras.js
   // Ilha de Aventura (ilha-aventura.js): mapa como os de jogos de ação, mas sem armas. Tamanho fixo (limite/raioExtra valem no lugar do tamanho).
   aventura: { icone: 'ilha', nome: 'Ilha de Aventura', desc: 'Cidades, estradas, porto, farol e lugares com nome', limite: 256, raioExtra: 1 },
   // Guerra (guerra.js, guerra-mapa.js): ilha com Base Aliada, Forte Vermelho, presídio, delegacia e polícia.

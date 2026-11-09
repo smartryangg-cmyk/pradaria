@@ -18,6 +18,32 @@ function estrela(cx, cy, R, r) {
 const DEDOS = 'M8.4 12V6.6M11.1 12V4.6M13.8 12V5.2M16.4 13V7.6M7.6 15.6l-3-3';
 const PALMA = 'M7 12h10.6v4.6a4.4 4.4 0 0 1-4.4 4.4h-1.8A4.4 4.4 0 0 1 7 16.6z';
 
+// floco de neve: seis braços com galhinhos em V
+function floco() {
+  const n = (v) => v.toFixed(2);
+  let d = '';
+  for (let i = 0; i < 6; i++) {
+    const a = (i * Math.PI) / 3 - Math.PI / 2, c = Math.cos(a), s = Math.sin(a);
+    d += `M12 12L${n(12 + c * 9)} ${n(12 + s * 9)}`;
+    const bx = 12 + c * 5.4, by = 12 + s * 5.4;
+    for (const l of [-1, 1]) d += `M${n(bx)} ${n(by)}L${n(bx + Math.cos(a + l * 0.9) * 2.8)} ${n(by + Math.sin(a + l * 0.9) * 2.8)}`;
+  }
+  return d;
+}
+// janelinhas de prédio: colunas x rodadas, cada uma l x a
+const janelas = (xs, ys, l, a) => xs.map((x) => ys.map((y) => `M${x} ${y}h${l}v${a}h-${l}z`).join('')).join('');
+const FLOCO = floco();
+// dinossauro pescoçudo: primeiro o contorno de tudo, depois a cor por cima (vira uma silhueta só)
+const DINO_CORPO = 'M4.6 14.8a6 4 0 1 0 12 0a6 4 0 1 0-12 0z';
+const DINO_CABECA = 'M14.6 5.6a3.1 2.3 0 1 0 6.2 0a3.1 2.3 0 1 0-6.2 0z';
+const DINO_TRACOS = { pernas: 'M7.6 17.4v3M13.6 17.4v3', rabo: 'M5.2 14.6C3.4 15.2 2.2 14.4 1.8 12.6', pescoco: 'M14.2 13.2c.8-2.6 1.6-5 2.4-7.4' };
+// viajar no tempo: seta dando a volta (de 0 a -30 graus, no sentido do relógio)
+const VIAGEM_ARCO = 'M20.11 14.17A8.4 8.4 0 1 1 19.27 7.8';
+const VIAGEM_PONTA = 'M20.8 10.4L21.7 6.4 16.9 9.2z';
+// pegada de dinossauro: três dedos compridos com unhas e o calcanhar
+const PEGADA_DEDOS = 'M12 14.6V4.4M11.2 14.2L5.6 7.4M12.8 14.2l5.6-6.8';
+const PEGADA_CALCANHAR = 'M12 12c2.4 0 3.8 1.8 3.8 4.2 0 2.4-1.7 4.2-3.8 4.2s-3.8-1.8-3.8-4.2c0-2.4 1.4-4.2 3.8-4.2z';
+
 const ICONES = {
   menu: [{ d: 'M5 7h14M5 12h14M5 17h14', s: 'c', w: 2.8 }],
   mais: [{ d: 'M12 5v14M5 12h14', s: 'c', w: 3.2 }],
@@ -410,6 +436,71 @@ const ICONES = {
     { d: circ(12, 12, 7), s: 'c', w: 2.2 },
     { d: 'M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5', s: 'c', w: 2.2 },
     { d: circ(12, 12, 1.4), f: 'c' },
+  ],
+  // mundo Linha do Tempo: eras e viagem
+  dino: [
+    { d: DINO_TRACOS.pernas, s: T, w: 5.4 }, { d: DINO_TRACOS.rabo, s: T, w: 5.2 }, { d: DINO_TRACOS.pescoco, s: T, w: 5.8 },
+    { d: DINO_CORPO, f: T, s: T, w: 2.8 }, { d: DINO_CABECA, f: T, s: T, w: 2.8 },
+    { d: DINO_TRACOS.pernas, s: '#6cbf5a', w: 2.6 }, { d: DINO_TRACOS.rabo, s: '#7ccc5a', w: 2.4 }, { d: DINO_TRACOS.pescoco, s: '#7ccc5a', w: 3 },
+    { d: DINO_CORPO, f: '#7ccc5a' }, { d: DINO_CABECA, f: '#7ccc5a' },
+    { d: 'M7 17.4c2.4 1 5.4 1 7.8 0', s: '#b9ea9c', w: 1.4 },
+    { d: circ(8.6, 13.2, 1) + circ(11.8, 12.2, 1.1) + circ(11, 15.4, 0.8), f: '#56a33c' },
+    { d: circ(18.4, 5, 0.8), f: T }, { d: 'M17.6 6.8c.7.4 1.5.4 2.2 0', s: T, w: 1 }, { d: circ(16.6, 6.4, 0.7), f: '#ff9e9e' },
+  ],
+  floco: [{ d: FLOCO, s: T, w: 4.4 }, { d: FLOCO, s: '#bfe9ff', w: 2 }, { d: circ(12, 12, 2), f: '#fff', s: T, w: 1.3 }],
+  fogueira: [
+    { d: 'M4.8 20.2l14.4-3.4M4.8 16.8l14.4 3.4', s: T, w: 4.6 },
+    { d: 'M4.8 20.2l14.4-3.4M4.8 16.8l14.4 3.4', s: '#b5835a', w: 2.2 },
+    { d: 'M12 2.8c1 3 4.8 4.8 4.8 9.2 0 2.8-2.1 4.8-4.8 4.8s-4.8-2-4.8-4.8c0-2 .9-3.4 2-4.2.2 1.4.8 2.2 1.6 2.6-.4-2.8.3-5.4 1.2-7.6z', f: '#ff8a3c', s: T, w: 1.5 },
+    { d: 'M12 9.6c.8 1.6 2.4 2.6 2.4 4.4 0 1.4-1 2.4-2.4 2.4s-2.4-1-2.4-2.4c0-1.6 1.6-2.6 2.4-4.4z', f: '#ffd54a' },
+  ],
+  coluna: [
+    { d: 'M8 8.6h8v9.6H8z', f: '#fbf8ef', s: T, w: 1.5 },
+    { d: 'M10.6 9.8v7.2M13.4 9.8v7.2', s: '#cfc6b0', w: 1.2 },
+    { d: 'M7 6.6h10v2H7z', f: '#f4efe2', s: T, w: 1.4 },
+    { d: circ(6.6, 7.8, 1.6) + circ(17.4, 7.8, 1.6), f: '#f4efe2', s: T, w: 1.4 },
+    { d: 'M4.6 3.8h14.8v2.8H4.6z', f: '#f4efe2', s: T, w: 1.5 },
+    { d: 'M5.6 18.2h12.8v2.6H5.6z', f: '#f4efe2', s: T, w: 1.5 },
+  ],
+  predio: [
+    { d: 'M16 8.4h5v12.2h-5z', f: '#a9b4c2', s: T, w: 1.5 },
+    { d: 'M3 11.4h5v9.2H3z', f: '#ffb74d', s: T, w: 1.5 },
+    { d: 'M8 3.4h8v17.2H8z', f: '#6cc0f0', s: T, w: 1.6 },
+    { d: janelas([9.6, 12.8], [5.6, 8.4, 11.2, 14], 1.6, 1.6) + janelas([4.6], [13, 16], 1.8, 1.6) + janelas([17.7], [10.4, 13.2, 16], 1.6, 1.6), f: '#fff6c8' },
+    { d: 'M2 20.6h20', s: T, w: 1.8 },
+  ],
+  foguete: [
+    { d: 'M9.4 16.6h5.2c0 2.4-1.2 4-2.6 5-1.4-1-2.6-2.6-2.6-5z', f: '#ffb02e', s: T, w: 1.4 },
+    { d: 'M10.8 16.8h2.4c0 1.2-.5 2-1.2 2.6-.7-.6-1.2-1.4-1.2-2.6z', f: '#ffe08a' },
+    { d: 'M7.6 12.4l-3 3.4v3.4l3-1.8zM16.4 12.4l3 3.4v3.4l-3-1.8z', f: '#ff5d5d', s: T, w: 1.4 },
+    { d: 'M12 2.6c3 2.2 4.4 5.6 4.4 9.6v4.6H7.6v-4.6c0-4 1.4-7.4 4.4-9.6z', f: '#f4f4f8', s: T, w: 1.6 },
+    { d: 'M12 2.6c1.5 1.1 2.6 2.5 3.3 4H8.7c.7-1.5 1.8-2.9 3.3-4z', f: '#ff5d5d', s: T, w: 1.4 },
+    { d: circ(12, 10.4, 1.9), f: '#6cc0f0', s: T, w: 1.3 },
+  ],
+  viagem: [
+    { d: VIAGEM_ARCO, s: T, w: 4.2 }, { d: VIAGEM_ARCO, s: '#7fc4f5', w: 2.2 },
+    { d: VIAGEM_PONTA, f: '#7fc4f5', s: T, w: 1.4 },
+    { d: 'M9.2 7.2h5.6c0 2.6-1.8 3.4-2.8 4.8 1 1.4 2.8 2.2 2.8 4.8H9.2c0-2.6 1.8-3.4 2.8-4.8-1-1.4-2.8-2.2-2.8-4.8z', f: '#fff6d6', s: T, w: 1.4 },
+    { d: 'M10.4 16.4c.4-1.2 1-1.8 1.6-2.2.6.4 1.2 1 1.6 2.2z', f: '#f2b33d' },
+    { d: 'M8.4 7.2h7.2M8.4 16.8h7.2', s: T, w: 1.8 },
+  ],
+  pegada: [
+    { d: 'M12 4.4V2.2M5.6 7.4L4.2 5.8M18.4 7.4l1.4-1.6', s: T, w: 2 },
+    { d: PEGADA_DEDOS, s: T, w: 5.6 }, { d: PEGADA_CALCANHAR, f: T, s: T, w: 2.8 },
+    { d: PEGADA_DEDOS, s: '#c98a4b', w: 2.8 }, { d: PEGADA_CALCANHAR, f: '#c98a4b' },
+  ],
+  trofeu: [
+    { d: 'M7 5.4H4.4c0 2.8 1.2 4.4 3.2 4.8M17 5.4h2.6c0 2.8-1.2 4.4-3.2 4.8', s: T, w: 1.6 },
+    { d: 'M10.6 13.2h2.8v3.6h-2.8z', f: '#e0a020', s: T, w: 1.4 },
+    { d: 'M7 3.4h10v4.8c0 3-2.2 5.4-5 5.4s-5-2.4-5-5.4z', f: '#ffcb3c', s: T, w: 1.6 },
+    { d: 'M9.4 5.4v2.6', s: '#fff3b8', w: 1.4 },
+    { d: 'M7.4 16.8h9.2v3.8H7.4z', f: '#b5835a', s: T, w: 1.6 },
+  ],
+  medalha: [
+    { d: 'M7.4 2.6h3.4l2.6 6.2H10z', f: '#5a8cff', s: T, w: 1.3 },
+    { d: 'M16.6 2.6h-3.4l-2.6 6.2H14z', f: '#ff5d5d', s: T, w: 1.3 },
+    { d: circ(12, 14.6, 6.2), f: '#ffcb3c', s: T, w: 1.6 },
+    { d: estrela(12, 14.9, 3.8, 1.7), f: '#ffe58a', s: '#d99a12', w: 1 },
   ],
 };
 

@@ -6,6 +6,11 @@ import { criarGerador } from './gerador.js';
 import { Vilas } from './vilas.js';
 import { IlhaAventura } from './ilha-aventura.js';
 import { IlhaGuerra } from './guerra-mapa.js';
+import { gerarEra } from './gerador-eras.js';
+import { BE } from './blocos-eras.js';
+// blocos das eras que iluminam em volta à noite (como o lampião)
+const LUZ_ERA = new Uint8Array(256);
+for (const b of [BE.FOGUEIRA, BE.LUZ_LED, BE.NEON]) LUZ_ERA[b] = 1;
 import { opcoesMundo, limiteMundo } from './opcoes-mundo.js';
 import { Energia, desenharForma, ELETRICO } from './energia.js';
 import { ESPECIAL } from './mecanismos.js';
@@ -104,6 +109,47 @@ export class Mundo {
     // estilo Natural 3D: terreno e copas arredondados (só o desenho; os blocos são os mesmos). suave.js
     this.suave = opcoesMundo.estilo === 'suave';
     this.suaveSimples = false; // aparelho fraco: arredondado simples (main.js liga no gráfico Leve)
+    // mundo "Linha do Tempo": número da era (0 = dinossauros...); null = mundo normal
+    this.era = opcoesMundo.tipo === 'historia' ? 0 : null;
+    this.filaEra = []; // pedaços que ainda vão se transformar para a era nova (onda em volta do jogador)
+  }
+
+  // troca a era do mundo: o relevo e as construções ficam, a natureza muda em ondas a partir de (px, pz)
+  definirEra(n, px = 0, pz = 0) {
+    if (this.era === n) return;
+    this.era = n;
+    this.vilas.cache.clear();
+    const pcx = Math.floor(px / CX), pcz = Math.floor(pz / CZ);
+    const lista = [];
+    for (const c of this.chunks.values()) {
+      const d2 = (c.cx - pcx) ** 2 + (c.cz - pcz) ** 2;
+      if (c.temMalha) lista.push([d2, c]);
+      else this.chunks.delete(chave(c.cx, c.cz)); // longe: gera de novo quando precisar
+    }
+    lista.sort((a, b) => a[0] - b[0]);
+    this.filaEra = lista.map(([d2, c]) => ({ c, quando: performance.now() + Math.sqrt(d2) * 220 }));
+  }
+
+  // transforma os pedaços cuja vez chegou (chamado a cada quadro)
+  passoEra() {
+    if (!this.filaEra.length) return;
+    const agora = performance.now();
+    let n = 0;
+    while (this.filaEra.length && this.filaEra[0].quando <= agora && n < 2) {
+      const { c } = this.filaEra.shift();
+      if (this.chunks.get(chave(c.cx, c.cz)) !== c) continue;
+      this.ultAltNat = null;
+      c.dados = this.gerarDados(c.cx, c.cz);
+      if (this.ultAltNat) c.altNat = this.ultAltNat; // chão natural da era nova (estilo suave)
+      this.ultAltNat = null;
+      c.sujo = true; c.prioridade = true;
+      const ed = this.edicoes.get(chave(c.cx, c.cz));
+      if (ed) for (const i of ed.keys()) this.agendarAgua(c.cx * CX + i % CX, Math.floor(i / (CX * CZ)), c.cz * CZ + Math.floor(i / CX) % CZ);
+      // vizinhos refazem as bordas
+      for (const [dx, dz] of H4) { const o = this.chunks.get(chave(c.cx + dx, c.cz + dz)); if (o) o.sujo = true; }
+      if (this.aoRegenerar) this.aoRegenerar(c.cx, c.cz); // o minimapa redesenha esse pedaço
+      n++;
+    }
   }
 
   // esconde/mostra um bloco da malha do pedaço (o bloco continua existindo para colisão e mira)
@@ -151,8 +197,21 @@ export class Mundo {
   gerarDados(cx, cz) {
     if (this.gen) return this.gerarClassico(cx, cz);
     const d = new Uint8Array(CX * CZ * ALT);
-    const s = this.semente;
     const alturas = new Int16Array(CX * CZ);
+    if (this.era !== null) gerarEra(this, d, cx, cz, alturas, this.era);
+    else this.gerarPradaria(d, cx, cz, alturas);
+    this.ultAltNat = alturas; // chão natural (o estilo suave só alisa até essa altura)
+    // vilas (casas, ruas, poço e plantações)
+    this.vilas.carimbar(d, cx, cz, CX, CZ);
+    if (this.aventura) this.aventura.carimbar(d, cx, cz, CX, CZ);
+    // edições salvas
+    const ed = this.edicoes.get(chave(cx, cz));
+    if (ed) for (const [i, b] of ed) d[i] = b;
+    return d;
+  }
+
+  gerarPradaria(d, cx, cz, alturas) {
+    const s = this.semente;
     for (let z = 0; z < CZ; z++) for (let x = 0; x < CX; x++) {
       const wx = cx * CX + x, wz = cz * CZ + z;
       const h = Math.min(TETO_ANTIGO, Math.max(4, this.alturaEm(wx, wz)));
@@ -187,14 +246,6 @@ export class Mundo {
         d[idx(x, h + 1, z)] = t < 0.4 ? B.FLOR_VERMELHA : t < 0.75 ? B.FLOR_AMARELA : B.FLOR_AZUL;
       } else if (r2 < 0.2) d[idx(x, h + 1, z)] = B.CAPIM;
     }
-    this.ultAltNat = alturas; // chão natural (o estilo suave só alisa até essa altura)
-    // vilas (casas, ruas, poço e plantações)
-    this.vilas.carimbar(d, cx, cz, CX, CZ);
-    if (this.aventura) this.aventura.carimbar(d, cx, cz, CX, CZ);
-    // edições salvas
-    const ed = this.edicoes.get(chave(cx, cz));
-    if (ed) for (const [i, b] of ed) d[i] = b;
-    return d;
   }
 
   gerarClassico(cx, cz) {
@@ -548,7 +599,7 @@ export class Mundo {
       if (b === AR) continue;
       const def = BLOCOS[b];
       if (!def) continue;
-      if (b === B.LAMPIAO || b === E.LAMPADA_LIGADA || b === M.FORNO_ACESO) luzes.push([ox + x + 0.5, y + 0.5, oz + z + 0.5]);
+      if (b === B.LAMPIAO || b === E.LAMPADA_LIGADA || b === M.FORNO_ACESO || LUZ_ERA[b]) luzes.push([ox + x + 0.5, y + 0.5, oz + z + 0.5]);
       if (ESPECIAL[b]) especiais.push([ox + x, y, oz + z, b]);
       if (def.forma) {
         if (FORMA_NOVA[b]) desenharFormaNova(FORMA_A, get, x, y, z, b, coberto(x, y, z) ? 0.72 : 1);
@@ -718,6 +769,7 @@ export class Mundo {
     const pcx = Math.floor(px / CX), pcz = Math.floor(pz / CZ);
     const R = this.raio;
     const ini = performance.now();
+    this.passoEra();
     if (opcoesMundo.aguaCorre && ini - this.ultimoPassoAgua >= TICK_AGUA) { this.ultimoPassoAgua = ini; this.passoAgua(); }
     if (opcoesMundo.maquinas !== false) this.energia.atualizar(ini);
     // primeiro os pedaços editados (resposta imediata ao colocar/quebrar)

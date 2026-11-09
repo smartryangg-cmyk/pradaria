@@ -1,7 +1,7 @@
 // Aldeões: moradores das vilas. Passeiam pelas ruas e pela praça, cuidam das plantações,
 // acenam para quem chega e conversam com um toque. À noite voltam para casa e dormem.
 import * as THREE from '../vendor/three.module.min.js';
-import { caixa, juntar, matModelo } from './modelos.js';
+import { caixa, juntar, matModelo, matBrilho } from './modelos.js';
 import { SOLIDO, AGUA, M } from './blocos.js';
 import { ANEL } from './vilas.js';
 import { ALT } from './mundo.js';
@@ -26,23 +26,120 @@ const FALAS = {
   lojista: ['A loja está aberta!', 'Hoje chegou mercadoria nova', 'Quer vender alguma coisa? É só pedir!', 'Se precisar de ajuda, me contrata!'],
   noite: ['Boa noite! Hora de dormir', 'Zzz...', 'Amanhã a gente brinca mais!'],
 };
+// mundo Linha do Tempo: falas de cada era (índice = era; só existem pessoas da era 2 em diante)
+const FALAS_ERA = {
+  2: ['Uga! Fogo quentinho!', 'Vamos pintar a parede da caverna?', 'Achei uma pedra bem redondinha!', 'O lobinho virou meu amigo!',
+    'Uga uga! Bem-vindo!', 'Hoje tem frutinha para todo mundo', 'Olha o cavalo correndo lá longe!'],
+  3: ['Salve, amigo!', 'Você já viu a pirâmide?', 'Meu camelo adora tâmaras', 'Vamos construir colunas bem altas!',
+    'Os gatinhos daqui são muito mimados', 'Que mosaico mais bonito!'],
+  4: ['Saudações, viajante!', 'O castelo é logo ali!', 'O moinho está girando hoje', 'Meu cavalo se chama Pipoca',
+    'Que lindo vitral colorido!', 'Quer ouvir uma história de cavaleiro?'],
+  5: ['Piuí! Ouviu o trem?', 'A fábrica faz engrenagens', 'Bom dia! Já tomou seu chá?', 'Olha a fumacinha da chaminé!',
+    'Comprei uma cartola nova!'],
+  6: ['Oi! Tudo bem?', 'Vamos andar de bicicleta?', 'Meu cachorro adora passear', 'Já foi no estádio?', 'Que tal um sorvete?'],
+  7: ['Olá! Bem-vindo ao futuro!', 'Meu robô-cão sabe dar a patinha!', 'Os painéis solares pegam a luz do sol',
+    'Vamos voar até a Lua?', 'Bip bop! Brincadeira, eu não sou robô!'],
+};
+// falas gerais que servem em qualquer época
+const GERAL_ERA = ['Bom dia!', 'Que dia lindo!', 'Bem-vindo à {vila}!', 'Adoro morar aqui na {vila}.', 'Cuidado com as flores!',
+  'Você constrói muito bem!', 'Olha que nuvem bonita!', 'Vamos ser amigos?', 'Oi, oi!'];
+
+// roupas de cada era (mundo Linha do Tempo)
+const COUROS = [0x9a6a3f, 0x8a5a32, 0xb07f4e];
+const FAIXAS = [0xe53935, 0x1e88e5, 0x8e24aa, 0xf9a825, 0x43a047, 0xd81b60];
+const MEDIEVAL = [0x7b3f2a, 0x2e5d3a, 0x3c4f7a, 0x8a2f4a, 0xa3742c, 0x5b4a7a];
+const CAMISAS = [0xf5f2ea, 0xe8dcc4, 0xc9d6e3, 0xe6c9c9];
+const JEANS = [0x3f5f9a, 0x2f4f7a, 0x4a6fa5];
+const PRATA = [0xe8edf2, 0xcfd8dc, 0xf7f7fa];
+const NEONS = [0x3ff0ff, 0xff5ad8, 0xa6ff4d, 0xffd23f];
+
 const PRESENTES = ['maca', 'milho', 'cenoura', 'pao', 'flor', 'morango', 'ovo', 'bolo']; // nomes de ícones (icones.js)
 
 function malha(geo) { const m = new THREE.Mesh(geo, matModelo); m.castShadow = true; return m; }
 function membro(geos, x, y, z) { const m = malha(juntar(geos)); m.position.set(x, y, z); return m; }
 
-// bonequinho de aldeão (frente = +z, pés em y=0)
-export function montarAldeao(r, oficio) {
+// bonequinho de aldeão (frente = +z, pés em y=0). era: null = mundo normal; 2..7 = roupa da época (Linha do Tempo)
+export function montarAldeao(r, oficio, era = null) {
   const pick = (l) => l[Math.floor(r() * l.length)];
-  const pele = pick(PELES), cab = pick(CABELOS), roupa = pick(ROUPAS), calca = pick(CALCAS);
+  const pele = pick(PELES), cab = pick(CABELOS);
+  let roupa = pick(ROUPAS), calca = pick(CALCAS);
+  const E = era == null ? -1 : era;
+  // aventais e chapéus de ofício: no mundo normal, na Idade Média e hoje; nas outras eras manda a roupa da época
+  const deOficio = E < 0 || E === 4 || E === 6;
+  let sapato = 0x3b2a1e, manga = roupa, mangaCurta = false, pernaNua = false, shortinho = null;
+  const corpo = [], cabExtra = [], brilho = [], cabBrilho = [];
+  let chapeu = false; // a era já pôs algo na cabeça (aí não entra chapéu de ofício)
+
+  if (E === 2) { // Idade da Pedra: roupa de pele, descalço
+    roupa = pick(COUROS); manga = pele; pernaNua = true; shortinho = roupa; sapato = pele;
+    const mancha = 0x5e3d22;
+    corpo.push(caixa(0.58, 0.24, 0.34, roupa, 0, 0.66, 0),
+      caixa(0.1, 0.08, 0.02, mancha, -0.12, 1.02, 0.152), caixa(0.08, 0.1, 0.02, mancha, 0.14, 0.86, 0.152), caixa(0.1, 0.06, 0.02, mancha, 0.02, 0.7, 0.172),
+      caixa(0.54, 0.05, 0.32, 0x5e3d22, 0, 0.8, 0));
+    cabExtra.push(caixa(0.48, 0.06, 0.46, 0x6e4a2a, 0, 0.4, 0)); // faixinha de couro na testa
+    if (r() < 0.5) cabExtra.push(caixa(0.04, 0.22, 0.08, pick([0xe53935, 0xf9a825, 0x43a047]), 0.2, 0.5, -0.12)); // pena
+  } else if (E === 3) { // Antiguidade: túnica branca com faixa colorida e sandália
+    const faixa = pick(FAIXAS);
+    roupa = 0xf5f2ea; manga = roupa; mangaCurta = true; pernaNua = true; sapato = 0x9a6a3f;
+    corpo.push(caixa(0.56, 0.34, 0.34, roupa, 0, 0.5, 0), caixa(0.54, 0.07, 0.32, faixa, 0, 0.76, 0),
+      caixa(0.12, 0.22, 0.02, faixa, -0.15, 1.12, 0.152), caixa(0.12, 0.2, 0.02, faixa, -0.05, 0.94, 0.152), caixa(0.12, 0.16, 0.02, faixa, 0.06, 0.82, 0.152),
+      caixa(0.12, 0.22, 0.02, faixa, -0.15, 1.12, -0.152));
+    if (r() < 0.45) { cabExtra.push(caixa(0.5, 0.06, 0.48, 0x7cb342, 0, 0.44, 0), caixa(0.08, 0.06, 0.06, 0x9ccc65, -0.16, 0.44, 0.24), caixa(0.08, 0.06, 0.06, 0x9ccc65, 0.16, 0.44, 0.24)); chapeu = true; } // coroa de louros
+  } else if (E === 4) { // Idade Média: túnica com cinto, meia-calça e bota, capuz ou chapéu com pena
+    roupa = pick(MEDIEVAL); manga = roupa; sapato = 0x5a3a22;
+    corpo.push(caixa(0.56, 0.2, 0.34, roupa, 0, 0.6, 0), caixa(0.54, 0.07, 0.32, 0x4a2f1e, 0, 0.72, 0), caixa(0.07, 0.07, 0.02, 0xd4a93c, 0, 0.72, 0.162));
+    if (!['fazendeiro', 'padeiro'].includes(oficio)) {
+      chapeu = true;
+      if (r() < 0.5) { // capuz
+        const capuz = pick(MEDIEVAL.filter((c) => c !== roupa));
+        corpo.push(caixa(0.6, 0.14, 0.36, capuz, 0, 1.2, 0));
+        cabExtra.push(caixa(0.54, 0.14, 0.52, capuz, 0, 0.5, 0), caixa(0.54, 0.44, 0.1, capuz, 0, 0.28, -0.24),
+          caixa(0.06, 0.4, 0.44, capuz, -0.26, 0.28, -0.02), caixa(0.06, 0.4, 0.44, capuz, 0.26, 0.28, -0.02), caixa(0.2, 0.16, 0.18, capuz, 0, 0.58, -0.22));
+      } else { // chapéu com pena
+        const ch = pick([0x3c4f7a, 0x7b3f2a, 0x2e5d3a]);
+        cabExtra.push(caixa(0.64, 0.05, 0.62, ch, 0, 0.5, 0), caixa(0.46, 0.18, 0.44, ch, 0, 0.6, 0), caixa(0.04, 0.24, 0.14, 0xf2f2f2, 0.22, 0.72, -0.12));
+      }
+    }
+  } else if (E === 5) { // Era Industrial: macacão e boné, ou suspensório, gravatinha e cartola
+    roupa = pick(CAMISAS); manga = roupa; sapato = 0x262626; chapeu = true;
+    if (r() < 0.5) {
+      const mac = pick([0x3f5f8a, 0x6d5a45, 0x4a5a3a]); calca = mac;
+      corpo.push(caixa(0.53, 0.22, 0.31, mac, 0, 0.72, 0), caixa(0.44, 0.3, 0.04, mac, 0, 0.92, 0.15),
+        caixa(0.08, 0.2, 0.02, mac, -0.15, 1.14, 0.152), caixa(0.08, 0.2, 0.02, mac, 0.15, 1.14, 0.152),
+        caixa(0.08, 0.5, 0.02, mac, -0.15, 0.98, -0.152), caixa(0.08, 0.5, 0.02, mac, 0.15, 0.98, -0.152),
+        caixa(0.05, 0.05, 0.02, 0xffd54f, -0.15, 1.05, 0.17), caixa(0.05, 0.05, 0.02, 0xffd54f, 0.15, 1.05, 0.17));
+      const bone = pick([0x5d4a3a, 0x4a4a4a, 0x3f5f8a]);
+      cabExtra.push(caixa(0.5, 0.12, 0.5, bone, 0, 0.52, 0), caixa(0.44, 0.04, 0.2, bone, 0, 0.47, 0.32));
+    } else {
+      calca = pick([0x4a4a4a, 0x5a3d22, 0x3a3a4a]);
+      const sus = pick([0xb71c1c, 0x1e3a6a, 0x2e5d3a]);
+      corpo.push(caixa(0.07, 0.62, 0.02, sus, -0.14, 0.93, 0.152), caixa(0.07, 0.62, 0.02, sus, 0.14, 0.93, 0.152),
+        caixa(0.07, 0.62, 0.02, sus, -0.14, 0.93, -0.152), caixa(0.07, 0.62, 0.02, sus, 0.14, 0.93, -0.152),
+        caixa(0.16, 0.07, 0.03, sus, 0, 1.19, 0.162));
+      cabExtra.push(caixa(0.62, 0.04, 0.6, 0x262626, 0, 0.5, 0), caixa(0.42, 0.44, 0.4, 0x262626, 0, 0.74, 0), caixa(0.43, 0.07, 0.41, sus, 0, 0.56, 0));
+    }
+  } else if (E === 6) { // Era Moderna: camiseta, jeans e tênis
+    mangaCurta = true; calca = pick(JEANS); sapato = pick([0xf5f5f5, 0xe53935, 0x1e88e5, 0x262626]);
+  } else if (E === 7) { // Futuro: roupa prateada com detalhe neon
+    roupa = pick(PRATA); manga = roupa; calca = pick(PRATA); sapato = 0xf5f7fa;
+    const neon = pick(NEONS);
+    corpo.push(caixa(0.56, 0.12, 0.34, 0xb0bec5, 0, 1.2, 0));
+    brilho.push(caixa(0.535, 0.05, 0.315, neon, 0, 0.72, 0), caixa(0.06, 0.4, 0.02, neon, 0, 0.95, 0.158), caixa(0.14, 0.14, 0.02, neon, 0.14, 1.06, 0.158));
+    cabBrilho.push(caixa(0.5, 0.05, 0.48, neon, 0, 0.44, 0));
+    if (r() < 0.4) { cabExtra.push(caixa(0.03, 0.16, 0.03, 0xb0bec5, 0.18, 0.56, -0.05)); cabBrilho.push(caixa(0.07, 0.07, 0.07, neon, 0.18, 0.66, -0.05)); }
+  }
+
   const g = new THREE.Group();
-  const corpo = [caixa(0.52, 0.62, 0.3, roupa, 0, 0.93, 0)];
-  if (oficio === 'fazendeiro') corpo.push(caixa(0.46, 0.5, 0.04, 0x3f6fa0, 0, 0.88, 0.15), caixa(0.08, 0.14, 0.04, 0x3f6fa0, -0.15, 1.18, 0.15), caixa(0.08, 0.14, 0.04, 0x3f6fa0, 0.15, 1.18, 0.15));
-  if (oficio === 'padeiro') corpo.push(caixa(0.44, 0.52, 0.04, 0xfafafa, 0, 0.86, 0.15));
-  if (oficio === 'lojista') corpo.push(caixa(0.44, 0.52, 0.04, 0x3f8f5a, 0, 0.86, 0.15), caixa(0.12, 0.08, 0.02, 0xf2c72e, 0.12, 1.08, 0.18));
-  if (oficio === 'artesao') corpo.push(caixa(0.16, 0.6, 0.32, 0x7a5634, -0.19, 0.94, 0), caixa(0.16, 0.6, 0.32, 0x7a5634, 0.19, 0.94, 0));
-  if (oficio === 'florista') corpo.push(caixa(0.54, 0.22, 0.32, roupa, 0, 0.66, 0)); // saia rodada
+  corpo.unshift(caixa(0.52, 0.62, 0.3, roupa, 0, 0.93, 0));
+  if (deOficio) {
+    if (oficio === 'fazendeiro') corpo.push(caixa(0.46, 0.5, 0.04, 0x3f6fa0, 0, 0.88, 0.15), caixa(0.08, 0.14, 0.04, 0x3f6fa0, -0.15, 1.18, 0.15), caixa(0.08, 0.14, 0.04, 0x3f6fa0, 0.15, 1.18, 0.15));
+    if (oficio === 'padeiro') corpo.push(caixa(0.44, 0.52, 0.04, 0xfafafa, 0, 0.86, 0.15));
+    if (oficio === 'lojista') corpo.push(caixa(0.44, 0.52, 0.04, 0x3f8f5a, 0, 0.86, 0.15), caixa(0.12, 0.08, 0.02, 0xf2c72e, 0.12, 1.08, 0.18));
+    if (oficio === 'artesao') corpo.push(caixa(0.16, 0.6, 0.32, 0x7a5634, -0.19, 0.94, 0), caixa(0.16, 0.6, 0.32, 0x7a5634, 0.19, 0.94, 0));
+  }
+  if (oficio === 'florista' && E !== 2 && E !== 3) corpo.push(caixa(0.54, 0.22, 0.32, roupa, 0, 0.66, 0)); // saia rodada
   g.add(malha(juntar(corpo)));
+  if (brilho.length) g.add(new THREE.Mesh(juntar(brilho), matBrilho));
 
   const cabeca = [caixa(0.46, 0.46, 0.44, pele, 0, 0.23, 0),
     caixa(0.07, 0.09, 0.02, 0x222222, -0.1, 0.26, 0.225), caixa(0.07, 0.09, 0.02, 0x222222, 0.1, 0.26, 0.225),
@@ -52,21 +149,34 @@ export function montarAldeao(r, oficio) {
   if (cab === 0xdedad2 && estilo < 0.5) cabeca.push(caixa(0.06, 0.18, 0.4, cab, -0.24, 0.3, -0.02), caixa(0.06, 0.18, 0.4, cab, 0.24, 0.3, -0.02), caixa(0.5, 0.18, 0.06, cab, 0, 0.3, -0.22));
   else {
     cabeca.push(caixa(0.5, 0.12, 0.48, cab, 0, 0.49, 0), caixa(0.5, 0.3, 0.1, cab, 0, 0.32, -0.2));
-    if (estilo < 0.35) cabeca.push(caixa(0.5, 0.42, 0.1, cab, 0, 0.12, -0.22), caixa(0.06, 0.32, 0.3, cab, -0.25, 0.25, -0.06), caixa(0.06, 0.32, 0.3, cab, 0.25, 0.25, -0.06)); // cabelo comprido
-    else if (estilo < 0.55) cabeca.push(caixa(0.2, 0.2, 0.2, cab, 0, 0.6, -0.14)); // coque
+    if (estilo < 0.35 || E === 2) cabeca.push(caixa(0.5, 0.42, 0.1, cab, 0, 0.12, -0.22), caixa(0.06, 0.32, 0.3, cab, -0.25, 0.25, -0.06), caixa(0.06, 0.32, 0.3, cab, 0.25, 0.25, -0.06)); // cabelo comprido
+    else if (estilo < 0.55 && !chapeu) cabeca.push(caixa(0.2, 0.2, 0.2, cab, 0, 0.6, -0.14)); // coque
   }
-  if (oficio === 'fazendeiro') cabeca.push(caixa(0.82, 0.05, 0.82, 0xe8c46a, 0, 0.5, 0), caixa(0.48, 0.2, 0.46, 0xe8c46a, 0, 0.61, 0), caixa(0.49, 0.05, 0.47, 0xb0472b, 0, 0.55, 0));
-  if (oficio === 'padeiro') cabeca.push(caixa(0.5, 0.28, 0.48, 0xfafafa, 0, 0.62, 0));
-  if (oficio === 'pescador') cabeca.push(caixa(0.5, 0.12, 0.48, 0x3f6fd9, 0, 0.53, 0), caixa(0.4, 0.04, 0.22, 0x3f6fd9, 0, 0.48, 0.32));
-  if (oficio === 'florista') cabeca.push(caixa(0.13, 0.13, 0.06, 0xe8433f, 0.2, 0.47, 0.14), caixa(0.05, 0.05, 0.02, 0xffe066, 0.2, 0.47, 0.175));
+  cabeca.push(...cabExtra);
+  if (deOficio && !chapeu) {
+    if (oficio === 'fazendeiro') cabeca.push(caixa(0.82, 0.05, 0.82, 0xe8c46a, 0, 0.5, 0), caixa(0.48, 0.2, 0.46, 0xe8c46a, 0, 0.61, 0), caixa(0.49, 0.05, 0.47, 0xb0472b, 0, 0.55, 0));
+    if (oficio === 'padeiro') cabeca.push(caixa(0.5, 0.28, 0.48, 0xfafafa, 0, 0.62, 0));
+    if (oficio === 'pescador') cabeca.push(caixa(0.5, 0.12, 0.48, 0x3f6fd9, 0, 0.53, 0), caixa(0.4, 0.04, 0.22, 0x3f6fd9, 0, 0.48, 0.32));
+  }
+  if (oficio === 'florista' && E !== 7) cabeca.push(caixa(0.13, 0.13, 0.06, 0xe8433f, 0.2, 0.47, 0.14), caixa(0.05, 0.05, 0.02, 0xffe066, 0.2, 0.47, 0.175));
   const cab3 = malha(juntar(cabeca));
   cab3.position.y = 1.24;
+  if (cabBrilho.length) cab3.add(new THREE.Mesh(juntar(cabBrilho), matBrilho));
   g.add(cab3);
 
-  const bd = membro([caixa(0.18, 0.4, 0.2, roupa, 0, -0.2, 0), caixa(0.16, 0.18, 0.18, pele, 0, -0.49, 0)], -0.35, 1.2, 0);
-  const be = membro([caixa(0.18, 0.4, 0.2, roupa, 0, -0.2, 0), caixa(0.16, 0.18, 0.18, pele, 0, -0.49, 0)], 0.35, 1.2, 0);
-  const pd = membro([caixa(0.22, 0.52, 0.24, calca, 0, -0.26, 0), caixa(0.23, 0.1, 0.27, 0x3b2a1e, 0, -0.57, 0.01)], -0.13, 0.62, 0);
-  const pe = membro([caixa(0.22, 0.52, 0.24, calca, 0, -0.26, 0), caixa(0.23, 0.1, 0.27, 0x3b2a1e, 0, -0.57, 0.01)], 0.13, 0.62, 0);
+  // braços: manga inteira, manga curtinha (camiseta, túnica) ou braço de fora (pele)
+  const braco = (x) => membro(mangaCurta
+    ? [caixa(0.18, 0.18, 0.2, manga, 0, -0.09, 0), caixa(0.16, 0.4, 0.18, pele, 0, -0.38, 0)]
+    : [caixa(0.18, 0.4, 0.2, manga, 0, -0.2, 0), caixa(0.16, 0.18, 0.18, pele, 0, -0.49, 0)], x, 1.2, 0);
+  // pernas: calça, perna de fora (com shortinho de pele na Idade da Pedra) e sapato/sandália/pé descalço
+  const perna = (x) => membro([
+    ...(pernaNua
+      ? [...(shortinho ? [caixa(0.23, 0.18, 0.25, shortinho, 0, -0.09, 0)] : []), caixa(0.2, shortinho ? 0.34 : 0.52, 0.22, pele, 0, shortinho ? -0.35 : -0.26, 0)]
+      : [caixa(0.22, 0.52, 0.24, calca, 0, -0.26, 0)]),
+    caixa(0.23, E === 3 ? 0.06 : 0.1, 0.27, sapato, 0, E === 3 ? -0.59 : -0.57, 0.01),
+    ...(E === 6 ? [caixa(0.235, 0.03, 0.275, 0xffffff, 0, -0.605, 0.01)] : []),
+  ], x, 0.62, 0);
+  const bd = braco(-0.35), be = braco(0.35), pd = perna(-0.13), pe = perna(0.13);
   g.add(bd, be, pd, pe);
   return { grupo: g, cabeca: cab3, bracos: [bd, be], pernas: [pd, pe] };
 }
@@ -109,6 +219,7 @@ export class Aldeoes {
     this.checar = 0;
     this.vilaAtual = null;
     this.aoEntrarVila = null;
+    this.eraVista = mundo.era; // Linha do Tempo: quando a era muda, o povo troca de roupa (nasce de novo)
   }
 
   // chão perto de yRef: procura de yRef+acima até yRef-abaixo (ou o mundo todo, se yRef for null)
@@ -218,7 +329,7 @@ export class Aldeoes {
         if (i === 0 && v.padaria) oficio = 'padeiro';
         if (i === 1 && v.loja) oficio = 'lojista';
       }
-      const mod = montarAldeao(r, oficio);
+      const mod = montarAldeao(r, oficio, this.mundo.era);
       const no = l.est ? { est: l.est, dentro: false } : { rua: i % v.ruas.length, t: 3 };
       const [x, z] = l.est ? [l.est.frente[0] + 0.5, l.est.frente[1] + 0.5] : this.pontoRua(v, no.rua, 3);
       const y = this.solo(x, z, (l.est ? l.est.y : v.y) + 1, 4, 10) ?? this.solo(x, z, null) ?? v.y + 1;
@@ -242,14 +353,17 @@ export class Aldeoes {
     this.lista.splice(i, 1);
   }
 
-  limpar() { for (let i = this.lista.length - 1; i >= 0; i--) this.remover(i); this.povoadas.clear(); }
+  limpar() { for (let i = this.lista.length - 1; i >= 0; i--) this.remover(i); this.povoadas.clear(); this.vilaAtual = null; }
 
   tirarBalao(a) { a.grupo.remove(a.balao); a.balao.material.map.dispose(); a.balao.material.dispose(); a.balao = null; }
 
   // ---------- conversa ----------
   conversar(a, jog, noite) {
     const v = a.vila;
-    let lista = noite && a.no.dentro ? FALAS.noite : Math.random() < 0.45 ? FALAS[a.oficio] : FALAS.geral;
+    const era = this.mundo.era, q = Math.random();
+    let lista = noite && a.no.dentro ? FALAS.noite
+      : era != null && FALAS_ERA[era] ? (q < 0.55 ? FALAS_ERA[era] : q < 0.75 && era >= 4 ? FALAS[a.oficio] : GERAL_ERA)
+        : q < 0.45 ? FALAS[a.oficio] : FALAS.geral;
     const fala = lista[Math.floor(Math.random() * lista.length)].replace('{vila}', v.nome);
     if (a.balao) this.tirarBalao(a);
     a.balao = balao(`${a.nome}: ${fala}`);
@@ -296,6 +410,7 @@ export class Aldeoes {
   atualizar(dt, jog, altSol) {
     const p = jog.pos;
     const noite = altSol < -0.15;
+    if (this.mundo.era !== this.eraVista) { this.eraVista = this.mundo.era; this.limpar(); this.checar = 0; }
     this.checar -= dt;
     if (this.checar <= 0) {
       this.checar = 1;

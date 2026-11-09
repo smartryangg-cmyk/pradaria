@@ -58,6 +58,9 @@ export class Garagem {
     this.ultYaw = 0; this.ultPitch = 0;
     // filtro de quais tipos aparecem na garagem (ex.: modo história libera por era). Chaves: ORDEM de veiculos.js
     this.permitido = (tipo) => true; // eslint-disable-line no-unused-vars
+    // Linha do Tempo (main.js): o posto só existe depois da Revolução Industrial e o celular só na era Moderna
+    this.temPosto = () => true;
+    this.temCelular = () => true;
     this.postos = new Map(); // k -> { x, y, z, malha }
     this.criados = new Set(); // veículos de vila/porto que já apareceram neste mundo (não voltam a aparecer)
     this.pedidosP = new Set();
@@ -155,6 +158,7 @@ export class Garagem {
   // modo 'garagem' (só no lugar: o posto/garagem de uma vila) ou 'celular' (chamar um veículo que você tem a chave)
   abrir(modo = 'garagem') {
     if (!this.veic || !this.ligados()) return;
+    if (modo === 'celular' && !this.temCelular()) { this.J.aviso('O celular ainda não foi inventado: ele chega na Era Moderna', 2600, 'celular'); return; }
     if (modo === 'garagem' && !this.garagemPerto()) { this.J.aviso('A garagem fica no posto das vilas. Pelo celular você chama os veículos que já tem', 3000, 'celular'); return; }
     if (document.pointerLockElement) document.exitPointerLock();
     this.modo = modo;
@@ -282,6 +286,13 @@ export class Garagem {
 
   ligados() { return opcoesMundo.veiculos !== false; }
 
+  // a era mudou (Linha do Tempo): mostra o celular e tira os postos que ainda não existem
+  mudouEra() {
+    $('#bt-celular').hidden = !this.ligados() || !this.temCelular();
+    if (!this.temPosto()) { for (const p of this.postos.values()) this.J.cena.remove(p.malha); this.postos.clear(); }
+    this.tempoLugares = 0;
+  }
+
   // ---------- ciclo do mundo ----------
   comecar(mundo, salvos = [], criados = []) {
     this.parar();
@@ -296,7 +307,7 @@ export class Garagem {
     this.veic.aoBater = (v, quanto, quebrou) => this.bateu(v, quanto, quebrou);
     for (const s of salvos || []) { const v = this.veic.criar(s); if (v && v.parado) this.criados.add(v.parado); }
     for (const v of this.veic.mapa.values()) { const n = parseInt(String(v.id).slice(1), 10); if (n >= this.veic.seq) this.veic.seq = n + 1; }
-    $('#bt-celular').hidden = !this.ligados();
+    $('#bt-celular').hidden = !this.ligados() || !this.temCelular();
     this.atualizarHud();
   }
 
@@ -661,6 +672,7 @@ export class Garagem {
     // postos: aparecem perto e somem longe
     const vistos = new Set();
     for (const p of postos) {
+      if (!this.temPosto()) break;
       vistos.add(p.k);
       if (this.postos.has(p.k) || Math.hypot(p.x - pos.x, p.z - pos.z) > 90) continue;
       const lugar = this.lugarPosto(p);

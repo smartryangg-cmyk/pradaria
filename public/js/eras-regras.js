@@ -151,12 +151,17 @@ export function aplicarEvento(e, jog, ev, agora = Date.now()) {
     xp += GANHO.achar.xp;
     novidades.push({ t: 'achado', r: ev.r, xp: GANHO.achar.xp });
   } else {
+    // a primeira vez com uma espécie da era é sempre descoberta (não espera nada)
+    const descoberta = ev.m === 'carinho' && typeof ev.r === 'string' && era.fauna.includes(ev.r) && !e.desc.includes(ev.r);
     // esperas e teto por minuto (para ninguém "farmar" clicando sem parar)
-    if (g.espera && agora - (jog.ult[ev.m] || 0) < g.espera) return null;
-    jog.ult[ev.m] = agora;
-    if (agora - jog.min.ini > 60000) { jog.min.ini = agora; jog.min.n = 0; }
-    if (jog.min.n < TETO_MINUTO) { jog.min.n += g.xp; xp += g.xp; }
-    if (ev.m === 'carinho' && typeof ev.r === 'string' && era.fauna.includes(ev.r) && !e.desc.includes(ev.r)) {
+    const cedo = g.espera && agora - (jog.ult[ev.m] || 0) < g.espera;
+    if (cedo && !descoberta) return null;
+    if (!cedo) {
+      jog.ult[ev.m] = agora;
+      if (agora - jog.min.ini > 60000) { jog.min.ini = agora; jog.min.n = 0; }
+      if (jog.min.n < TETO_MINUTO) { jog.min.n += g.xp; xp += g.xp; }
+    }
+    if (descoberta) {
       e.desc.push(ev.r);
       xp += GANHO.descobrir.xp;
       novidades.push({ t: 'descoberta', r: ev.r, xp: GANHO.descobrir.xp });

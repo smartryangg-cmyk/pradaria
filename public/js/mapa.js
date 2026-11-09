@@ -62,6 +62,8 @@ export class Mapa {
       const p = this.pedacos.get(cx + ',' + cz);
       if (p) p.sujo = true;
     };
+    // Linha do Tempo: o pedaço foi gerado de novo na era nova
+    mundo.aoRegenerar = (cx, cz) => { const p = this.pedacos.get(cx + ',' + cz); if (p) p.sujo = true; };
     for (const nome of ['definir', 'definirAgua']) {
       const orig = mundo[nome].bind(mundo);
       mundo[nome] = (x, y, z, ...resto) => { const r = orig(x, y, z, ...resto); sujar(x, z); return r; };

@@ -12,6 +12,7 @@ import { blocosDaObra, PLANTAS, ESTILOS_OBRA } from '../../public/js/casas.js';
 // ações dos trabalhadores contratados (trabalho.js)
 const ACOES_TRABALHO = new Set(['contratar', 'demitir', 'obra', 'cancelar-obra', 'depositar', 'retirar', 'turno']);
 const ALTURA_MAX = 95; // igual ao ALT - 1 de public/js/mundo.js
+import { estadoNovo, normalizar as normalizarEra, aplicarEvento, avancar, podeAvancar, EVENTOS } from '../../public/js/eras-regras.js';
 
 const MAX_BLOCO = 255; // 0..63 base, 100..126 engenharia, 128..175 eras (blocos-eras.js)
 // o cliente ignora ids que não existem (antes um id desconhecido travava o mundo de todos); aqui só o intervalo
@@ -215,6 +216,10 @@ export class Sala extends DurableObject {
     if (JSON.stringify(regras) !== JSON.stringify(this.info.regras)) { this.info.regras = regras; await this.ctx.storage.put('info', this.info); }
     const chat = chatDe(opcoes);
     if (JSON.stringify(chat) !== JSON.stringify(this.info.chat)) await this.mudarChat(chat);
+    // mundo Linha do Tempo: a era e a experiência ficam guardadas aqui (vale para todos)
+    const tipo = opcoes.tipo || 'normal';
+    if (this.info.tipo !== tipo) { this.info.tipo = tipo; await this.ctx.storage.put('info', this.info); }
+    const era = tipo === 'historia' ? await this.carregarEra() : null;
     const par = new WebSocketPair();
     const [cliente, servidor] = Object.values(par);
     // o mesmo login em outro aparelho/aba: a conexão antiga sai
@@ -252,12 +257,40 @@ export class Sala extends DurableObject {
     const lugares = (await this.ctx.storage.get('l:' + u.id)) || { casa: null, lista: [] };
     const barra = (await this.ctx.storage.get('h:' + u.id)) || null;
     servidor.send(JSON.stringify({
-      t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia, dono: eu.dono, lugares, opcoes, econ, veiculos, vparados: [...vparados], barra,
+      t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia, dono: eu.dono, lugares, opcoes, econ, veiculos, vparados: [...vparados], barra, era,
       chat: this.chat(), historico: this.chatRecente(),
       jogadores: this.jogadores().filter((j) => j.id !== id).map(({ id, nome, cor, skin, p, r, voz }) => ({ id, nome, cor, skin, p, r, voz: !!voz })),
     }));
     this.enviarTodos({ t: 'entrou', j: { id, nome: u.nome, cor: u.cor, skin: eu.skin, p: eu.p, r: eu.r } }, servidor);
     return new Response(null, { status: 101, webSocket: cliente });
+  }
+
+  // ---------- Linha do Tempo (eras-regras.js) ----------
+  async carregarEra() {
+    if (!this.era) this.era = normalizarEra((await this.ctx.storage.get('era')) || estadoNovo());
+    return this.era;
+  }
+
+  // uma ação de um jogador que pode dar experiência ao mundo
+  async eventoEra(eu, ev) {
+    if (this.info.tipo !== 'historia') return;
+    const e = await this.carregarEra();
+    if (!this.memEra) this.memEra = new Map(); // esperas de cada jogador (só na memória)
+    let j = this.memEra.get(eu.uid);
+    if (!j) { j = {}; this.memEra.set(eu.uid, j); }
+    const r = aplicarEvento(e, j, ev);
+    if (!r) return;
+    this.salvarEra();
+    // novidade (descoberta, missão, pronto) vai na hora; só experiência, no máximo 1x por segundo
+    if (r.novidades.length) this.anunciarEra(r.novidades, eu.nome);
+    else if (!this.timerEra) this.timerEra = setTimeout(() => { this.timerEra = null; this.anunciarEra([], null); }, 1000);
+  }
+
+  anunciarEra(novidades, nome) { this.enviarTodos({ t: 'era', e: this.era, nov: novidades, nome }); }
+
+  salvarEra() {
+    if (this.timerSalvar) return;
+    this.timerSalvar = setTimeout(() => { this.timerSalvar = null; this.ctx.storage.put('era', this.era); }, 1500);
   }
 
   chat() { return (this.info && this.info.chat) || { texto: true, voz: true }; }
@@ -452,6 +485,7 @@ export class Sala extends DurableObject {
         const r = await this.econAplicar(ws, eu, econ, { t: 'bloco', b, x, y, z, de: m.de | 0, natural, comprado }, true);
         if (r && r.ok && r.marca && b > 0) await this.ctx.storage.put('c:' + k, 1);
       }
+      if (m.j) await this.eventoEra(eu, { m: b === 0 ? 'quebrar' : 'colocar', r: b }); // Linha do Tempo: só o que foi feito com as mãos
     } else if (m.t === 'vnovo') {
       if (eu.semVeiculos || !LUGARES[m.tipo] || MILITARES.has(m.tipo) || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
       const cor = Number.isInteger(m.cor) && m.cor >= 0 && m.cor < 8 ? m.cor : 0;
@@ -574,6 +608,17 @@ export class Sala extends DurableObject {
       eu.skin = normalizarSkin(m.s, eu.cor);
       ws.serializeAttachment(eu);
       this.enviarTodos({ t: 'skin', id: eu.id, s: eu.skin }, ws);
+    } else if (m.t === 'xp' && EVENTOS.has(m.m) && m.m !== 'colocar' && m.m !== 'quebrar') {
+      // carinho, conversa, explorar, achar: as próprias regras têm espera e teto por minuto
+      if (m.r !== undefined && (typeof m.r !== 'string' || m.r.length > 24)) return;
+      await this.eventoEra(eu, { m: m.m, r: m.r });
+    } else if (m.t === 'era-avancar') {
+      if (this.info.tipo !== 'historia') return;
+      const e = await this.carregarEra();
+      if (!podeAvancar(e) || m.de !== e.era) return; // dois apertando juntos: só a primeira vale
+      avancar(e);
+      await this.ctx.storage.put('era', e);
+      this.enviarTodos({ t: 'era', e, nov: [{ t: 'viagem', era: e.era }], nome: eu.nome });
     } else if (m.t === 'emote' && EMOTES.has(m.e)) {
       // no máximo um emote a cada 0,8 s (evita encher a tela/os ouvidos dos outros)
       const agora = Date.now();
@@ -861,6 +906,7 @@ export class Sala extends DurableObject {
     if (!eu) return;
     if (eu.v) { const [id, a] = eu.v; this.enviarTodos({ t: 'vassento', id, a, j: null }, ws); }
     await this.ctx.storage.put('p:' + eu.uid, eu.p);
+    if (this.era) await this.ctx.storage.put('era', this.era);
     this.enviarTodos({ t: 'saiu', id: eu.id }, ws);
   }
 }

@@ -1,6 +1,6 @@
 // Deixa o jogo instalável e abrindo sem internet.
 // Rede primeiro (para sempre pegar a versão nova); se não tiver internet, usa a cópia guardada.
-const CACHE = 'pradaria-v37';
+const CACHE = 'pradaria-v38';
 const BASICO = [
   '/', '/index.html', '/estilo.css', '/manifest.webmanifest', '/icone.svg', '/icone-192.png', '/icone-512.png',
   '/vendor/three.module.min.js',
@@ -11,6 +11,7 @@ const BASICO = [
   '/js/formas.js', '/js/formas-defs.js',
   '/js/texturas.js', '/js/texturas-worker.js',
   '/js/guerra.js', '/js/guerra-npc.js', '/js/guerra-mapa.js', '/js/guerra-veiculos.js',
+  '/js/eras-regras.js', '/js/eras.js', '/js/gerador-eras.js', '/js/fauna-eras.js', '/js/clima-eras.js',
 ];
 
 self.addEventListener('install', (e) => {

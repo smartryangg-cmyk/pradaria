@@ -24,6 +24,11 @@ import { criarPosEfeitos } from './posefeitos.js';
 import { icone, preencherIcones, comIcone, nomeEmote } from './icones.js';
 import { Escavacao, toquesPara } from './escavar.js';
 import { Fisica } from './fisica.js';
+import { LinhaDoTempo, INVENTARIO_HISTORIA, blocoLiberado, eraDoBloco, BARRA_DA_ERA, MAQUINAS_ERA, ERAS, veiculoLiberado } from './eras.js';
+import { normalizar as normalizarEra } from './eras-regras.js';
+import { criarClimaEras } from './clima-eras.js';
+import { lugaresPerto } from './gerador-eras.js';
+const ERA_CELULAR = 6; // Linha do Tempo: o celular (chamar o veículo) chega na Era Moderna
 import { criarComandos } from './comandos.js';
 import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, ESTILOS, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto, raioExtraMundo, precisa16 } from './opcoes-mundo.js';
 import { vida } from './vida.js';
@@ -164,6 +169,7 @@ cena.add(contorno);
 // ---------- estado do jogo ----------
 const som = new Som();
 let mundo = null, jog = null, ctrl = null, bichos = null, aldeoes = null, sala = null, escav = null, fisica = null;
+let linha = null; // mundo Linha do Tempo (eras.js); null nos outros mundos
 let jogando = false, pausado = false;
 let modo = 'local', mundoAtual = null;
 const BARRA_CRIATIVO = [B.GRAMA, B.TERRA, B.PEDRA, B.TABUAS, B.TRONCO, B.VIDRO, B.TIJOLO, B.LA_VERMELHA, B.FLOR_AMARELA];
@@ -350,7 +356,8 @@ const FERRAMENTAS_CRIATIVO = [ITEM.PICARETA_PEDRA, ITEM.MACHADO_PEDRA, ITEM.PA_P
 function abasDoMundo() {
   if (sobrev()) return [['mochila', 'mochila', 'Mochila'], ['criar', 'martelo', 'Criar']];
   const formas = ['formas', 'bloco', 'Formas'];
-  return maquinasLigadas() ? [['blocos', 'tijolos', 'Blocos'], formas, ['maquinas', 'engrenagem', 'Engenharia']] : [['blocos', 'tijolos', 'Blocos'], formas];
+  // Linha do Tempo: as máquinas só chegam na Revolução Industrial
+  return maquinasLigadas() && (!linha || linha.era >= MAQUINAS_ERA) ? [['blocos', 'tijolos', 'Blocos'], formas, ['maquinas', 'engrenagem', 'Engenharia']] : [['blocos', 'tijolos', 'Blocos'], formas];
 }
 // ícone de bloco/item como <img> (guardado: a tela de receitas usa muitos)
 const cacheIcones = new Map();
@@ -393,11 +400,31 @@ function abrirInventario(aba) {
   if (abaInv === 'criar') desenharReceitas(g);
   else if (abaInv === 'mochila') desenharMochila(g);
   else {
-    const lista = abaInv === 'maquinas' ? INVENTARIO_MAQUINAS : abaInv === 'formas' ? INVENTARIO_FORMAS : [...INVENTARIO, ...FERRAMENTAS_CRIATIVO];
+    const lista = abaInv === 'maquinas' ? INVENTARIO_MAQUINAS : abaInv === 'formas' ? INVENTARIO_FORMAS : [...(linha ? INVENTARIO_HISTORIA : INVENTARIO), ...FERRAMENTAS_CRIATIVO];
+    let eraSep = -1;
     for (const id of lista) {
       const b = document.createElement('button');
       b.title = nomeDe(id);
       b.appendChild(iconeBloco(atlasCanvas, id, 48));
+      // Linha do Tempo: blocos agrupados por era; os das eras que ainda vão chegar ficam com cadeado
+      if (linha && abaInv !== 'maquinas' && id < 256) {
+        const ee = eraDoBloco(id);
+        if (ee !== eraSep) {
+          eraSep = ee;
+          const sep = document.createElement('div');
+          sep.className = 'sep-era';
+          sep.innerHTML = icone(ee <= linha.era ? ERAS[ee].ic : 'cadeado') + (ee <= linha.era ? ERAS[ee].nome : ee === linha.era + 1 ? 'Chega na ' + ERAS[ee].nome : 'Mais para frente na história');
+          g.appendChild(sep);
+        }
+        if (ee > linha.era) {
+          b.classList.add('trancado');
+          b.title = ee === linha.era + 1 ? nomeDe(id) : '???';
+          b.insertAdjacentHTML('beforeend', icone('cadeado', 'ic-svg cad'));
+          b.addEventListener('click', () => { som.clique(); aviso(ee === linha.era + 1 ? `${nomeDe(id)}: chega na ${ERAS[ee].nome}` : 'Esse bloco é de uma era lá do futuro', 2000, 'cadeado'); });
+          g.appendChild(b);
+          continue;
+        }
+      }
       const trancado = !mercado.podeColocar(id);
       if (trancado) { b.classList.add('trancado'); b.insertAdjacentHTML('beforeend', `<span class="preco">${icone('cadeado')}${mercado.precoDe(id)}</span>`); }
       b.addEventListener('click', () => {
@@ -588,6 +615,7 @@ function fecharJanelas() {
   if (cmd) cmd.fechar();
   mercado.fechar(true);
   negocios.fechar(true);
+  if (linha) linha.painel.hidden = true;
   pausado = false;
 }
 document.querySelectorAll('[data-fechar]').forEach((b) => b.addEventListener('click', fecharJanelas));
@@ -699,6 +727,7 @@ addEventListener('keydown', (e) => {
   else if (e.code === 'KeyC' && !pausado && e.target.tagName !== 'INPUT') cmd.abrir();
   else if (((e.code === 'KeyR' && !opcoesMundo.armas) || e.code === 'F5') && !pausado && e.target.tagName !== 'INPUT') { e.preventDefault(); if (!e.repeat) alternarVisao(); }
   else if (e.code === 'KeyM') { if (!$('#mapa').hidden) fecharJanelas(); else if (!pausado) mapa.abrir(); }
+  else if (e.code === 'KeyL' && linha && e.target.tagName !== 'INPUT') { if (!linha.painel.hidden) linha.fecharPainel(); else if (!pausado) linha.abrirPainel(); } // Linha do Tempo
 });
 // mundo pequeno/médio: como acaba no mar, dá para enxergar mais longe sem pesar
 // Ultra enxerga longe (visao: distância mínima do preset)
@@ -877,6 +906,7 @@ function usar(ponto) {
   if (!novo || ehItem(novo)) return; // mão vazia ou ferramenta: não coloca nada
   if (sobrev() && qtd(gastoDe(novo)) < 1) { aviso(`Acabou ${nomeDe(novo)}! Quebre mais ou crie`, 1500, 'mochila'); return; }
   if (y < 1 || y >= ALT) return;
+  if (linha && !blocoLiberado(novo, linha.era)) { aviso(`${BLOCOS[novo].nome} só existe a partir da ${ERAS[eraDoBloco(novo)].nome}`, 2200, 'cadeado'); return; }
   if (!mercado.podeColocar(novo)) { aviso(`${BLOCOS[novo].nome}: compre na loja de uma vila por ${mercado.precoDe(novo)} moedas`, 2500, 'cadeado'); return; }
   const atual = mundo.bloco(x, y, z);
   if (atual !== AR && !AGUA[atual] && !BLOCOS[atual].planta) return;
@@ -902,6 +932,7 @@ function usar(ponto) {
   comoJogador(() => mundo.definir(x, y, z, novo));
   som.colocar();
   dicaEnergia(novo, x, y, z);
+  if (linha) linha.evento('colocar', novo);
 }
 
 // ---------- engenharia ----------
@@ -969,10 +1000,15 @@ function eventoEnergia(tipo, x, y, z) {
 let porJogador = false;
 function comoJogador(fn) { porJogador = true; try { return fn(); } finally { porJogador = false; } }
 
-function fazerCarinho(b) { if (!bichos.carinho(b)) return; mercado.evento('carinho'); laDaOvelha(b); } // bicho selvagem: o toque espanta (não conta como carinho)
+function fazerCarinho(b) { // bicho selvagem: o toque espanta (não conta como carinho)
+  if (!bichos.carinho(b)) return;
+  mercado.evento('carinho'); laDaOvelha(b);
+  if (linha) linha.evento('carinho', b.especie);
+}
 function conversarCom(a) {
   aldeoes.conversar(a, jog, Math.sin(tempoDia * Math.PI * 2) < -0.15);
   mercado.evento('conversa');
+  if (linha) linha.evento('conversa');
   // com o mercado ligado, o aldeão abre a lojinha da vila
   if (mercado.op.mercado) setTimeout(() => { if (jogando && !pausado) mercado.abrirLoja(a); }, 650);
 }
@@ -998,7 +1034,7 @@ function quebrar(ponto) {
   // cada toque arranca um pedaço; o último derruba o bloco (a ferramenta certa precisa de menos toques)
   const p = raio.ray.at(h.t + 0.001, new THREE.Vector3());
   const total = toquesCom(toquesPara(h.b), h.b, mao);
-  if (comoJogador(() => escav.bater(h, p, total))) { som.quebrar(); mostrarQueCaiu(h.b, h.x, h.y, h.z); } else som.bater(h.b);
+  if (comoJogador(() => escav.bater(h, p, total))) { som.quebrar(); mostrarQueCaiu(h.b, h.x, h.y, h.z); if (linha) linha.evento('quebrar', h.b); } else som.bater(h.b);
 }
 
 // recolhe a fonte de água mirada; a água corrente que dependia dela seca sozinha
@@ -1079,7 +1115,7 @@ function salvarLocal() {
   if (modo !== 'local' || !mundo) return;
   try {
     localStorage.setItem('pradaria.local', JSON.stringify({
-      semente: mundo.semente, opcoes: { ...opcoesMundo }, edicoes: mundo.listarEdicoes(), pos: [jog.pos.x, jog.pos.y, jog.pos.z], yaw: jog.yaw, dia: tempoDia, barra, veiculos: garagem.lista(), veiculosP: garagem.listaCriados(),
+      semente: mundo.semente, opcoes: { ...opcoesMundo }, era: linha ? linha.e : undefined, edicoes: mundo.listarEdicoes(), pos: [jog.pos.x, jog.pos.y, jog.pos.z], yaw: jog.yaw, dia: tempoDia, barra, veiculos: garagem.lista(), veiculosP: garagem.listaCriados(),
     }));
   } catch {}
   edicoesPendentes = false;
@@ -1104,11 +1140,14 @@ function limparMundo() {
   if (aldeoes) aldeoes.limpar();
   negocios.limpar();
   mecanismos.usarMundo(null);
+  if (linha) { linha.destruir(); linha = null; }
+  limparFumacas();
+  clima.aplicar(null);
   mundo = null; bichos = null; aldeoes = null; escav = null; fisica = null;
   mercado.parar();
 }
 
-function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = null, veiculos = [], veiculosP = [], guardado = null }) {
+function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = null, veiculos = [], veiculosP = [], guardado = null, era = null }) {
   vestirMeusBonecos(meuSkin()); // pode ter trocado de conta desde o último mundo
   segundosJogando = 0; calib.reiniciar();
   limparMundo();
@@ -1121,6 +1160,8 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   slotSel = Math.min(slotSel, barra.length - 1);
   if (!opcoesMundo.cicloDia) tempoDia = 0.3;
   mundo = new Mundo(cena, matBlocos, matAgua, semente);
+  const estadoEra = mundo.era !== null ? normalizarEra(era) : null;
+  if (estadoEra) mundo.era = estadoEra.era; // antes de gerar qualquer pedaço
   mundo.raio = raioVisao();
   mundo.suaveSimples = opcoesGraficas().sombra === 0; // gráfico Leve: arredondado simples (monta mais rápido)
   escav = new Escavacao(cena, mundo, matBlocos, atlasCanvas);
@@ -1201,6 +1242,22 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   aplicarMinimapa();
   garagem.comecar(mundo, veiculos, veiculosP);
   guerra.comecar();
+  garagem.permitido = (t) => !linha || veiculoLiberado(t, linha.era); // Linha do Tempo: bicicleta e barco na Revolução Industrial, carros na era Moderna
+  garagem.temPosto = () => !linha || linha.era >= MAQUINAS_ERA; // posto e garagem: Revolução Industrial
+  garagem.temCelular = () => !linha || linha.era >= ERA_CELULAR;
+  if (estadoEra) {
+    linha = new LinhaDoTempo({
+      online: !!sala || modo === 'online', enviar: (m) => { if (sala) sala.enviar(m); }, aviso, som,
+      pausar: (sim) => { pausado = sim; },
+      aoMudarEra: mudarEra,
+    }, estadoEra);
+    // barra com blocos que ainda não existem nesta era? começa com a barra da era
+    // (no Coletar e criar a barra é o que a pessoa juntou: não mexe)
+    if (!sobrev() && barra.some((b) => !blocoLiberado(b, linha.era))) barra = [...BARRA_DA_ERA[linha.era]];
+    linha.mostrarTitulo();
+  }
+  clima.aplicar(mundo.era);
+  garagem.mudouEra();
   som.ligado = ajustes.som;
   ajustarNevoa();
   desenharBarra();
@@ -1218,6 +1275,38 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   }, 3000);
 }
 
+// clima de cada era (neve, céu morno, luzinhas do futuro) e fumaça do vulcão e das chaminés
+const clima = criarClimaEras(cena, graf);
+const fumacas = new Map();
+let tempoFumaca = 0;
+function limparFumacas() { for (const f of fumacas.values()) f.remover(); fumacas.clear(); }
+function fumacasPerto() {
+  if ((tempoFumaca -= 1 / 60) > 0) return;
+  tempoFumaca = 2;
+  const vivas = new Set();
+  for (const l of lugaresPerto(mundo, mundo.era, jog.pos.x, jog.pos.z, 140)) {
+    if (!l.fumaca) continue;
+    const k = mundo.era + ':' + l.fumaca.join(',');
+    vivas.add(k);
+    if (!fumacas.has(k)) fumacas.set(k, clima.fumaca(...l.fumaca));
+  }
+  for (const [k, f] of fumacas) if (!vivas.has(k)) { f.remover(); fumacas.delete(k); }
+}
+
+// a Linha do Tempo chegou numa era nova: a natureza muda em volta, bichos e moradores trocam
+function mudarEra(era) {
+  if (!mundo) return;
+  mundo.definirEra(era, jog.pos.x, jog.pos.z);
+  bichos.trocarEra();
+  clima.aplicar(era);
+  limparFumacas();
+  aldeoes.limpar();
+  garagem.mudouEra();
+  if (!sobrev()) { barra = [...BARRA_DA_ERA[era]]; slotSel = 0; }
+  desenharBarra();
+  som.oi();
+  if (modo === 'local') salvarLocal();
+}
 // sem internet: continua o mundo salvo; se ainda não tem, ou `novo` vem com as opções escolhidas, cria um
 function jogarLocal(novo = null, idadeOk = false) {
   let salvo = null;
@@ -1240,6 +1329,7 @@ function jogarLocal(novo = null, idadeOk = false) {
     opcoes: salvo ? salvo.opcoes || PADRAO_MUNDO : novo.opcoes,
     veiculos: salvo && salvo.veiculos, veiculosP: salvo && salvo.veiculosP,
     guardado: salvo ? { barra: salvo.barra } : null,
+    era: salvo ? salvo.era : null,
   });
   if (novo) salvarLocal();
   cmd.entrouLocal();
@@ -1264,7 +1354,7 @@ async function jogarOnline(m, volta = null) {
         primeiro = false;
         const s = sala; sala = null; // evita que iniciarMundo feche a sala
         tempoDia = msg.dia ?? 0.3;
-        iniciarMundo({ semente: msg.semente, edicoes: msg.edicoes, pos: (volta && volta.pos) || msg.pos, yaw: volta ? volta.yaw : 0, opcoes: msg.opcoes || m.opcoes, guardado: { barra: msg.barra } });
+        iniciarMundo({ semente: msg.semente, edicoes: msg.edicoes, pos: (volta && volta.pos) || msg.pos, yaw: volta ? volta.yaw : 0, opcoes: msg.opcoes || m.opcoes, guardado: { barra: msg.barra }, era: msg.era });
         sala = s;
         cmd.entrouOnline(msg);
         armas.entrouOnline(s);
@@ -1278,6 +1368,7 @@ async function jogarOnline(m, volta = null) {
         mundo.carregarEdicoes(msg.edicoes);
         chat.reconectou(msg);
         armas.entrouOnline(sala);
+        if (linha && msg.era) linha.receber({ e: msg.era, nov: [] });
       }
       for (const id of [...outros.keys()]) removerOutro(id);
       for (const j of msg.jogadores) adicionarOutro(j);
@@ -1285,6 +1376,7 @@ async function jogarOnline(m, volta = null) {
     },
     vnovo: (m) => garagem.mensagem(m), vassento: (m) => garagem.mensagem(m), vmov: (m) => garagem.mensagem(m),
     vfim: (m) => garagem.mensagem(m), buzina: (m) => garagem.mensagem(m), vestado: (m) => garagem.mensagem(m),
+    era: (msg) => { if (linha) linha.receber(msg); },
     entrou: (msg) => { adicionarOutro(msg.j); aviso(`${msg.j.nome} entrou no mundo`, 1800, 'acenar'); som.oi(); },
     skin: (msg) => {
       const o = outros.get(msg.id);
@@ -1587,6 +1679,7 @@ function laco(agora) {
 
   mundo.energia.noite = graf.U.uNoite.value > 0.5;
   mundo.atualizar(jog.pos.x, jog.pos.z, ehToque ? 5 : 8, jog.pos.y);
+  if (linha && !pausado) linha.atualizar(dt, mundo, jog.pos);
   if (!pausado) vigiarPlaca();
   if (jog.quicou) { jog.quicou = false; som.boing(); }
   bichos.atualizar(pausado ? 0 : dt, jog, tempoTotal, tempoDia);
@@ -1647,6 +1740,8 @@ function laco(agora) {
   const s = Math.sin(ang); // 0.25 -> 1 (meio-dia), 0.75 -> -1 (meia-noite)
   const luz = THREE.MathUtils.clamp(0.62 + s * 0.6, 0.5, 1);
   const horizonte = graf.atualizar(dt, tempoDia, jog.pos, mundo);
+  clima.atualizar(dt, jog.pos, camera);
+  if (linha) fumacasPerto();
   cena.fog.color.copy(horizonte);
   graf.ajustarNevoa(cena.fog.near, cena.fog.far, horizonte);
   const cx = camera.position.x, cz = camera.position.z;
@@ -1736,4 +1831,4 @@ camera.position.set(0, 40, 0);
 if (conta.token) abrirMundos(); else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, armas, get pausado() { return pausado; }, mecanismos, guerra }; }
+if (location.hash === '#teste') { window.__jogo = { get era() { return mundo && mundo.era; }, set era(n) { if (linha) { const a = linha.e.era; linha.e.era = n; linha.mudou([], null, a); } else { mundo.definirEra(n, jog.pos.x, jog.pos.z); bichos.trocarEra(); } }, get linha() { return linha; }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, armas, get pausado() { return pausado; }, mecanismos, guerra }; }
