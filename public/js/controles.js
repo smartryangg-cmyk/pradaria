@@ -36,6 +36,9 @@ export class Controles {
       }
       if (/^Digit[1-9]$/.test(k)) this.cb.slot(+k.slice(5) - 1);
       if (k === 'KeyE') this.cb.inventario();
+      // armas (só nos mundos com a opção): R recarrega, Q troca de arma
+      if (k === 'KeyR' && this.cb.recarregar) this.cb.recarregar();
+      if (k === 'KeyQ' && !e.repeat && this.cb.trocar) this.cb.trocar();
       if (k === 'KeyF') this.cb.alternarVoo();
       this.teclas.add(k);
     });
@@ -48,6 +51,12 @@ export class Controles {
     c.addEventListener('mousedown', (e) => {
       if (this.toque || !this.ativo) return;
       if (!this.travado) { c.requestPointerLock && c.requestPointerLock(); return; }
+      // com uma arma na mão: botão esquerdo atira, direito mira
+      if (this.cb.armado && this.cb.armado()) {
+        if (e.button === 0) this.cb.gatilho(true);
+        if (e.button === 2) this.cb.mirar(true);
+        return;
+      }
       if (e.button === 0) {
         // cada clique arranca um pedaço; segurando, continua batendo
         this.cb.quebrar(null);
@@ -56,11 +65,15 @@ export class Controles {
       }
       if (e.button === 2) this.cb.usar(null);
     });
-    addEventListener('mouseup', (e) => { if (e.button === 0) clearInterval(this.timerMouse); });
-    addEventListener('blur', () => clearInterval(this.timerMouse));
+    addEventListener('mouseup', (e) => {
+      if (e.button === 0) { clearInterval(this.timerMouse); if (this.cb.gatilho) this.cb.gatilho(false); }
+      if (e.button === 2 && this.cb.mirar) this.cb.mirar(false);
+    });
+    addEventListener('blur', () => { clearInterval(this.timerMouse); if (this.cb.gatilho) this.cb.gatilho(false); });
     c.addEventListener('contextmenu', (e) => e.preventDefault());
     document.addEventListener('pointerlockchange', () => {
       clearInterval(this.timerMouse);
+      if (this.cb.gatilho) this.cb.gatilho(false);
       this.travado = document.pointerLockElement === c;
       this.cb.travaMudou && this.cb.travaMudou(this.travado);
     });
@@ -68,10 +81,17 @@ export class Controles {
       if (!this.travado) return;
       this.girar(e.movementX * 0.0024, e.movementY * 0.0024);
     });
-    addEventListener('wheel', (e) => { if (this.travado) this.cb.rolar(Math.sign(e.deltaY)); }, { passive: true });
+    addEventListener('wheel', (e) => {
+      if (!this.travado) return;
+      if (this.cb.armado && this.cb.armado()) { const ag = performance.now(); if (ag - (this.ultimaRoda || 0) > 180 && this.cb.trocar) { this.ultimaRoda = ag; this.cb.trocar(); } return; }
+      this.cb.rolar(Math.sign(e.deltaY));
+    }, { passive: true });
   }
 
   girar(dx, dy) {
+    // mirando com zoom, a câmera gira mais devagar (dá para acertar de longe)
+    const k = this.escala || 1;
+    dx *= k; dy *= k;
     this.jog.yaw -= dx;
     this.jog.pitch = Math.max(-1.55, Math.min(1.55, this.jog.pitch - dy));
   }
@@ -172,6 +192,7 @@ export class Controles {
   segurar() {
     const o = this.olhar;
     if (!o || o.moveu) return;
+    if (this.cb.armado && this.cb.armado()) return; // com arma na mão, segurar só olha em volta
     o.quebrando = true;
     const q = () => this.olhar === o && this.cb.quebrar({ x: o.x, y: o.y });
     this.cb.mira && this.cb.mira({ x: o.x, y: o.y });

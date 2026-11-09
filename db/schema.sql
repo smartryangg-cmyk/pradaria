@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS usuarios (
   sal TEXT NOT NULL,
   cor INTEGER NOT NULL DEFAULT 0,
   criado_em INTEGER NOT NULL,
-  skin TEXT -- personagem em JSON (public/js/skin.js); bancos antigos ganham a coluna em lib/base.js
+  skin TEXT, -- personagem em JSON (public/js/skin.js); bancos antigos ganham a coluna em lib/base.js
+  idade16 INTEGER -- "Você tem 16 anos ou mais?": null = não respondeu, 1 = sim, 0 = não (modos com temas sensíveis)
 );
 CREATE TABLE IF NOT EXISTS mundos (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

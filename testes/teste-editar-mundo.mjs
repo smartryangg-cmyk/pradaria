@@ -16,7 +16,8 @@ async function pagina(tablet) {
   return p;
 }
 const toque = (p, sel) => p.tap(sel);
-const sfx = String(Date.now() % 10000);
+// letras sorteadas (nome sem 5 números seguidos e sem repetir entre testes rodados em seguida)
+const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join('');
 async function criarConta(p, nome, aperta) {
   await aperta(p, '#bt-criar-conta');
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');

@@ -15,6 +15,8 @@ await p.waitForTimeout(500);
 await p.click('#bt-sozinho');
 // primeira vez: tela de opções do mundo novo (tudo no padrão, veículos ligados)
 await p.waitForSelector('#m-novo:not([hidden])');
+await p.click('[data-opcao=mercado]'); // sem mercado: a garagem é livre (com mercado, veja teste-veiculos-logica.mjs)
+await p.click('#m-novo summary'); await p.fill('#n-semente', process.env.SEMENTE || 'estrada'); // mesmo lugar sempre
 await p.click('#m-novo button[type=submit]');
 await p.waitForTimeout(5000);
 const info = () => p.evaluate(() => {
@@ -24,6 +26,8 @@ const info = () => p.evaluate(() => {
 });
 const tipos = (process.env.TIPOS || 'carro,jipe,esportivo,quadriciclo,moto,bicicleta,skate,trator,caminhao,onibus,aviao,helicoptero').split(',');
 for (const t of tipos) {
+  // sem mercado a chave sai de graça (na garagem da vila); aqui pega direto
+  await p.evaluate((t) => window.__jogo.mercado.veiculo({ t: 'chave', tipo: t }), t);
   await p.evaluate((t) => window.__jogo.garagem.novo(t, Math.floor(Math.random() * 8)), t);
   await p.waitForTimeout(300);
   const i0 = await info();
@@ -71,7 +75,7 @@ await p.evaluate(() => {
   }
 });
 await p.waitForTimeout(1500);
-await p.evaluate(() => window.__jogo.garagem.novo('barco', 1));
+await p.evaluate(() => { window.__jogo.mercado.veiculo({ t: 'chave', tipo: 'barco' }); window.__jogo.garagem.novo('barco', 1); });
 await p.waitForTimeout(300);
 const b0 = await info();
 console.log('barco', JSON.stringify(b0));

@@ -371,6 +371,37 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 .dono-membro .bt { min-height: 40px; padding: 6px 10px; font-size: 14px; color: #c62828; }
 #c-adulto .campo.linha { font-size: 14px; }
 .sub a { color: inherit; }
+/* veículos: medidores de combustível/bateria e dano, posto, comprar e montar na garagem */
+#velo { align-items: center; }
+#velo .medidor { display: flex; align-items: center; gap: 4px; margin-left: 6px; }
+#velo .medidor[hidden] { display: none; }
+#velo .medidor .ic-svg { width: 20px; height: 20px; }
+#velo .medidor i { display: block; width: 54px; height: 10px; border-radius: 6px; background: rgba(255,255,255,.25); overflow: hidden; }
+#velo .medidor u { display: block; height: 100%; width: 100%; background: #7bd36b; text-decoration: none; transition: width .3s; }
+#velo .medidor.baixo u { background: #ff7a5c; }
+#velo .medidor.baixo { animation: pisca 1s infinite; }
+@keyframes pisca { 50% { opacity: .45; } }
+#veic-posto { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+#veic-posto[hidden], #veic-posto [hidden] { display: none; }
+.pilula.verde { background: #7bd36b; }
+.pilula .econ-m { display: inline-flex; align-items: center; gap: 2px; margin-left: 4px; }
+.pilula .econ-m .ic-svg { width: 20px; height: 20px; }
+.veiculo { position: relative; }
+.veiculo .preco { font-style: normal; font-size: 13px; font-weight: 900; display: inline-flex; align-items: center; gap: 2px; min-height: 16px; color: #6a5a3f; }
+.veiculo .preco .ic-svg { width: 15px; height: 15px; }
+.veiculo.trancado .ic { opacity: .55; filter: grayscale(.5); }
+.veiculo.sel { outline: 3px solid #f2a33a; }
+#garagem-compra { background: #fff7e3; border-radius: 14px; padding: 10px 12px; margin: 8px 0; }
+#garagem-compra .gc-topo { display: flex; align-items: center; gap: 8px; font-size: 18px; }
+#garagem-compra .gc-topo .ic-svg { width: 34px; height: 34px; }
+#garagem-compra .gc-linhas { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+#garagem-compra .bt { display: inline-flex; align-items: center; gap: 6px; justify-content: center; }
+#garagem-compra .bt .ic-svg { width: 20px; height: 20px; }
+#garagem-compra .gc-montar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+#garagem-compra .gc-rec { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+#garagem-compra .gc-item { display: inline-flex; align-items: center; gap: 3px; font-weight: 900; color: #b5523b; }
+#garagem-compra .gc-item.ok { color: #2f7d32; }
+#garagem-compra .gc-item canvas, #garagem-compra .gc-item img { width: 24px; height: 24px; }
 /* ---------- coletar e criar ---------- */
 #barra .slot .qtd, #grade button .qtd, .receita .res .qtd {
   position: absolute; right: 2px; bottom: 0; font-size: 14px; font-weight: 900; color: #fff; line-height: 1;
@@ -504,3 +535,93 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 #obra-escolha .tx { font-weight: 800; text-align: center; }
 #obra-escolha .linha-bts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
 #obra-escolha .bt { padding: 10px 12px; font-size: 15px; }
+/* ---------- armas (opção do mundo) ---------- */
+#armas-hud { position: absolute; left: max(12px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none; }
+#armas-slots { display: flex; gap: 5px; padding: 5px; border-radius: 16px; background: var(--hud-fundo); }
+#hud #armas-slots .aslot { pointer-events: auto; position: relative; min-width: 64px; height: 48px; padding: 4px 10px 4px 22px; border-radius: 12px; border: 3px solid transparent; background: rgba(255,255,255,.14); color: #fff; font-weight: 900; font-size: 13px; text-align: left; cursor: pointer; }
+#armas-slots .aslot .cor { position: absolute; left: 7px; top: 8px; bottom: 8px; width: 8px; border-radius: 4px; box-shadow: 0 0 0 2px rgba(0,0,0,.35); }
+#armas-slots .aslot.vazio { opacity: .5; padding-left: 10px; font-weight: 700; }
+#armas-slots .aslot.sel { border-color: var(--amarelo); background: rgba(255,220,110,.32); }
+#armas-slots .aslot.maos { min-width: 48px; padding: 0; display: grid; place-items: center; font-size: 26px; }
+#armas-municao { display: flex; align-items: center; gap: 6px; padding: 4px 14px; border-radius: 999px; background: var(--hud-fundo); color: #fff; font-size: 16px; font-weight: 700; }
+#armas-municao .ic-svg { width: 24px; height: 24px; }
+#am-pente { font-size: 26px; font-weight: 900; min-width: 1.4em; text-align: right; }
+#am-pente.pouca { color: #ff8a7a; }
+#armas-recarga { width: 140px; height: 10px; border-radius: 6px; background: rgba(0,0,0,.45); overflow: hidden; border: 2px solid rgba(255,255,255,.6); }
+#armas-recarga i { display: block; height: 100%; width: 0; background: var(--amarelo); }
+#am-placar-linha { display: flex; align-items: center; gap: 6px; padding: 3px 12px; border-radius: 999px; background: var(--hud-fundo); color: #fff; font-weight: 900; }
+#am-placar-linha .ic-svg { width: 22px; height: 22px; }
+@media (max-width: 1300px) { body.com-armas #armas-hud { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 76px); } }
+body.com-armas #barra[hidden] ~ #armas-hud, body.com-armas #armas-hud.sem-barra { bottom: max(12px, env(safe-area-inset-bottom)); }
+#botoes-armas { position: absolute; right: calc(max(18px, env(safe-area-inset-right)) + 104px); bottom: 108px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+body:not(.toque) #botoes-armas { display: none; }
+#bt-atirar { background: #ffe1d6; border-color: #7a2a14; box-shadow: 0 4px 0 #7a2a14; color: #7a2a14; }
+#bt-atirar.ativo { background: #ffb59c; }
+#botoes-armas .redondo.ligado { background: var(--amarelo); }
+body.com-armas:not(.armado) #bt-atirar, body.com-armas:not(.armado) #bt-mirar, body.com-armas:not(.armado) #bt-recarregar { opacity: .45; }
+@media (max-width: 640px), (max-height: 520px) {
+  #botoes-armas { bottom: 92px; right: calc(max(14px, env(safe-area-inset-right)) + 92px); gap: 8px; }
+  #botoes-armas .redondo:not(.grande) { width: 46px; height: 46px; font-size: 22px; }
+}
+/* com arma na mão: a mira aparece também no tablet e fica redondinha */
+body.toque.armado #mira { display: block; }
+body.armado #mira { width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255,255,255,.85); box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
+body.armado #mira::before { left: 11px; top: 11px; width: 4px; height: 4px; border-radius: 50%; }
+body.armado #mira::after { display: none; }
+body.mirando #mira { width: 14px; height: 14px; }
+body.mirando #mira::before { left: 4px; top: 4px; }
+#acertou { position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; transform: translate(-50%,-50%) rotate(45deg); opacity: 0; pointer-events: none; }
+#acertou::before, #acertou::after { content: ""; position: absolute; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.5); }
+#acertou::before { left: 15px; top: 0; width: 4px; height: 34px; }
+#acertou::after { top: 15px; left: 0; height: 4px; width: 34px; }
+#acertou.cabeca::before, #acertou.cabeca::after { background: #ffcb3c; }
+#acertou.vai { animation: acertou .3s ease-out; }
+@keyframes acertou { 0% { opacity: 1; } 100% { opacity: 0; } }
+#ferida { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(232,67,63,.55) 100%); }
+#ferida::after { content: ""; position: absolute; left: 50%; top: 50%; width: 0; height: 0; border-left: 16px solid transparent; border-right: 16px solid transparent; border-bottom: 26px solid rgba(232,67,63,.9); transform: translate(-50%,-50%) rotate(var(--ang, 0rad)) translateY(-120px); }
+#ferida.vai { animation: ferida .7s ease-out; }
+@keyframes ferida { 0% { opacity: 1; } 100% { opacity: 0; } }
+#luneta { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(circle at center, transparent 0, transparent min(36vh, 36vw), rgba(10,14,20,.92) calc(min(36vh, 36vw) + 2px)); }
+#luneta::before, #luneta::after { content: ""; position: absolute; background: rgba(0,0,0,.7); }
+#luneta::before { left: 50%; top: 14%; bottom: 14%; width: 2px; transform: translateX(-1px); }
+#luneta::after { top: 50%; left: 30%; right: 30%; height: 2px; transform: translateY(-1px); }
+#feed { position: absolute; right: max(10px, env(safe-area-inset-right)); top: calc(max(10px, env(safe-area-inset-top)) + 204px); display: flex; flex-direction: column; align-items: flex-end; gap: 4px; pointer-events: none; }
+.noticia { display: flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; background: var(--hud-fundo); color: #fff; font-weight: 700; font-size: 14px; animation: noticia 6s forwards; }
+.noticia.eu { background: rgba(122, 42, 20, .85); }
+.noticia .ic-svg { width: 18px; height: 18px; }
+@keyframes noticia { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
+@media (max-width: 640px), (max-height: 480px) { #feed { top: calc(max(10px, env(safe-area-inset-top)) + 160px); } .noticia { font-size: 12px; } }
+#armas-slots .aslot.maos .ic-svg { width: 28px; height: 28px; }
+
+/* ---------- pergunta "Você tem 16 anos ou mais?" (idade.js) ---------- */
+#idade { z-index: 40; }
+.idade-txt { font-size: 18px; text-align: center; margin: 8px 0 14px; }
+/* ---------- mundo de Guerra (guerra.js) ---------- */
+#procurado { position: absolute; top: calc(max(10px, env(safe-area-inset-top)) + 64px); left: 50%; transform: translateX(-50%); display: flex; gap: 4px; padding: 4px 10px; border-radius: 999px; background: var(--hud-fundo); pointer-events: none; }
+#procurado .est .ic-svg { width: 26px; height: 26px; display: block; filter: grayscale(1) brightness(.5); opacity: .45; transition: filter .2s, opacity .2s; }
+#procurado .est.cheia .ic-svg { filter: none; opacity: 1; }
+#procurado.vista .est.cheia { animation: pisca-estrela .6s infinite alternate; }
+@keyframes pisca-estrela { from { transform: scale(1); } to { transform: scale(1.18); } }
+#pena { position: absolute; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 124px); left: 50%; transform: translateX(-50%); display: grid; grid-template-columns: auto auto; align-items: center; column-gap: 8px; padding: 8px 16px; border-radius: 16px; background: rgba(40, 40, 50, .8); color: #fff; font-weight: 900; font-size: 20px; pointer-events: none; text-align: left; }
+#pena .ic-svg { width: 28px; height: 28px; grid-row: span 2; }
+#pena small { font-weight: 700; font-size: 13px; opacity: .85; }
+#veic-arma { position: absolute; left: 50%; bottom: calc(max(14px, env(safe-area-inset-bottom)) + 58px); transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; background: rgba(0,0,0,.45); color: #fff; font-weight: 900; pointer-events: none; }
+#veic-arma .ic-svg { width: 22px; height: 22px; }
+body.veic-armado #mira { display: block !important; }
+#bt-arsenal { position: absolute; left: 50%; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 130px); transform: translateX(-50%); }
+#bt-veic-atirar { position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: 120px; background: #e85d3a; }
+#bt-veic-atirar.ativo { transform: scale(.92); background: #c4421f; }
+body:not(.toque) #bt-veic-atirar { display: none; }
+#guerra-ferida { position: fixed; inset: 0; pointer-events: none; opacity: 0; box-shadow: inset 0 0 120px 40px rgba(255, 120, 60, .55); }
+#guerra-ferida.vai { animation: ferida .5s ease-out; }
+@keyframes ferida { from { opacity: 1; } to { opacity: 0; } }
+body.guerra #bt-voar { display: none; }
+#missoes .caixa { max-width: 520px; }
+#missoes-lista { display: flex; flex-direction: column; gap: 8px; max-height: 56vh; overflow-y: auto; margin-bottom: 12px; }
+.missao { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 10px; background: #fff; border-radius: 14px; padding: 8px 12px; box-shadow: 0 3px 0 #e2d6bf; text-align: left; }
+.missao .ic .ic-svg { width: 34px; height: 34px; display: block; }
+.missao .txt { display: flex; flex-direction: column; } .missao small { opacity: .7; }
+.missao .estado { font-weight: 900; } .missao .estado .ic-svg { width: 28px; height: 28px; display: block; }
+.missao.feita { background: #e7f7dc; }
+.missao.feita .txt b { text-decoration: line-through; text-decoration-thickness: 2px; }
+@media (max-width: 640px) { #procurado .est .ic-svg { width: 20px; height: 20px; } #procurado { top: calc(max(10px, env(safe-area-inset-top)) + 56px); } #pena { font-size: 16px; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 100px); } }

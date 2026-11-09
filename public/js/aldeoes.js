@@ -4,6 +4,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { caixa, juntar, matModelo } from './modelos.js';
 import { SOLIDO, AGUA, M } from './blocos.js';
 import { ANEL } from './vilas.js';
+import { ALT } from './mundo.js';
 
 const NOMES = ['Dona Cida', 'Seu Zé', 'Tia Lu', 'Juca', 'Nina', 'Vô Bento', 'Vó Lurdes', 'Tonico', 'Marieta', 'Dona Flor',
   'Seu Lima', 'Bia', 'Chico', 'Rosinha', 'Tião', 'Dona Neném', 'Pedrinho', 'Lia', 'Seu Bené', 'Iaiá', 'Dito', 'Zefa', 'Quinzinho', 'Cecília'];
@@ -110,16 +111,53 @@ export class Aldeoes {
     this.aoEntrarVila = null;
   }
 
-  // chão perto de yRef (ou de cima para baixo, se yRef for null)
-  solo(x, z, yRef) {
+  // chão perto de yRef: procura de yRef+acima até yRef-abaixo (ou o mundo todo, se yRef for null)
+  solo(x, z, yRef, acima = 2, abaixo = 6) {
     const m = this.mundo, bx = Math.floor(x), bz = Math.floor(z);
-    let y = yRef == null ? 62 : Math.floor(yRef) + 2;
-    const fim = yRef == null ? 1 : yRef - 6;
+    let y = yRef == null ? ALT - 1 : Math.floor(yRef) + acima;
+    const fim = yRef == null ? 1 : yRef - abaixo;
     for (; y > fim && y > 0; y--) {
       const b = m.bloco(bx, y - 1, bz);
       if (SOLIDO[b] || AGUA[b]) return y;
     }
     return null;
+  }
+
+  // chão para quem está na altura y: se o pé está dentro de bloco, sobe até o primeiro vão
+  // (até 3); senão desce até achar chão (até 6). Não confunde a verga da porta com o chão.
+  chaoPerto(x, z, y) {
+    const m = this.mundo, bx = Math.floor(x), bz = Math.floor(z), by = Math.floor(y + 0.01);
+    const firme = (yy) => { const b = m.bloco(bx, yy, bz); return SOLIDO[b] || AGUA[b]; };
+    if (firme(by)) { for (let k = 1; k <= 3; k++) if (!firme(by + k)) return by + k; return null; }
+    for (let yy = by; yy > by - 6 && yy > 0; yy--) if (firme(yy - 1)) return yy;
+    return null;
+  }
+
+  // o corpo (largura ~0.5) cabe em pé em (x, s, z)? O centro precisa de 2 blocos livres; as
+  // beiradas só na altura do tronco (o pé pode encostar num degrau que ele vai subir)
+  cabe(x, s, z) {
+    const m = this.mundo, y0 = Math.floor(s + 0.01);
+    if (SOLIDO[m.bloco(Math.floor(x), y0, Math.floor(z))] || SOLIDO[m.bloco(Math.floor(x), y0 + 1, Math.floor(z))]) return false;
+    for (const [ox, oz] of [[-0.25, -0.25], [0.25, -0.25], [-0.25, 0.25], [0.25, 0.25]]) {
+      if (SOLIDO[m.bloco(Math.floor(x + ox), y0 + 1, Math.floor(z + oz))]) return false;
+    }
+    return true;
+  }
+
+  // dá para o morador `a` dar um passo até (x, z)? devolve a altura do chão lá (ou null).
+  // Sobe degrau de até 2 blocos (pulando) e desce até 5 (caindo).
+  passo(a, x, z) {
+    const y = a.y, s = this.chaoPerto(x, z, y);
+    if (s == null) return null;
+    const subir = s - y;
+    if (subir > 2.05 || subir < -5) return null;
+    if (!this.cabe(x, s, z)) return null;
+    if (AGUA[this.mundo.bloco(Math.floor(x), Math.floor(s) - 1, Math.floor(z))]) return null; // não entra no poço nem no rio
+    if (subir > 0.05) { // para pular precisa de espaço em cima da cabeça
+      const m = this.mundo, bx = Math.floor(a.x), bz = Math.floor(a.z), by = Math.floor(y + 0.01);
+      for (let k = 2; k <= 1 + Math.ceil(subir - 0.05); k++) if (SOLIDO[m.bloco(bx, by + k, bz)]) return null;
+    }
+    return s;
   }
 
   // ---------- caminhos pela vila ----------
@@ -139,7 +177,7 @@ export class Aldeoes {
     }
     pts.push(this.pontoRua(v, ruaPara, tPara));
     if (para.est) { pts.push([para.est.frente[0] + 0.5, para.est.frente[1] + 0.5]); if (para.dentro) pts.push([para.est.dentro[0] + 0.5, para.est.dentro[1] + 0.5]); }
-    a.caminho = pts;
+    a.caminho = pts; a.melhorD = 1e9; a.preso = 0;
     a.no = para;
   }
 
@@ -183,10 +221,10 @@ export class Aldeoes {
       const mod = montarAldeao(r, oficio);
       const no = l.est ? { est: l.est, dentro: false } : { rua: i % v.ruas.length, t: 3 };
       const [x, z] = l.est ? [l.est.frente[0] + 0.5, l.est.frente[1] + 0.5] : this.pontoRua(v, no.rua, 3);
-      const y = this.solo(x, z, null) ?? v.y + 1;
+      const y = this.solo(x, z, (l.est ? l.est.y : v.y) + 1, 4, 10) ?? this.solo(x, z, null) ?? v.y + 1;
       const a = {
         ...mod, vila: v, casa: l.casa, oficio, nome: NOMES[Math.floor(r() * NOMES.length)],
-        x, y, z, vy: 0, dir: Math.random() * 6.28, no, caminho: [], espera: 1 + Math.random() * 4,
+        x, y, z, vy: 0, dir: Math.random() * 6.28, no, caminho: [], espera: 1 + Math.random() * 4, desvio: 0, lado: i % 2 ? 1 : -1,
         fase: Math.random() * 10, aceno: 0, falando: 0, balao: null, preso: 0, cumprimentou: 0, zzz: 2 + Math.random() * 3,
         tom: 0.85 + Math.random() * 0.5, raio: 0.35, alt: 1.85,
       };
@@ -247,6 +285,13 @@ export class Aldeoes {
     return melhor ? { aldeao: melhor, t: tm } : null;
   }
 
+  // empurra o morador na direção (ux, uz) só se lá couber (nunca para dentro de bloco)
+  empurrar(a, ux, uz, q) {
+    const nx = a.x + ux * q, nz = a.z + uz * q;
+    const s = this.passo(a, nx, nz);
+    if (s != null && Math.abs(s - a.y) < 0.5) { a.x = nx; a.z = nz; }
+  }
+
   // ---------- a cada quadro ----------
   atualizar(dt, jog, altSol) {
     const p = jog.pos;
@@ -285,26 +330,52 @@ export class Aldeoes {
       } else if (a.caminho.length) {
         const [tx, tz] = a.caminho[0];
         const ex = tx - a.x, ez = tz - a.z, d = Math.hypot(ex, ez);
-        if (d < 0.25) { a.caminho.shift(); a.preso = 0; if (!a.caminho.length) a.espera = noite ? 8 : 2 + Math.random() * 6; }
-        else {
-          andando = true;
-          a.dir = Math.atan2(ex, ez);
-          const vel = 1.35 * dt;
-          const nx = a.x + (ex / d) * Math.min(vel, d), nz = a.z + (ez / d) * Math.min(vel, d);
+        // chegou (ou o ponto está ocupado por outro morador parado ali: chega pertinho e pronto)
+        if (d < 0.25 || (d < 0.95 && this.lista.some((o) => o !== a && Math.hypot(o.x - tx, o.z - tz) < 0.6))) {
+          a.caminho.shift(); a.preso = 0; a.desvio = 0; a.melhorD = 1e9;
+          if (!a.caminho.length) a.espera = noite ? 8 : 2 + Math.random() * 6;
+        } else {
+          const vel = Math.min(1.35 * dt, d);
+          // direção: reto para o ponto, ou o desvio que achou quando algo estava no caminho
+          let ang = Math.atan2(ex, ez);
+          if (a.desvio > 0) { a.desvio -= dt; ang = a.angDesvio; }
+          let nx = a.x + Math.sin(ang) * vel, nz = a.z + Math.cos(ang) * vel;
           // porta fechada no caminho: o morador abre (e ela fecha sozinha depois)
           if (this.aoPorta) {
-            const qx = Math.floor(nx + (ex / d) * 0.4), qz = Math.floor(nz + (ez / d) * 0.4);
+            const qx = Math.floor(a.x + Math.sin(ang) * 0.6), qz = Math.floor(a.z + Math.cos(ang) * 0.6);
             for (let k = 0; k <= 1; k++) if (this.mundo.bloco(qx, Math.floor(a.y) + k, qz) === M.PORTA) this.aoPorta(qx, Math.floor(a.y) + k, qz);
           }
-          const s = this.solo(nx, nz, a.y);
-          const subir = s == null ? -99 : s - a.y;
-          const m = this.mundo;
-          const livre = s != null && subir <= 1.05 && subir > -4 && !SOLIDO[m.bloco(Math.floor(nx), Math.floor(s), Math.floor(nz))] && !SOLIDO[m.bloco(Math.floor(nx), Math.floor(s) + 1, Math.floor(nz))];
-          if (livre) { a.x = nx; a.z = nz; if (subir > 0.05 && a.vy === 0) a.vy = 6; }
-          else {
-            a.preso += dt;
-            if (a.preso > 1.5) { // algo no caminho (talvez um bloco que alguém colocou): pula para o ponto
-              a.x = tx; a.z = tz; a.y = this.solo(tx, tz, null) ?? a.y; a.vy = 0; a.preso = 0; a.caminho.shift();
+          let s = this.passo(a, nx, nz);
+          if (s == null && a.vy === 0) {
+            // bloqueado: tenta contornar pelos lados (bloco que alguém colocou, poste, quina de parede)
+            for (const g of [0.6, -0.6, 1.2, -1.2, 1.6, -1.6]) {
+              const ang2 = Math.atan2(ex, ez) + g * (a.lado || 1);
+              const qx = a.x + Math.sin(ang2) * vel, qz = a.z + Math.cos(ang2) * vel;
+              const q = this.passo(a, qx, qz);
+              if (q != null) { ang = ang2; nx = qx; nz = qz; s = q; a.angDesvio = ang2; a.desvio = 0.5; break; }
+            }
+          }
+          a.dir = ang;
+          if (s != null) {
+            andando = true;
+            const subir = s - a.y;
+            // degrau: primeiro pula, depois anda (assim não entra no bloco nem "teleporta" para cima)
+            if (subir > 0.05 && a.vy === 0) a.vy = subir > 1.05 ? 9.4 : 7.2;
+            if (subir <= 0.05 || a.y >= s - 0.05) { a.x = nx; a.z = nz; }
+          }
+          // sem avançar há um tempo (parede, barranco alto, outro morador no corredor)?
+          if (d < (a.melhorD ?? 1e9) - 0.05) { a.melhorD = d; a.preso = 0; } else a.preso += dt;
+          if (a.preso > 3) {
+            a.preso = 0; a.melhorD = 1e9; a.lado = -(a.lado || 1);
+            // ninguém olhando de perto: dá a volta "por trás" e aparece no ponto. Com o jogador
+            // perto, desiste desse caminho e escolhe outro (nada de atravessar parede na frente dele)
+            const st = dist > 24 ? this.solo(tx, tz, a.y, 4, 10) : null;
+            if (st != null && this.cabe(tx, st, tz)) { a.x = tx; a.z = tz; a.y = st; a.vy = 0; a.caminho.shift(); }
+            else {
+              // recomeça da rua mais perto do ponto onde ia (a próxima rota sai de lá)
+              const n = a.no;
+              a.no = n.est ? { rua: n.est.rua, t: n.est.t } : { rua: n.rua, t: n.t };
+              a.caminho.length = 0; a.espera = 0.5 + Math.random() * 1.5; a.desistiu = (a.desistiu || 0) + 1;
             }
           }
         }
@@ -313,9 +384,16 @@ export class Aldeoes {
         if (a.espera <= 0) { this.escolherDestino(a, noite); a.espera = 3; }
         if (noite && a.no.dentro && dist < 22) { a.zzz -= dt; if (a.zzz <= 0) { a.zzz = 3; this.emoji('sono', a.x, a.y + 2, a.z, 1.6, 0.45); } }
       }
-      // gravidade
-      const s = this.solo(a.x, a.z, a.y);
-      const piso = s == null ? a.y : s;
+      // não atravessa os outros moradores nem o jogador: um empurrãozinho para o lado
+      for (const o of this.lista) {
+        if (o === a || !o.grupo.visible || Math.abs(o.y - a.y) > 1.5) continue;
+        const ox = a.x - o.x, oz = a.z - o.z, od = Math.hypot(ox, oz);
+        if (od < 0.7) this.empurrar(a, od > 0.01 ? ox / od : Math.sin(a.fase), od > 0.01 ? oz / od : Math.cos(a.fase), (0.7 - od) * 0.5);
+      }
+      if (dist < 0.75 && Math.abs(p.y - a.y) < 1.8) this.empurrar(a, dist > 0.01 ? -dx / dist : 1, dist > 0.01 ? -dz / dist : 0, 0.75 - dist);
+      // gravidade (procura o chão bem para baixo: se cavarem embaixo dele, ele cai em vez de flutuar)
+      const s = this.solo(a.x, a.z, a.y, 2, 60);
+      const piso = s == null ? 1 : s;
       a.vy -= 20 * dt; a.y += a.vy * dt;
       if (a.y <= piso) { a.y = piso; a.vy = 0; }
 

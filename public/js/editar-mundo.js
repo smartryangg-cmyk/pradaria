@@ -3,6 +3,7 @@
 // Tipo, tamanho e gerador fazem o terreno, então aparecem travados (FIXAS_AO_CRIAR).
 import { OPCOES_MUNDO, TAMANHOS, TIPOS, ESTILOS, normalizarOpcoes, editarOpcoes, opcoesMudadas, precisaRecarregar } from './opcoes-mundo.js';
 import { icone } from './icones.js';
+import { confirmarIdade16 } from './idade.js';
 import { api } from './rede.js';
 import { montarArquivo, lerArquivo, nomeArquivo } from './arquivo-mundo.js';
 
@@ -35,7 +36,9 @@ export function desenharListaOpcoes(l, escolha, aoMudar) {
     b.querySelector('.ic').innerHTML = icone(o.icone);
     b.querySelector('b').textContent = o.nome;
     b.querySelector('small').textContent = o.desc;
-    b.addEventListener('click', () => {
+    b.addEventListener('click', async () => {
+      // Armas: só para quem respondeu que tem 16 anos ou mais (idade.js; o servidor também confere)
+      if (o.mais16 && !escolha[o.id] && !(await confirmarIdade16('A opção Armas'))) return;
       escolha[o.id] = !escolha[o.id];
       // "Animais podem machucar" só faz sentido com bichos selvagens: um liga/desliga o outro
       if (o.id === 'selvagensMachucam' && escolha.selvagensMachucam) escolha.selvagens = true;
@@ -53,7 +56,10 @@ export function marcarLista(l, escolha) {
   for (const b of l.children) {
     const id = b.dataset.opcao;
     if (sem && (id === 'selvagens' || id === 'selvagensMachucam')) escolha[id] = false;
-    b.disabled = sem && (id === 'selvagens' || id === 'selvagensMachucam');
+    // o tipo pode obrigar uma opção (Guerra: armas sempre ligadas)
+    const forca = TIPOS[escolha.tipo] && TIPOS[escolha.tipo].forca;
+    if (forca && id in forca) escolha[id] = forca[id];
+    b.disabled = (sem && (id === 'selvagens' || id === 'selvagensMachucam')) || !!(forca && id in forca);
     b.setAttribute('aria-pressed', String(!!escolha[id]));
   }
 }

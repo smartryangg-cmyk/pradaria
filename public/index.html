@@ -12,7 +12,7 @@
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icone-apple.png">
 <meta name="apple-mobile-web-app-title" content="Pradaria">
-<link rel="stylesheet" href="estilo.css?v=17">
+<link rel="stylesheet" href="estilo.css?v=19">
 </head>
 <body>
 <canvas id="tela"></canvas>
@@ -28,6 +28,7 @@
     <button id="bt-visao" class="redondo" aria-label="Câmera: ver o próprio boneco de trás ou de frente (tecla R)"><span data-icone="camera"></span></button>
     <button id="bt-mapa-ilha" class="redondo" aria-label="Mapa da ilha inteira" hidden><span data-icone="ilha"></span></button>
     <button id="bt-negocios" class="redondo" aria-label="Meus negócios: trabalhadores, obras, padaria e loja" hidden><span data-icone="amigos"></span></button>
+    <button id="bt-missoes" class="redondo" aria-label="Missões (tecla N)" hidden><span data-icone="medalha"></span></button>
     <div id="status-linha"><div id="status"></div></div>
     <div id="emotes">
       <button data-emote="acenar" aria-label="Acenar"><span data-icone="acenar"></span></button>
@@ -56,6 +57,13 @@
   </div>
   <div id="vida" role="img" hidden></div>
   <div id="folego" role="img" hidden></div>
+  <!-- mundo de Guerra (guerra.js) -->
+  <div id="procurado" role="img" hidden></div>
+  <div id="pena" hidden></div>
+  <div id="veic-arma" hidden></div>
+  <button id="bt-arsenal" class="pilula" hidden><span data-icone="mochila"></span>Pegar armas (K)</button>
+  <button id="bt-veic-atirar" class="redondo grande" aria-label="Atirar" hidden><span data-icone="mira"></span></button>
+  <div id="guerra-ferida"></div>
   <button id="minimapa" aria-label="Abrir o mapa"><canvas id="minimapa-tela"></canvas><span class="norte">N</span></button>
   <div id="aviso"></div>
   <div id="coleta" aria-live="polite"></div>
@@ -74,6 +82,23 @@
     <button id="bt-agachar" class="redondo" aria-label="Agachar (liga e desliga)"><span data-icone="agachar"></span></button>
     <button id="bt-pular" class="redondo grande" aria-label="Pular"><span data-icone="pular"></span></button>
   </div>
+  <!-- armas (opção do mundo) -->
+  <div id="armas-hud" hidden>
+    <div id="armas-slots"></div>
+    <div id="armas-municao"><span data-icone="municao"></span><b id="am-pente">-</b><span id="am-reserva"></span></div>
+    <div id="armas-recarga" hidden><i></i></div>
+    <div id="am-placar-linha" hidden><span data-icone="estrela"></span><b id="am-placar"></b></div>
+  </div>
+  <div id="botoes-armas" hidden>
+    <button id="bt-trocar" class="redondo" aria-label="Trocar de arma"><span data-icone="trocar"></span></button>
+    <button id="bt-recarregar" class="redondo" aria-label="Recarregar"><span data-icone="recarregar"></span></button>
+    <button id="bt-mirar" class="redondo" aria-label="Mirar"><span data-icone="mira"></span></button>
+    <button id="bt-atirar" class="redondo grande" aria-label="Atirar"><span data-icone="arma"></span></button>
+  </div>
+  <div id="feed" aria-live="polite"></div>
+  <div id="acertou"></div>
+  <div id="ferida"></div>
+  <div id="luneta" hidden></div>
   <div id="dica-toque">Toque: colocar bloco ou fazer carinho · Segure: quebrar</div>
   <div id="joy"><div id="joy-pino"></div></div>
 </div>
@@ -87,6 +112,16 @@
     <p id="dica-maquinas" class="sub dica-maq" hidden><span data-icone="raio"></span> Toque na <b>Alavanca</b> para ligar. A energia corre pelo <b>Fio</b> e por tudo que encosta: lâmpada, portão, ventilador (elevador!), sino e confete. O <b>Sensor de noite</b> liga sozinho quando escurece e o <b>Pisca-pisca</b> liga e desliga sem parar.</p>
     <p id="bancada-status" class="sub" hidden></p>
     <div id="grade"></div>
+    <button class="bt" data-fechar>Fechar</button>
+  </div>
+</div>
+
+<!-- missões do mundo de Guerra -->
+<div id="missoes" class="janela" hidden role="dialog" aria-labelledby="missoes-titulo">
+  <div class="caixa">
+    <h2 class="com-ic" id="missoes-titulo"><span data-icone="medalha"></span> Missões</h2>
+    <p class="sub" id="missoes-total"></p>
+    <div id="missoes-lista"></div>
     <button class="bt" data-fechar>Fechar</button>
   </div>
 </div>
@@ -365,6 +400,6 @@
 
 <div id="desmaio" hidden></div>
 <div id="fps" hidden></div>
-<script type="module" src="js/main.js?v=19"></script>
+<script type="module" src="js/main.js?v=22"></script>
 </body>
 </html>

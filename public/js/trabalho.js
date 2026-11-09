@@ -12,7 +12,7 @@
 //  - Padeiro: na padaria (construída pelo pedreiro), transforma trigo em pão (2 trigo -> 1 pão).
 //  - Lojista: na loja, vende para os moradores o que você deixou na vitrine (e leva o pão da padaria
 //    para a vitrine). O dinheiro das vendas vai para as suas moedas.
-import { PLANTAS, ESTILOS_OBRA, blocosDaObra, materiais, alturaDaPlanta, areaDaObra } from './casas.js';
+import { PLANTAS, ESTILOS_OBRA, blocosDaObra, materiais, alturaDaPlanta, areaDaObra, brutoDe } from './casas.js';
 
 export const TRIGO = 32, FARINHA = 57, PAO = 58;
 
@@ -23,6 +23,9 @@ export const OFICIOS = {
 };
 export const MAX_EQUIPE = 6;
 export const MAX_OBRAS = 3;
+// no máximo 4 obras novas por hora (cada obra mexe em centenas de blocos do mundo)
+export const MAX_OBRAS_HORA = 4, HORA_MS = 3600000;
+export const MAX_MARCAS = 20000;
 export const PRECO_MATERIAL = 3; // moedas por bloco de material que o pedreiro compra (mais que o preço de venda: não dá lucro)
 
 // horário de trabalho (horas do jogo). tempoDia 0..1: 0 = 6h, 0.25 = meio-dia, 0.5 = 18h
@@ -77,6 +80,9 @@ export function normalizarTrabalho(e, s) {
     e.obras.push(q);
   }
   e.tseq = Math.max(0, s.tseq | 0);
+  // lugares do mundo com bloco feito de coisa comprada (só sem internet; online a sala guarda)
+  e.mc = (Array.isArray(s.mc) ? s.mc : []).filter((k) => typeof k === 'string' && /^-?\d+,\d+,-?\d+$/.test(k)).slice(-MAX_MARCAS);
+  e.obrasT = (Array.isArray(s.obrasT) ? s.obrasT : []).filter((t) => Number.isFinite(t) && t > 0).slice(-MAX_OBRAS_HORA);
   e.compra = {};
   for (const [k, v] of Object.entries(s.compra && typeof s.compra === 'object' ? s.compra : {})) if (intOk(+k, 1, 1200) && v > 0) e.compra[k] = v | 0;
   if (e.itens) ajustarCompra(e);
@@ -129,7 +135,7 @@ export function obraCabe(e, o) {
 }
 
 // a ação de trabalho (economia.js chama). Devolve null se não é de trabalho; senão { erro } ou { ok, blocos?, msgs? }
-// ctx: { por(itens,id,n), tirar(itens,id,n), guardavel(id), precoLoja(id), MAX_MOEDAS, pos: [x,y,z] onde o jogador está }
+// ctx: { por(itens,id,n), tirar(itens,id,n), guardavel(id), vendivel(id), precoLoja(id), MAX_MOEDAS, pos: [x,y,z] onde o jogador está }
 const PERTO = 12;
 export const pertoDe = (pos, p) => !!(pos && p && Math.abs(pos[0] - p.x) <= PERTO && Math.abs(pos[2] - p.z) <= PERTO && Math.abs(pos[1] - p.y) <= 10);
 export function aplicarTrabalho(e, op, a, ctx) {
@@ -165,6 +171,12 @@ export function aplicarTrabalho(e, op, a, ctx) {
     if (!PLANTAS[a.p] || !ESTILOS_OBRA[a.e] || !posOk(a)) return { erro: '?' };
     if (!pertoDe(ctx.pos, a)) return { erro: 'Chegue mais perto do lugar da obra.' };
     if (e.obras.length >= MAX_OBRAS) return { erro: `Já tem ${MAX_OBRAS} obras esperando.` };
+    const agora = Number(ctx.agora) || 0;
+    e.obrasT = (e.obrasT || []).filter((t) => t > agora - HORA_MS && t <= agora);
+    if (e.obrasT.length >= MAX_OBRAS_HORA) {
+      const min = Math.ceil((e.obrasT[0] + HORA_MS - agora) / 60000);
+      return { erro: `O pedreiro já começou ${MAX_OBRAS_HORA} obras nesta hora. Espere ${min} min para marcar outra.` };
+    }
     if (PLANTAS[a.p].negocio && (e.neg[PLANTAS[a.p].negocio] || e.obras.some((o) => o.p === a.p))) return { erro: `Você já tem uma ${PLANTAS[a.p].nome.toLowerCase()}.` };
     e.tseq = (e.tseq || 0) + 1;
     const o = { id: 'o' + e.tseq, p: a.p, e: a.e, v: a.v ? 1 : 0, x: a.x, y: a.y, z: a.z, r: a.r, i: 0 };
@@ -178,11 +190,18 @@ export function aplicarTrabalho(e, op, a, ctx) {
       if (falta.length && !a.comprar) return { erro: 'Faltam materiais para essa obra.', falta, custo };
       if (custo > e.moedas) return { erro: `Faltam ${custo - e.moedas} moedas para comprar o material.`, falta, custo };
       e.moedas -= custo;
-      for (const [id, n] of Object.entries(mats)) ctx.tirar(e.itens, +id, Math.min(n, e.itens[id] || 0));
+      // o.cmp: quanto de cada material é comprado (o que o pedreiro comprou agora + o comprado que estava na mochila)
+      const cmp = Object.fromEntries(falta);
+      for (const [id, n] of Object.entries(mats)) {
+        const tira = Math.min(n, e.itens[id] || 0), comprado = Math.max(0, tira - livreDe(e, +id));
+        if (comprado) { cmp[id] = (cmp[id] || 0) + comprado; e.compra[id] -= comprado; }
+        ctx.tirar(e.itens, +id, tira);
+      }
       o.pago = custo;
-      if (falta.length) o.cmp = Object.fromEntries(falta);
+      if (Object.keys(cmp).length) o.cmp = cmp;
     }
     e.obras.push(o);
+    if (agora) e.obrasT.push(agora);
     const tem = e.equipe.some((x) => x.of === 'pedreiro');
     return { ok: true, msgs: [tem ? `Obra marcada: ${PLANTAS[a.p].nome}. O pedreiro já vai começar!` : `Obra marcada: ${PLANTAS[a.p].nome}. Contrate um pedreiro para construir.`] };
   }
@@ -222,6 +241,7 @@ export function aplicarTrabalho(e, op, a, ctx) {
     } else {
       if (!ctx.guardavel(b)) return { erro: '?' };
       if (t === 'depositar') {
+        if (ctx.vendivel && !ctx.vendivel(b)) return { erro: 'Formas não vão para a vitrine: elas são para construir.' };
         const m = Math.min(n, livreDe(e, b), MAX_ESTOQUE - (N.vitrine[b] || 0));
         if (m <= 0) return { erro: e.itens[b] ? 'Revender o que você comprou não vale: a vitrine é para o que você colheu ou fez.' : 'Você não tem isso na mochila.' };
         ctx.tirar(e.itens, b, m); N.vitrine[b] = (N.vitrine[b] || 0) + m;
@@ -239,7 +259,7 @@ export function aplicarTrabalho(e, op, a, ctx) {
   const dt = Math.max(0, Math.min(MAX_TURNO, Number(a.dt) || 0));
   if (!e.equipe.length || !dt) return { ok: true, quieto: true };
   if (!noHorario(Number(a.hora))) return { ok: true, quieto: true };
-  const r = { ok: true, blocos: [], msgs: [], vendas: 0, paes: 0 };
+  const r = { ok: true, blocos: [], marcar: [], msgs: [], vendas: 0, paes: 0 };
   const N = e.neg;
   for (const x of [...e.equipe]) {
     // salário: vai sendo cobrado por tempo trabalhado
@@ -263,6 +283,12 @@ export function aplicarTrabalho(e, op, a, ctx) {
       while (o.i < lista.length && (x.t >= SEG_POR_BLOCO || !lista[o.i][3])) {
         const c = lista[o.i++];
         r.blocos.push(c);
+        // bloco feito com material comprado: fica marcado no mundo (quebrar devolve marcado)
+        if (c[3] && o.cmp) {
+          let usou = false;
+          for (const [id, n] of brutoDe(c[3])) if (o.cmp[id] > 0) { usou = true; o.cmp[id] = Math.max(0, o.cmp[id] - n); }
+          if (usou) r.marcar.push(c[0] + ',' + c[1] + ',' + c[2]);
+        }
         if (c[3]) { x.t -= SEG_POR_BLOCO; x.feito++; }
       }
       if (o.i >= lista.length) {

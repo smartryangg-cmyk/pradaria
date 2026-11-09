@@ -7,7 +7,7 @@ import { montarAldeao, balao } from './aldeoes.js';
 import { SOLIDO, AGUA, PLANTA, FOLHAGEM, B } from './blocos.js';
 import { PLANTAS, ESTILOS_OBRA, DIRS, blocosDaObra, noMundo, areaDaObra, alturaDaPlanta, materiais, desenhar } from './casas.js';
 import { OFICIOS, HORA_INI, HORA_FIM, horaDe, noHorario, situacao, faltaPara, obraCabe, pertoDe, TRIGO, FARINHA, PAO, TRIGO_POR_PAO, PRECO_MATERIAL, MAX_OBRAS, livreDe } from './trabalho.js';
-import { precoLoja } from './economia.js';
+import { precoLoja, vendivel } from './economia.js';
 import { rngSemente } from './ruido.js';
 
 const $ = (s) => document.querySelector(s);
@@ -398,7 +398,7 @@ export class Negocios {
     c.appendChild(elIc('h3', 'com-ic', 'mochila', 'Pôr à venda (da mochila)'));
     const moc = el('div', 'econ-lista');
     // só o que você colheu ou fez (o comprado na loja da vila não dá para revender)
-    const itens = Object.keys(e.itens).map((k) => [k, livreDe(e, +k)]).filter(([k, n]) => n > 0 && +k < 1000);
+    const itens = Object.keys(e.itens).map((k) => [k, livreDe(e, +k)]).filter(([k, n]) => n > 0 && +k < 1000 && vendivel(+k));
     if (!itens.length) moc.appendChild(el('div', 'vazio', Object.keys(e.compra || {}).length ? 'Só tem coisa comprada na mochila. Revender não vale: colha ou faça coisas para pôr à venda.' : 'Sua mochila está vazia.'));
     for (const [k, n] of itens) {
       const d = el('span', 'econ-dir');

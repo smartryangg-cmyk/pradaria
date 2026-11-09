@@ -1,8 +1,8 @@
 // Mercado (moedas, loja dos aldeões, presentes) e objetivos: a parte da tela.
 // As regras ficam em economia.js. Online quem decide é a sala (servidor); sem internet, o próprio aparelho.
 import { icone, comIcone } from './icones.js';
-import { opcoesEcon, econLigada, estadoNovo, normalizar, aplicar, liberado, LOJA, LOTE_LOJA, precoVenda, objetivosDoMundo, objetivosAtivos, OBJETIVOS } from './economia.js';
-import { OFICIOS, HORA_INI, HORA_FIM, livreDe } from './trabalho.js';
+import { opcoesEcon, econLigada, estadoNovo, normalizar, aplicar, liberado, LOJA, LOTE_LOJA, precoVenda, vendivel, objetivosDoMundo, objetivosAtivos, OBJETIVOS } from './economia.js';
+import { OFICIOS, HORA_INI, HORA_FIM, livreDe, MAX_MARCAS } from './trabalho.js';
 
 const $ = (s) => document.querySelector(s);
 const CHAVE_LOCAL = 'pradaria.econ';
@@ -57,13 +57,26 @@ export class Mercado {
     if (this.sala) { this.sala.enviar(acao); return; }
     const antes = this.e;
     const copia = JSON.parse(JSON.stringify(antes));
-    const r = aplicar(this.e, this.op, acao, { pos: this.ui.pos ? this.ui.pos() : null });
+    // sem internet, os lugares com bloco feito de coisa comprada ficam em e.mc (online quem guarda é a sala)
+    let k = null;
+    if (acao.t === 'bloco') {
+      k = acao.x + ',' + acao.y + ',' + acao.z;
+      const i = this.e.mc.indexOf(k);
+      if (i >= 0) { this.e.mc.splice(i, 1); if (!acao.b) acao = { ...acao, comprado: true }; }
+    }
+    const r = aplicar(this.e, this.op, acao, { pos: this.ui.pos ? this.ui.pos() : null, agora: Date.now() });
     if (!r.ok) { if (!quieto) this.ui.aviso(r.erro, 2200, 'moeda'); this.ui.erro && this.ui.erro(r); return; }
-    if (!r.mudou) return;
+    if (k && r.marca) this.marcar([k]);
+    if (r.marcar && r.marcar.length) this.marcar(r.marcar);
+    if (!r.mudou) { if (k) this.salvarLocal(); return; }
     // o pedreiro colocou blocos (sem internet quem põe no mundo é o próprio jogo)
     if (r.blocos && r.blocos.length && this.ui.porBlocos) this.ui.porBlocos(r.blocos);
     this.salvarLocal();
     this.recebeu(this.e, r.feitos, null, r, copia);
+  }
+  marcar(l) {
+    for (const k of l) if (!this.e.mc.includes(k)) this.e.mc.push(k);
+    if (this.e.mc.length > MAX_MARCAS) this.e.mc.splice(0, this.e.mc.length - MAX_MARCAS);
   }
   // os trabalhadores contam o tempo: online a sala mede sozinha; sem internet manda quanto passou
   turno(dt, hora) {
@@ -123,8 +136,33 @@ export class Mercado {
     if (!$('#loja').hidden) this.desenharLoja();
     if (!$('#mochila').hidden) this.desenharMochila();
     if (!$('#objetivos').hidden) this.desenharObjetivos();
+    if (this.ui.mudou) this.ui.mudou();
   }
   erro(msg, r) { this.ui.aviso(msg, 2200, 'moeda'); if (r && this.ui.erro) this.ui.erro(r); }
+
+  // ---------- veículos (garagem.js) ----------
+  // chave, compra ou montagem de veículo: vale mesmo com mercado e missões desligados (sem mercado a chave é de graça)
+  veiculo(acao) {
+    if (this.sala) { this.sala.enviar(acao); return; }
+    const r = aplicar(this.e, this.op, acao);
+    if (!r.ok) { this.ui.aviso(r.erro, 2400, 'chave'); return; }
+    this.salvarLocal();
+    this.recebeu(this.e, r.feitos);
+  }
+  // guardou um veículo (sem internet; online a sala anota sozinha)
+  guardarVeiculo(tipo, s) {
+    if (this.sala) return;
+    aplicar(this.e, this.op, { t: 'garagem', tipo, s, agora: Date.now() });
+    this.salvarLocal();
+  }
+  // abastecer/consertar no posto sem internet: devolve true se deu (com o mercado ligado, paga em moedas)
+  servico(k, falta) {
+    const r = aplicar(this.e, this.op, { t: 'servico', k, falta });
+    if (!r.ok) { this.ui.aviso(r.erro + ' Venda coisas na loja da vila!', 2600, 'moeda'); return false; }
+    this.salvarLocal();
+    if (this.op.mercado) { this.pulsar(); this.atualizarHud(); }
+    return true;
+  }
 
   // ---------- tela ----------
   montarTela() {
@@ -224,7 +262,7 @@ export class Mercado {
     const lista = el('div', 'econ-lista');
     if (this.abaLoja === 'vender') {
       // o que você comprou aqui os moradores não compram de volta
-      const itens = Object.keys(this.e.itens).map((k) => [k, livreDe(this.e, +k)]).filter(([, n]) => n > 0);
+      const itens = Object.keys(this.e.itens).map((k) => [k, livreDe(this.e, +k)]).filter(([k, n]) => n > 0 && vendivel(+k));
       if (!itens.length) lista.appendChild(el('div', 'vazio', 'Nada para vender. Quebre blocos pelo mundo (terra, troncos, flores…) e traga aqui! O que você comprou na loja os moradores não compram de volta.'));
       for (const [k, n] of itens) {
         const b = +k, p = precoVenda(b);
@@ -291,7 +329,7 @@ export class Mercado {
     const lista = el('div', 'econ-lista');
     const itens = Object.entries(this.e.itens).filter(([, n]) => n > 0);
     if (!itens.length) lista.appendChild(el('div', 'vazio', 'Nada coletado ainda. Quebre blocos pelo mundo!'));
-    for (const [k, n] of itens) { const d = el('small', 'econ-dir'); d.innerHTML = moedaHtml(precoVenda(+k)) + ' cada'; lista.appendChild(this.linhaItem(+k, n, d)); }
+    for (const [k, n] of itens) { const d = el('small', 'econ-dir'); d.innerHTML = vendivel(+k) ? moedaHtml(precoVenda(+k)) + ' cada' : 'para construir'; lista.appendChild(this.linhaItem(+k, n, d)); }
     w.corpo.appendChild(lista);
     if (this.sala) {
       const amigos = this.ui.outros();
