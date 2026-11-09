@@ -6,6 +6,7 @@
 #      bash testes/rodar-todos.sh agua mapa   (só os que têm esses nomes)
 cd "$(dirname "$0")/.."
 export PORTA="${PORTA:-8788}" BASE="${BASE:-http://localhost:8788}" SAIDA="${SAIDA:-$(mktemp -d)}"
+mkdir -p "$SAIDA"
 falhas=()
 for f in testes/teste-*.mjs; do
   n=$(basename "$f" .mjs)
