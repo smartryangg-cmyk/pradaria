@@ -119,7 +119,7 @@ export const LOTE_LOJA = 4;
 
 export function estadoNovo(op) {
   // equipe/neg/obras: trabalhadores contratados, padaria e loja do jogador, obras do pedreiro (trabalho.js)
-  return { moedas: op && op.mercado ? 10 : 0, estrelas: 0, itens: {}, comprados: [], cont: {}, feitos: [], equipe: [], neg: negocioNovo(), obras: [], tseq: 0, compra: {}, veiculos: [], garagem: {} };
+  return { moedas: op && op.mercado ? 10 : 0, estrelas: 0, itens: {}, comprados: [], cont: {}, feitos: [], equipe: [], neg: negocioNovo(), obras: [], tseq: 0, compra: {}, mc: [], obrasT: [], veiculos: [], garagem: {} };
 }
 
 // confere/repara um estado salvo (vindo do armazenamento)
@@ -181,11 +181,11 @@ export function aplicar(e, op, a, ctx = {}) {
   const r = { ok: true, feitos: [], mudou: false };
   const falha = (erro) => ({ ok: false, erro, feitos: [], mudou: false });
   if (!a || typeof a !== 'object') return falha('?');
-  const tr = aplicarTrabalho(e, op, a, { por, tirar, guardavel, vendivel, precoLoja, MAX_MOEDAS, pos: ctx.pos });
+  const tr = aplicarTrabalho(e, op, a, { por, tirar, guardavel, vendivel, precoLoja, MAX_MOEDAS, pos: ctx.pos, agora: ctx.agora });
   if (tr) {
     if (tr.erro) return { ...falha(tr.erro), falta: tr.falta, custo: tr.custo };
     ajustarCompra(e);
-    return { ok: true, feitos: [], mudou: !tr.quieto, blocos: tr.blocos || [], msgs: tr.msgs || [], vendas: tr.vendas || 0, paes: tr.paes || 0 };
+    return { ok: true, feitos: [], mudou: !tr.quieto, blocos: tr.blocos || [], marcar: tr.marcar || [], msgs: tr.msgs || [], vendas: tr.vendas || 0, paes: tr.paes || 0 };
   }
   if (a.t === 'ev') {
     const max = EVENTOS[a.e];
@@ -199,8 +199,15 @@ export function aplicar(e, op, a, ctx = {}) {
   } else if (a.t === 'bloco') {
     // coletar e criar: colocar gasta da mochila; quebrar guarda o que cai
     if (op.sobrevivencia) {
-      if (a.b > 0 && lugarVazio(a.de)) { if (!tirar(e.itens, gastoDe(a.b), 1)) return falha('Você não tem esse bloco.'); }
-      else if (!a.b) for (const [id, n] of oQueCai(a.de, a.x, a.y, a.z)) por(e.itens, id, n);
+      if (a.b > 0 && lugarVazio(a.de)) {
+        // colocou coisa comprada: o lugar fica marcado (quem chamou guarda: a sala para o mundo todo)
+        const g = gastoDe(a.b), comprado = livreDe(e, g) < 1;
+        if (!tirar(e.itens, g, 1)) return falha('Você não tem esse bloco.');
+        if (comprado) { e.compra[g] = Math.max(0, (e.compra[g] || 0) - 1); r.marca = 1; }
+      } else if (!a.b) {
+        // quebrou: o que cai de um bloco que era comprado continua marcado (senão colocar e quebrar "lavava" a marca)
+        for (const [id, n] of oQueCai(a.de, a.x, a.y, a.z)) { por(e.itens, id, n); if (a.comprado) marcarCompra(e, id, n); }
+      }
     }
     if (a.b > 0) {
       r.feitos.push(...contar(e, op, 'colocar', 1));
