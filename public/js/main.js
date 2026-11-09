@@ -11,7 +11,7 @@ import { Bichos } from './animais.js';
 import { Aldeoes } from './aldeoes.js';
 import { Garagem } from './garagem.js';
 import { Som } from './som.js';
-import { montarBoneco, vestirBoneco, etiqueta, matModelo, caixa, juntar, animarBoneco } from './modelos.js';
+import { montarBoneco, vestirBoneco, etiqueta, matModelo, caixa, juntar, animarBoneco, poseNeutra } from './modelos.js';
 import { normalizarSkin, skinDeCor, skinIgual, CORES_ROUPA } from './skin.js';
 import { Personagem } from './personagem.js';
 import { Visao } from './visao.js';
@@ -781,6 +781,8 @@ function alternarVoo() {
   jog.vel.y = jog.voando ? 2 : 0;
   $('#bt-voar').classList.toggle('ligado', jog.voando);
   $('#bt-descer').hidden = !jog.voando;
+  if (jog.voando && ctrl) ctrl.soltarAgachar();
+  $('#bt-agachar').hidden = jog.voando;
   aviso(jog.voando ? 'Voando!' : 'Andando', 900, jog.voando ? 'voar' : null);
 }
 
@@ -1000,8 +1002,26 @@ function adicionarOutro(j) {
   const p = j.p || [0, 60, 0];
   b.grupo.position.set(p[0], p[1], p[2]);
   cena.add(b.grupo);
-  outros.set(j.id, { ...b, nome: j.nome, corCss: '#' + CORES_ROUPA[b.skin.corRoupa].toString(16).padStart(6, '0'), alvo: new THREE.Vector3(...p), yaw: 0, alvoYaw: (j.r && j.r[0]) || 0, fase: 0 });
+  outros.set(j.id, { ...b, nome: j.nome, corCss: '#' + CORES_ROUPA[b.skin.corRoupa].toString(16).padStart(6, '0'), alvo: new THREE.Vector3(...p), yaw: 0, alvoYaw: (j.r && j.r[0]) || 0, yawOlhar: (j.r && j.r[0]) || 0, vRede: new THREE.Vector3(), vAnim: new THREE.Vector3(), vTmp: new THREE.Vector3() });
 }
+
+// posição de um amigo (vem da sala ~8x por segundo)
+function recebeuPos(msg) {
+  const o = outros.get(msg.id);
+  if (!o) return;
+  // velocidade do amigo pelas posições recebidas (anima os passos na velocidade real)
+  const agora = performance.now(), dtp = (agora - (o.tPos || 0)) / 1000;
+  if (dtp > 0.04 && dtp < 2.5) { // (aparelho lento manda devagar: ainda vale)
+    const vx = (msg.p[0] - o.alvo.x) / dtp, vy = (msg.p[1] - o.alvo.y) / dtp, vz = (msg.p[2] - o.alvo.z) / dtp;
+    if (Math.hypot(vx, vy, vz) < 30) { o.vRede.x += (vx - o.vRede.x) * 0.6; o.vRede.y += (vy - o.vRede.y) * 0.6; o.vRede.z += (vz - o.vRede.z) * 0.6; }
+    else o.vRede.set(0, 0, 0); // teleporte
+  } else if (dtp >= 2.5) o.vRede.set(0, 0, 0);
+  o.tPos = agora;
+  o.alvo.set(msg.p[0], msg.p[1], msg.p[2]);
+  o.alvoYaw = msg.r[0]; o.alvoPitch = msg.r[1]; o.acao = msg.a | 0;
+  if (o.acao & 48) o.flagsNovas = true;
+}
+
 function removerOutro(id) {
   const o = outros.get(id);
   if (!o) return;
@@ -1147,7 +1167,8 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   som.ligado = ajustes.som;
   ajustarNevoa();
   desenharBarra();
-  $('#bt-voar').classList.remove('ligado'); $('#bt-descer').hidden = true;
+  $('#bt-voar').classList.remove('ligado'); $('#bt-descer').hidden = true; $('#bt-agachar').hidden = false;
+  ctrl.soltarAgachar();
   // pré-carrega o pedaço onde o jogador está
   mundo.atualizar(jog.pos.x, jog.pos.z, 400);
   $('#menu').hidden = true;
@@ -1227,16 +1248,10 @@ async function jogarOnline(m, volta = null) {
       vestirBoneco(o, msg.s);
       o.corCss = '#' + CORES_ROUPA[o.skin.corRoupa].toString(16).padStart(6, '0');
     },
-    saiu: (msg) => { const o = outros.get(msg.id); if (o) aviso(`${o.nome} saiu`); removerOutro(msg.id); },
     saiu: (msg) => { const o = outros.get(msg.id); if (o) aviso(`${o.nome} saiu`); chat.jogadorSaiu(msg.id); removerOutro(msg.id); },
     chat: (msg) => chat.recebeu(msg), 'chat-erro': (msg) => chat.erro(msg), 'chat-op': (msg) => chat.aplicarOp(msg),
     voz: (msg) => chat.mensagemVoz(msg), 'voz-lista': (msg) => chat.mensagemVoz(msg), 'voz-sinal': (msg) => chat.mensagemVoz(msg), 'voz-fala': (msg) => chat.mensagemVoz(msg),
-    pos: (msg) => {
-      const o = outros.get(msg.id);
-      if (!o) return;
-      o.alvo.set(msg.p[0], msg.p[1], msg.p[2]);
-      o.alvoYaw = msg.r[0]; o.alvoPitch = msg.r[1]; o.acao = msg.a | 0;
-    },
+    pos: recebeuPos,
     bloco: (msg) => { if (mundo) mundo.definir(msg.x, msg.y, msg.z, msg.b, true); },
     blocos: (msg) => { if (Array.isArray(msg.l)) porBlocosObra(msg.l, true); },
     emote: (msg) => {
@@ -1499,8 +1514,8 @@ function laco(agora) {
     }
   }
   const dirigindo = garagem.camera(camera);
-  if (!visao.quadro(dt, jog, camera, mundo, meuSkin, dirigindo) && !dirigindo) {
-    camera.position.set(jog.pos.x, jog.pos.y + jog.alturaOlhos + jog.olhosY, jog.pos.z); // olhos (mais baixos agachado) + degrau suave e baque da queda
+  if (!visao.quadro(dt, jog, camera, mundo, meuSkin, dirigindo, ctrl.estado) && !dirigindo) {
+    camera.position.set(jog.pos.x, jog.pos.y + (jog.alturaOlhos ?? OLHOS) + (jog.olhosY ?? 0), jog.pos.z); // olhos (mais baixos agachado) + degrau suave e baque da queda
     camera.rotation.set(jog.pitch, jog.yaw, 0, 'YXZ');
   }
 
@@ -1543,18 +1558,32 @@ function laco(agora) {
 
   // outros jogadores (interpolação suave)
   for (const o of outros.values()) {
-    if (o.sentado) continue; // sentado num veículo: anda junto com ele
+    // sentado num veículo: anda junto com ele (e sai da pose de andar/agachar)
+    if (o.sentado) { if (!o.neutro) { poseNeutra(o); o.neutro = true; } continue; }
+    o.neutro = false;
     const g = o.grupo.position;
-    const dx = o.alvo.x - g.x, dz = o.alvo.z - g.z;
-    const andando = Math.hypot(dx, dz) > 0.05;
     g.lerp(o.alvo, Math.min(1, dt * 10));
-    // a frente do boneco é +z e a câmera olha para -z: meio giro para ele olhar para onde o amigo olha
-    let d = ((o.alvoYaw + Math.PI - o.grupo.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-    o.grupo.rotation.y += d * Math.min(1, dt * 10);
-    const acao = o.acao | 0; // 1 = batendo, 2 = voando, 4 = na água, 8 = no ar (pulando/caindo)
+    // para onde o amigo olha (suave entre uma mensagem e outra); o corpo vira sozinho na animação
+    o.yawOlhar += (((o.alvoYaw - o.yawOlhar + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * Math.min(1, dt * 10);
+    // parou de chegar posição (aba escondida, rede caiu): para de andar
+    if (performance.now() - (o.tPos || 0) > 1500) o.vRede.set(0, 0, 0);
+    // ainda chegando no lugar (mensagens atrasadas): anda na velocidade com que o boneco se move na tela
+    const fx = o.alvo.x - g.x, fz = o.alvo.z - g.z;
+    if (o.vRede.x * o.vRede.x + o.vRede.z * o.vRede.z < 0.25 && fx * fx + fz * fz > 0.09) o.vTmp.set(fx * 10, o.vRede.y, fz * 10).clampLength(0, 9);
+    else o.vTmp.copy(o.vRede);
+    o.vAnim.lerp(o.vTmp, Math.min(1, dt * 8));
+    // 1 = batendo, 2 = voando, 4 = na água, 8 = no ar, 16 = correndo, 32 = agachado (versões antigas só mandam até 8)
+    const acao = o.acao | 0;
     if (acao & 1 && (o.golpe ?? 1) >= 1) o.golpe = 0;
     if ((o.golpe ?? 1) < 1) o.golpe = Math.min(1, o.golpe + dt / 0.3);
-    animarBoneco(o, { anda: andando ? 0.8 : 0, noAr: !!(acao & 8), voando: !!(acao & 2), nadando: !!(acao & 4) && andando, golpe: o.golpe ?? 1, pitch: o.alvoPitch || 0 }, dt);
+    const v = o.vAnim, noChao = !(acao & 14);
+    animarBoneco(o, {
+      vx: v.x, vz: v.z, vy: v.y, y: g.y, yaw: o.yawOlhar, pitch: o.alvoPitch || 0,
+      noChao, voando: !!(acao & 2), naAgua: !!(acao & 4),
+      // versão antiga não manda "correndo": deduz pela velocidade (só de quem nunca mandou as flags novas)
+      correndo: !!(acao & 16) || (!o.flagsNovas && noChao && Math.hypot(v.x, v.z) > 6), agachado: !!(acao & 32),
+      golpe: o.golpe ?? 1,
+    }, dt);
   }
 
   // ciclo de dia e noite (a noite é clarinha: nada de medo!)
@@ -1575,7 +1604,7 @@ function laco(agora) {
   // rede: posição ~8x por segundo
   if (sala) {
     acumPos += dt;
-    if (acumPos > 0.125) { acumPos = 0; sala.enviar({ t: 'pos', p: [+jog.pos.x.toFixed(2), +jog.pos.y.toFixed(2), +jog.pos.z.toFixed(2)], r: [+jog.yaw.toFixed(2), +jog.pitch.toFixed(2)], a: (visao.batendo ? 1 : 0) | (jog.voando ? 2 : 0) | (jog.naAgua ? 4 : 0) | (!jog.noChao && !jog.voando && !jog.naAgua ? 8 : 0) }); }
+    if (acumPos > 0.125) { acumPos = 0; sala.enviar({ t: 'pos', p: [+jog.pos.x.toFixed(2), +jog.pos.y.toFixed(2), +jog.pos.z.toFixed(2)], r: [+jog.yaw.toFixed(2), +jog.pitch.toFixed(2)], a: (visao.batendo ? 1 : 0) | (jog.voando ? 2 : 0) | (jog.naAgua ? 4 : 0) | (!jog.noChao && !jog.voando && !jog.naAgua ? 8 : 0) | (visao.correndo ? 16 : 0) | (visao.agachado ? 32 : 0) }); }
   }
   // salvamento local a cada 5s
   salvarLocalTimer += dt;
@@ -1648,4 +1677,4 @@ camera.position.set(0, 40, 0);
 if (conta.token) abrirMundos(); else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos }; }
+if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos }; }
