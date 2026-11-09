@@ -20,10 +20,10 @@ export const IDS = {
   // mecanismos das construções (blocos-mecanismos.js)
   PORTA: 47, CATAVENTO: 49, MO: 51, CABO: 53, FORNO: 55, FARINHA: 57, PAO: 58, SARILHO: 59,
   // itens (não são blocos)
-  GRAVETO: 1000, PICARETA_MADEIRA: 1001, PICARETA_PEDRA: 1002, MACHADO_MADEIRA: 1003, MACHADO_PEDRA: 1004, PA_MADEIRA: 1005, PA_PEDRA: 1006,
+  GRAVETO: 1000, PICARETA_MADEIRA: 1001, PICARETA_PEDRA: 1002, MACHADO_MADEIRA: 1003, MACHADO_PEDRA: 1004, PA_MADEIRA: 1005, PA_PEDRA: 1006, CARNE: 1007, COURO: 1008,
 };
 const I = IDS;
-export const ULTIMO_ITEM = 1006;
+export const ULTIMO_ITEM = 1008;
 export const MAX_BLOCO = 255;
 
 // pode ficar guardado na mochila: blocos (menos as águas correntes) e os itens conhecidos
