@@ -3,6 +3,7 @@
 //    e morde, matilha de lobos vem junto, cachorro não se machuca, bicho derrubado tomba e cai carne/lã na mochila.
 //  - online com dois jogadores: computador (clique esquerdo bate, direito faz carinho) e tablet no mesmo mundo;
 //    a sala confere e põe o que caiu na mochila de cada um.
+// SO_ONLINE=1 roda só a parte online; SEM_ONLINE=1 só a do tablet sem internet.
 // Precisa de `npm run dev:sala` e `npm run dev` rodando (porta 8788).  SAIDA=pasta para as fotos.
 import { createRequire } from 'module'; const { chromium, devices } = createRequire(import.meta.url)('playwright');
 const BASE = process.env.BASE || 'http://localhost:8788';
@@ -166,7 +167,8 @@ if (!process.env.SO_ONLINE) {
 }
 
 // ================= ONLINE: computador (dono) e tablet (amigo) no mesmo mundo =================
-{
+// SEM_ONLINE=1 pula esta parte (no site publicado, para não criar contas de teste de verdade)
+if (!process.env.SEM_ONLINE) {
   const sfx = [...String(Date.now() % 1e6)].map((d) => 'abcdefghij'[d]).join(''); // nome sem números (o filtro acha que é telefone)
   const { ctx: cA, p: A } = await abrir({ viewport: { width: 1280, height: 760 } }, 'pc');
   const { ctx: cB, p: B } = await abrir({ ...devices['Galaxy Tab S4'] }, 'tablet2');
