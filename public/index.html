@@ -35,6 +35,24 @@
       <button data-emote="estrela" aria-label="Estrela"><span data-icone="estrela"></span></button>
     </div>
   </div>
+  <div id="conversa" hidden>
+    <div id="conversa-botoes">
+      <div class="linha-conv">
+        <button id="bt-mudo" class="redondo" aria-label="Mudo: não ouvir ninguém" hidden><span data-icone="altofalante"></span></button>
+        <button id="bt-voz" class="redondo" aria-label="Entrar no chat de voz"><span data-icone="microfoneoff"></span></button>
+        <button id="bt-chat" class="redondo" aria-label="Chat de texto (tecla T ou Enter)"><span data-icone="balao"></span></button>
+      </div>
+      <button id="bt-falar" class="redondo grande" aria-label="Segure para falar (tecla B)" hidden><span data-icone="microfone"></span><small>Segure</small></button>
+      <div id="voz-gente" hidden></div>
+    </div>
+    <div id="chat-log" aria-live="polite"></div>
+    <form id="chat-caixa" hidden autocomplete="off">
+      <input id="chat-txt" type="text" maxlength="100" placeholder="Escreva para os amigos..." enterkeyhint="send" aria-label="Mensagem">
+      <button class="bt verde" type="submit">Enviar</button>
+      <button class="bt" type="button" id="chat-fechar">Fechar</button>
+      <p id="chat-erro" class="sub"></p>
+    </form>
+  </div>
   <div id="vida" role="img" hidden></div>
   <button id="minimapa" aria-label="Abrir o mapa"><canvas id="minimapa-tela"></canvas><span class="norte">N</span></button>
   <div id="aviso"></div>
@@ -151,6 +169,11 @@
       <div id="dono-membros"></div>
       <button class="bt" type="button" id="dono-trocar">Trocar o código</button>
     </details>
+    <div id="pausa-chat" class="caixinha" hidden>
+      <p class="sub"><b>Conversa no meu mundo</b> (vale na hora para todos)</p>
+      <label class="campo linha"><input id="dono-chat-texto" type="checkbox"> Chat de texto (com filtro de palavrões)</label>
+      <label class="campo linha"><input id="dono-chat-voz" type="checkbox"> Chat de voz (segurar para falar)</label>
+    </div>
     <label class="campo">Gráficos
       <select id="aj-graf">
         <option value="auto">Automático (o melhor que este aparelho aguenta)</option>

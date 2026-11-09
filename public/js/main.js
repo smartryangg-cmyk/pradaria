@@ -14,6 +14,7 @@ import { montarBoneco, vestirBoneco, etiqueta, matModelo, caixa, juntar, animarB
 import { normalizarSkin, skinDeCor, skinIgual, CORES_ROUPA } from './skin.js';
 import { Personagem } from './personagem.js';
 import { Visao } from './visao.js';
+import { Chat } from './chat.js';
 import { conta, api, Sala } from './rede.js';
 import { criarGraficos, QUALIDADES, PESSOAIS } from './graficos.js';
 import { MapaIlha } from './mapa-ilha.js';
@@ -261,6 +262,23 @@ const mecanismos = new Mecanismos(cena, {
   emoji: (...a) => bichos && bichos.icone(...a),
   // balde de água do poço: vai para a mão (no espaço da Água, se já tiver, ou no escolhido)
   pegarAgua: () => { const ja = barra.indexOf(B.AGUA); if (ja >= 0) slotSel = ja; else barra[slotSel] = B.AGUA; desenharBarra(); },
+});
+
+// chat de texto e de voz (só online; o dono liga/desliga nas opções do mundo, na pausa)
+const chat = new Chat({
+  sala: () => sala, euId: () => euId, pausado: () => pausado, aviso,
+  nomeDe: (id) => outros.get(id)?.nome,
+  iconeCabeca: (id, ic) => { const o = outros.get(id); if (o && bichos) bichos.icone(ic, o.grupo.position.x, o.grupo.position.y + 2.7, o.grupo.position.z, 1.6, 0.5); },
+  mudarOpcoes: async (mud) => {
+    if (modo !== 'online' || !mundoAtual || !mundoAtual.dono) return;
+    try {
+      const { opcoes } = await api('mundos/chat', { codigo: mundoAtual.codigo, ...mud });
+      mundoAtual.opcoes = opcoes;
+      opcoesMundo.chatTexto = opcoes.chatTexto; opcoesMundo.chatVoz = opcoes.chatVoz;
+      chat.aplicarOp({ texto: opcoes.chatTexto, voz: opcoes.chatVoz });
+      $('#pausa-opcoes').textContent = 'Neste mundo: ' + resumoOpcoes(opcoesMundo);
+    } catch (e) { aviso(e.message, 3000); chat.aplicarOp(chat.op); }
+  },
 });
 
 // opção "Construção": desligada, ninguém coloca nem quebra blocos (o servidor também não deixa)
@@ -520,6 +538,7 @@ function abrirPausa() {
   // o código só aparece para o dono (é ele quem decide quem entra)
   $('#pausa-mundo').textContent = modo === 'online' ? `Mundo: ${mundoAtual.nome}` + (mundoAtual.dono ? ` · código ${mundoAtual.codigo}` : '') : 'Mundo sem internet (salvo neste aparelho)';
   preencherDono(modo === 'online' ? mundoAtual : null, () => abrirPausa());
+  $('#pausa-chat').hidden = !(modo === 'online' && mundoAtual && mundoAtual.dono);
   $('#pausa-opcoes').textContent = 'Neste mundo: ' + resumoOpcoes(opcoesMundo);
   // editar o mundo: só o dono (no mundo sem internet, quem joga é o dono)
   $('#bt-editar-mundo').hidden = !(modo === 'local' || (mundoAtual && mundoAtual.dono));
@@ -637,6 +656,7 @@ addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' && e.code !== 'Escape') return; // digitando (nome do mundo etc.)
   if (personagem.aberto) { if (e.code === 'Escape') personagem.fechar(); return; }
   if (e.code === 'Escape' && pausado) fecharJanelas();
+  else if (e.target.tagName === 'INPUT') return; // escrevendo no chat (ou num campo): as letras não são atalhos
   else if (e.code === 'KeyP') abrirPausa();
   else if (e.code === 'KeyC' && !pausado && e.target.tagName !== 'INPUT') cmd.abrir();
   else if (((e.code === 'KeyR' && !opcoesMundo.armas) || e.code === 'F5') && !pausado && e.target.tagName !== 'INPUT') { e.preventDefault(); if (!e.repeat) alternarVisao(); }
@@ -1014,6 +1034,7 @@ function limparMundo() {
   garagem.parar();
   armas.parar();
   visao.esconder();
+  chat.saiu();
   if (sala) { sala.fechar(); sala = null; }
   for (const id of [...outros.keys()]) removerOutro(id);
   mapa.usarMundo(null);
@@ -1178,8 +1199,10 @@ async function jogarOnline(m, volta = null) {
         $('#status').innerHTML = comIcone('globo', m.nome);
         if (volta) aviso(volta.msg, 3500, 'lapis');
         else aviso(`Bem-vindo, ${conta.usuario.nome}!` + (m.dono ? ` Código do mundo: ${m.codigo}` : ''), 3500, 'flor');
+        chat.entrou(msg);
       } else {
         mundo.carregarEdicoes(msg.edicoes);
+        chat.reconectou(msg);
         armas.entrouOnline(sala);
       }
       for (const id of [...outros.keys()]) removerOutro(id);
@@ -1196,6 +1219,9 @@ async function jogarOnline(m, volta = null) {
       o.corCss = '#' + CORES_ROUPA[o.skin.corRoupa].toString(16).padStart(6, '0');
     },
     saiu: (msg) => { const o = outros.get(msg.id); if (o) aviso(`${o.nome} saiu`); removerOutro(msg.id); },
+    saiu: (msg) => { const o = outros.get(msg.id); if (o) aviso(`${o.nome} saiu`); chat.jogadorSaiu(msg.id); removerOutro(msg.id); },
+    chat: (msg) => chat.recebeu(msg), 'chat-erro': (msg) => chat.erro(msg), 'chat-op': (msg) => chat.aplicarOp(msg),
+    voz: (msg) => chat.mensagemVoz(msg), 'voz-lista': (msg) => chat.mensagemVoz(msg), 'voz-sinal': (msg) => chat.mensagemVoz(msg), 'voz-fala': (msg) => chat.mensagemVoz(msg),
     pos: (msg) => {
       const o = outros.get(msg.id);
       if (!o) return;
@@ -1216,6 +1242,7 @@ async function jogarOnline(m, volta = null) {
       clearTimeout(esperarEdicao);
       if (msg.nome) { mundoAtual.nome = msg.nome; $('#status').innerHTML = comIcone('globo', msg.nome); }
       if (msg.recarregar) recarregarOnline({ ...mundoAtual, opcoes: msg.opcoes });
+      else if (msg.opcoes) { mundoAtual.opcoes = msg.opcoes; opcoesMundo.chatTexto = msg.opcoes.chatTexto; opcoesMundo.chatVoz = msg.opcoes.chatVoz; } // chat muda sem recarregar
       else if (!mundoAtual.dono && msg.nome) aviso(`O mundo agora se chama ${msg.nome}`, 2500, 'lapis');
     },
     fim: (texto) => { sala = null; sairDoMundo(); $('#mundos-erro').textContent = texto || ''; },
@@ -1612,4 +1639,4 @@ camera.position.set(0, 40, 0);
 if (conta.token) abrirMundos(); else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, garagem, visao, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, armas, get pausado() { return pausado; }, mecanismos }; }
+if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, get monstros() { return monstros; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, armas, get pausado() { return pausado; }, mecanismos }; }
