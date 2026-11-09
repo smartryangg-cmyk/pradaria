@@ -1120,7 +1120,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   mundo.carregarEdicoes(edicoes);
   mundo.aoMudarBloco = (x, y, z, b, de, natural) => {
     edicoesPendentes = true;
-    if (sala) sala.enviar(porJogador ? { t: 'bloco', x, y, z, b, de, j: 1 } : { t: 'bloco', x, y, z, b });
+    if (sala) sala.enviar(porJogador ? { t: 'bloco', x, y, z, b, de, j: 1 } : { t: 'bloco', x, y, z, b, de });
     if (fisica) fisica.mudou(x, y, z, b);
     if (porJogador) mercado.bloco(b, y, de, natural, x, z);
   };

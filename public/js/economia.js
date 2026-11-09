@@ -3,7 +3,7 @@
 // Não importe nada daqui que dependa do navegador (o servidor também usa este arquivo).
 
 import { aplicarTrabalho, normalizarTrabalho, negocioNovo, livreDe, marcarCompra, ajustarCompra, converter } from './trabalho.js';
-import { guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm } from './receitas.js';
+import { RECEITAS, guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm } from './receitas.js';
 
 // ids dos blocos (iguais aos de blocos.js)
 const G = 1, TE = 2, PE = 3, AR_ = 4, AG = 5, TR = 6, FO = 7, TA = 8, VI = 9, TJ = 10, FV = 11, FA = 12, CA = 13,
@@ -27,12 +27,33 @@ export const naLoja = (b, op) => !(op && op.sobrevivencia && SO_COLHENDO.has(b))
 // no "Coletar e criar" a loja entrega LOTE_LOJA de uma vez: o lote nunca pode valer mais na venda do que custa
 // (trigo custava 6 e o lote de 4 vendia por 12: moedas infinitas comprando e vendendo)
 
-// quanto os aldeões pagam por cada coisa coletada (o que não está aqui vale 1)
-const VENDA = { [TR]: 2, 80: 2, 81: 2, 82: 2, [FV]: 3, [FA]: 3, [FZ]: 3, [TRI]: 3, [FE]: 3, [LP]: 4, [VI]: 2, [TJ]: 2, [FAR]: 5, [PAO]: 9 };
-export const precoVenda = (b) => VENDA[b] || 1;
+// quanto os aldeões pagam por cada coisa coletada (o que não está aqui vale 1).
+// Troncos valem 4 porque 1 tronco vira 4 tábuas (que valem 1 cada).
+const VENDA = { [TR]: 4, 71: 4, 73: 4, 131: 4, 80: 4, 81: 4, 82: 4, [FV]: 3, [FA]: 3, [FZ]: 3, [TRI]: 3, [FE]: 3, [LP]: 4, [VI]: 2, [TJ]: 2, [FAR]: 5, [PAO]: 9 };
+const precoBase = (b) => VENDA[b] || 1;
+// nenhuma receita pode dar lucro: o que sai dela vale no máximo o que ela gasta, dividido pela quantidade feita
+// (1 tronco que vendia por 2 virava 4 tábuas que vendiam por 4). Calculado das próprias receitas, então uma
+// receita nova já entra na conta. Preço 0 = os moradores não compram (graveto, fio...).
+let tabela = null, nReceitas = -1;
+function tabelaVenda() {
+  if (tabela && nReceitas === RECEITAS.length) return tabela;
+  const t = new Map(), preco = (b) => (t.has(b) ? t.get(b) : precoBase(b));
+  for (let volta = 0, mudou = true; mudou && volta < 50; volta++) {
+    mudou = false;
+    for (const r of RECEITAS) {
+      const [id, n] = r.faz, custo = r.usa.reduce((s, [i, q]) => s + preco(i) * q, 0);
+      const teto = Math.floor(custo / Math.max(1, n));
+      if (teto < preco(id)) { t.set(id, teto); mudou = true; }
+    }
+  }
+  tabela = t; nReceitas = RECEITAS.length;
+  return t;
+}
+export const precoVenda = (b) => { const t = tabelaVenda(); return t.has(b) ? t.get(b) : precoBase(b); };
 // formas feitas na bancada (83..99: coluna, cerca, bola, rampa...) são para construir: ninguém compra.
 // Uma receita faz várias de uma vez (1 vidro = 4 vidros finos), então vender dava mais moedas que a matéria-prima.
-export const vendivel = (b) => !(b >= 83 && b <= 99);
+export const ehForma = (b) => b >= 83 && b <= 99;
+export const vendivel = (b) => !ehForma(b) && precoVenda(b) > 0;
 // na loja do jogador (o lojista vende para os moradores) tudo sai pelo dobro
 export const precoLoja = (b) => Math.max(2, precoVenda(b) * 2);
 // só dá para coletar blocos de verdade (nada de água, ar ou ids estranhos)
@@ -231,7 +252,7 @@ export function aplicar(e, op, a, ctx = {}) {
     // os moradores não compram de volta o que você comprou na loja deles (senão dava lucro sem trabalho)
     const n = Math.min(livreDe(e, b), Math.max(1, a.n | 0));
     if (guardavel(b) && tem > 0 && n <= 0) return falha('Os moradores não compram de volta o que você comprou na loja.');
-    if (!vendivel(b)) return falha('Os moradores não compram formas: elas são para construir.');
+    if (!vendivel(b)) return falha(ehForma(b) ? 'Os moradores não compram formas: elas são para construir.' : 'Os moradores não compram isso.');
     if (!guardavel(b) || n <= 0) return falha('Você não tem isso para vender.');
     e.itens[b] = tem - n;
     if (!e.itens[b]) delete e.itens[b];

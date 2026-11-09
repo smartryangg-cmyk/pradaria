@@ -9,6 +9,7 @@ import { filtrarChat, contarDigitos } from '../../public/js/chat-filtro.js';
 import { candidatoSeguro, sdpSemIp } from '../../public/js/voz-filtro.js';
 import { horaDe, MAX_TURNO } from '../../public/js/trabalho.js';
 import { blocosDaObra, PLANTAS, ESTILOS_OBRA } from '../../public/js/casas.js';
+import { mudancaSemMao } from '../../public/js/blocos-rede.js';
 
 // ações dos trabalhadores contratados (trabalho.js)
 const ACOES_TRABALHO = new Set(['contratar', 'demitir', 'obra', 'cancelar-obra', 'depositar', 'retirar', 'turno']);
@@ -147,13 +148,22 @@ export class Sala extends DurableObject {
     } else if (acao === 'editar') {
       // o dono editou o mundo (nome/opções já salvos no banco): vale na hora para quem está aqui
       const opcoes = normalizarOpcoes(d.opcoes);
-      if (this.info) { this.info.econ = opcoesEcon(opcoes); await this.ctx.storage.put('info', this.info); }
+      // regras do servidor (construção, armas) valem na hora, não só quando alguém entra de novo
+      if (this.info) { this.info.econ = opcoesEcon(opcoes); this.info.regras = { construcao: opcoes.construcao !== false, armas: opcoes.armas === true }; await this.ctx.storage.put('info', this.info); }
       if (this.econ) this.econ.clear(); // a mochila/moedas de cada um é ajustada às opções novas
       if (this.info) await this.mudarChat(chatDe(opcoes)); // chat de texto/voz: vale na hora, sem recarregar
       const nome = typeof d.nome === 'string' ? d.nome.slice(0, 24) : '';
       for (const ws of this.ctx.getWebSockets()) {
         const j = ws.deserializeAttachment();
         if (!j) continue;
+        // ligaram Armas: quem não respondeu "tenho 16 anos ou mais" sai na hora (não espera recarregar)
+        if (opcoes.armas === true && !j.mais16) {
+          try { ws.send(JSON.stringify({ t: 'erro', fim: true, msg: 'Este mundo agora é para quem tem 16 anos ou mais.' })); } catch {}
+          ws.serializeAttachment(null);
+          try { ws.close(4003, 'idade'); } catch {}
+          this.enviarTodos({ t: 'saiu', id: j.id }, ws);
+          continue;
+        }
         j.semVeiculos = opcoes.veiculos === false; ws.serializeAttachment(j);
         try { ws.send(JSON.stringify({ t: 'mundo-editado', nome, opcoes, recarregar: d.recarregar === true })); } catch {}
       }
@@ -233,7 +243,7 @@ export class Sala extends DurableObject {
     }
     const id = u.id + '-' + Math.random().toString(36).slice(2, 7);
     const pos = (await this.ctx.storage.get('p:' + u.id)) || null;
-    const eu = { id, uid: u.id, nome: u.nome, cor: u.cor, skin: normalizarSkin(u.skin, u.cor), dono: !!u.dono, p: pos || [0, 60, 0], r: [0, 0], cota: 0, janela: 0, semVeiculos: opcoes.veiculos === false };
+    const eu = { id, uid: u.id, nome: u.nome, cor: u.cor, skin: normalizarSkin(u.skin, u.cor), dono: !!u.dono, mais16: u.mais16 === true, p: pos || [0, 60, 0], r: [0, 0], cota: 0, janela: 0, semVeiculos: opcoes.veiculos === false };
     this.ctx.acceptWebSocket(servidor);
     servidor.serializeAttachment(eu);
 
@@ -440,6 +450,8 @@ export class Sala extends DurableObject {
       if (econ && b > 0 && !liberado(econ, b, op)) return;
       const ed = await this.carregarEdicoes();
       const k = x + ',' + y + ',' + z;
+      // sem "j" (não foi a mão do jogador): só toques (porta, forno, alavanca...) e a física (areia caindo, folhas...)
+      if (!m.j && !mudancaSemMao(ed.has(k) ? ed.get(k) : m.de, b, this.regras().construcao)) return;
       // coletar e criar: só coloca o que tem na mochila
       if (econ && op.sobrevivencia && m.j && b > 0 && lugarVazio(ed.has(k) ? ed.get(k) | 0 : m.de | 0) && !((econ.itens[gastoDe(b)] || 0) > 0)) {
         ws.send(JSON.stringify({ t: 'econ', s: econ })); // devolve a mochila certa para o aparelho
@@ -503,6 +515,10 @@ export class Sala extends DurableObject {
     } else if (m.t === 'vparado') {
       // veículo que mora numa vila/porto: o primeiro que chega perto pede, e ele aparece uma vez só
       if (eu.semVeiculos || !LUGARES[m.tipo] || typeof m.k !== 'string' || !/^[va][-0-9a-z.,]{1,40}$/.test(m.k) || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
+      // um por segundo e meio por jogador, e só perto de quem pede (o jogo pede quando chega perto da vila)
+      if (eu.vpar && Date.now() - eu.vpar < 1500) return;
+      if (!eu.p || Math.hypot(m.p[0] - eu.p[0], m.p[2] - eu.p[2]) > 120) return;
+      eu.vpar = Date.now(); ws.serializeAttachment(eu);
       const par = await this.carregarParados();
       if (par.has(m.k) || par.size > 3000) return;
       par.add(m.k);
@@ -645,6 +661,8 @@ export class Sala extends DurableObject {
     } else if (ACOES_TRABALHO.has(m.t)) {
       const op = this.op();
       if (!op.mercado) return;
+      // mundo sem Construção: o pedreiro também não constrói
+      if (m.t === 'obra' && !this.regras().construcao) return ws.send(JSON.stringify({ t: 'econ-erro', msg: 'Neste mundo não dá para construir.' }));
       const agora = Date.now();
       const econ = await this.econDe(eu.uid);
       if (m.t === 'turno') {
@@ -695,6 +713,16 @@ export class Sala extends DurableObject {
   armas(ws, eu, m) {
     const agora = Date.now();
     const vec = (v) => Array.isArray(v) && v.length === 3 && v.every(Number.isFinite);
+    // trocar de arma, cair e pegar: no máximo 5 por segundo (cada troca refaz o boneco em todos os tablets)
+    if (m.t === 'arma' || m.t === 'caiu' || m.t === 'pegar' || m.t === 'pegos') {
+      if (!eu.arJan || agora - eu.arJan > 1000) { eu.arJan = agora; eu.arN = 0; }
+      if (++eu.arN > 5) {
+        // passou do limite: a arma na mão continua certa aqui (para os acertos), só não avisa os outros agora
+        if (m.t === 'arma' && (m.a === null || ARMAS[m.a])) { eu.a = m.a; ws.serializeAttachment(eu); }
+        return;
+      }
+      ws.serializeAttachment(eu);
+    }
     if (m.t === 'tiro') {
       if (!ARMAS[m.a] || !vec(m.o) || !vec(m.f)) return;
       this.enviarTodos({ t: 'tiro', id: eu.id, a: m.a, o: arred(m.o), f: arred(m.f) }, ws);
@@ -704,8 +732,15 @@ export class Sala extends DurableObject {
       this.enviarTodos({ t: 'arma', id: eu.id, a }, ws);
     } else if (m.t === 'acerto') {
       if (!ARMAS[m.a] || typeof m.alvo !== 'string' || !Number.isInteger(m.dano) || m.dano < 1) return;
+      if (eu.a !== m.a) return; // só acerta com a arma que está segurando
       const [alvoWs, alvo] = this.conexaoDe(m.alvo);
       if (!alvoWs || alvo.id === eu.id) return;
+      // um acerto por tiro em cada alvo: respeita o tempo entre tiros daquela arma (com folga para a rede)
+      if (!this.ultAcerto) this.ultAcerto = new Map();
+      const chave = eu.id + '>' + alvo.id, ult = this.ultAcerto.get(chave) || 0;
+      if (agora - ult < ARMAS[m.a].intervalo * 800) return;
+      this.ultAcerto.set(chave, agora);
+      if (this.ultAcerto.size > 2000) for (const [k, t] of this.ultAcerto) if (agora - t > 5000) this.ultAcerto.delete(k);
       // perto o bastante para aquela arma (com folga para o atraso da rede)
       const d = Math.hypot(alvo.p[0] - eu.p[0], alvo.p[1] - eu.p[1], alvo.p[2] - eu.p[2]);
       if (d > ARMAS[m.a].alcance + 8) return;
@@ -714,8 +749,12 @@ export class Sala extends DurableObject {
       if (++eu.acN > 15) return;
       ws.serializeAttachment(eu);
       alvoWs.send(JSON.stringify({ t: 'ferido', dano: Math.min(m.dano, danoMaximo(m.a)), de: eu.id, nome: eu.nome, p: eu.p }));
+      (this.feridoPor ??= new Map()).set(alvo.id, { de: eu.id, t: agora });
     } else if (m.t === 'caiu') {
-      const por = typeof m.por === 'string' ? this.conexaoDe(m.por)[1] : null;
+      // quem derrubou: só vale quem acertou esta pessoa nos últimos 10 segundos (senão inventava "derrubadas" para um amigo)
+      const f = this.feridoPor && this.feridoPor.get(eu.id);
+      const por = typeof m.por === 'string' && f && f.de === m.por && agora - f.t < 10000 ? this.conexaoDe(m.por)[1] : null;
+      if (this.feridoPor) this.feridoPor.delete(eu.id);
       this.enviarTodos({ t: 'caiu', id: eu.id, nome: eu.nome, por: por ? por.id : null, porNome: por ? por.nome : null });
     } else if (m.t === 'pegar') {
       if (typeof m.k !== 'string' || m.k.length > 24) return;
