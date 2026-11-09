@@ -23,7 +23,7 @@ async function abrir(ctx, comVida, toque) {
   await p.waitForTimeout(600);
   if (toque) await p.tap('#bt-sozinho'); else await p.click('#bt-sozinho');
   await p.waitForSelector('#m-novo:not([hidden])');
-  if (comVida) await p.click('[data-opcao=monstrosMachucam]');
+  if (comVida) await p.click('[data-opcao=selvagensMachucam]');
   if (toque) await p.tap('#m-novo button[type=submit]'); else await p.click('#m-novo button[type=submit]');
   await p.waitForFunction(() => window.__jogo && window.__jogo.jog, null, { timeout: 20000 });
   await p.waitForTimeout(2500);
