@@ -136,10 +136,11 @@ function sobrado(e, v) {
     d.set(x, 4, z, e.piso);
   }
   d.porta(3, 1, 0);
-  // escada encostada na parede da esquerda, subindo para o fundo
-  for (let k = 0; k < 4; k++) d.movel(1, 1 + k, 2 + k, C.ESCADA, 0);
-  // corrimão em volta do buraco
-  for (const [x, z] of [[1, 1], [2, 2], [2, 3], [2, 4]]) d.movel(x, 5, z, C.CERCA);
+  // escada de degraus inteiros encostada na parede da esquerda, subindo para o fundo (cada degrau é um pulo)
+  // (a escada inclinada e a cerca ainda não existem no jogo: degrau e mureta de bloco inteiro funcionam já)
+  for (let k = 0; k < 4; k++) d.set(1, 1 + k, 2 + k, e.piso);
+  // mureta em volta do buraco, para ninguém cair lá de cima
+  for (const [x, z] of [[1, 1], [2, 2], [2, 3], [2, 4]]) d.set(x, 5, z, e.faixa || e.canto);
   // janelas dos dois andares
   for (const [x, z] of [[1, 0], [5, 0], [6, 3], [0, 1], [3, 6], [5, 6]]) d.janela(x, 2, z);
   for (const [x, z] of [[1, 0], [3, 0], [5, 0], [0, 4], [6, 2], [6, 4], [3, 6]]) d.janela(x, 6, z);
