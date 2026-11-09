@@ -35,7 +35,7 @@ jobs:
           for i in $(seq 1 90); do [ "$(curl -s -o /dev/null -w '%{http_code}' localhost:8788/)" = 200 ] && break; sleep 1; done
           curl -s -o /dev/null -w 'site local: %{http_code}\n' localhost:8788/
       - name: Testes
-        run: SAIDA=$PWD/saida-testes bash testes/rodar-todos.sh
+        run: SAIDA=$PWD/saida-testes ESTADO=.estado bash testes/rodar-todos.sh
       - name: Guardar saídas e capturas de tela
         if: always()
         uses: actions/upload-artifact@v4
