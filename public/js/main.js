@@ -1,6 +1,7 @@
 // Pradaria: jogo de construir e explorar, pacífico, para o navegador.
 import * as THREE from '../vendor/three.module.min.js';
-import { criarAtlas, iconeBloco, INVENTARIO, INVENTARIO_MAQUINAS, B, E, AR, BLOCOS, SOLIDO, AGUA, PRECISA_CHAO, ITEM, ehItem, nomeDe } from './blocos.js';
+import { F } from './formas.js';
+import { criarAtlas, iconeBloco, INVENTARIO, INVENTARIO_MAQUINAS, INVENTARIO_FORMAS, B, E, AR, BLOCOS, SOLIDO, AGUA, PRECISA_CHAO, ITEM, ehItem, nomeDe } from './blocos.js';
 import { oQueCai, toquesCom, receitasDoMundo, GRUPOS, podeCriar, faltaBancada, gastoDe } from './receitas.js';
 import { BASE, PRECISA_ENERGIA, ELETRICO } from './energia.js';
 import { Mundo, ALT, NIVEL_AGUA } from './mundo.js';
@@ -330,7 +331,8 @@ const maquinasLigadas = () => opcoesMundo.maquinas !== false;
 const FERRAMENTAS_CRIATIVO = [ITEM.PICARETA_PEDRA, ITEM.MACHADO_PEDRA, ITEM.PA_PEDRA];
 function abasDoMundo() {
   if (sobrev()) return [['mochila', 'mochila', 'Mochila'], ['criar', 'martelo', 'Criar']];
-  return maquinasLigadas() ? [['blocos', 'tijolos', 'Blocos'], ['maquinas', 'engrenagem', 'Engenharia']] : [['blocos', 'tijolos', 'Blocos']];
+  const formas = ['formas', 'bloco', 'Formas'];
+  return maquinasLigadas() ? [['blocos', 'tijolos', 'Blocos'], formas, ['maquinas', 'engrenagem', 'Engenharia']] : [['blocos', 'tijolos', 'Blocos'], formas];
 }
 // ícone de bloco/item como <img> (guardado: a tela de receitas usa muitos)
 const cacheIcones = new Map();
@@ -363,7 +365,7 @@ function abrirInventario(aba) {
   }
   $('#dica-maquinas').hidden = abaInv !== 'maquinas';
   $('#bancada-status').hidden = abaInv !== 'criar';
-  $('#inv-titulo').textContent = { maquinas: 'Engenharia', mochila: 'Mochila', criar: 'Criar' }[abaInv] || 'Blocos';
+  $('#inv-titulo').textContent = { maquinas: 'Engenharia', mochila: 'Mochila', criar: 'Criar', formas: 'Formas' }[abaInv] || 'Blocos';
   $('#inv-sub').textContent = abaInv === 'criar' ? 'Toque numa receita para criar' : abaInv === 'mochila' ? 'Toque para pôr na mão' : 'Escolha um bloco para a mão';
   const g = $('#grade');
   const rolagem = g.dataset.aba === abaInv ? g.scrollTop : 0;
@@ -372,7 +374,7 @@ function abrirInventario(aba) {
   if (abaInv === 'criar') desenharReceitas(g);
   else if (abaInv === 'mochila') desenharMochila(g);
   else {
-    const lista = abaInv === 'maquinas' ? INVENTARIO_MAQUINAS : [...INVENTARIO, ...FERRAMENTAS_CRIATIVO];
+    const lista = abaInv === 'maquinas' ? INVENTARIO_MAQUINAS : abaInv === 'formas' ? INVENTARIO_FORMAS : [...INVENTARIO, ...FERRAMENTAS_CRIATIVO];
     for (const id of lista) {
       const b = document.createElement('button');
       b.title = nomeDe(id);
@@ -840,6 +842,11 @@ function usar(ponto) {
   if (novo === E.ESTEIRA) {
     const fx = -Math.sin(jog.yaw), fz = -Math.cos(jog.yaw);
     novo = E.ESTEIRA + (Math.abs(fx) > Math.abs(fz) ? (fx > 0 ? 0 : 2) : (fz > 0 ? 1 : 3));
+  }
+  // rampa e escada: sobem para onde o jogador está olhando (andando para a frente, sobe)
+  if (novo === F.RAMPA || novo === F.ESCADA) {
+    const fx = -Math.sin(jog.yaw), fz = -Math.cos(jog.yaw);
+    novo += Math.abs(fx) > Math.abs(fz) ? (fx > 0 ? 0 : 2) : (fz > 0 ? 1 : 3);
   }
   // cama: cabeceira do lado de lá; cadeira: virada para quem colocou
   if (novo === MV.CAMA || novo === MV.CADEIRA) {

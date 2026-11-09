@@ -333,9 +333,9 @@ export class Vilas {
     for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
       const borda = x === x0 || x === x1 || z === z0 || z === z1;
       if (borda) {
-        // cerquinha de tronco, com uma passagem virada para a rua
+        // cerca de verdade (1,5 de altura: os bichos não fogem), com uma passagem virada para a rua
         if (x === e.porta[0] && z === e.porta[1]) { put(x, y, z, B.PEDRISCO); continue; }
-        put(x, y, z, B.GRAMA); put(x, y + 1, z, B.TRONCO);
+        put(x, y, z, B.GRAMA); put(x, y + 1, z, 84); // 84 = Cerca (formas-defs.js)
         continue;
       }
       if ((longoX ? z : x) === meio) { put(x, y, z, B.AGUA); continue; }

@@ -8,6 +8,7 @@ export const CAI = new Uint8Array(256);
 CAI[B.AREIA] = 1; CAI[B.PEDRISCO] = 1; CAI[B.CASCALHO] = 1;
 const TRONCO = new Uint8Array(256), FOLHA = new Uint8Array(256);
 TRONCO[B.TRONCO] = TRONCO[B.TRONCO_PINHEIRO] = TRONCO[B.TRONCO_BETULA] = 1;
+TRONCO[80] = TRONCO[81] = TRONCO[82] = 1; // troncos redondos das árvores (formas-defs.js)
 FOLHA[B.FOLHAS] = FOLHA[B.FOLHAS_PINHEIRO] = FOLHA[B.FOLHAS_SELVA] = 1;
 
 const FACES = [
