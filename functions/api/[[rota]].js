@@ -1,8 +1,8 @@
-// API de contas e mundos.  /api/cadastrar  /api/entrar  /api/eu  /api/mundos  /api/mundos/entrar
+// API de contas e mundos.  /api/cadastrar  /api/entrar  /api/eu  /api/eu/idade  /api/mundos  /api/mundos/entrar
 // Dono do mundo: /api/mundos/membros  /api/mundos/expulsar  /api/mundos/codigo-novo  /api/mundos/editar  /api/mundos/chat
 // /api/mundos/apagar  /api/mundos/exportar.  Importar (vira um mundo novo de quem importa): /api/mundos/importar.  Apagar conta: DELETE /api/eu
 import { json, erro, banco, criarToken, usuarioDa, hashSenha, iguais, limitar, codigoNovo, textoProibido } from '../../lib/base.js';
-import { normalizarOpcoes, sementeDeTexto, editarOpcoes, opcoesMudadas, precisaRecarregar } from '../../public/js/opcoes-mundo.js';
+import { normalizarOpcoes, sementeDeTexto, editarOpcoes, opcoesMudadas, precisaRecarregar, precisa16 } from '../../public/js/opcoes-mundo.js';
 import { lerArquivo, montarArquivo } from '../../public/js/arquivo-mundo.js';
 import { normalizarSkin } from '../../public/js/skin.js';
 
@@ -12,7 +12,13 @@ const ipDe = (request) => request.headers.get('cf-connecting-ip') || 'local';
 const texto = (v) => (typeof v === 'string' ? v : '');
 
 async function corpo(request) { try { return await request.json(); } catch { return {}; } }
-const publico = (u) => ({ id: u.id, nome: u.nome, cor: u.cor, skin: normalizarSkin(u.skin, u.cor), skinSalva: !!u.skin });
+const publico = (u) => ({ id: u.id, nome: u.nome, cor: u.cor, skin: normalizarSkin(u.skin, u.cor), skinSalva: !!u.skin, idade16: u.idade16 == null ? null : !!u.idade16 });
+const MSG_16 = 'Este mundo tem temas para quem tem 16 anos ou mais.';
+// resposta da pergunta "Você tem 16 anos ou mais?" guardada na conta (null = ainda não respondeu)
+async function idade16De(db, uid) {
+  const r = await db.prepare('SELECT idade16 FROM usuarios WHERE id = ?').bind(uid).first();
+  return r && r.idade16 != null ? !!r.idade16 : null;
+}
 
 async function cadastrar(request, env) {
   const c0 = await corpo(request);
@@ -48,7 +54,7 @@ async function entrar(request, env) {
     || !(await limitar(env, 'entn:' + n, 60, 15 * 60e3)))
     return erro('Muitas tentativas. Espere uns minutos e tente de novo.', 429);
   const db = await banco(env);
-  const u = await db.prepare('SELECT id, nome, cor, skin, hash, sal FROM usuarios WHERE nome = ?').bind(nome).first();
+  const u = await db.prepare('SELECT id, nome, cor, skin, hash, sal, idade16 FROM usuarios WHERE nome = ?').bind(nome).first();
   if (!u) return erro('Nome ou senha errados.', 401);
   const { hash } = await hashSenha(senha, u.sal);
   if (!iguais(hash, u.hash)) return erro('Nome ou senha errados.', 401);
@@ -85,6 +91,7 @@ async function criarMundo(request, env, u) {
 // guarda um mundo novo do usuário (criar e importar); depois(m) roda antes de responder (ex.: colocar os blocos importados)
 async function inserirMundo(env, u, n, op, escolhida, depois) {
   const db = await banco(env);
+  if (precisa16(op) && (await idade16De(db, u.id)) !== true) return erro(MSG_16, 403);
   const qtd = await db.prepare('SELECT COUNT(*) AS n FROM mundos WHERE dono_id = ?').bind(u.id).first();
   if (qtd.n >= 10) return erro('Você já tem 10 mundos. Esse é o máximo por enquanto. Apague um para abrir espaço.');
   for (let tent = 0; tent < 5; tent++) {
@@ -115,6 +122,7 @@ async function entrarMundo(request, env, u) {
   const m = await db.prepare('SELECT m.id, m.codigo, m.nome, m.dono_id, m.opcoes, d.nome AS nome_dono FROM mundos m JOIN usuarios d ON d.id = m.dono_id WHERE m.codigo = ?')
     .bind(texto(codigo).toUpperCase().trim().slice(0, 12)).first();
   if (!m) return erro('Não achei nenhum mundo com esse código.', 404);
+  if (precisa16(m.opcoes) && (await idade16De(db, u.id)) !== true) return erro(MSG_16, 403);
   await db.prepare('INSERT INTO membros (mundo_id, usuario_id, entrou_em) VALUES (?, ?, ?) ON CONFLICT (mundo_id, usuario_id) DO UPDATE SET entrou_em = excluded.entrou_em')
     .bind(m.id, u.id, Date.now()).run();
   return json({ mundo: { codigo: m.codigo, nome: m.nome, dono: m.dono_id === u.id, nome_dono: m.nome_dono, opcoes: normalizarOpcoes(m.opcoes) } });
@@ -180,6 +188,7 @@ async function editarMundo(request, env, u) {
   const antes = normalizarOpcoes(m.opcoes);
   const opcoes = c.opcoes == null ? antes : editarOpcoes(antes, c.opcoes);
   const mudou = opcoesMudadas(antes, opcoes);
+  if (precisa16(opcoes) && !precisa16(antes) && (await idade16De(db, u.id)) !== true) return erro(MSG_16, 403);
   if (nome !== m.nome || mudou.length) {
     await db.prepare('UPDATE mundos SET nome = ?, opcoes = ? WHERE id = ?').bind(nome, JSON.stringify(opcoes), m.id).run();
     await avisarSala(env, m, 'editar', { nome, opcoes, recarregar: precisaRecarregar(mudou) });
@@ -258,6 +267,15 @@ async function opcoesChat(request, env, u) {
   return json({ opcoes: n });
 }
 
+// "Você tem 16 anos ou mais?": responde uma vez só (quem disse não não consegue trocar sozinho para sim)
+async function responderIdade(request, env, u) {
+  const { mais16 } = await corpo(request);
+  if (typeof mais16 !== 'boolean') return erro('Resposta inválida.');
+  const db = await banco(env);
+  await db.prepare('UPDATE usuarios SET idade16 = ? WHERE id = ? AND idade16 IS NULL').bind(mais16 ? 1 : 0, u.id).run();
+  return json({ idade16: await idade16De(db, u.id) });
+}
+
 // apagar a conta: some o usuário, os mundos dele e as participações (pede a senha de novo)
 async function apagarConta(request, env, u) {
   const { senha = '' } = await corpo(request);
@@ -301,11 +319,12 @@ export async function onRequest({ request, env, params }) {
     const u = await usuarioDa(request, env);
     if (!u) return erro('Sessão expirada, entre de novo.', 401);
     // a conta pode ter sido apagada: o token assinado continua válido, então confere no banco
-    const atual = await (await banco(env)).prepare('SELECT id, nome, cor, skin FROM usuarios WHERE id = ?').bind(u.id).first();
+    const atual = await (await banco(env)).prepare('SELECT id, nome, cor, skin, idade16 FROM usuarios WHERE id = ?').bind(u.id).first();
     if (!atual) return erro('Sessão expirada, entre de novo.', 401);
     if (rota === 'eu' && metodo === 'DELETE') return await apagarConta(request, env, u);
     if (rota === 'eu/skin' && metodo === 'POST') return await salvarSkin(request, env, atual);
     if (rota === 'eu') return json({ usuario: publico(atual) });
+    if (rota === 'eu/idade' && metodo === 'POST') return await responderIdade(request, env, u);
     if (rota === 'mundos' && metodo === 'GET') return json({ mundos: await listarMundos(env, u) });
     if (rota === 'mundos' && metodo === 'POST') return await criarMundo(request, env, u);
     if (rota === 'mundos/entrar' && metodo === 'POST') return await entrarMundo(request, env, u);
