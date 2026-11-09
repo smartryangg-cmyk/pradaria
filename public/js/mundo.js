@@ -8,6 +8,7 @@ import { IlhaAventura } from './ilha-aventura.js';
 import { opcoesMundo, limiteMundo } from './opcoes-mundo.js';
 import { Energia, desenharForma, ELETRICO } from './energia.js';
 import { ESPECIAL } from './mecanismos.js';
+import { F, FORMA_NOVA, desenharFormaNova, mirarForma } from './formas.js';
 const ELET = new Uint8Array(256);
 for (let b = 1; b < 256; b++) ELET[b] = ELETRICO(b) ? 1 : 0;
 import { criarSuavizador } from './suave.js';
@@ -231,7 +232,7 @@ export class Mundo {
 
   arvore(d, x, y, z, r) {
     const alt = 4 + Math.floor(r * 2);
-    for (let i = 0; i < alt; i++) d[idx(x, y + i, z)] = B.TRONCO;
+    for (let i = 0; i < alt; i++) d[idx(x, y + i, z)] = F.TRONCO_R; // tronco redondo
     const topo = y + alt;
     for (let dy = -2; dy <= 1; dy++) {
       const rad = dy < 0 ? 2 : 1;
@@ -500,7 +501,7 @@ export class Mundo {
     };
     const HC = [[0, 0], [0, 0]];
     const SC = [null, null, null, null];
-    const FORMA_A = { P, U, C, I, N, O, L }; // peças de engenharia (fio, alavanca...)
+    const FORMA_A = { P, U, C, I, N, O, L, BD }; // peças que não são cubos (fio, alavanca, formas redondas...)
 
     let topo = 0;
     for (let i = d.length - 1; i >= 0; i--) if (d[i]) { topo = Math.floor(i / (CX * CZ)); break; }
@@ -547,7 +548,11 @@ export class Mundo {
       if (!def) continue;
       if (b === B.LAMPIAO || b === E.LAMPADA_LIGADA || b === M.FORNO_ACESO) luzes.push([ox + x + 0.5, y + 0.5, oz + z + 0.5]);
       if (ESPECIAL[b]) especiais.push([ox + x, y, oz + z, b]);
-      if (def.forma) { desenharForma(FORMA_A, get, x, y, z, b); continue; }
+      if (def.forma) {
+        if (FORMA_NOVA[b]) desenharFormaNova(FORMA_A, get, x, y, z, b, coberto(x, y, z) ? 0.72 : 1);
+        else desenharForma(FORMA_A, get, x, y, z, b);
+        continue;
+      }
       if (def.planta) {
         const [u0, v0, u1, v1] = uvTile(def.tiles[0]);
         const base = P.length / 3;
@@ -769,7 +774,12 @@ export class Mundo {
     let n = [0, 0, 0], t = 0;
     while (t <= max) {
       const b = this.bloco(x, y, z);
-      if (b !== AR && (pegaAgua ? true : !AGUA[b])) return { x, y, z, b, n, t };
+      if (b !== AR && (pegaAgua ? true : !AGUA[b])) {
+        // formas (cerca, bola, rampa...): só acerta se o raio passar pela peça de verdade
+        if (!FORMA_NOVA[b]) return { x, y, z, b, n, t };
+        const h = mirarForma(b, (a, c, e) => this.bloco(a, c, e), x, y, z, o, dir);
+        if (h && h.t <= max) return { x, y, z, b, n: h.n, t: h.t };
+      }
       if (tx < ty && tx < tz) { x += sx; t = tx; tx += tdx; n = [-sx, 0, 0]; }
       else if (ty < tz) { y += sy; t = ty; ty += tdy; n = [0, -sy, 0]; }
       else { z += sz; t = tz; tz += tdz; n = [0, 0, -sz]; }

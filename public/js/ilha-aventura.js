@@ -471,7 +471,7 @@ export class IlhaAventura {
         if (m.d < 2.6) {
           const faixa = m.d < 0.5 && Math.floor(comp / 3) % 2 === 0;
           chao(x, h, z, faixa ? B.LA_BRANCA : B.PEDRA);
-          for (let k = 1; k <= 6; k++) { const b = get(x, h + k, z); if (b === B.TRONCO || b === B.FOLHAS || PLANTA[b]) put(x, h + k, z, AR); }
+          for (let k = 1; k <= 6; k++) { const b = get(x, h + k, z); if ((b === B.TRONCO || b === 80) || b === B.FOLHAS || PLANTA[b]) put(x, h + k, z, AR); }
         } else if (m.d < 3.6) chao(x, h, z, B.PEDRISCO);
       }
     }
@@ -485,7 +485,7 @@ export class IlhaAventura {
       const x = ox + 2 + Math.floor(rl() * 12), z = oz + 2 + Math.floor(rl() * 12), qual = rl();
       if (this.semArvore(x, z)) continue;
       const h = this.altura(x, z);
-      if (h <= NA + 1 || get(x, h + 1, z) === B.TRONCO || get(x, h + 1, z) === B.FOLHAS) continue;
+      if (h <= NA + 1 || get(x, h + 1, z) === B.TRONCO || get(x, h + 1, z) === 80 || get(x, h + 1, z) === B.FOLHAS) continue;
       if (qual < 0.45) { // pedra grande
         for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) if (rl() < 0.75) { put(x + a, h + 1, z + b, B.PEDRA); if (!a && !b || rl() < 0.3) put(x + a, h + 2, z + b, B.PEDRA); }
       } else if (qual < 0.75) { // tora caída
@@ -507,7 +507,7 @@ export class IlhaAventura {
       if (p.faixa === 'z' && x === p.meio && Math.floor(z / 3) % 2 === 0) b = B.LA_BRANCA;
       if (p.faixa === 'x' && z === p.meio && Math.floor(x / 3) % 2 === 0) b = B.LA_BRANCA;
       chao(x, p.y, z, b);
-      for (let k = 1; k <= 6; k++) { const q = get(x, p.y + k, z); if (q === B.TRONCO || q === B.FOLHAS || PLANTA[q]) put(x, p.y + k, z, AR); }
+      for (let k = 1; k <= 6; k++) { const q = get(x, p.y + k, z); if (q === B.TRONCO || q === 80 || q === B.FOLHAS || PLANTA[q]) put(x, p.y + k, z, AR); }
     }
   }
 
