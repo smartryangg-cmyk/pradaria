@@ -16,7 +16,8 @@ async function pagina(tablet) {
   await p.goto(BASE + '/#teste');
   return p;
 }
-const sfx = String(Date.now() % 10000);
+// letras sorteadas (nome sem 5 números seguidos e sem repetir entre testes rodados em seguida)
+const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join('');
 const clicar = (p, sel) => p.click(sel), toque = (p, sel) => p.tap(sel);
 async function criarConta(p, nome, aperta) {
   await aperta(p, '#bt-criar-conta');
@@ -27,7 +28,7 @@ async function criarConta(p, nome, aperta) {
 const naSala = (p) => p.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala && !document.querySelector('#hud').hidden, null, { timeout: 60000 });
 const noJogo = (p) => p.waitForFunction(() => window.__jogo && window.__jogo.jog && !document.querySelector('#hud').hidden, null, { timeout: 60000 });
 // uma torrezinha de blocos em lugar conhecido (bem no alto, longe do chão)
-const TORRE = [[3, 58, 4, 3], [3, 59, 4, 3], [3, 60, 4, 2], [4, 60, 4, 3], [5, 60, 4, 2]]; // sem grama (grama coberta vira terra)
+const TORRE = [[3, 58, 4, 8], [3, 59, 4, 8], [3, 60, 4, 8], [4, 60, 4, 8], [5, 60, 4, 8]]; // tábuas: livres no mercado e nunca soltas no ar no terreno natural (tronco pode vir de árvore no alto do morro)
 const blocosEm = (p) => p.evaluate((t) => t.map(([x, y, z]) => window.__jogo.mundo.bloco(x, y, z)), TORRE);
 async function baixar(p, aperta) {
   const [d] = await Promise.all([p.waitForEvent('download'), aperta(p, '#e-exportar')]);
