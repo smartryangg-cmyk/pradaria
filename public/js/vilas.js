@@ -6,6 +6,7 @@ import { AR, B, E, M, PLANTA } from './blocos.js';
 import { BE } from './blocos-eras.js';
 import { BIOMA } from './gerador.js';
 import { opcoesMundo } from './opcoes-mundo.js';
+import { PLANTAS, desenhar, noMundo, girar, DIRS as DIRS4 } from './casas.js';
 
 export const REGIAO = 96; // cada região de 96x96 blocos pode ter uma vila (pedaços de 16 cabem certinho)
 const ALT = 96; // igual ao de mundo.js (o nível do mar vem de mundo.nivelAgua)
@@ -107,15 +108,21 @@ export class Vilas {
       }
     }
     // construções dos dois lados de cada rua
-    let celeiro = false;
+    let celeiro = false, padaria = false, loja = false;
     v.ruas.forEach((rua, ri) => {
-      for (let t = 8; t <= 4 + rua.L; t += 9) for (const lado of [-1, 1]) {
+      for (let t = 8; t <= 4 + rua.L; t += 10) for (const lado of [-1, 1]) {
         if (rng() < 0.12) continue;
         const sorte = rng();
         let tipo = sorte < 0.68 ? 'casa' : sorte < 0.9 ? 'fazenda' : 'celeiro';
         if (tipo === 'celeiro' && celeiro) tipo = 'casa';
-        const larg = tipo === 'celeiro' ? 7 : tipo === 'fazenda' ? 7 : rng() < 0.5 ? 5 : 7; // ao longo da rua
-        const fundo = tipo === 'celeiro' ? 7 : tipo === 'fazenda' ? 5 : rng() < 0.5 ? 5 : 6; // para longe da rua
+        // casas de verdade (casas.js): casinha, casa com quarto, sobrado; a vila também tem padaria e loja
+        let planta = null;
+        if (tipo === 'casa') {
+          planta = !padaria ? 'padaria' : !loja ? 'loja' : (() => { const q = rng(); return q < 0.35 ? 'casinha' : q < 0.75 ? 'casa' : 'sobrado'; })();
+          if (planta === 'padaria' || planta === 'loja') tipo = planta;
+        }
+        const larg = planta ? PLANTAS[planta].L : 7; // ao longo da rua
+        const fundo = planta ? PLANTAS[planta].F : tipo === 'celeiro' ? 7 : 5; // para longe da rua
         if (t + (larg - 1) / 2 > 4 + rua.L + 1) continue;
         // retângulo (com 1 bloco de folga) em coordenadas do mundo
         const ret = this.retLado(C, rua, t, lado, larg, fundo);
@@ -128,19 +135,24 @@ export class Vilas {
         for (const [qx, qz] of [[ret[0], ret[1]], [ret[2], ret[1]], [ret[0], ret[3]], [ret[2], ret[3]]]) pior = Math.max(pior, Math.abs(this.alt(qx, qz) - y));
         if (pior > 6) continue;
         if (tipo === 'celeiro') celeiro = true;
+        if (tipo === 'padaria') padaria = true;
+        if (tipo === 'loja') loja = true;
         ocupado.push(folga);
         // porta: no meio da parede da frente; "frente" = célula entre a casa e a rua
         const [fx, fz] = this.ponto(C, rua.dx, rua.dz, t, 3 * lado);
         const [gx, gz] = [px, pz];
-        const [ix, iz] = this.ponto(C, rua.dx, rua.dz, t, (3 + Math.floor((fundo - 1) / 2)) * lado);
+        // "dentro" = logo depois da porta (os móveis ficam encostados nas paredes)
+        const [ix, iz] = this.ponto(C, rua.dx, rua.dz, t, (planta ? 4 : 3 + Math.floor((fundo - 1) / 2)) * lado);
         const est = {
-          tipo, r: ret, y, porta: [fx, fz], frente: [gx, gz], dentro: [ix, iz], rua: ri, t, lado,
+          tipo, planta, v: rng(), r: ret, y, porta: [fx, fz], frente: [gx, gz], dentro: [ix, iz], rua: ri, t, lado,
           parede: E.parede, canto: E.canto, piso: E.piso,
           telhado: E.telhados[Math.floor(rng() * E.telhados.length)],
           cama: [B.LA_VERMELHA, B.LA_AZUL, B.LA_AMARELA, B.LA_ROSA, B.LA_VERDE][Math.floor(rng() * 5)],
         };
         v.estruturas.push(est);
         if (tipo === 'fazenda') v.fazendas.push(est); else v.casas.push(est);
+        if (tipo === 'padaria') v.padaria = est;
+        if (tipo === 'loja') v.loja = est;
         rua.lados.push({ t, lado, est });
       }
     });
@@ -207,6 +219,7 @@ export class Vilas {
       else if (e.tipo === 'poste') this.pintarPoste(ctx, e);
       else if (e.tipo === 'fazenda') this.pintarFazenda(ctx, e);
       else if (e.tipo === 'moinho') this.pintarMoinho(ctx, e);
+      else if (e.planta) this.pintarPlanta(ctx, e, v);
       else this.pintarCasa(ctx, e);
     }
   }
@@ -329,6 +342,26 @@ export class Vilas {
       put(x, y, z, B.TERRA_ARADA); put(x, y + 1, z, B.TRIGO);
     }
     put(e.frente[0], y, e.frente[1], B.PEDRISCO);
+  }
+
+  // casa de verdade (planta de casas.js): a mesma que o pedreiro contratado constrói
+  pintarPlanta(ctx, e, v) {
+    const { put } = ctx;
+    const [x0, z0, x1, z1] = e.r, y = e.y;
+    const [px, pz] = e.porta, [ix, iz] = e.dentro;
+    const ddx = Math.sign(ix - px), ddz = Math.sign(iz - pz);
+    const r = DIRS4.findIndex(([a, b]) => a === ddx && b === ddz);
+    if (!e.celulas) {
+      const estilo = { parede: e.parede, canto: e.canto, piso: e.piso, telhado: e.telhado, faixa: e.canto === B.TRONCO ? B.TABUAS : B.TRONCO };
+      const pos = noMundo(e.planta, px, y, pz, r);
+      // na vila mora gente: o forno já está aceso (o da casa que o pedreiro faz, o jogador acende)
+      e.celulas = desenhar(e.planta, estilo, e.v).map(([lx, ly, lz, b]) => [...pos(lx, ly, lz), b === M.FORNO ? M.FORNO_ACESO : girar(b, r)]);
+    }
+    this.aplainar(ctx, x0 - 1, z0 - 1, x1 + 1, z1 + 1, y, B.GRAMA, 14);
+    for (const [x, yy, z, b] of e.celulas) put(x, yy, z, b);
+    // lampião do lado de fora da porta e caminho até a rua
+    put(px + (ddz ? 1 : 0), y + 3, pz + (ddx ? 1 : 0), B.LAMPIAO);
+    put(e.frente[0], y, e.frente[1], e.piso === B.TABUAS ? B.PEDRISCO : e.piso);
   }
 
   pintarCasa(ctx, e) {
