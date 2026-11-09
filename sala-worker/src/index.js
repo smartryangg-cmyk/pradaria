@@ -169,7 +169,7 @@ export class Sala extends DurableObject {
       for (const e of d.edicoes.slice(0, MAX_EDICOES)) {
         if (!Array.isArray(e) || e.length !== 4) continue;
         const [x, y, z, b] = e;
-        if (![x, y, z].every(Number.isInteger) || y < 1 || y > ALT_MAX || !blocoOk(b) || Math.abs(x) > LONGE || Math.abs(z) > LONGE) continue;
+        if (![x, y, z].every(Number.isInteger) || y < 1 || y > ALTURA_MAX || !blocoOk(b) || Math.abs(x) > LONGE || Math.abs(z) > LONGE) continue;
         const k = x + ',' + y + ',' + z;
         ed.set(k, b); lote['b:' + k] = b;
         if (++n % 128 === 0) { await this.ctx.storage.put(lote); lote = {}; }
