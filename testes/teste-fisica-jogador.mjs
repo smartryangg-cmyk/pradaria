@@ -288,6 +288,8 @@ for (const [nome, prep] of [['pedra10', 'pedra'], ['agua10', 'agua'], ['feno10',
     if (tipo === 'trampolim') cubo(X - 1, X + 1, Y, Y, Z - 1, Z + 1, E.TRAMPOLIM);
     g.vida.reiniciar(); g.vida.protegido = 0;
     await espera(200);
+    const pousos = []; const pousouOrig = g.jog.pousou.bind(g.jog);
+    g.jog.pousou = (q) => { pousos.push({ pico: +(g.jog.pico - Y).toFixed(2), y: +(g.jog.pos.y - Y).toFixed(2), prot: g.vida.protegido, lig: g.vida.ligada() }); return pousouOrig(q); };
     const alt = tipo === 'pedra4' ? 4 : tipo === 'rapida' ? 40 : 10;
     por(X + 0.5, Y + 1 + alt, Z - 0.5, 0);
     if (tipo === 'voando') { g.jog.voando = true; }
@@ -302,7 +304,8 @@ for (const [nome, prep] of [['pedra10', 'pedra'], ['agua10', 'agua'], ['feno10',
     while (performance.now() - t0 < 12000) { menorY = Math.min(menorY, g.jog.pos.y); if ((g.jog.noChao || tipo === "trampolim") && menorY < Y + 2) break; await new Promise((r) => requestAnimationFrame(r)); }
     if (tipo === 'trampolim') await espera(1500);
     await espera(200);
-    const r = { vida: g.vida.atual, cheios: document.querySelectorAll('#vida .coracao.cheio').length, y: g.jog.pos.y - Y, menorY: menorY - Y, naAgua: g.jog.naAgua };
+    const r = { vida: g.vida.atual, cheios: document.querySelectorAll('#vida .coracao.cheio').length, y: g.jog.pos.y - Y, menorY: menorY - Y, naAgua: g.jog.naAgua, pousos };
+    g.jog.pousou = pousouOrig;
     return r;
   }, prep);
   if (nome === 'pedra10') await p.screenshot({ path: SAIDA + '/queda-coracoes.png' });
