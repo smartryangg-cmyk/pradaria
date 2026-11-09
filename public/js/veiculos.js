@@ -4,7 +4,8 @@
 // atravessam as pessoas e freiam sozinhos na frente dos bichos.
 import * as THREE from '../vendor/three.module.min.js';
 import { caixa, juntar, matModelo } from './modelos.js';
-import { SOLIDO, AGUA } from './blocos.js';
+import { SOLIDO, AGUA, B } from './blocos.js';
+import { BE } from './blocos-eras.js';
 import { ALT } from './mundo.js';
 
 export const CORES_VEICULO = [0xe53935, 0x1e88e5, 0xfdd835, 0x43a047, 0xf5f5f5, 0xfb8c00, 0xf48fb1, 0x8e24aa];
@@ -164,6 +165,21 @@ export const TIPOS = {
       c(0.7, 0.1, 0.6, BANCO, 0, 1.3, -0.5), c(0.7, 0.1, 0.6, BANCO, 0, 1.3, 0.6),
     ],
   },
+  submarino: {
+    nome: 'Submarino', meio: 'sub', L: 4.8, W: 1.8, H: 2.1, vmax: 9, acel: 4, giro: 1.4, som: 'helice', buzina: 'barco', grave: 0.7,
+    assentos: [[0, 0.95, -0.55], [0, 0.95, 0.45]],
+    rodas: [],
+    helice: { pos: [0, 0.9, 2.62], eixo: 'z', desenho: () => [c(0.12, 1.1, 0.06, PRETO, 0, 0, 0), c(1.1, 0.12, 0.06, PRETO, 0, 0, 0), c(0.2, 0.2, 0.16, CINZA, 0, 0, -0.04)] },
+    desenho: (cor) => [
+      c(1.7, 1.3, 4.2, cor, 0, 0.75, 0), c(1.3, 1.0, 0.5, cor, 0, 0.75, -2.3), c(0.9, 0.7, 0.4, cor, 0, 0.8, -2.65),
+      c(1.0, 0.8, 0.5, cor, 0, 0.85, 2.3), c(2.6, 0.08, 0.55, cor, 0, 0.85, 2.15), c(0.08, 1.3, 0.55, cor, 0, 0.9, 2.2),
+      c(1.5, 0.75, 1.9, VIDRO, 0, 1.68, -0.05), c(1.56, 0.08, 1.96, PRETO, 0, 2.08, -0.05),
+      c(0.1, 0.7, 0.1, PRETO, 0.4, 2.35, 0.7), c(0.3, 0.1, 0.1, PRETO, 0.33, 2.7, 0.7),
+      ...espelhar((s) => c(0.06, 0.38, 0.38, VIDRO, s * 0.86, 0.8, -1.4)), ...espelhar((s) => c(0.06, 0.38, 0.38, VIDRO, s * 0.86, 0.8, 1.1)),
+      c(0.5, 0.2, 0.06, FAROL, 0, 0.6, -2.86),
+      c(0.7, 0.1, 0.6, BANCO, 0, 0.92, -0.5), c(0.7, 0.1, 0.6, BANCO, 0, 0.92, 0.5),
+    ],
+  },
   helicoptero: {
     nome: 'Helicóptero', meio: 'helice', L: 4.6, W: 1.8, H: 2.4, vmax: 14, acel: 6, giro: 1.6, som: 'helice', buzina: 'carro', grave: 1.2,
     assentos: [[-0.45, 0.88, -0.55], [0.45, 0.88, -0.55], [-0.45, 0.88, 0.55], [0.45, 0.88, 0.55]],
@@ -179,13 +195,45 @@ export const TIPOS = {
     ],
   },
 };
-export const ORDEM = ['carro', 'jipe', 'esportivo', 'quadriciclo', 'moto', 'bicicleta', 'skate', 'trator', 'caminhao', 'onibus', 'barco', 'aviao', 'helicoptero'];
+// energia: 'comb' (gasolina), 'bateria' (elétrico) ou null (pedal/empurrão); autonomia: blocos com o tanque cheio;
+// terreno: quanto da velocidade sobra fora da estrada (grama, terra, areia). Avião fora da pista não chega a decolar.
+const EXTRA = {
+  carro: ['comb', 4000, 0.65], jipe: ['comb', 3500, 0.95], esportivo: ['bateria', 3500, 0.55], quadriciclo: ['comb', 3000, 0.95],
+  moto: ['comb', 4500, 0.75], bicicleta: [null, 0, 0.7], skate: [null, 0, 0.35], trator: ['comb', 2500, 1],
+  caminhao: ['comb', 4000, 0.7], onibus: ['bateria', 4000, 0.65], barco: ['comb', 4000, 1], aviao: ['comb', 8000, 0.35], helicoptero: ['comb', 5000, 1],
+  submarino: ['bateria', 4000, 1],
+};
+for (const [t, [energia, autonomia, terreno]] of Object.entries(EXTRA)) Object.assign(TIPOS[t], { energia, autonomia, terreno });
+// pisos que contam como estrada/pista (a Ilha de Aventura ainda tem as estradas de pedra dela)
+export const PISO_ESTRADA = new Set([B.PEDRISCO, B.TABUAS, B.CASCALHO, BE.ASFALTO, BE.ASFALTO_FAIXA, BE.CONCRETO].filter(Boolean));
+export const DANO_QUEBRA = 1; // com dano 1 o veículo quebra: só anda mancando até consertar
+
+export const ORDEM = ['carro', 'jipe', 'esportivo', 'quadriciclo', 'moto', 'bicicleta', 'skate', 'trator', 'caminhao', 'onibus', 'barco', 'submarino', 'aviao', 'helicoptero'];
 
 const cacheGeo = new Map();
 function geo(chave, fn) { if (!cacheGeo.has(chave)) cacheGeo.set(chave, juntar(fn())); return cacheGeo.get(chave); }
 function malha(g) { const m = new THREE.Mesh(g, matModelo); m.castShadow = true; return m; }
+// cilindro deitado (eixo x), com cor nos vértices como as caixinhas
+function cilindro(r, w, cor, lados = 20) {
+  const g = new THREE.CylinderGeometry(r, r, w, lados, 1);
+  g.rotateZ(Math.PI / 2);
+  const col = new THREE.Color(cor), n = g.attributes.position.count, C = new Float32Array(n * 3);
+  const N = g.attributes.normal.array;
+  for (let i = 0; i < n; i++) {
+    const k = 0.86 + 0.14 * Math.max(N[i * 3 + 1], Math.abs(N[i * 3])); // um pouco mais escuro embaixo
+    C[i * 3] = col.r * k; C[i * 3 + 1] = col.g * k; C[i * 3 + 2] = col.b * k;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(C, 3));
+  g.deleteAttribute('uv');
+  return g;
+}
+// roda redonda: pneu, aro, raios (para ver girar) e o miolo
 function geoRoda(r, w) {
-  return geo(`roda${r}|${w}`, () => [c(w, r * 2, r * 2, PNEU), c(w + 0.02, r * 0.9, r * 0.9, CINZA), c(w + 0.03, r * 0.3, r * 1.6, PNEU), c(w + 0.03, r * 1.6, r * 0.3, PNEU)]);
+  return geo(`roda${r}|${w}`, () => [
+    cilindro(r, w, PNEU), cilindro(r * 0.62, w + 0.03, CINZA, 16),
+    c(w + 0.05, r * 1.1, r * 0.14, 0xd8d8d8), c(w + 0.05, r * 0.14, r * 1.1, 0xd8d8d8),
+    cilindro(r * 0.2, w + 0.08, PRETO, 10),
+  ]);
 }
 
 export function montarVeiculo(tipo, cor) {
@@ -241,6 +289,10 @@ export class Veiculos {
       x, y, z, yaw: dados.r || 0, pitch: 0, roll: 0, vel: 0, vy: 0, yVis: y, noChao: false,
       ocup: new Array(d.assentos.length).fill(null), bonecos: new Array(d.assentos.length).fill(null),
       alvo: null, giroRoda: 0, girohelice: 0, motorLigado: 0, viraRoda: 0, salvo: 0,
+      comb: Number.isFinite(dados.c) ? Math.max(0, Math.min(1, dados.c)) : 1, dano: Number.isFinite(dados.d) ? Math.max(0, Math.min(1, dados.d)) : 0,
+      parado: dados.k || null, // veículo que já mora numa vila ou porto (não vai para a garagem de ninguém)
+      dono: dados.dono || null, // quem tem a chave (só ele dirige; os outros vão de passageiro)
+      fumaca: 0,
     };
     this.mapa.set(v.id, v);
     this.cena.add(v.grupo);
@@ -256,9 +308,13 @@ export class Veiculos {
     this.mapa.delete(id);
   }
 
-  limpar() { for (const id of [...this.mapa.keys()]) this.remover(id); }
+  limpar() {
+    for (const id of [...this.mapa.keys()]) this.remover(id);
+    for (const f of this.fumacas || []) this.cena.remove(f.m);
+    this.fumacas = [];
+  }
 
-  lista() { return [...this.mapa.values()].map((v) => ({ id: v.id, tipo: v.tipo, cor: v.cor, p: [+v.x.toFixed(2), +v.y.toFixed(2), +v.z.toFixed(2)], r: +v.yaw.toFixed(2) })); }
+  lista() { return [...this.mapa.values()].map((v) => ({ id: v.id, tipo: v.tipo, cor: v.cor, p: [+v.x.toFixed(2), +v.y.toFixed(2), +v.z.toFixed(2)], r: +v.yaw.toFixed(2), c: +v.comb.toFixed(3), d: +v.dano.toFixed(3), ...(v.parado ? { k: v.parado } : {}), ...(v.dono ? { dono: v.dono } : {}) })); }
 
   // ---------- lugares ----------
   livre(v) { const i = v.ocup.indexOf(null); return i; }
@@ -390,6 +446,37 @@ export class Veiculos {
     return false;
   }
 
+  // outro veículo no caminho (batida de verdade: para e amassa)
+  colideVeiculo(v, x, y, z, yaw) {
+    const d = v.d, s = Math.sin(yaw), co = Math.cos(yaw);
+    const n = Math.max(1, Math.ceil(d.L / Math.max(d.W, 0.8))), meia = Math.max(0.22, d.W * 0.45);
+    for (const u of this.mapa.values()) {
+      if (u === v || Math.abs(u.y - y) > Math.max(u.d.H, d.H) || Math.hypot(u.x - x, u.z - z) > (u.d.L + d.L) / 2 + 1) continue;
+      for (let i = 0; i < n; i++) {
+        const off = ((i + 0.5) / n - 0.5) * d.L * 0.9;
+        const l = this.local(u, x - s * off, z - co * off);
+        if (Math.abs(l.x) < u.d.W / 2 + meia && Math.abs(l.z) < u.d.L / 2 + meia) return u;
+      }
+    }
+    return null;
+  }
+
+  // estrada embaixo do veículo? (a garagem troca esta função para conhecer as estradas da Ilha de Aventura)
+  naEstrada(v) {
+    const b = this.mundo.bloco(Math.floor(v.x), Math.floor(v.y - 0.5), Math.floor(v.z));
+    return PISO_ESTRADA.has(b) || (this.estradaExtra ? this.estradaExtra(v.x, v.y, v.z, b) : false);
+  }
+
+  // amassou: o dano tira velocidade; em 1 o veículo quebra até ser consertado
+  bater(v, forca) {
+    if (!v.d.energia || forca <= 0) return;
+    const antes = v.dano;
+    v.dano = Math.min(DANO_QUEBRA, v.dano + forca);
+    if (this.aoBater) this.aoBater(v, v.dano - antes, antes < DANO_QUEBRA && v.dano >= DANO_QUEBRA);
+  }
+  semEnergia(v) { return !!v.d.energia && v.comb <= 0; }
+  quebrado(v) { return v.dano >= DANO_QUEBRA; }
+
   // tocando a água (para a velocidade) e afundado (para boiar)
   naAgua(v) { return !!AGUA[this.mundo.bloco(Math.floor(v.x), Math.floor(v.y + 0.1), Math.floor(v.z))] || this.afundado(v); }
   afundado(v) { return !!AGUA[this.mundo.bloco(Math.floor(v.x), Math.floor(v.y + 0.5), Math.floor(v.z))]; }
@@ -415,10 +502,17 @@ export class Veiculos {
     const voa = d.meio === 'ar' || d.meio === 'helice';
     let vmax = d.vmax;
     if (d.meio === 'terra' && agua) vmax *= 0.35; // carro na água boia e vai devagarzinho
-    if (d.meio === 'agua' && !agua) vmax *= 0.18; // barco na terra só se arrasta
+    if ((d.meio === 'agua' || d.meio === 'sub') && !agua) vmax *= 0.06; // barco e submarino só andam na água (na terra mal se arrastam)
+    // fora da estrada (grama, terra, areia) cada veículo perde um tanto; jipe, quadriciclo e trator quase nada
+    v.naEstrada = !agua && v.noChao && (d.meio === 'terra' || d.meio === 'ar') ? this.naEstrada(v) : !agua && d.meio !== 'helice';
+    if (!agua && v.noChao && (d.meio === 'terra' || d.meio === 'ar') && !v.naEstrada) vmax *= d.terreno;
+    // amassado anda menos; quebrado ou sem combustível quase não sai do lugar (dá para chegar no posto devagarinho)
+    vmax *= 1 - 0.45 * Math.min(1, v.dano);
+    const semMotor = this.quebrado(v) || this.semEnergia(v);
+    if (semMotor) vmax = Math.min(vmax, this.quebrado(v) ? 1.5 : 2.2); // quebrado vai mancando até o posto
     const a = ent.frente;
     if (a > 0.05) v.vel = v.vel < 0 ? v.vel + d.acel * 2 * dt : Math.min(vmax * Math.min(1, a * 1.15), v.vel + d.acel * a * dt);
-    else if (a < -0.05) v.vel = v.vel > 0.3 ? v.vel - d.acel * 2.2 * dt : Math.max(voa ? 0 : -d.vmax * 0.35, v.vel + d.acel * 0.6 * a * dt);
+    else if (a < -0.05) v.vel = v.vel > 0.3 ? v.vel - d.acel * 2.2 * dt : Math.max(voa ? 0 : -vmax * 0.35, v.vel + d.acel * 0.6 * a * dt);
     else v.vel -= Math.sign(v.vel) * Math.min(Math.abs(v.vel), (voa && !v.noChao ? 0.6 : 2.5 + Math.abs(v.vel) * 0.15) * dt);
     if (v.vel > vmax) v.vel = Math.max(vmax, v.vel - d.acel * 1.5 * dt);
 
@@ -445,29 +539,50 @@ export class Veiculos {
     // anda (frente = -z)
     const fx = -Math.sin(v.yaw), fz = -Math.cos(v.yaw);
     const nx = v.x + fx * v.vel * dt, nz = v.z + fz * v.vel * dt;
-    if (!this.colide(v, nx, v.y, nz, v.yaw)) { v.x = nx; v.z = nz; }
-    else if (v.noChao && !this.colide(v, nx, v.y + 1.02, nz, v.yaw) && !this.colide(v, v.x, v.y + 1.02, v.z, v.yaw)) {
+    const antesX = v.x, antesZ = v.z;
+    const outro = this.colideVeiculo(v, nx, v.y, nz, v.yaw);
+    if (!outro && !this.colide(v, nx, v.y, nz, v.yaw)) { v.x = nx; v.z = nz; }
+    else if (!outro && v.noChao && !this.colide(v, nx, v.y + 1.02, nz, v.yaw) && !this.colide(v, v.x, v.y + 1.02, v.z, v.yaw)) {
       // sobe degrau de 1 bloco (o corpo sobe suave pelo yVis)
       v.y = Math.floor(v.y + 0.05) + 1; v.x = nx; v.z = nz; v.vy = 0;
     } else {
-      if (Math.abs(v.vel) > 4) this.som.ruido(0.12, { vol: 0.25, freq: 380 });
+      // batida: acima de 5 m/s amassa (mais forte, mais dano)
+      const forte = Math.abs(v.vel);
+      if (forte > 4) this.som.ruido(0.12 + Math.min(0.25, forte / 60), { vol: Math.min(0.6, 0.15 + forte / 40), freq: 380 });
+      if (forte > 5) this.bater(v, (forte - 5) * 0.03);
+      if (outro && forte > 5 && this.aoBaterOutro) this.aoBaterOutro(v, outro, (forte - 5) * 0.02);
       v.vel *= -0.2;
+    }
+    // gasta combustível/bateria conforme anda (e o helicóptero, só de ficar no ar)
+    if (d.energia) {
+      let gasto = Math.hypot(v.x - antesX, v.z - antesZ) / d.autonomia;
+      if (d.meio === 'helice' && !v.noChao) gasto += dt * 8 / d.autonomia;
+      const antes = v.comb;
+      v.comb = Math.max(0, v.comb - gasto);
+      if (antes > 0.15 && v.comb <= 0.15 && this.aoAcabar) this.aoAcabar(v, 'reserva');
+      if (antes > 0 && v.comb <= 0 && this.aoAcabar) this.aoAcabar(v, 'vazio');
     }
 
     // vertical
     const g = 25;
     if (d.meio === 'helice') {
-      const alvo = ((ent.subir ? 1 : 0) - (ent.descer ? 1 : 0)) * 6;
+      const alvo = semMotor ? -4 : ((ent.subir ? 1 : 0) - (ent.descer ? 1 : 0)) * 6; // sem motor: desce devagar
       v.vy += (alvo - v.vy) * Math.min(1, dt * 4);
       v.motorLigado = 1;
     } else if (d.meio === 'ar') {
-      const sobe = v.vel >= d.decola;
+      const sobe = v.vel >= d.decola && !semMotor;
       if (sobe) {
         const alvo = ((ent.subir ? 1 : 0) - (ent.descer ? 1 : 0)) * 6 + (v.noChao ? 0 : 0);
         v.vy += (alvo - v.vy) * Math.min(1, dt * 3);
         if (v.noChao && ent.subir) v.vy = 3;
       } else if (!v.noChao) v.vy += (-4 - v.vy) * Math.min(1, dt * 2); // plana devagar até o chão
       else v.vy -= g * dt;
+    } else if (d.meio === 'sub' && agua) {
+      // submarino: as setas afundam e sobem; perto da superfície ele boia (não sai voando da água)
+      const quer = semMotor ? 1 : (ent.subir ? 1 : 0) - (ent.descer ? 1 : 0);
+      const superficie = !AGUA[this.mundo.bloco(Math.floor(v.x), Math.floor(v.y + 1.3), Math.floor(v.z))];
+      if (superficie && quer >= 0) this.boiar(v, dt);
+      else v.vy += (quer * 3.5 - v.vy) * Math.min(1, dt * 3);
     } else if (agua) this.boiar(v, dt);
     else v.vy = Math.max(-30, v.vy - g * dt);
     this.moverVertical(v, dt);
@@ -485,7 +600,7 @@ export class Veiculos {
       pitchAlvo = THREE.MathUtils.clamp(Math.atan2(hf - hb, d.L * 0.8), -0.45, 0.45);
       if (d.inclina) rollAlvo = -ent.lado * Math.min(1, Math.abs(v.vel) / 6) * 0.35;
     } else {
-      pitchAlvo = Math.min(0.12, v.vel * 0.01); // nariz do barco levanta
+      pitchAlvo = d.meio === 'sub' ? THREE.MathUtils.clamp(v.vy * 0.08, -0.3, 0.3) : Math.min(0.12, v.vel * 0.01); // nariz do barco levanta
       rollAlvo = Math.sin(performance.now() / 700) * 0.03;
     }
     const k = Math.min(1, dt * 6);
@@ -497,6 +612,7 @@ export class Veiculos {
     const ny = v.y + v.vy * dt;
     if (!this.colide(v, v.x, ny, v.z, v.yaw)) { v.y = ny; v.noChao = false; return; }
     if (v.vy < 0) {
+      if (v.vy < -13 && v.ocup[0] !== null) this.bater(v, (-v.vy - 13) * 0.04); // caiu de muito alto
       const base = Math.floor(ny);
       v.y = base + (this.colide(v, v.x, base, v.z, v.yaw) ? 1 : 0);
       if (this.colide(v, v.x, v.y, v.z, v.yaw)) v.y = Math.floor(v.y) + 1;
@@ -531,9 +647,11 @@ export class Veiculos {
   }
 
   // pose vinda da rede (motorista é outra pessoa)
-  aplicarPose(id, p, r, s) {
+  aplicarPose(id, p, r, s, c, d) {
     const v = this.mapa.get(id);
     if (!v) return;
+    if (Number.isFinite(c)) v.comb = c;
+    if (Number.isFinite(d)) v.dano = d;
     v.alvo = { x: p[0], y: p[1], z: p[2], yaw: r[0] || 0, pitch: r[1] || 0, roll: r[2] || 0 };
     v.velRede = s || 0;
   }
@@ -567,6 +685,37 @@ export class Veiculos {
         if (v.d.helice.eixo === 'y') v.helice.rotation.y = v.girohelice; else v.helice.rotation.z = v.girohelice;
       }
       for (const b of v.bonecos) if (b && b.pose === 'p') posar(b, 'p', v.giroRoda * 2.2);
+      // amassado solta fumacinha (quebrado, fumaça escura)
+      if (v.dano > 0.5 && v.d.energia) {
+        v.fumaca -= dt;
+        if (v.fumaca <= 0) { v.fumaca = this.quebrado(v) ? 0.12 : 0.35; this.soltarFumaca(v); }
+      }
+    }
+    this.animarFumaca(dt);
+  }
+
+  soltarFumaca(v) {
+    if (!this.fumacas) this.fumacas = [];
+    let f = this.fumacas.find((x) => x.vida <= 0);
+    if (!f) {
+      if (this.fumacas.length >= 40) return;
+      const m = new THREE.Mesh(this._geoFum || (this._geoFum = new THREE.BoxGeometry(0.35, 0.35, 0.35)), new THREE.MeshBasicMaterial({ color: 0x777777, transparent: true, opacity: 0.6, depthWrite: false }));
+      f = { m, vida: 0 }; this.fumacas.push(f); this.cena.add(m);
+    }
+    const s = Math.sin(v.yaw), co = Math.cos(v.yaw), frente = v.d.L * 0.38;
+    f.m.position.set(v.x - s * frente + (Math.random() - 0.5) * 0.4, v.yVis + Math.min(v.d.H, 1.6), v.z - co * frente + (Math.random() - 0.5) * 0.4);
+    f.m.material.color.setHex(this.quebrado(v) ? 0x333333 : 0x8a8a8a);
+    f.vida = 1.6; f.m.visible = true; f.m.scale.setScalar(0.6);
+  }
+  animarFumaca(dt) {
+    if (!this.fumacas) return;
+    for (const f of this.fumacas) {
+      if (f.vida <= 0) continue;
+      f.vida -= dt;
+      f.m.position.y += dt * 1.2;
+      f.m.scale.setScalar(0.6 + (1.6 - f.vida) * 0.9);
+      f.m.material.opacity = Math.max(0, f.vida / 1.6) * 0.6;
+      if (f.vida <= 0) f.m.visible = false;
     }
   }
 

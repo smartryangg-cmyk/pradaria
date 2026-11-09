@@ -6,7 +6,7 @@ Jogo de construir e explorar, **pacífico** (só bichinhos, nada de monstros), q
 - 22 blocos para construir (grama, pedra, tábuas, vidro, tijolo, lãs coloridas, flores, lampião…).
 - **Vilas** espalhadas pelo mundo (sempre tem uma pertinho de onde se começa): casas com telhado colorido, caminha e lampião, ruas com postes, praça com poço, plantações de trigo e celeiro com feno. Quatro estilos: do campo, de tijolinho, da praia (telhado de feno) e da serra. Cada vila tem nome (ex.: "Vila do Girassol").
 - **Aldeões** que passeiam, acenam quando você chega, conversam com um toque (às vezes dão um presentinho) e dormem em casa à noite.
-- **Veículos** (botão 🚗 = garagem): carro conversível, jipe, esportivo, quadriciclo, moto, bicicleta, skate, trator, caminhão, ônibus, barco, avião e helicóptero, em 8 cores. Aparecem na sua frente, sobem degraus de um bloco, boiam na água e freiam sozinhos na frente dos bichos e das pessoas (ninguém se machuca). Amigos entram como passageiros e todo mundo vê quem está dentro; cada um tem sua buzina. Ficam salvos no mundo.
+- **Veículos**: carro conversível, jipe, esportivo, quadriciclo, moto, bicicleta, skate, trator, caminhão, ônibus, barco, submarino, avião e helicóptero, com rodas redondas e 8 cores. Não ficam num menu: a **garagem** é um lugar no mundo (junto do posto de cada vila; sem vilas, perto do começo). Lá você pega a **chave** (de graça sem o mercado; com o mercado, compra com moedas ou monta com troncos, pedras e areia da mochila). Bicicleta e skate todo mundo já tem. Com a chave, o **celular** chama o veículo de qualquer lugar, e só quem tem a chave dirige (os outros vão de passageiro). Combustível ou bateria acabam andando (sem eles o veículo vai bem devagar), batidas amassam (com dano total ele quebra e anda mancando) e no **posto** se abastece e conserta (com moedas, se o mercado estiver ligado). Guardado, o veículo é abastecido e consertado aos poucos. Na estrada anda mais rápido (jipe, quadriciclo e trator ligam menos para a grama), o avião só decola numa rua ou estrada, barco e submarino só andam na água. As vilas e o porto já têm veículos estacionados que qualquer um pode usar. Freiam sozinhos na frente dos bichos e das pessoas (ninguém se machuca). Tudo some com a opção Veículos desligada.
 - Bichos: ovelha, porquinho, galinha, vaca, coelho, capivara e o Caramelo (que segue você depois de um carinho).
 - Visual caprichado já no padrão: sol que faz sombra de verdade, céu com degradê, pôr do sol rosado e estrelas, água que reflete o céu e brilha, folhas e flores balançando com o vento, lampiões que iluminam a noite, névoa na cor do horizonte.
 - Três níveis de gráficos (Linda, Bonita, Leve). Se o aparelho ficar lento, o jogo baixa sozinho para rodar liso.
@@ -36,8 +36,8 @@ Jogo de construir e explorar, **pacífico** (só bichinhos, nada de monstros), q
 | 🧭: comandos (teleporte, casa, amigos, hora) | C |
 | Balão: chat de texto · Microfone: entrar na voz · Segure: falar | T ou Enter · B (segurar) |
 | Botão da câmera: ver o próprio boneco (olhos → de trás → de frente) | R (ou F5) |
-| 🚗 garagem · toque no veículo ou "Entrar" · 🚪 Descer · 📯 buzina | G · V · V · H |
-| No veículo: joystick dirige; ⬆ ⬇ sobem e descem avião/helicóptero | WASD; Espaço/Shift |
+| Celular (chamar veículo) · Garagem (no posto) · toque no veículo ou "Entrar" · Descer · buzina | G · G · V · V · H |
+| No veículo: joystick dirige; ⬆ ⬇ sobem e descem avião/helicóptero/submarino; no posto, Abastecer e Consertar | WASD; Espaço/Shift |
 
 ## Como funciona (arquitetura)
 

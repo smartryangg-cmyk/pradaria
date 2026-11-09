@@ -2,14 +2,47 @@
 // Fica fora do main.js; o main só chama os ganchos (comecar, tocar, quadro, camera, rede...).
 import * as THREE from '../vendor/three.module.min.js';
 import { Veiculos, TIPOS, ORDEM, CORES_VEICULO } from './veiculos.js';
-import { SOLIDO, AGUA } from './blocos.js';
-import { montarBoneco } from './modelos.js';
+import { SOLIDO, AGUA, B } from './blocos.js';
+import { montarBoneco, caixa, juntar, matModelo } from './modelos.js';
 import { opcoesMundo } from './opcoes-mundo.js';
 import { icone } from './icones.js';
+import { LugaresVeiculos } from './lugares-veiculos.js';
+import { PRECO_VEICULO, RECEITA_VEICULO, VEICULOS_LIVRES, temVeiculo, precoServico, estadoDaGaragem } from './economia.js';
 
 const $ = (s) => document.querySelector(s);
-const MAX_LOCAL = 30;
+const MAX_LOCAL = 40;
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
+const PERTO_POSTO = 6.5;
+const ARVORE = new Set([B.FOLHAS, B.TRONCO, B.FOLHAS_PINHEIRO, B.TRONCO_PINHEIRO, B.TRONCO_BETULA, B.FOLHAS_SELVA].filter(Boolean)); // distância (centro do veículo até o posto) para abastecer/consertar
+const moedaHtml = (n) => `<span class="econ-m">${icone('moeda')}<span>${n}</span></span>`;
+
+// posto: chão de concreto, cobertura, bomba de gasolina, carregador e a placa da oficina (só enfeite: não é sólido)
+let geoPosto = null;
+function montarPosto() {
+  if (!geoPosto) {
+    const c = caixa, CIM = 0xb9b4aa, TETO = 0xf4f4f4, VERM = 0xe53935, AZUL = 0x1e88e5, PRETO = 0x333333, AMAR = 0xfdd835;
+    geoPosto = juntar([
+      c(5.2, 0.12, 6.2, CIM, 0, 0.06, 0),
+      ...[[-2.3, -2.8], [2.3, -2.8], [-2.3, 2.8], [2.3, 2.8]].map(([x, z]) => c(0.22, 3.7, 0.22, TETO, x, 1.95, z)),
+      c(5.4, 0.3, 6.4, TETO, 0, 3.9, 0), c(5.44, 0.14, 6.44, VERM, 0, 3.72, 0),
+      // ilha das bombas no meio
+      c(0.9, 0.25, 2.6, CIM, 0, 0.2, 0),
+      c(0.6, 1.4, 0.5, VERM, 0, 1.0, -0.7), c(0.5, 0.35, 0.06, 0xbfe6ff, 0, 1.35, -0.98), c(0.08, 0.5, 0.08, PRETO, 0.34, 0.8, -0.7),
+      c(0.6, 1.4, 0.5, AZUL, 0, 1.0, 0.7), c(0.5, 0.35, 0.06, 0xbfe6ff, 0, 1.35, 0.98), c(0.14, 0.14, 0.14, AMAR, 0, 1.85, 0.7),
+      // placa alta
+      c(0.18, 4.6, 0.18, PRETO, 3.3, 2.3, -3.3), c(1.4, 1.1, 0.16, VERM, 3.3, 4.9, -3.3), c(1.0, 0.7, 0.18, AMAR, 3.3, 4.9, -3.3),
+      // garagem do lado: galpão aberto na frente, quadro de chaves na parede do fundo
+      c(5.6, 0.12, 6.2, CIM, -6, 0.06, 0),
+      c(0.2, 3.6, 6.2, 0xd9c8a5, -8.7, 1.8, 0), ...[-2.9, 2.9].map((z) => c(5.6, 3.6, 0.2, 0xd9c8a5, -6, 1.8, z)),
+      c(6.0, 0.3, 6.6, AZUL, -6, 3.75, 0),
+      c(0.08, 1.0, 1.6, 0x8a5a2b, -8.56, 1.7, 0), ...[-0.5, 0, 0.5].map((z) => c(0.1, 0.22, 0.12, AMAR, -8.5, 1.8, z)),
+      c(0.16, 0.9, 2.4, AMAR, -3.15, 3.2, 0), c(0.18, 0.5, 1.4, PRETO, -3.1, 3.2, 0),
+    ]);
+  }
+  const m = new THREE.Mesh(geoPosto, matModelo);
+  m.castShadow = true; m.receiveShadow = true;
+  return m;
+}
 
 export class Garagem {
   // J: { cena, camera, som, aviso, corBoneco(), sala(), euId(), outros, jog(), ctrl(), mundo(), bichos(), aldeoes(), pausar(bool) }
@@ -25,12 +58,17 @@ export class Garagem {
     this.ultYaw = 0; this.ultPitch = 0;
     // filtro de quais tipos aparecem na garagem (ex.: modo história libera por era). Chaves: ORDEM de veiculos.js
     this.permitido = (tipo) => true; // eslint-disable-line no-unused-vars
+    this.postos = new Map(); // k -> { x, y, z, malha }
+    this.criados = new Set(); // veículos de vila/porto que já apareceram neste mundo (não voltam a aparecer)
+    this.pedidosP = new Set();
+    this.tempoLugares = 0;
+    this.escolhido = null; // tipo aberto na garagem (para comprar/montar)
     this.montarTela();
     addEventListener('keydown', (e) => {
       if (!this.veic || e.target.tagName === 'INPUT' || e.repeat) return;
       if (e.code === 'KeyV') { if (this.dentro) this.sair(); else { const v = this.pertoDeMim(); if (v) this.pedirEntrar(v); } }
       else if (e.code === 'KeyH') this.buzinar();
-      else if (e.code === 'KeyG') this.abrir();
+      else if (e.code === 'KeyG') this.abrir(this.garagemPerto() ? 'garagem' : 'celular');
     });
   }
 
@@ -39,17 +77,26 @@ export class Garagem {
   // ---------- tela ----------
   montarTela() {
     const topo = $('#topo');
+    // celular: chama um veículo que você tem a chave (os veículos não ficam num menu: a garagem é um lugar no mundo)
     const bt = document.createElement('button');
-    bt.id = 'bt-garagem'; bt.className = 'redondo'; bt.setAttribute('aria-label', 'Veículos'); bt.innerHTML = icone('carro');
-    bt.addEventListener('click', () => this.abrir());
+    bt.id = 'bt-celular'; bt.className = 'redondo'; bt.setAttribute('aria-label', 'Celular: chamar meu veículo'); bt.innerHTML = icone('celular');
+    bt.addEventListener('click', () => this.abrir('celular'));
     topo.insertBefore(bt, $('#status-linha') || $('#status'));
 
     const hud = $('#hud');
     const caixa = document.createElement('div');
     caixa.id = 'veic-botoes';
     caixa.innerHTML = `
-      <div id="velo" hidden><b>0</b><small>km/h</small></div>
+      <div id="velo" hidden><b>0</b><small>km/h</small>
+        <div class="medidor" id="med-comb"><span class="ic-m"></span><i><u></u></i></div>
+        <div class="medidor" id="med-dano"><span class="ic-m">${icone('ferramenta')}</span><i><u></u></i></div>
+      </div>
+      <div id="veic-posto" hidden>
+        <button id="bt-abastecer" class="pilula verde"></button>
+        <button id="bt-consertar" class="pilula"></button>
+      </div>
       <button id="bt-veic-entrar" class="pilula" hidden></button>
+      <button id="bt-garagem-lugar" class="pilula" hidden>${icone('chave')}Garagem</button>
       <div id="veic-dentro" hidden>
         <button id="bt-veic-guardar" class="pilula fraca" title="Guardar o veículo">${icone('estacionar')}Guardar</button>
         <button id="bt-veic-sair" class="pilula" title="Descer (V)">${icone('sair')}Descer</button>
@@ -60,15 +107,19 @@ export class Garagem {
     toque($('#bt-veic-entrar'), () => { const v = this.pertoDeMim(); if (v) this.pedirEntrar(v); });
     toque($('#bt-veic-sair'), () => this.sair());
     toque($('#bt-veic-guardar'), () => this.guardar());
+    toque($('#bt-abastecer'), () => this.servico('comb'));
+    toque($('#bt-garagem-lugar'), () => this.abrir('garagem'));
+    toque($('#bt-consertar'), () => this.servico('conserto'));
     $('#bt-buzina').addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); this.buzinar(); }, { passive: false });
     $('#bt-buzina').addEventListener('mousedown', (e) => { e.stopPropagation(); this.buzinar(); });
 
     const jan = document.createElement('div');
     jan.id = 'garagem'; jan.className = 'janela'; jan.hidden = true;
     jan.innerHTML = `<div class="caixa">
-      <h2>Garagem</h2>
-      <p class="sub">Escolha a cor e o veículo. Ele aparece na sua frente!</p>
+      <h2 id="garagem-titulo">Garagem</h2>
+      <p class="sub" id="garagem-sub">Escolha a cor e o veículo. Ele aparece na sua frente!</p>
       <div id="garagem-cores"></div>
+      <div id="garagem-compra" hidden></div>
       <div id="garagem-grade"></div>
       <button class="bt" id="garagem-fechar">Fechar</button>
     </div>`;
@@ -86,42 +137,174 @@ export class Garagem {
       const d = TIPOS[t];
       const b = document.createElement('button');
       b.className = 'veiculo'; b.dataset.tipo = t;
-      b.innerHTML = `<span class="ic"></span><span class="nm"></span><small></small>`;
+      b.innerHTML = `<span class="ic"></span><span class="nm"></span><small></small><em class="preco"></em>`;
       b.querySelector('.ic').innerHTML = icone(t);
       b.querySelector('.nm').textContent = d.nome;
       b.querySelector('small').textContent = d.assentos.length === 1 ? '1 lugar' : d.assentos.length + ' lugares';
-      b.addEventListener('click', () => { this.J.som.clique(); this.fechar(); this.novo(t, this.corSel); });
+      b.addEventListener('click', () => {
+        this.J.som.clique();
+        if (this.modo === 'celular') { this.fechar(); this.chamar(t); return; }
+        if (!this.meu(t)) { this.escolhido = t; this.desenharGaragem(); return; }
+        this.fechar(); this.novo(t, this.corSel);
+      });
       grade.appendChild(b);
     }
     $('#garagem-fechar').addEventListener('click', () => this.fechar());
   }
 
-  abrir() {
+  // modo 'garagem' (só no lugar: o posto/garagem de uma vila) ou 'celular' (chamar um veículo que você tem a chave)
+  abrir(modo = 'garagem') {
     if (!this.veic || !this.ligados()) return;
+    if (modo === 'garagem' && !this.garagemPerto()) { this.J.aviso('A garagem fica no posto das vilas. Pelo celular você chama os veículos que já tem', 3000, 'celular'); return; }
     if (document.pointerLockElement) document.exitPointerLock();
+    this.modo = modo;
     let algum = false;
-    for (const b of document.querySelectorAll('#garagem-grade .veiculo')) { b.hidden = !this.permitido(b.dataset.tipo); algum = algum || !b.hidden; }
+    for (const b of document.querySelectorAll('#garagem-grade .veiculo')) {
+      const t = b.dataset.tipo;
+      b.hidden = !this.permitido(t) || (modo === 'celular' && !this.meu(t));
+      algum = algum || !b.hidden;
+    }
     if (!algum) { this.J.aviso('Ainda não existem veículos nesta época', 2200, 'ampulheta'); return; }
+    $('#garagem-titulo').innerHTML = modo === 'celular' ? icone('celular') + 'Celular' : icone('chave') + 'Garagem';
+    $('#garagem-cores').hidden = false;
+    this.escolhido = null;
+    this.desenharGaragem();
     $('#garagem').hidden = false;
     this.J.pausar(true);
+  }
+
+  // ---------- mercado: comprar com moedas ou montar com o que se coletou ----------
+  mercado() { return this.J.mercado ? this.J.mercado() : null; }
+  comMercado() { const m = this.mercado(); return !!(m && m.op.mercado); }
+  meu(tipo) { const m = this.mercado(); return !m || temVeiculo(m.e, tipo); }
+  garagemPerto() {
+    const p = this.J.jog().pos;
+    for (const g of this.postos.values()) if (Math.hypot(g.x - p.x, g.z - p.z) < 11 && Math.abs(g.y - p.y) < 6) return g;
+    return null;
+  }
+  // veículo meu (tem a chave): sem internet tudo que saiu da garagem; online o dono é a conta
+  ehMeu(v) {
+    if (!v.dono) return false;
+    if (!this.J.sala()) return true;
+    const id = this.J.euId() || '';
+    return v.dono === id.slice(0, id.lastIndexOf('-'));
+  }
+
+  // celular: o veículo vem até você (se já estiver no mundo e vazio, ele sai de onde está)
+  chamar(tipo) {
+    if (!this.meu(tipo) || !this.permitido(tipo)) return;
+    const d = TIPOS[tipo];
+    const lá = [...this.veic.mapa.values()].find((v) => v.tipo === tipo && this.ehMeu(v));
+    if (lá && this.dentro && this.dentro.v === lá) { this.J.aviso('Você já está nele!', 1500, tipo); return; }
+    if (lá && lá.ocup.some(Boolean)) { this.J.aviso(`Alguém está usando o seu ${d.nome.toLowerCase()} agora`, 2200, tipo); return; }
+    this.J.aviso(`Chamando: o ${d.nome.toLowerCase()} chega em instantes`, 2200, 'celular');
+    this.J.som.clique();
+    const cor = lá ? lá.cor : this.corSel;
+    clearTimeout(this._chamada);
+    this._chamada = setTimeout(() => {
+      if (!this.veic) return;
+      if (lá && this.veic.mapa.has(lá.id) && !lá.ocup.some(Boolean)) {
+        if (this.J.sala()) this.J.sala().enviar({ t: 'vguardar', id: lá.id });
+        else { const m = this.mercado(); if (m) m.guardarVeiculo(tipo, [lá.comb, lá.dano]); this.veic.remover(lá.id); }
+      }
+      setTimeout(() => this.novo(tipo, cor), this.J.sala() ? 1600 : 0); // a sala só deixa criar um a cada 1,5 s
+    }, 1800);
+  }
+
+  desenharGaragem() {
+    const m = this.mercado(), loja = this.comMercado();
+    $('#garagem-sub').innerHTML = this.modo === 'celular'
+      ? 'Os veículos que você tem a chave. Toque num e ele vem até você!'
+      : loja
+        ? `Você tem ${moedaHtml(m.e.moedas)}. Com a chave, o veículo sai daqui; os outros você compra ou monta com o que coletou.`
+        : 'Pegue a chave do veículo que quiser. Depois é só chamar pelo celular!';
+    for (const b of document.querySelectorAll('#garagem-grade .veiculo')) {
+      const t = b.dataset.tipo, meu = this.meu(t), pr = b.querySelector('.preco');
+      b.classList.toggle('trancado', !meu);
+      b.classList.toggle('sel', this.escolhido === t);
+      pr.innerHTML = meu ? icone('chave') : !loja ? 'pegar chave' : icone('cadeado') + PRECO_VEICULO[t];
+    }
+    const caixa = $('#garagem-compra');
+    const t = this.escolhido;
+    caixa.hidden = !t || this.meu(t) || this.modo === 'celular';
+    if (caixa.hidden) return;
+    if (!loja) {
+      // sem mercado: a chave é de graça, mas só aqui na garagem
+      caixa.innerHTML = `<div class="gc-topo">${icone(t)}<b>${TIPOS[t].nome}</b></div>
+        <div class="gc-linhas"><button class="bt verde" id="gc-chave">${icone('chave')}Pegar a chave</button></div>`;
+      caixa.querySelector('#gc-chave').addEventListener('click', () => { this.J.som.clique(); m.veiculo({ t: 'chave', tipo: t }); this.depoisDeComprar(t); });
+      return;
+    }
+    const preco = PRECO_VEICULO[t], rec = RECEITA_VEICULO[t] || {};
+    const temTudo = Object.entries(rec).every(([b, n]) => (m.e.itens[b] || 0) >= n);
+    caixa.innerHTML = `<div class="gc-topo">${icone(t)}<b>${TIPOS[t].nome}</b></div>
+      <div class="gc-linhas">
+        <button class="bt ${m.e.moedas >= preco ? 'verde' : ''}" id="gc-comprar">Comprar por ${moedaHtml(preco)}</button>
+        <div class="gc-montar"><span>Ou monte com:</span><span class="gc-rec"></span>
+          <button class="bt ${temTudo ? 'verde' : ''}" id="gc-montar">${icone('ferramenta')}Montar</button></div>
+      </div>`;
+    const lista = caixa.querySelector('.gc-rec');
+    const ui = m.ui;
+    for (const [b, n] of Object.entries(rec)) {
+      const tem = m.e.itens[b] || 0;
+      const s = document.createElement('span');
+      s.className = 'gc-item' + (tem >= n ? ' ok' : '');
+      if (ui.icone) s.appendChild(ui.icone(+b, 24));
+      s.appendChild(document.createTextNode(`${Math.min(tem, n)}/${n}`));
+      s.title = ui.nomeBloco ? ui.nomeBloco(+b) : '';
+      lista.appendChild(s);
+    }
+    caixa.querySelector('#gc-comprar').addEventListener('click', () => {
+      this.J.som.clique();
+      if (m.e.moedas < preco) { this.J.aviso(`Faltam ${preco - m.e.moedas} moedas. Venda coisas na loja da vila!`, 2400, 'moeda'); return; }
+      m.veiculo({ t: 'comprarV', tipo: t });
+      this.depoisDeComprar(t);
+    });
+    caixa.querySelector('#gc-montar').addEventListener('click', () => {
+      this.J.som.clique();
+      if (!temTudo) { this.J.aviso('Faltam materiais. Quebre blocos pelo mundo para juntar!', 2400, 'ferramenta'); return; }
+      m.veiculo({ t: 'montarV', tipo: t });
+      this.depoisDeComprar(t);
+    });
+  }
+  // sem internet a compra é na hora; online espera a sala responder (mercado.recebeu chama mudouEcon)
+  depoisDeComprar(t) { this._comprando = t; this.mudouEcon(); }
+  mudouEcon() {
+    if (!$('#garagem').hidden) this.desenharGaragem();
+    const t = this._comprando;
+    if (t && this.meu(t)) {
+      this._comprando = null; this.escolhido = null;
+      this.J.aviso(`A chave do ${TIPOS[t].nome.toLowerCase()} é sua! Pelo celular você chama ele de qualquer lugar`, 3000, 'chave');
+      this.fechar(); this.novo(t, this.corSel);
+    }
   }
   fechar() { $('#garagem').hidden = true; this.J.pausar(false); }
 
   ligados() { return opcoesMundo.veiculos !== false; }
 
   // ---------- ciclo do mundo ----------
-  comecar(mundo, salvos = []) {
+  comecar(mundo, salvos = [], criados = []) {
     this.parar();
     this.veic = new Veiculos(this.J.cena, mundo, this.J.som);
-    for (const s of salvos || []) this.veic.criar(s);
+    this.lugares = new LugaresVeiculos(mundo);
+    this.criados = new Set(Array.isArray(criados) ? criados : []);
+    this.pedidosP = new Set();
+    this.tempoLugares = 0;
+    // estradas de pedra da Ilha de Aventura contam como estrada
+    this.veic.estradaExtra = (x, y, z, b) => !!mundo.aventura && (b === B.PEDRA || b === B.LA_BRANCA) && mundo.aventura.naEstrada(x, z);
+    this.veic.aoAcabar = (v, como) => this.acabou(v, como);
+    this.veic.aoBater = (v, quanto, quebrou) => this.bateu(v, quanto, quebrou);
+    for (const s of salvos || []) { const v = this.veic.criar(s); if (v && v.parado) this.criados.add(v.parado); }
     for (const v of this.veic.mapa.values()) { const n = parseInt(String(v.id).slice(1), 10); if (n >= this.veic.seq) this.veic.seq = n + 1; }
-    $('#bt-garagem').hidden = !this.ligados();
+    $('#bt-celular').hidden = !this.ligados();
     this.atualizarHud();
   }
 
   parar() {
     if (this.dentro) this.sairLocal(true);
     if (this.veic) { for (const o of this.J.outros.values()) o.sentado = false; this.veic.limpar(); }
+    for (const p of this.postos.values()) this.J.cena.remove(p.malha);
+    this.postos.clear();
     this.veic = null;
     this.J.som.motor(null);
     $('#bt-veic-entrar').hidden = true;
@@ -129,10 +312,12 @@ export class Garagem {
   }
 
   lista() { return this.veic ? this.veic.lista() : []; }
+  listaCriados() { return [...this.criados]; }
 
   // ---------- ações ----------
   novo(tipo, cor) {
-    if (!TIPOS[tipo] || !this.permitido(tipo)) return;
+    if (!TIPOS[tipo] || !this.permitido(tipo) || !this.ligados()) return;
+    if (!this.meu(tipo)) { this.J.aviso('Você ainda não tem a chave. Pegue na garagem de uma vila', 2600, 'chave'); return; }
     const jog = this.J.jog(), d = TIPOS[tipo];
     if (this.dentro) this.sair();
     // tenta na frente; se não couber (penhasco, parede), dos lados e atrás
@@ -143,14 +328,17 @@ export class Garagem {
       lugar = this.acharLugar(d, jog.pos, -Math.sin(olhar), -Math.cos(olhar), yaw);
       if (lugar) break;
     }
-    if (!lugar) { this.J.aviso(d.meio === 'agua' ? 'O barco precisa de água bem pertinho' : 'Não cabe aqui. Tente num lugar mais aberto', 2600, d.meio === 'agua' ? 'gota' : tipo); return; }
+    if (!lugar) { this.J.aviso((d.meio === 'agua' || d.meio === 'sub') ? 'Barco e submarino precisam de água bem pertinho' : 'Não cabe aqui. Tente num lugar mais aberto', 2600, (d.meio === 'agua' || d.meio === 'sub') ? 'gota' : tipo); return; }
     if (this.J.sala()) {
       this.pedido = Math.floor(Math.random() * 1e9);
       this.J.sala().enviar({ t: 'vnovo', tipo, cor, p: lugar, r: yaw, n: this.pedido });
     } else {
       // limite de veículos no mundo: o mais antigo vazio vai embora
       if (this.veic.mapa.size >= MAX_LOCAL) for (const v of this.veic.mapa.values()) if (!v.ocup.some(Boolean)) { this.veic.remover(v.id); break; }
-      const v = this.veic.criar({ id: 'L' + this.veic.seq++, tipo, cor, p: lugar, r: yaw });
+      // sai da garagem como foi guardado (o mecânico da garagem abastece e conserta aos poucos)
+      const m = this.mercado();
+      const [c, dn] = estadoDaGaragem(m && m.e, tipo, Date.now());
+      const v = this.veic.criar({ id: 'L' + this.veic.seq++, tipo, cor, p: lugar, r: yaw, c, d: dn, dono: 'eu' });
       this.entrar(v, 0);
     }
   }
@@ -162,7 +350,7 @@ export class Garagem {
       for (let y = y0; y <= y0 + 1; y++) if (!this.veic.colide(prova, x, y, z, yaw)) return y;
       return null;
     };
-    for (let dist = d.L / 2 + 1.2; dist < (d.meio === 'agua' ? 24 : d.L / 2 + 6); dist += 1) {
+    for (let dist = d.L / 2 + 1.2; dist < ((d.meio === 'agua' || d.meio === 'sub') ? 24 : d.L / 2 + 6); dist += 1) {
       const x = pos.x + fx * dist, z = pos.z + fz * dist;
       const bx = Math.floor(x), bz = Math.floor(z);
       let topo = null, agua = false;
@@ -171,7 +359,7 @@ export class Garagem {
         if (SOLIDO[b] || AGUA[b]) { topo = by + 1; agua = !!AGUA[b]; break; }
       }
       if (topo === null) continue;
-      if (d.meio === 'agua' && !agua) continue;
+      if ((d.meio === 'agua' || d.meio === 'sub') && !agua) continue;
       const y = testar(x, z, agua ? topo - 1 : topo);
       if (y !== null) return [+x.toFixed(2), y, +z.toFixed(2)];
     }
@@ -215,7 +403,7 @@ export class Garagem {
     $('#bt-voar').classList.remove('ligado');
     J.som.porta();
     const d = v.d;
-    if (a === 0) J.aviso(d.meio === 'ar' ? 'Acelere para decolar e use as setas para subir e descer' : d.meio === 'helice' ? 'Use as setas para subir e descer' : 'Use o joystick para dirigir', 3000, v.tipo);
+    if (a === 0) J.aviso(d.meio === 'ar' ? 'Acelere numa rua ou estrada para decolar e use as setas para subir e descer' : d.meio === 'helice' ? 'Use as setas para subir e descer' : d.meio === 'sub' ? 'Use as setas para afundar e voltar para a superfície' : 'Use o joystick para dirigir', 3000, v.tipo);
     else J.aviso('Você é passageiro! Aproveite o passeio', 2200, v.tipo);
     this.atualizarHud();
   }
@@ -249,11 +437,14 @@ export class Garagem {
   guardar() {
     if (!this.dentro) return;
     const { v } = this.dentro;
+    if (v.parado) { this.J.aviso('Este veículo mora aqui. Deixe ele estacionado para os outros', 2200, 'estacionar'); return; }
     if (v.ocup.some((q, i) => q && q !== this.eu && i !== this.dentro.a)) { this.J.aviso('Espere todo mundo descer', 1800, 'amigos'); return; }
     if (this.J.sala()) { this.J.sala().enviar({ t: 'vguardar', id: v.id }); this.sair(); return; }
+    const m = this.mercado();
+    if (m) m.guardarVeiculo(v.tipo, [v.comb, v.dano]);
     this.sairLocal();
     this.veic.remover(v.id);
-    this.J.aviso('Veículo guardado', 1400, 'estacionar');
+    this.J.aviso('Veículo guardado. Na garagem ele é abastecido e consertado aos poucos', 2400, 'estacionar');
   }
 
   buzinar() {
@@ -266,10 +457,16 @@ export class Garagem {
     const dentro = !!this.dentro, motorista = dentro && this.dentro.a === 0;
     $('#veic-dentro').hidden = !dentro;
     $('#bt-buzina').hidden = !motorista;
-    $('#bt-veic-guardar').hidden = !motorista;
+    $('#bt-veic-guardar').hidden = !motorista || !!this.dentro.v.parado;
     $('#velo').hidden = !motorista;
+    if (motorista) {
+      const d = this.dentro.v.d;
+      $('#med-comb').hidden = $('#med-dano').hidden = !d.energia;
+      $('#med-comb .ic-m').innerHTML = icone(d.energia === 'bateria' ? 'bateria' : 'combustivel');
+    }
+    if (!motorista) $('#veic-posto').hidden = true;
     if (dentro) {
-      const voa = motorista && (this.dentro.v.d.meio === 'ar' || this.dentro.v.d.meio === 'helice');
+      const voa = motorista && ['ar', 'helice', 'sub'].includes(this.dentro.v.d.meio);
       $('#bt-descer').hidden = !voa;
       $('#bt-pular').hidden = !voa;
       $('#bt-pular').setAttribute('aria-label', voa ? 'Subir' : 'Pular');
@@ -296,15 +493,22 @@ export class Garagem {
       for (const o of J.outros.values()) if (!o.sentado) obst.push(o.grupo.position);
       this.veic.dirigir(meu, dt, { frente: ent.frente, lado: ent.lado, subir: ent.pular, descer: ent.descer }, obst);
       const d = meu.d;
-      J.som.motor(Math.min(1, Math.abs(meu.vel) / d.vmax), d.grave || 1, d.som);
+      J.som.motor(this.veic.quebrado(meu) || this.veic.semEnergia(meu) ? 0.05 : Math.min(1, Math.abs(meu.vel) / d.vmax), d.grave || 1, d.som);
       $('#velo b').textContent = Math.round(Math.abs(meu.vel) * 3.6);
+      this.medidores(meu);
+      this.verPosto(meu, dt);
+      // avião fora da pista: avisa uma vez que precisa de rua ou estrada para decolar
+      if (d.meio === 'ar' && meu.noChao && !meu.naEstrada && ent.frente > 0.5 && Math.abs(meu.vel) > d.vmax * d.terreno * 0.9) {
+        this._semPista = (this._semPista || 0) + dt;
+        if (this._semPista > 1.5 && !this._avisouPista) { this._avisouPista = true; J.aviso('Para decolar o avião precisa de pista: acelere numa rua ou estrada', 3200, 'aviao'); }
+      } else this._semPista = 0;
       // rede: posição do veículo ~10x por segundo
       const sala = J.sala();
       if (sala) {
         this.acumRede += dt;
         if (this.acumRede > 0.1) {
           this.acumRede = 0;
-          sala.enviar({ t: 'vmov', id: meu.id, p: [+meu.x.toFixed(2), +meu.y.toFixed(2), +meu.z.toFixed(2)], r: [+meu.yaw.toFixed(3), +meu.pitch.toFixed(2), +meu.roll.toFixed(2)], s: +meu.vel.toFixed(1) });
+          sala.enviar({ t: 'vmov', id: meu.id, p: [+meu.x.toFixed(2), +meu.y.toFixed(2), +meu.z.toFixed(2)], r: [+meu.yaw.toFixed(3), +meu.pitch.toFixed(2), +meu.roll.toFixed(2)], s: +meu.vel.toFixed(1), c: +meu.comb.toFixed(3), d: +meu.dano.toFixed(3) });
         }
       }
     } else if (this.dentro) {
@@ -312,6 +516,9 @@ export class Garagem {
       J.som.motor(v.ocup[0] ? Math.min(1, Math.abs(v.vel) / v.d.vmax) : null, v.d.grave || 1, v.d.som);
     }
     this.veic.atualizar(dt, meu, jog.pos);
+    // postos e veículos das vilas/portos em volta (a cada segundo e meio)
+    this.tempoLugares -= dt;
+    if (this.tempoLugares <= 0) { this.tempoLugares = 1.5; this.olharLugares(jog.pos); }
 
     if (this.dentro) {
       // o jogador "fica" no assento (para carregar o mundo e os bichos em volta)
@@ -329,11 +536,13 @@ export class Garagem {
       jog.pitch = Math.max(-1.2, Math.min(0.6, jog.pitch));
       this.ultYaw = jog.yaw; this.ultPitch = jog.pitch;
       $('#bt-veic-entrar').hidden = true;
+      $('#bt-garagem-lugar').hidden = true;
       return true;
     }
     this.veic.empurrar(jog.pos);
     const perto = this.pertoDeMim();
     $('#bt-veic-entrar').hidden = !perto;
+    $('#bt-garagem-lugar').hidden = !this.ligados() || !this.garagemPerto();
     if (perto && this._ultPerto !== perto.tipo) { this._ultPerto = perto.tipo; $('#bt-veic-entrar').innerHTML = icone(perto.tipo) + 'Entrar'; }
     return false;
   }
@@ -355,6 +564,162 @@ export class Garagem {
     return true;
   }
 
+  // ---------- combustível, dano e posto ----------
+  medidores(v) {
+    if (!v.d.energia) return;
+    const pc = Math.round(v.comb * 100), pd = Math.round((1 - v.dano) * 100);
+    if (pc !== this._pc) {
+      this._pc = pc;
+      const el = $('#med-comb'); el.querySelector('u').style.width = pc + '%';
+      el.classList.toggle('baixo', pc <= 15);
+    }
+    if (pd !== this._pd) {
+      this._pd = pd;
+      const el = $('#med-dano'); el.querySelector('u').style.width = pd + '%';
+      el.classList.toggle('baixo', pd <= 30);
+    }
+  }
+
+  postoPerto(v) {
+    let melhor = null, dm = PERTO_POSTO;
+    for (const p of this.postos.values()) {
+      const d = Math.hypot(p.x - v.x, p.z - v.z);
+      if (d < dm && Math.abs(p.y - v.y) < 4) { dm = d; melhor = p; }
+    }
+    return melhor;
+  }
+
+  verPosto(v, dt) {
+    this._tPosto = (this._tPosto || 0) - dt;
+    if (this._tPosto > 0) return;
+    this._tPosto = 0.25;
+    const p = v.d.energia && Math.abs(v.vel) < 1.5 ? this.postoPerto(v) : null;
+    const precisaComb = v.comb < 0.99, precisaConserto = v.dano > 0.01;
+    const box = $('#veic-posto');
+    box.hidden = !p || (!precisaComb && !precisaConserto);
+    if (box.hidden) return;
+    const loja = this.comMercado();
+    const preco = (k, falta) => (loja ? ' ' + moedaHtml(precoServico(k, falta)) : '');
+    const bat = v.d.energia === 'bateria';
+    const a = $('#bt-abastecer'), c = $('#bt-consertar');
+    a.hidden = !precisaComb; c.hidden = !precisaConserto;
+    const ha = icone(bat ? 'bateria' : 'combustivel') + (bat ? 'Carregar' : 'Abastecer') + preco('comb', 1 - v.comb);
+    const hc = icone('ferramenta') + 'Consertar' + preco('conserto', v.dano);
+    if (a.innerHTML !== ha) a.innerHTML = ha;
+    if (c.innerHTML !== hc) c.innerHTML = hc;
+    if (!this._avisouPosto) { this._avisouPosto = true; this.J.aviso('Posto! Aqui você abastece e conserta o veículo', 2400, 'combustivel'); }
+  }
+
+  servico(k) {
+    if (!this.dentro || this.dentro.a !== 0) return;
+    const v = this.dentro.v;
+    if (!this.postoPerto(v)) return;
+    const falta = k === 'comb' ? 1 - v.comb : v.dano;
+    if (falta <= 0.005) return;
+    if (this.J.sala()) { this.J.sala().enviar({ t: 'servico', id: v.id, k }); this._tPosto = 0; return; }
+    const m = this.mercado();
+    if (m && !m.servico(k, falta)) return;
+    if (k === 'comb') v.comb = 1; else v.dano = 0;
+    this.J.som.porta();
+    this.J.aviso(k === 'comb' ? (v.d.energia === 'bateria' ? 'Bateria carregada!' : 'Tanque cheio!') : 'Veículo consertado, novinho!', 1800, k === 'comb' ? (v.d.energia === 'bateria' ? 'bateria' : 'combustivel') : 'ferramenta');
+    this._tPosto = 0;
+  }
+
+  acabou(v, como) {
+    if (!this.dentro || this.dentro.v !== v || this.dentro.a !== 0) return;
+    const bat = v.d.energia === 'bateria';
+    if (como === 'reserva') this.J.aviso(bat ? 'Bateria acabando! Procure um posto para carregar' : 'Gasolina acabando! Procure um posto', 3000, bat ? 'bateria' : 'combustivel');
+    else this.J.aviso(bat ? 'A bateria acabou! O veículo vai bem devagar até um posto' : 'A gasolina acabou! O veículo vai bem devagar até um posto', 3500, bat ? 'bateria' : 'combustivel');
+  }
+
+  bateu(v, quanto, quebrou) {
+    if (!this.dentro || this.dentro.v !== v || this.dentro.a !== 0) return;
+    if (quebrou) { this.J.aviso('O veículo quebrou! Vá devagar até um posto para consertar', 3500, 'ferramenta'); return; }
+    const agora = performance.now();
+    if (quanto > 0.03 && (!this._avisoBatida || agora - this._avisoBatida > 4000)) {
+      this._avisoBatida = agora;
+      this.J.aviso(v.dano > 0.6 ? 'Bateu feio! O veículo está bem amassado' : 'Bateu! O veículo amassou um pouco', 1800, 'ferramenta');
+    }
+  }
+
+  // ---------- postos e veículos que moram nas vilas e portos ----------
+  chaoEm(x, z, agua) {
+    const m = this.J.mundo(), bx = Math.floor(x), bz = Math.floor(z);
+    const h = m.alturaEm(bx, bz);
+    for (let y = Math.min(h + 12, 94); y > Math.max(1, h - 12); y--) {
+      const b = m.bloco(bx, y, bz);
+      if (ARVORE.has(b)) continue; // copa de árvore não é chão
+      if (AGUA[b]) return agua ? y : null;
+      if (SOLIDO[b]) return agua ? null : y + 1;
+    }
+    return null;
+  }
+
+  olharLugares(pos) {
+    if (!this.lugares || !this.ligados()) return;
+    const { postos, parados } = this.lugares.perto(pos.x, pos.z, 90);
+    // postos: aparecem perto e somem longe
+    const vistos = new Set();
+    for (const p of postos) {
+      vistos.add(p.k);
+      if (this.postos.has(p.k) || Math.hypot(p.x - pos.x, p.z - pos.z) > 90) continue;
+      const lugar = this.lugarPosto(p);
+      if (!lugar) continue;
+      const malha = montarPosto();
+      malha.position.set(lugar.x, lugar.y, lugar.z); malha.rotation.y = p.yaw;
+      this.J.cena.add(malha);
+      this.postos.set(p.k, { ...lugar, malha });
+    }
+    for (const [k, p] of this.postos) if (!vistos.has(k) && Math.hypot(p.x - pos.x, p.z - pos.z) > 140) { this.J.cena.remove(p.malha); this.postos.delete(k); }
+    // veículos estacionados: cada um aparece uma vez só por mundo, quando alguém chega perto
+    for (const c of parados) {
+      if (this.criados.has(c.k) || this.pedidosP.has(c.k) || !this.permitido(c.tipo)) continue;
+      if (Math.hypot(c.x - pos.x, c.z - pos.z) > 60) continue;
+      const lugar = this.lugarParado(c);
+      if (!lugar) { this.pedidosP.add(c.k); continue; } // não cabe (alguém construiu ali): desiste
+      this.pedidosP.add(c.k);
+      if (this.J.sala()) this.J.sala().enviar({ t: 'vparado', k: c.k, tipo: c.tipo, cor: c.cor, p: lugar, r: +c.yaw.toFixed(3) });
+      else {
+        this.criados.add(c.k);
+        this.veic.criar({ id: 'L' + this.veic.seq++, tipo: c.tipo, cor: c.cor, p: lugar, r: c.yaw, k: c.k, c: 0.6 + (c.cor % 4) * 0.1 });
+      }
+    }
+  }
+
+  // o posto (e a garagem do lado) precisa de chão plano e livre: se no ponto planejado tem casa ou árvore,
+  // anda mais para fora pela rua até achar (o mundo é o mesmo para todos, então todos acham o mesmo lugar)
+  lugarPosto(p) {
+    const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), m = this.J.mundo();
+    for (const k of [0, 4, 8, 12, 16, 20, 26, -4]) {
+      const x = p.x + fx * k, z = p.z + fz * k;
+      const y = this.chaoEm(x, z, false);
+      if (y === null) continue;
+      let bom = true;
+      for (let lx = -9; lx <= 3 && bom; lx += 2) for (let lz = -3; lz <= 3 && bom; lz += 2) {
+        // ponto do desenho girado para o mundo (o desenho é feito com +x para o lado e -z para a frente)
+        const wx = x + lx * Math.cos(p.yaw) + lz * Math.sin(p.yaw), wz = z - lx * Math.sin(p.yaw) + lz * Math.cos(p.yaw);
+        const bx = Math.floor(wx), bz = Math.floor(wz);
+        // chão de cada pedacinho no máximo 2 blocos acima/abaixo, e nada (casa, árvore) por cima
+        let g = null;
+        for (let yy = y + 3; yy >= y - 4; yy--) if (SOLIDO[m.bloco(bx, yy, bz)]) { g = yy + 1; break; }
+        if (g === null || g > y + 2 || g < y - 3) bom = false;
+      }
+      if (bom) return { x, y, z };
+    }
+    return null;
+  }
+
+  lugarParado(c) {
+    const d = TIPOS[c.tipo];
+    const y = this.chaoEm(c.x, c.z, !!c.agua);
+    if (y === null) return null;
+    const prova = { d, x: 0, y: 0, z: 0, yaw: c.yaw };
+    for (let yy = y; yy <= y + 1; yy++) {
+      if (!this.veic.colide(prova, c.x, yy, c.z, c.yaw) && !this.veic.colideVeiculo(prova, c.x, yy, c.z, c.yaw)) return [+c.x.toFixed(2), yy, +c.z.toFixed(2)];
+    }
+    return null;
+  }
+
   // ---------- rede ----------
   // depois do "ola": coloca os veículos e quem está sentado neles
   ola(msg) {
@@ -362,8 +727,10 @@ export class Garagem {
     if (this.dentro) this.sairLocal(true);
     for (const id of [...this.veic.mapa.keys()]) this.veic.remover(id);
     for (const o of this.J.outros.values()) o.sentado = false;
+    for (const k of msg.vparados || []) this.criados.add(k);
     for (const d of msg.veiculos || []) {
       const v = this.veic.criar(d);
+      if (v && v.parado) this.criados.add(v.parado);
       if (!v || !d.ocup) continue;
       d.ocup.forEach((j, a) => { if (j) this.sentarOutro(v, a, j); });
     }
@@ -382,6 +749,7 @@ export class Garagem {
     switch (msg.t) {
       case 'vnovo': {
         const v = V.criar(msg.v);
+        if (v && v.parado) this.criados.add(v.parado);
         if (v && msg.n && msg.n === this.pedido) { this.pedido = 0; this.pedirEntrar(v); }
         return true;
       }
@@ -404,7 +772,21 @@ export class Garagem {
       }
       case 'vmov': {
         if (this.dentro && this.dentro.a === 0 && this.dentro.v.id === msg.id) return true;
-        V.aplicarPose(msg.id, msg.p, msg.r, msg.s);
+        V.aplicarPose(msg.id, msg.p, msg.r, msg.s, msg.c, msg.d);
+        return true;
+      }
+      case 'vestado': {
+        // posto (abastecer/consertar) feito pela sala
+        const v = V.mapa.get(msg.id);
+        if (!v) return true;
+        const antes = { c: v.comb, d: v.dano };
+        if (Number.isFinite(msg.c)) v.comb = msg.c;
+        if (Number.isFinite(msg.d)) v.dano = msg.d;
+        if (this.dentro && this.dentro.v === v && this.dentro.a === 0) {
+          if (v.comb > antes.c + 0.01) this.J.aviso(v.d.energia === 'bateria' ? 'Bateria carregada!' : 'Tanque cheio!', 1800, v.d.energia === 'bateria' ? 'bateria' : 'combustivel');
+          if (v.dano < antes.d - 0.01) this.J.aviso('Veículo consertado, novinho!', 1800, 'ferramenta');
+          this.J.som.porta();
+        }
         return true;
       }
       case 'vfim': {

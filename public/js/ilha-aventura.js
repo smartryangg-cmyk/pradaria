@@ -383,6 +383,14 @@ export class IlhaAventura {
     return null;
   }
 
+  // em cima de estrada (ou dentro de um lugar, onde o chão é calçado)? Usado pelos veículos
+  naEstrada(x, z) {
+    const cel = this.grade.get(Math.floor(x / CEL) + ',' + Math.floor(z / CEL));
+    if (!cel) return false;
+    for (const s of cel.estradas) if (distSeg(x, z, s.a, s.b).d < 3) return true;
+    return !!this.lugarEm(x, z);
+  }
+
   // árvores não nascem em lugares nem em estradas
   semArvore(x, z) {
     const cel = this.grade.get(Math.floor(x / CEL) + ',' + Math.floor(z / CEL));
