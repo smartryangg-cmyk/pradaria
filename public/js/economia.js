@@ -22,12 +22,12 @@ export const LOJA = [
 const PRECO_LOJA = new Map(LOJA.map((x) => [x.b, x.preco]));
 
 // quanto os aldeões pagam por cada coisa coletada (o que não está aqui vale 1)
-const VENDA = { [TR]: 2, [FV]: 3, [FA]: 3, [FZ]: 3, [TRI]: 3, [FE]: 3, [LP]: 4, [VI]: 2, [TJ]: 2, [FAR]: 5, [PAO]: 9 };
+const VENDA = { [TR]: 2, 80: 2, 81: 2, 82: 2, [FV]: 3, [FA]: 3, [FZ]: 3, [TRI]: 3, [FE]: 3, [LP]: 4, [VI]: 2, [TJ]: 2, [FAR]: 5, [PAO]: 9 };
 export const precoVenda = (b) => VENDA[b] || 1;
 // na loja do jogador (o lojista vende para os moradores) tudo sai pelo dobro
 export const precoLoja = (b) => Math.max(2, precoVenda(b) * 2);
 // só dá para coletar blocos de verdade (nada de água, ar ou ids estranhos)
-export const coletavel = (b) => Number.isInteger(b) && b > 0 && b !== AG && (b <= 22 || (b >= 31 && b <= 33) || b === FAR || b === PAO);
+export const coletavel = (b) => Number.isInteger(b) && b > 0 && b !== AG && (b <= 22 || (b >= 31 && b <= 33) || b === FAR || b === PAO || (b >= 80 && b <= 82)); // 80..82: troncos redondos das árvores
 // quanto o moinho mói (e o forno assa) de uma vez
 export const LOTE = 10;
 

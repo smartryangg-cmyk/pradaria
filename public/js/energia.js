@@ -179,7 +179,7 @@ function caixa(A, get, x, y, z, x0, y0, z0, x1, y1, z1, tile, luz, girarTopo = 0
     const k = A.P.length / 3;
     for (const c of f.c) {
       A.P.push(x + c[0], y + c[1], z + c[2]);
-      A.C.push(1, 1, 1); A.N.push(f.n[0], f.n[1], f.n[2]); A.O.push(0); A.L.push(luz);
+      A.C.push(1, 1, 1); A.N.push(f.n[0], f.n[1], f.n[2]); A.O.push(0); A.L.push(luz); if (A.BD) A.BD.push(0);
     }
     const q = [u0, v0, u1, v0, u1, v1, u0, v1];
     const r = f.topo ? girarTopo : 0;
