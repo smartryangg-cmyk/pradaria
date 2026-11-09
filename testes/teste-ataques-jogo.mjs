@@ -130,10 +130,10 @@ const tem = (eds, x, y, z) => { const e = eds.find((q) => q[0] === x && q[1] ===
   mandar(w, { t: 'pos', p: [0, 40, 0], r: [0, 0] });
   await espera(200);
   mandar(w, { t: 'vparado', tipo: 'helicoptero', k: 'v-longe', p: [900, 40, 900], r: 0 });
-  for (let i = 0; i < 10; i++) mandar(w, { t: 'vparado', tipo: 'helicoptero', k: 'v-' + i, p: [5, 40, i], r: 0 });
-  await espera(800);
+  for (let i = 0; i < 30; i++) mandar(w, { t: 'vparado', tipo: 'helicoptero', k: 'v-' + i, p: [5, 40, i], r: 0 });
+  await espera(1500);
   const novos = w.msgs.filter((m) => m.t === 'vnovo');
-  ok(novos.length === 1, `veículo da vila: longe não vale e no máximo 1 a cada segundo e meio (${novos.length})`);
+  ok(novos.length === 12, `veículo da vila: longe não vale e no máximo 12 a cada 15 s (${novos.length})`);
   w.close();
   await api('mundos/apagar', { codigo: mundo.codigo }, dono.token);
 }

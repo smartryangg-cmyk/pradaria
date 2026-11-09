@@ -515,10 +515,13 @@ export class Sala extends DurableObject {
     } else if (m.t === 'vparado') {
       // veículo que mora numa vila/porto: o primeiro que chega perto pede, e ele aparece uma vez só
       if (eu.semVeiculos || !LUGARES[m.tipo] || typeof m.k !== 'string' || !/^[va][-0-9a-z.,]{1,40}$/.test(m.k) || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
-      // um por segundo e meio por jogador, e só perto de quem pede (o jogo pede quando chega perto da vila)
-      if (eu.vpar && Date.now() - eu.vpar < 1500) return;
+      // só perto de quem pede (o jogo pede os que estão a até 90 blocos) e no máximo 12 a cada 15 s por jogador
+      // (uma vila tem alguns; sem limite, um aparelho modificado criava milhares e enchia o mundo)
       if (!eu.p || Math.hypot(m.p[0] - eu.p[0], m.p[2] - eu.p[2]) > 120) return;
-      eu.vpar = Date.now(); ws.serializeAttachment(eu);
+      const agoraV = Date.now();
+      if (!eu.vparJ || agoraV - eu.vparJ > 15000) { eu.vparJ = agoraV; eu.vparN = 0; }
+      if (++eu.vparN > 12) return;
+      ws.serializeAttachment(eu);
       const par = await this.carregarParados();
       if (par.has(m.k) || par.size > 3000) return;
       par.add(m.k);
