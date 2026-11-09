@@ -1,7 +1,7 @@
 // Testa o nado de verdade (teclado e tablet com toque): boiar, mergulhar, nadar olhando para baixo,
 // subir, sair da piscina pela beirada, fôlego (com e sem vida) e a visão embaixo d'água (Linda e Leve).
 // Uso: (cd public && python3 -m http.server 8772) e depois: node testes/teste-nadar.mjs
-// PORTA=8772 SAIDA=/pasta/dos/prints
+// PORTA=8772 SAIDA=/pasta/dos/prints SO=linda|leve|tablet (só uma parte)
 import { createRequire } from 'module'; const { chromium, devices } = createRequire(import.meta.url)('playwright');
 const URL = `http://localhost:${process.env.PORTA || 8772}/#teste`;
 const SAIDA = process.env.SAIDA || '/tmp';
@@ -16,10 +16,11 @@ const espera = (p, ms) => p.evaluate((s) => new Promise((r) => {
 }), ms / 1000);
 
 // espera (em tempo de jogo, até `s` segundos) o jogador ficar em pé fora da água, em cima de algo acima de yMin
-const ateSair = (p, yMin, s) => p.evaluate(([yMin, s]) => new Promise((r) => {
+// (noAr = true: basta estar fora da água acima de yMin, para soltar o pulo antes de pular de novo na terra)
+const ateSair = (p, yMin, s, noAr = false) => p.evaluate(([yMin, s, noAr]) => new Promise((r) => {
   const j = window.__jogo.jog, t0 = window.__tf;
-  const id = setInterval(() => { if ((!j.naAgua && j.noChao && j.pos.y >= yMin) || window.__tf - t0 > s) { clearInterval(id); r(); } }, 10);
-}), [yMin, s]);
+  const id = setInterval(() => { if ((!j.naAgua && (j.noChao || noAr) && j.pos.y >= yMin) || window.__tf - t0 > s) { clearInterval(id); r(); } }, 10);
+}), [yMin, s, noAr]);
 // espera (em tempo de jogo) a cabeça sair da água
 const ateRespirar = (p, s) => p.evaluate((s) => new Promise((r) => {
   const j = window.__jogo.jog, t0 = window.__tf;
@@ -84,7 +85,7 @@ const seguir = (p, ms) => p.evaluate((s) => new Promise((r) => {
 }), ms / 1000);
 
 // ================= 1) computador, teclado, gráficos Linda =================
-{
+if (!process.env.SO || process.env.SO === 'linda') {
   console.log('--- teclado, Linda ---');
   const { ctx, p, P } = await abrir({ viewport: { width: 1024, height: 640 } }, 'alta');
   const S = SAIDA;
@@ -123,10 +124,14 @@ const seguir = (p, ms) => p.evaluate((s) => new Promise((r) => {
   await p.evaluate(() => { window.__jogo.jog.pitch = 1.1; });
   await espera(p, 300);
   await p.screenshot({ path: S + '/linda-embaixo-olhando-cima.png' });
-  // solto embaixo d'água: sobe sozinho devagar
-  const yA = (await estado(p)).y;
+  // solto embaixo d'água: sobe sozinho devagar. Mede a partir do fundo da piscina: as duas fotos acima levam
+  // segundos no swiftshader e o jogo continua rodando, então o jogador já podia estar quase boiando de novo.
+  await por(p, P, 0, 1, 0, Math.PI / 2, 0);
+  await espera(p, 300);
+  const eA = await estado(p);
   await espera(p, 1200);
-  ok((await estado(p)).y > yA + 0.2, 'parado embaixo d\'água, sobe boiando devagar');
+  const eB = await estado(p);
+  ok(eB.y > eA.y + 0.4 && eB.cabeca, `parado embaixo d'água, sobe boiando devagar (fundura ${eA.f.toFixed(2)} -> ${eB.f.toFixed(2)}, vy ${eA.vy.toFixed(2)} -> ${eB.vy.toFixed(2)})`);
 
   // nadar para frente olhando para baixo (mergulho para frente)
   await por(p, P, 3, 5.58, 0, Math.PI / 2, -0.8); // boiando, olhando para baixo, frente = -x
@@ -174,10 +179,13 @@ const seguir = (p, ms) => p.evaluate((s) => new Promise((r) => {
   await por(p, P, 2, 5.58, 0, -Math.PI / 2, 0); // frente = +x
   await espera(p, 1200);
   await p.keyboard.down('w'); await p.keyboard.down('Space');
-  await ateSair(p, P.Y0 + 6.9, 4);
-  await p.keyboard.up('w'); await p.keyboard.up('Space');
+  await ateSair(p, P.Y0 + 6.5, 4, true); // saiu da água: solta o pulo (senão pula de novo na terra)
+  await p.keyboard.up('Space');
+  await ateSair(p, P.Y0 + 6.9, 3);       // pisou na beirada: solta o W
+  await p.keyboard.up('w');
+  await espera(p, 300);
   const e5 = await estado(p);
-  ok(!e5.naAgua && e5.x > P.X + 5, `W + espaço contra a beirada baixa, sai da piscina (x ${(e5.x - P.X).toFixed(2)})`);
+  ok(!e5.naAgua && e5.x > P.X + 5 && e5.y >= P.Y0 + 6.9, `W + espaço contra a beirada baixa, sai da piscina (x ${(e5.x - P.X).toFixed(2)}, y ${(e5.y - P.Y0).toFixed(2)})`);
 
   // correnteza continua puxando (água corrente perto de uma fonte, como no teste-agua)
   const corr = await p.evaluate(async (P) => {
@@ -233,7 +241,7 @@ const seguir = (p, ms) => p.evaluate((s) => new Promise((r) => {
 }
 
 // ================= 2) computador, gráficos Leve =================
-{
+if (!process.env.SO || process.env.SO === 'leve') {
   console.log('--- teclado, Leve ---');
   const { ctx, p, P } = await abrir({ viewport: { width: 1024, height: 640 } }, 'baixa');
   ok(await p.evaluate(() => window.__jogo.graf.q.sombra === 0), 'nível Leve ativo');
@@ -253,7 +261,7 @@ const seguir = (p, ms) => p.evaluate((s) => new Promise((r) => {
 }
 
 // ================= 3) tablet com toque =================
-{
+if (!process.env.SO || process.env.SO === 'tablet') {
   console.log('--- tablet (toque) ---');
   const { ctx, p, P } = await abrir({ ...devices['Galaxy Tab S4 landscape'] }, 'baixa');
   const cdp = await ctx.newCDPSession(p);
