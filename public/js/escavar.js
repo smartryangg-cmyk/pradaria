@@ -3,6 +3,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { AR, B, BLOCOS, OPACO, uvTile } from './blocos.js';
 import { BE } from './blocos-eras.js';
+import { BASE } from './energia.js';
 
 const N = 3;               // cubinhos por lado
 const TOTAL = N * N * N;
@@ -52,7 +53,8 @@ export class Escavacao {
   bater(h, p, total = toquesPara(h.b)) {
     const k = h.x + ',' + h.y + ',' + h.z;
     let e = this.blocos.get(k);
-    if (e && e.b !== h.b) { this.soltar(k); e = null; }
+    // o pisca-pisca troca de id sozinho (aceso/apagado): continua sendo o mesmo bloco
+    if (e && BASE[e.b] !== BASE[h.b]) { this.soltar(k); e = null; }
     if (!e) {
       if (total <= 1) { this.estilhacar(h.x, h.y, h.z, h.b, null, h.n); this.mundo.definir(h.x, h.y, h.z, AR); return true; }
       if (this.blocos.size >= MAX_ESCAVADOS) this.soltar(this.maisAntigo());

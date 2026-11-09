@@ -92,6 +92,14 @@ function palpiteGrafico() {
   palpiteFeito = n;
   return n;
 }
+// a placa de vídeo desistiu (memória cheia, comum em tablet fraco): volta para o nível leve e lembra disso
+canvas.addEventListener('webglcontextlost', (e) => {
+  e.preventDefault(); // deixa o navegador devolver a tela
+  if (ajustes.graf === 'auto') { ajustes.grafAuto = 'baixa'; ajustes.grafTeto = 'baixa'; }
+  else if (ajustes.graf !== 'baixa') { ajustes.graf = 'baixa'; ajustes.grafManual = false; }
+  salvarAjustes();
+});
+canvas.addEventListener('webglcontextrestored', () => { try { aplicarGraficos(); preencherGraficos(); } catch {} });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 const cena = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 400);
@@ -545,9 +553,9 @@ function mostrarColeta(id, n) {
   while (el.childElementCount > 4) el.lastElementChild.remove();
 }
 // depois de quebrar: mostra o que foi para a mochila (a conta de verdade é feita em economia.js)
-function mostrarQueCaiu(b, x, y, z) {
+function mostrarQueCaiu(b, x, y, z, natural) {
   if (!sobrev()) return;
-  for (const [id, n] of oQueCai(b, x, y, z)) { colocarNaBarra(id); mostrarColeta(id, n); }
+  for (const [id, n] of oQueCai(b, x, y, z, natural)) { colocarNaBarra(id); mostrarColeta(id, n); }
 }
 // carinho na ovelha dá lã (uma vez a cada minuto por ovelha)
 function laDaOvelha(bicho) {
@@ -687,7 +695,7 @@ addEventListener('keydown', (e) => {
   else if (e.target.tagName === 'INPUT') return; // escrevendo no chat (ou num campo): as letras não são atalhos
   else if (e.code === 'KeyP') abrirPausa();
   else if (e.code === 'KeyC' && !pausado && e.target.tagName !== 'INPUT') cmd.abrir();
-  else if (((e.code === 'KeyR' && !opcoesMundo.armas) || e.code === 'F5') && !pausado && e.target.tagName !== 'INPUT') { e.preventDefault(); if (!e.repeat) alternarVisao(); }
+  else if (((e.code === 'KeyR' && !opcoesMundo.armas) || e.code === 'F5') && !e.ctrlKey && !e.metaKey && !pausado && e.target.tagName !== 'INPUT') { e.preventDefault(); if (!e.repeat) alternarVisao(); }
   else if (e.code === 'KeyM') { if (!$('#mapa').hidden) fecharJanelas(); else if (!pausado) mapa.abrir(); }
 });
 // mundo pequeno/médio: como acaba no mar, dá para enxergar mais longe sem pesar
@@ -980,7 +988,8 @@ function quebrar(ponto) {
   // cada toque arranca um pedaço; o último derruba o bloco (a ferramenta certa precisa de menos toques)
   const p = raio.ray.at(h.t + 0.001, new THREE.Vector3());
   const total = toquesCom(toquesPara(h.b), h.b, mao);
-  if (comoJogador(() => escav.bater(h, p, total))) { som.quebrar(); mostrarQueCaiu(h.b, h.x, h.y, h.z); } else som.bater(h.b);
+  const natural = !mundo.editado(h.x, h.y, h.z);
+  if (comoJogador(() => escav.bater(h, p, total))) { som.quebrar(); mostrarQueCaiu(h.b, h.x, h.y, h.z, natural); } else som.bater(h.b);
 }
 
 // recolhe a fonte de água mirada; a água corrente que dependia dela seca sozinha
@@ -1111,7 +1120,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   mundo.carregarEdicoes(edicoes);
   mundo.aoMudarBloco = (x, y, z, b, de, natural) => {
     edicoesPendentes = true;
-    if (sala) sala.enviar(porJogador ? { t: 'bloco', x, y, z, b, de, j: 1 } : { t: 'bloco', x, y, z, b });
+    if (sala) sala.enviar(porJogador ? { t: 'bloco', x, y, z, b, de, j: 1 } : { t: 'bloco', x, y, z, b, de });
     if (fisica) fisica.mudou(x, y, z, b);
     if (porJogador) mercado.bloco(b, y, de, natural, x, z);
   };
@@ -1209,6 +1218,10 @@ function jogarLocal(novo = null, idadeOk = false) {
     confirmarIdade16('Este mundo').then((ok) => { if (ok) jogarLocal(novo, true); else if (!jogando) mostrarMenu('m-inicio'); });
     return;
   }
+  // mundo novo não herda os lugares marcados nem a marca do mapa do mundo antigo
+  if (novo) {
+    try { localStorage.removeItem('pradaria.lugares.local'); localStorage.removeItem('pradaria.mapa.local'); } catch {}
+  }
   modo = 'local'; mundoAtual = null;
   if (salvo && salvo.barra) barra = salvo.barra;
   tempoDia = salvo ? salvo.dia ?? 0.3 : 0.3;
@@ -1258,6 +1271,7 @@ async function jogarOnline(m, volta = null) {
         mundo.carregarEdicoes(msg.edicoes);
         chat.reconectou(msg);
         armas.entrouOnline(sala);
+        if (msg.econ) { mercado.recebeu(msg.econ); desenharBarra(); } // reconectou: a mochila certa é a do servidor
       }
       for (const id of [...outros.keys()]) removerOutro(id);
       for (const j of msg.jogadores) adicionarOutro(j);
@@ -1610,7 +1624,7 @@ function laco(agora) {
     let d = ((o.alvoYaw + Math.PI - o.grupo.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
     o.grupo.rotation.y += d * Math.min(1, dt * 10);
     const acao = o.acao | 0; // 1 = batendo, 2 = voando, 4 = na água, 8 = no ar (pulando/caindo)
-    if (acao & 1 && (o.golpe ?? 1) >= 1) o.golpe = 0;
+    if (acao & 1 && (o.golpe ?? 1) >= 1) { o.golpe = 0; o.acao = acao & ~1; } // uma batida por aviso (senão repete ou fica batendo para sempre)
     if ((o.golpe ?? 1) < 1) o.golpe = Math.min(1, o.golpe + dt / 0.3);
     animarBoneco(o, { anda: andando ? 0.8 : 0, noAr: !!(acao & 8), voando: !!(acao & 2), nadando: !!(acao & 4) && andando, golpe: o.golpe ?? 1, pitch: o.alvoPitch || 0 }, dt);
   }
@@ -1662,7 +1676,10 @@ const calib = {
     if (this.aguardar > 0) { this.aguardar--; return; }
     const alvo = ajustes.fpsMax || 60; // tela de 60 Hz não passa de ~60
     const atual = NIVEIS.indexOf(nivelAuto());
-    const teto = NIVEIS.includes(ajustes.grafTeto) ? NIVEIS.indexOf(ajustes.grafTeto) : NIVEIS.length - 1;
+    // sem teto marcado: no máximo um nível acima do palpite, e tablet/celular ou pouca memória nunca vão sozinhos ao Ultra
+    const fraco = ehToque || (navigator.deviceMemory || 8) <= 4;
+    const tetoPadrao = Math.min(NIVEIS.indexOf(palpiteGrafico()) + 1, NIVEIS.length - (fraco ? 2 : 1));
+    const teto = NIVEIS.includes(ajustes.grafTeto) ? NIVEIS.indexOf(ajustes.grafTeto) : tetoPadrao;
     this.bons = fps >= alvo * 0.9 ? this.bons + 1 : 0;
     this.ruins = fps < alvo * 0.62 ? this.ruins + 1 : 0;
     let novo = atual;
@@ -1674,6 +1691,8 @@ const calib = {
     }
     ajustes.grafAuto = NIVEIS[novo];
     salvarAjustes(); aplicarGraficos(); preencherGraficos();
+    if (mundo) mundo.raio = raioVisao();
+    ajustarNevoa();
     this.reiniciar();
     if (novo < atual) aviso('Ajustei os gráficos para rodar liso', 2200, 'brilho');
   },

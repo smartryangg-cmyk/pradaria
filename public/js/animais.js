@@ -416,6 +416,8 @@ export class Bichos {
     const agora = performance.now();
     if (agora - b.mordeu < 1500) return;
     b.mordeu = agora;
+    // "Animais podem machucar" desligado: o bicho só avisa e vai embora (sem empurrão nem susto)
+    if (!opcoesMundo.selvagensMachucam) { b.estado = 'recuar'; b.timer = 3; b.calmo = 10; b.cacandoGente = false; return; }
     const dx = jog.pos.x - b.x, dz = jog.pos.z - b.z, n = Math.hypot(dx, dz) || 1;
     jog.vel.x += (dx / n) * 6; jog.vel.z += (dz / n) * 6;
     if (!jog.voando) { jog.vel.y = Math.max(jog.vel.y, 5); jog.noChao = false; }

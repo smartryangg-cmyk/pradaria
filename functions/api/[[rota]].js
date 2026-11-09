@@ -9,9 +9,17 @@ import { normalizarSkin } from '../../public/js/skin.js';
 const NOME_OK = /^[A-Za-zÀ-ÿ0-9_]{3,16}$/;
 const NOME_MUNDO_OK = /^[A-Za-zÀ-ÿ0-9 ]{2,24}$/;
 const ipDe = (request) => request.headers.get('cf-connecting-ip') || 'local';
+// limite por aparelho (IP). Sem cf-connecting-ip só acontece no servidor de teste local (a Cloudflare sempre manda):
+// lá todos os testes viriam do mesmo "aparelho" e se bloqueariam; os limites por conta continuam valendo.
+const porIp = (env, pref, ip, n, ms) => (ip === 'local' ? true : limitar(env, pref + ip, n, ms));
 const texto = (v) => (typeof v === 'string' ? v : '');
 
-async function corpo(request) { try { return await request.json(); } catch { return {}; } }
+// corpo JSON com tamanho máximo (um arquivo de mundo cheio tem uns 4 MB; 100 MB travariam o servidor)
+const MAX_CORPO = 8 * 1024 * 1024;
+async function corpo(request) {
+  if (Number(request.headers.get('content-length') || 0) > MAX_CORPO) return {};
+  try { const t = await request.text(); return t.length > MAX_CORPO ? {} : JSON.parse(t); } catch { return {}; }
+}
 const publico = (u) => ({ id: u.id, nome: u.nome, cor: u.cor, skin: normalizarSkin(u.skin, u.cor), skinSalva: !!u.skin, idade16: u.idade16 == null ? null : !!u.idade16 });
 const MSG_16 = 'Este mundo tem temas para quem tem 16 anos ou mais.';
 // resposta da pergunta "Você tem 16 anos ou mais?" guardada na conta (null = ainda não respondeu)
@@ -27,7 +35,7 @@ async function cadastrar(request, env) {
   if (textoProibido(nome)) return erro('Escolha outro nome: sem números de telefone, redes sociais ou palavras feias.');
   if (senha.length < 4 || senha.length > 100) return erro('A senha precisa ter pelo menos 4 caracteres.');
   const ip = ipDe(request);
-  if (!(await limitar(env, 'cad:' + ip, 10, 3600e3))) return erro('Muitas contas criadas agora. Tente mais tarde.', 429);
+  if (!(await porIp(env, 'cad:', ip, 10, 3600e3))) return erro('Muitas contas criadas agora. Tente mais tarde.', 429);
   const db = await banco(env);
   const existe = await db.prepare('SELECT id FROM usuarios WHERE nome = ?').bind(nome).first();
   if (existe) return erro('Esse nome já existe. Escolha outro!', 409);
@@ -50,7 +58,7 @@ async function entrar(request, env) {
   const ip = ipDe(request);
   // por IP, por nome+IP (quem erra a senha só tranca a si mesmo) e um teto maior por nome (contra muitos IPs)
   const n = nome.toLowerCase();
-  if (!(await limitar(env, 'ent:' + ip, 30, 15 * 60e3)) || !(await limitar(env, 'enti:' + n + ':' + ip, 10, 15 * 60e3))
+  if (!(await porIp(env, 'ent:', ip, 30, 15 * 60e3)) || !(await limitar(env, 'enti:' + n + ':' + ip, 10, 15 * 60e3))
     || !(await limitar(env, 'entn:' + n, 60, 15 * 60e3)))
     return erro('Muitas tentativas. Espere uns minutos e tente de novo.', 429);
   const db = await banco(env);
@@ -116,7 +124,7 @@ async function inserirMundo(env, u, n, op, escolhida, depois) {
 async function entrarMundo(request, env, u) {
   const { codigo = '' } = await corpo(request);
   // códigos são sorteados (32^8), mas sem limite dava para tentar até cair no mundo de alguém
-  if (!(await limitar(env, 'mun:' + u.id, 15, 3600e3)) || !(await limitar(env, 'munip:' + ipDe(request), 40, 3600e3)))
+  if (!(await limitar(env, 'mun:' + u.id, 15, 3600e3)) || !(await porIp(env, 'munip:', ipDe(request), 40, 3600e3)))
     return erro('Muitas tentativas de código. Espere um pouco e peça o código de novo ao seu amigo.', 429);
   const db = await banco(env);
   const m = await db.prepare('SELECT m.id, m.codigo, m.nome, m.dono_id, m.opcoes, d.nome AS nome_dono FROM mundos m JOIN usuarios d ON d.id = m.dono_id WHERE m.codigo = ?')
@@ -220,7 +228,9 @@ async function exportarMundo(request, env, u) {
 
 // importar: o arquivo vira um mundo NOVO de quem importou (código novo; ninguém mais entra sem ele)
 async function importarMundo(request, env, u) {
-  if (!(await limitar(env, 'imp:' + u.id, 10, 3600e3))) return erro('Muitas importações seguidas. Espere um pouco.', 429);
+  // cada importação pode gravar até 200 mil blocos na sala: poucas por dia, por conta e por aparelho
+  if (!(await limitar(env, 'imp:' + u.id, 10, 3600e3)) || !(await limitar(env, 'impdia:' + u.id, 20, 86400e3)) || !(await porIp(env, 'impip:', ipDe(request), 30, 86400e3)))
+    return erro('Muitas importações seguidas. Espere um pouco.', 429);
   const c = await corpo(request);
   const a = lerArquivo(c.arquivo);
   if (a.erro) return erro(a.erro);

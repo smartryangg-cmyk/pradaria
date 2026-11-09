@@ -22,7 +22,7 @@ export function lerArquivo(dados) {
   for (const e of a.edicoes) {
     if (!Array.isArray(e) || e.length !== 4 || !e.every(Number.isInteger)) continue;
     const [x, y, z, b] = e;
-    if (Math.abs(x) > LONGE || Math.abs(z) > LONGE || y < 1 || y > 63 || b < 0 || b > 255) continue;
+    if (Math.abs(x) > LONGE || Math.abs(z) > LONGE || y < 1 || y > 95 || b < 0 || b > 255) continue;
     edicoes.push([x, y, z, b]);
   }
   return { nome: typeof a.nome === 'string' ? a.nome : '', semente: a.semente, opcoes: normalizarOpcoes(a.opcoes), edicoes };

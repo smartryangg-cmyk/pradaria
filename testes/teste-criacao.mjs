@@ -117,9 +117,10 @@ const depois = await p.evaluate(() => JSON.stringify(window.__jogo.mercado.e.ite
 conferir(antes === depois, 'a mochila continua depois de recarregar (' + depois + ')');
 conferir(await p.evaluate(() => window.__jogo.barra.includes(1001)), 'a barra também');
 // com o mercado: vender sai da mesma mochila e comprar traz 4 do bloco
+await p.evaluate(() => { const e = window.__jogo.mercado.e; e.moedas = Math.max(e.moedas, 20); }); // o lote de feno custa 14
 const m0 = await p.evaluate(() => window.__jogo.mercado.e.moedas);
 await p.evaluate(() => window.__jogo.mercado.enviar({ t: 'comprar', b: 33 }));
-conferir(await qtd(p, 33) === 4 && await p.evaluate(() => window.__jogo.mercado.e.moedas) === m0 - 8, 'loja: comprou 4 fenos (8 moedas)');
+conferir(await qtd(p, 33) === 4 && await p.evaluate(() => window.__jogo.mercado.e.moedas) === m0 - 14, 'loja: comprou 4 fenos (14 moedas)');
 await p.evaluate(() => window.__jogo.mercado.enviar({ t: 'vender', b: 1001, n: 1 }));
 conferir(await qtd(p, 1001) === 0, 'loja: vendeu a picareta da mochila');
 await p.context().close();

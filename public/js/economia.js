@@ -3,7 +3,7 @@
 // Não importe nada daqui que dependa do navegador (o servidor também usa este arquivo).
 
 import { aplicarTrabalho, normalizarTrabalho, negocioNovo, livreDe, marcarCompra, ajustarCompra, converter } from './trabalho.js';
-import { guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm } from './receitas.js';
+import { RECEITAS, guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm } from './receitas.js';
 
 // ids dos blocos (iguais aos de blocos.js)
 const G = 1, TE = 2, PE = 3, AR_ = 4, AG = 5, TR = 6, FO = 7, TA = 8, VI = 9, TJ = 10, FV = 11, FA = 12, CA = 13,
@@ -16,17 +16,44 @@ export const LIVRES = new Set([G, TE, PE, AR_, AG, TR, FO, TA, FV, FA, CA, PD]);
 
 // loja: preço para liberar o bloco para sempre neste mundo
 export const LOJA = [
-  [TJ, 12], [VI, 15], [LP, 20], [FE, 8], [TAR, 6], [TRI, 6], [FZ, 10],
+  [TJ, 12], [VI, 15], [LP, 20], [FE, 14], [TAR, 6], [TRI, 14], [FZ, 14],
   [LB, 8], [LV, 10], [LZ, 10], [LM, 10], [LG, 10], [LR, 10],
 ].map(([b, preco]) => ({ b, preco }));
 const PRECO_LOJA = new Map(LOJA.map((x) => [x.b, x.preco]));
+// no "Coletar e criar" a loja não vende trigo: comprado, virava pão (9 cada) no moinho e no forno e dava moedas sem fim.
+// Trigo se colhe no campo.
+export const SO_COLHENDO = new Set([TRI]);
+export const naLoja = (b, op) => !(op && op.sobrevivencia && SO_COLHENDO.has(b));
+// no "Coletar e criar" a loja entrega LOTE_LOJA de uma vez: o lote nunca pode valer mais na venda do que custa
+// (trigo custava 6 e o lote de 4 vendia por 12: moedas infinitas comprando e vendendo)
 
-// quanto os aldeões pagam por cada coisa coletada (o que não está aqui vale 1)
-const VENDA = { [TR]: 2, 80: 2, 81: 2, 82: 2, [FV]: 3, [FA]: 3, [FZ]: 3, [TRI]: 3, [FE]: 3, [LP]: 4, [VI]: 2, [TJ]: 2, [FAR]: 5, [PAO]: 9 };
-export const precoVenda = (b) => VENDA[b] || 1;
+// quanto os aldeões pagam por cada coisa coletada (o que não está aqui vale 1).
+// Troncos valem 4 porque 1 tronco vira 4 tábuas (que valem 1 cada).
+const VENDA = { [TR]: 4, 71: 4, 73: 4, 131: 4, 80: 4, 81: 4, 82: 4, [FV]: 3, [FA]: 3, [FZ]: 3, [TRI]: 3, [FE]: 3, [LP]: 4, [VI]: 2, [TJ]: 2, [FAR]: 5, [PAO]: 9 };
+const precoBase = (b) => VENDA[b] || 1;
+// nenhuma receita pode dar lucro: o que sai dela vale no máximo o que ela gasta, dividido pela quantidade feita
+// (1 tronco que vendia por 2 virava 4 tábuas que vendiam por 4). Calculado das próprias receitas, então uma
+// receita nova já entra na conta. Preço 0 = os moradores não compram (graveto, fio...).
+let tabela = null, nReceitas = -1;
+function tabelaVenda() {
+  if (tabela && nReceitas === RECEITAS.length) return tabela;
+  const t = new Map(), preco = (b) => (t.has(b) ? t.get(b) : precoBase(b));
+  for (let volta = 0, mudou = true; mudou && volta < 50; volta++) {
+    mudou = false;
+    for (const r of RECEITAS) {
+      const [id, n] = r.faz, custo = r.usa.reduce((s, [i, q]) => s + preco(i) * q, 0);
+      const teto = Math.floor(custo / Math.max(1, n));
+      if (teto < preco(id)) { t.set(id, teto); mudou = true; }
+    }
+  }
+  tabela = t; nReceitas = RECEITAS.length;
+  return t;
+}
+export const precoVenda = (b) => { const t = tabelaVenda(); return t.has(b) ? t.get(b) : precoBase(b); };
 // formas feitas na bancada (83..99: coluna, cerca, bola, rampa...) são para construir: ninguém compra.
 // Uma receita faz várias de uma vez (1 vidro = 4 vidros finos), então vender dava mais moedas que a matéria-prima.
-export const vendivel = (b) => !(b >= 83 && b <= 99);
+export const ehForma = (b) => b >= 83 && b <= 99;
+export const vendivel = (b) => !ehForma(b) && precoVenda(b) > 0;
 // na loja do jogador (o lojista vende para os moradores) tudo sai pelo dobro
 export const precoLoja = (b) => Math.max(2, precoVenda(b) * 2);
 // só dá para coletar blocos de verdade (nada de água, ar ou ids estranhos)
@@ -188,7 +215,7 @@ export function aplicar(e, op, a, ctx = {}) {
     return { ok: true, feitos: [], mudou: !tr.quieto, blocos: tr.blocos || [], marcar: tr.marcar || [], msgs: tr.msgs || [], vendas: tr.vendas || 0, paes: tr.paes || 0 };
   }
   if (a.t === 'ev') {
-    const max = EVENTOS[a.e];
+    const max = Object.prototype.hasOwnProperty.call(EVENTOS, a.e) ? EVENTOS[a.e] : 0; // 'constructor' etc. não contam
     if (!max) return falha('?');
     const n = Math.max(1, Math.min(max, a.n | 0 || 1));
     if (a.e === 'la') {
@@ -206,7 +233,7 @@ export function aplicar(e, op, a, ctx = {}) {
         if (comprado) { e.compra[g] = Math.max(0, (e.compra[g] || 0) - 1); r.marca = 1; }
       } else if (!a.b) {
         // quebrou: o que cai de um bloco que era comprado continua marcado (senão colocar e quebrar "lavava" a marca)
-        for (const [id, n] of oQueCai(a.de, a.x, a.y, a.z)) { por(e.itens, id, n); if (a.comprado) marcarCompra(e, id, n); }
+        for (const [id, n] of oQueCai(a.de, a.x, a.y, a.z, !!a.natural)) { por(e.itens, id, n); if (a.comprado) marcarCompra(e, id, n); }
       }
     }
     if (a.b > 0) {
@@ -225,7 +252,7 @@ export function aplicar(e, op, a, ctx = {}) {
     // os moradores não compram de volta o que você comprou na loja deles (senão dava lucro sem trabalho)
     const n = Math.min(livreDe(e, b), Math.max(1, a.n | 0));
     if (guardavel(b) && tem > 0 && n <= 0) return falha('Os moradores não compram de volta o que você comprou na loja.');
-    if (!vendivel(b)) return falha('Os moradores não compram formas: elas são para construir.');
+    if (!vendivel(b)) return falha(ehForma(b) ? 'Os moradores não compram formas: elas são para construir.' : 'Os moradores não compram isso.');
     if (!guardavel(b) || n <= 0) return falha('Você não tem isso para vender.');
     e.itens[b] = tem - n;
     if (!e.itens[b]) delete e.itens[b];
@@ -234,7 +261,7 @@ export function aplicar(e, op, a, ctx = {}) {
   } else if (a.t === 'comprar') {
     if (!op.mercado) return falha('O mercado está desligado neste mundo.');
     const preco = PRECO_LOJA.get(a.b);
-    if (!preco) return falha('Isso não está à venda.');
+    if (!preco || !naLoja(a.b, op)) return falha('Isso não está à venda.');
     if (e.moedas < preco) return falha(`Faltam ${preco - e.moedas} moedas.`);
     if (op.sobrevivencia) {
       if (qtdEm(e.itens, a.b) + LOTE_LOJA > MAX_ITEM) return falha('Sua mochila já está cheia disso!');

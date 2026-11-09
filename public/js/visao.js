@@ -112,7 +112,7 @@ export class Visao {
       alvo = this.livre(mundo, olho, frente, DIST);
       this.suavizar(alvo, dt);
       camera.position.copy(olho).addScaledVector(frente, this.dist);
-      camera.lookAt(olho);
+      camera.rotation.set(-pitch, yaw + Math.PI, 0, 'YXZ'); // olha de volta para o rosto (lookAt falha com a câmera colada no olho)
     }
     // câmera muito perto (encostado na parede): some com o boneco para não tampar a tela
     b.grupo.visible = this.dist > 0.9;

@@ -1,0 +1,47 @@
+# Testes do jogo num navegador de verdade (Chromium), com o servidor e a sala multijogador locais.
+# Roda em todo pull request e antes de publicar (publicar.yml só publica se passar).
+name: testes
+on:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: testes-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Navegador (Playwright + Chromium)
+        run: |
+          npm install --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium
+      - name: Conferir sintaxe
+        run: for f in public/js/*.js sala-worker/src/*.js functions/api/*.js "functions/api/sala/[codigo].js" lib/*.js; do node --experimental-default-type=module --check "$f" || exit 1; done
+      - name: Ligar servidores locais
+        run: |
+          (cd sala-worker && nohup npx wrangler dev --port 8790 --persist-to ../.estado > ../sala.log 2>&1 &)
+          for i in $(seq 1 60); do curl -s localhost:8790 >/dev/null && break; sleep 1; done
+          nohup npx wrangler pages dev --port 8788 --persist-to .estado > pages.log 2>&1 &
+          (cd public && nohup python3 -m http.server 8765 > ../estatico.log 2>&1 &)
+          for i in $(seq 1 90); do [ "$(curl -s -o /dev/null -w '%{http_code}' localhost:8788/)" = 200 ] && break; sleep 1; done
+          curl -s -o /dev/null -w 'site local: %{http_code}\n' localhost:8788/
+      - name: Testes
+        run: SAIDA=$PWD/saida-testes bash testes/rodar-todos.sh
+      - name: Guardar saídas e capturas de tela
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: saida-testes
+          path: |
+            saida-testes/
+            *.log
+          retention-days: 7
