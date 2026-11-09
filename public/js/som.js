@@ -101,8 +101,24 @@ export class Som {
     this.mg.gain.setTargetAtTime(0.06 + v * 0.06, t, 0.1);
   }
 
-  bicho(tipo) {
+  // bravo = rosnado/aviso (o bicho está mandando você se afastar)
+  bicho(tipo, bravo = false) {
+    if (bravo) {
+      switch (tipo) {
+        case 'cobra': this.ruido(0.9, { vol: 0.25, freq: 5000 }); this.ruido(0.5, { vol: 0.15, freq: 7000, atraso: 0.3 }); return; // chocalho/sibilo
+        case 'cocó': for (let i = 0; i < 5; i++) this.tom(1100, 0.05, { tipo: 'square', vol: 0.12, ate: 900, atraso: i * 0.07 }); return;
+        case 'muu': this.tom(150, 0.6, { tipo: 'sawtooth', vol: 0.22, ate: 90 }); this.ruido(0.3, { vol: 0.15, freq: 300 }); return;
+        default: this.tom(110, 0.7, { tipo: 'sawtooth', vol: 0.2, vibrato: 28, ate: 90 }); this.ruido(0.5, { vol: 0.12, freq: 400 }); return; // rosnado
+      }
+    }
     switch (tipo) {
+      case 'veado': this.tom(700, 0.15, { tipo: 'triangle', vol: 0.2, ate: 450 }); break;
+      case 'lobo': this.tom(380, 0.25, { tipo: 'triangle', vol: 0.18, ate: 300 }); break;
+      case 'uivo': this.tom(330, 2.2, { tipo: 'sine', vol: 0.12, ate: 520, vibrato: 5 }); this.tom(520, 1.4, { tipo: 'sine', vol: 0.08, ate: 380, atraso: 1.6 }); break;
+      case 'raposa': this.tom(900, 0.1, { tipo: 'square', vol: 0.1, ate: 1300 }); this.tom(950, 0.1, { tipo: 'square', vol: 0.1, ate: 1300, atraso: 0.18 }); break;
+      case 'urso': this.tom(95, 0.5, { tipo: 'sawtooth', vol: 0.2, ate: 70 }); break;
+      case 'onca': for (let i = 0; i < 4; i++) this.tom(120, 0.14, { tipo: 'sawtooth', vol: 0.16, ate: 80, atraso: i * 0.22 }); break; // esturro
+      case 'cobra': this.ruido(0.4, { vol: 0.15, freq: 6000 }); break;
       case 'bee': this.tom(330, 0.5, { tipo: 'sawtooth', vol: 0.18, vibrato: 18, ate: 300 }); break;
       case 'muu': this.tom(170, 0.9, { tipo: 'sawtooth', vol: 0.18, ate: 115 }); break;
       case 'oinc': this.tom(500, 0.12, { tipo: 'square', vol: 0.12, ate: 380 }); this.tom(560, 0.12, { tipo: 'square', vol: 0.12, ate: 400, atraso: 0.16 }); break;
