@@ -7,6 +7,7 @@ import { normalizarOpcoes } from '../../public/js/opcoes-mundo.js';
 import { normalizarSkin } from '../../public/js/skin.js';
 import { filtrarChat } from '../../public/js/chat-filtro.js';
 import { horaDe, MAX_TURNO } from '../../public/js/trabalho.js';
+import { blocosDaObra, PLANTAS, ESTILOS_OBRA } from '../../public/js/casas.js';
 
 // ações dos trabalhadores contratados (trabalho.js)
 const ACOES_TRABALHO = new Set(['contratar', 'demitir', 'obra', 'cancelar-obra', 'depositar', 'retirar', 'turno']);
@@ -437,7 +438,14 @@ export class Sala extends DurableObject {
       ed.set(k, b);
       await this.ctx.storage.put('b:' + k, b);
       this.enviarTodos({ t: 'bloco', x, y, z, b }, ws);
-      if (econ && m.j) await this.econAplicar(ws, eu, econ, { t: 'bloco', b, x, y, z, de: m.de | 0, natural }, true); // só o que o jogador fez com as mãos
+      // "c:x,y,z" = ali está um bloco feito com coisa comprada (quebrar devolve marcado, para ninguém lucrar
+      // colocando e quebrando, nem passando para um amigo quebrar). Mudou o bloco, a marca sai.
+      const comprado = !natural && !!(await this.ctx.storage.get('c:' + k));
+      if (comprado) await this.ctx.storage.delete('c:' + k);
+      if (econ && m.j) { // só o que o jogador fez com as mãos
+        const r = await this.econAplicar(ws, eu, econ, { t: 'bloco', b, x, y, z, de: m.de | 0, natural, comprado }, true);
+        if (r && r.ok && r.marca && b > 0) await this.ctx.storage.put('c:' + k, 1);
+      }
     } else if (m.t === 'vnovo') {
       if (eu.semVeiculos || !LUGARES[m.tipo] || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
       const cor = Number.isInteger(m.cor) && m.cor >= 0 && m.cor < 8 ? m.cor : 0;
@@ -628,8 +636,13 @@ export class Sala extends DurableObject {
         if (++eu.ntr > 6) return;
         ws.serializeAttachment(eu);
         m = { ...m, nome: typeof m.nome === 'string' ? m.nome.slice(0, 24) : undefined };
+        // obra só em lugar livre: se no volume dela tem bloco colocado por alguém, o pedreiro não derruba
+        if (m.t === 'obra') {
+          const nao = await this.obraSobreConstrucao(m);
+          if (nao) { ws.send(JSON.stringify({ t: 'econ-erro', msg: nao })); return; }
+        }
       }
-      await this.econAplicar(ws, eu, econ, m, m.t === 'turno', { pos: eu.p });
+      await this.econAplicar(ws, eu, econ, m, m.t === 'turno', { pos: eu.p, agora });
     } else if (m.t === 'dar') {
       if (!this.op().mercado) return;
       const agora = Date.now();
@@ -717,16 +730,28 @@ export class Sala extends DurableObject {
 
   async econAplicar(ws, eu, econ, acao, quieto, ctx) {
     const r = aplicar(econ, this.op(), acao, ctx);
-    if (!r.ok) { if (!quieto) ws.send(JSON.stringify({ t: 'econ-erro', msg: r.erro, falta: r.falta, custo: r.custo })); return; }
-    if (!r.mudou) return;
+    if (!r.ok) { if (!quieto) ws.send(JSON.stringify({ t: 'econ-erro', msg: r.erro, falta: r.falta, custo: r.custo })); return r; }
+    if (!r.mudou) return r;
     // o pedreiro colocou blocos: a sala põe no mundo e todo mundo vê
-    if (r.blocos && r.blocos.length) await this.porBlocos(r.blocos);
+    if (r.blocos && r.blocos.length) await this.porBlocos(r.blocos, new Set(r.marcar || []));
     await this.ctx.storage.put('e:' + eu.uid, econ);
     ws.send(JSON.stringify({ t: 'econ', s: econ, feitos: r.feitos, msgs: r.msgs && r.msgs.length ? r.msgs : undefined, vendas: r.vendas || undefined, paes: r.paes || undefined }));
+    return r;
+  }
+
+  // a obra pedida passa por cima de algum bloco que alguém colocou? (devolve o aviso, ou null)
+  async obraSobreConstrucao(m) {
+    if (!PLANTAS[m.p] || !ESTILOS_OBRA[m.e] || ![m.x, m.y, m.z, m.r].every(Number.isInteger) || m.r < 0 || m.r > 3) return null; // as regras recusam
+    const ed = await this.carregarEdicoes();
+    for (const [x, y, z] of blocosDaObra({ p: m.p, e: m.e, v: m.v ? 1 : 0, x: m.x, y: m.y, z: m.z, r: m.r })) {
+      if (ed.get(x + ',' + y + ',' + z) > 0) return 'Aqui já tem construção. Escolha um lugar livre para a obra.';
+    }
+    return null;
   }
 
   // blocos colocados pela própria sala (obras do pedreiro): guarda e manda para todos de uma vez
-  async porBlocos(lista) {
+  // marcar: "x,y,z" dos blocos feitos com material comprado
+  async porBlocos(lista, marcar = new Set()) {
     const ed = await this.carregarEdicoes();
     const ok = [];
     let lote = {};
@@ -734,11 +759,14 @@ export class Sala extends DurableObject {
     for (const [x, y, z, b] of lista) {
       if (![x, y, z].every(Number.isInteger) || y < 1 || y > ALTURA_MAX || !blocoOk(b)) continue;
       const k = x + ',' + y + ',' + z;
+      // o pedreiro nunca derruba nem cobre o que alguém construiu depois que a obra começou
+      if (ed.get(k) > 0) continue;
       if (!ed.has(k) && ed.size >= MAX_EDICOES) break;
       ed.set(k, b);
       lote['b:' + k] = b;
+      if (marcar.has(k)) { lote['c:' + k] = 1; n++; } // (lugar com marca antiga nunca chega aqui: tem bloco)
       ok.push([x, y, z, b]);
-      if (++n === 128) { await this.ctx.storage.put(lote); lote = {}; n = 0; }
+      if (++n >= 120) { await this.ctx.storage.put(lote); lote = {}; n = 0; }
     }
     if (n) await this.ctx.storage.put(lote);
     if (ok.length) this.enviarTodos({ t: 'blocos', l: ok });
