@@ -621,10 +621,13 @@ export class Sala extends DurableObject {
       const agora = Date.now();
       if (!eu.jeco || agora - eu.jeco > 1000) { eu.jeco = agora; eu.neco = 0; }
       if (++eu.neco > 10) return;
-      // bicho derrubado: leva vários golpes, então mais de um a cada 1,5 s não é de verdade
-      if (m.t === 'ev' && m.e === 'caca') {
-        if (eu.cacaEm && agora - eu.cacaEm < 1500) return;
-        eu.cacaEm = agora;
+      // lã e caça: os bichos só existem no aparelho de cada um, então a sala não vê a ovelha; o que dá para
+      // conferir é o ritmo. Derrubar um bicho leva vários golpes (mais de um a cada 1,5 s não é de verdade) e
+      // cada ovelha dá lã uma vez por minuto (mais de uma lã a cada 4 s não é de verdade).
+      if (m.t === 'ev' && (m.e === 'caca' || m.e === 'la')) {
+        const k = m.e === 'caca' ? 'cacaEm' : 'laEm', espera = m.e === 'caca' ? 1500 : 4000;
+        if (eu[k] && agora - eu[k] < espera) return;
+        eu[k] = agora;
       }
       ws.serializeAttachment(eu);
       const econ = await this.econDe(eu.uid);

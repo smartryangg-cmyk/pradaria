@@ -43,8 +43,9 @@ async function preparar(p) {
     window.__buracos = [];
     window.__buraco = (dx, dz) => { const [cx, , cz] = window.__centro; for (let a = -1; a <= 1; a++) for (let c = -1; c <= 1; c++) for (let h = 0; h >= -1; h--) { const q = [Math.floor(cx + dx) + a, y + h, Math.floor(cz + dz) + c]; g.mundo.definir(...q, 0); window.__buracos.push(q); } };
     window.__dist = (bb) => Math.hypot(bb.x - j.pos.x, bb.z - j.pos.z);
-    window.__tela = (bb) => { const v = bb.grupo.position.clone(); v.y += bb.e.alt * bb.esc * 0.5; v.project(g.camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight }; };
-    window.__limpar = () => { [j.pos.x, j.pos.y, j.pos.z] = window.__centro; j.vel.x = j.vel.z = 0; g.bichos.tempoSpawn = 1e9; g.bichos.limpar(); g.vida.protegido = 0; g.vida.reiniciar(); window.__avisos = []; for (const q of window.__buracos.splice(0)) g.mundo.definir(...q, 1); };
+    window.__tela = (bb) => { const v = bb.grupo.position.clone(); v.y += bb.e.alt * bb.esc * 0.75; // mira no alto do bicho: no buraco, a beirada tampa a parte de baixo
+    v.project(g.camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight }; };
+    window.__limpar = () => { [j.pos.x, j.pos.y, j.pos.z] = window.__centro; j.vel.x = j.vel.z = 0; g.bichos.tempoSpawn = 1e9; g.bichos.limpar(); g.vida.protegido = 0; g.vida.reiniciar(); window.__avisos = []; for (const q of window.__buracos.splice(0)) g.mundo.definir(...q, 1); const [cx, , cz] = window.__centro; for (let dx = -7; dx <= 7; dx++) for (let dz = -7; dz <= 7; dz++) for (let h = 0; h >= -1; h--) if (!g.mundo.bloco(Math.floor(cx) + dx, y + h, Math.floor(cz) + dz)) g.mundo.definir(Math.floor(cx) + dx, y + h, Math.floor(cz) + dz, 1); }; // tapa o que um golpe errado quebrou
     window.__olhar = (bb) => { const c = { x: j.pos.x, y: j.pos.y + 1.6, z: j.pos.z }; j.yaw = Math.atan2(-(bb.x - c.x), -(bb.z - c.z)); j.pitch = Math.atan2(bb.y + bb.e.alt * bb.esc * 0.8 - c.y, Math.hypot(bb.x - c.x, bb.z - c.z)); };
     window.__carinhos = 0; const oc = g.bichos.carinho.bind(g.bichos); g.bichos.carinho = (bb) => { window.__carinhos++; return oc(bb); };
     window.__golpes = []; const orig = g.bichos.bater.bind(g.bichos); g.bichos.bater = (bb, f) => { const r = orig(bb, f); window.__golpes.push(bb.especie + ':' + r); return r; };
@@ -238,6 +239,11 @@ if (!process.env.SO_ONLINE) {
   await B.waitForTimeout(2500);
   const k2 = await qtd(B, COURO);
   conferir(k2 - k1 <= 2, `online: a sala segura pedidos repetidos de caça (couro ${k1}->${k2})`);
+  const l1 = await qtd(B, LA);
+  await B.evaluate(() => { for (let i = 0; i < 8; i++) window.__jogo.sala.enviar({ t: 'ev', e: 'la' }); });
+  await B.waitForTimeout(2500);
+  const l2 = await qtd(B, LA);
+  conferir(l2 - l1 <= 1, `online: a sala segura pedidos repetidos de lã (lã ${l1}->${l2})`);
   await cA.close(); await cB.close();
 }
 
