@@ -23,7 +23,7 @@ export const OPCOES_MUNDO = [
   { id: 'selvagens', icone: 'pata', nome: 'Animais selvagens', desc: 'Lobos, raposas, ursos, onças, cobras e veados com instintos de verdade', padrao: true },
   { id: 'selvagensMachucam', icone: 'coracao', nome: 'Animais podem machucar', desc: 'Corações de vida. Bicho provocado morde. Luz e um toque espantam', padrao: false },
   { id: 'construcao', icone: 'tijolos', nome: 'Construção', desc: 'Colocar e quebrar blocos. Desligado: só explorar', padrao: true },
-  { id: 'armas', icone: 'arma', nome: 'Armas', desc: 'Armas de brinquedo, munição e batalha entre amigos', padrao: false, antigos: false },
+  { id: 'armas', icone: 'arma', nome: 'Armas', desc: 'Armas de brinquedo, munição e batalha entre amigos. 16 anos ou mais', padrao: false, antigos: false, mais16: true },
 ];
 // padrao = como vem marcado ao criar; antigos = valor nos mundos criados antes da opção existir (se faltar, usa padrao)
 // terreno = a opção muda o terreno gerado (ao editar um mundo já criado, o dono recebe um aviso)
@@ -97,6 +97,12 @@ export function editarOpcoes(atual, pedido) {
 export const precisaRecarregar = (mudou) => mudou.some((id) => !OPCOES_MUNDO.find((o) => o.id === id)?.semRecarregar);
 // (o jeito do mundo, 'estilo', só muda o desenho, então dá para trocar depois de criado)
 export const opcoesMudadas = (a, b) => { const x = normalizarOpcoes(a), y = normalizarOpcoes(b); return [...OPCOES_MUNDO.filter((o) => x[o.id] !== y[o.id]).map((o) => o.id), ...(x.estilo !== y.estilo ? ['estilo'] : [])]; };
+
+// mundos com temas sensíveis (opção Armas; tipos com mais16): precisam da resposta "tenho 16 anos ou mais" (idade.js e o servidor conferem)
+export function precisa16(o) {
+  const n = normalizarOpcoes(o);
+  return !!(TIPOS[n.tipo].mais16 || n.armas);
+}
 
 // semente: número digitado vira ele mesmo; palavra vira um número (sempre igual para a mesma palavra)
 export function sementeDeTexto(t) {

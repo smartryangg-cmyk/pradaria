@@ -1,6 +1,6 @@
 // Liga o jogador (WebSocket) à sala do mundo, que roda num Durable Object.
 import { erro, banco, usuarioDa } from '../../../lib/base.js';
-import { normalizarOpcoes } from '../../../public/js/opcoes-mundo.js';
+import { normalizarOpcoes, precisa16 } from '../../../public/js/opcoes-mundo.js';
 import { normalizarSkin } from '../../../public/js/skin.js';
 
 export async function onRequest({ request, env, params }) {
@@ -10,9 +10,11 @@ export async function onRequest({ request, env, params }) {
   if (!u) return erro('Sessão expirada', 401);
   const codigo = String(params.codigo || '').toUpperCase();
   const db = await banco(env);
-  const m = await db.prepare('SELECT m.id, m.semente, m.dono_id, m.opcoes, m.sala, us.skin FROM mundos m JOIN membros mb ON mb.mundo_id = m.id AND mb.usuario_id = ? JOIN usuarios us ON us.id = mb.usuario_id WHERE m.codigo = ?')
+  const m = await db.prepare('SELECT m.id, m.semente, m.dono_id, m.opcoes, m.sala, us.skin, us.idade16 FROM mundos m JOIN membros mb ON mb.mundo_id = m.id AND mb.usuario_id = ? JOIN usuarios us ON us.id = mb.usuario_id WHERE m.codigo = ?')
     .bind(u.id, codigo).first();
   if (!m) return erro('Você não está nesse mundo', 403);
+  // mundos com temas sensíveis (Guerra, Armas): só quem respondeu que tem 16 anos ou mais
+  if (precisa16(m.opcoes) && m.idade16 !== 1) return erro('Este mundo é para quem tem 16 anos ou mais', 403);
   const url = new URL(request.url);
   url.searchParams.delete('t');
   // cabeçalhos novos: só os do WebSocket passam. Nada que o jogador mande (x-admin, x-usuario, x-mundo...) chega à sala;

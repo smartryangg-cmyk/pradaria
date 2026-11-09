@@ -25,7 +25,7 @@ import { icone, preencherIcones, comIcone, nomeEmote } from './icones.js';
 import { Escavacao, toquesPara } from './escavar.js';
 import { Fisica } from './fisica.js';
 import { criarComandos } from './comandos.js';
-import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, ESTILOS, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto, raioExtraMundo } from './opcoes-mundo.js';
+import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, ESTILOS, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto, raioExtraMundo, precisa16 } from './opcoes-mundo.js';
 import { vida } from './vida.js';
 import { Mapa } from './mapa.js';
 import { Mercado } from './mercado.js';
@@ -37,6 +37,7 @@ import { preencherDono, contaModo, ligarApagarConta } from './dono.js';
 import { Armas } from './armas.js';
 import { abrirEditarMundo, desenharEstilos, desenharListaOpcoes, marcarLista, baixarArquivo, escolherArquivo, montarArquivo } from './editar-mundo.js';
 import { Mecanismos } from './mecanismos.js';
+import { confirmarIdade16 } from './idade.js';
 
 const $ = (s) => document.querySelector(s);
 preencherIcones();
@@ -1198,11 +1199,16 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
 }
 
 // sem internet: continua o mundo salvo; se ainda não tem, ou `novo` vem com as opções escolhidas, cria um
-function jogarLocal(novo = null) {
+function jogarLocal(novo = null, idadeOk = false) {
   let salvo = null;
   try { salvo = JSON.parse(localStorage.getItem('pradaria.local') || 'null'); } catch {}
   if (!salvo && !novo) { abrirNovo('local'); return; }
   if (novo) salvo = null;
+  // Armas (temas sensíveis): pergunta a idade antes
+  if (!idadeOk && precisa16(salvo ? salvo.opcoes : novo.opcoes)) {
+    confirmarIdade16('Este mundo').then((ok) => { if (ok) jogarLocal(novo, true); else if (!jogando) mostrarMenu('m-inicio'); });
+    return;
+  }
   modo = 'local'; mundoAtual = null;
   if (salvo && salvo.barra) barra = salvo.barra;
   tempoDia = salvo ? salvo.dia ?? 0.3 : 0.3;
@@ -1225,6 +1231,7 @@ function jogarLocal(novo = null) {
 
 async function jogarOnline(m, volta = null) {
   $('#mundos-erro').textContent = '';
+  if (precisa16(m.opcoes) && !(await confirmarIdade16('Este mundo'))) return;
   modo = 'online'; mundoAtual = m;
   mostrarMenu('m-carregando');
   $('#carregando-txt').textContent = `Entrando em "${m.nome}"…`;
@@ -1508,7 +1515,17 @@ $('#m-novo').addEventListener('submit', async (e) => {
   if (modoNovo === 'local') { som.iniciar(); jogarLocal({ opcoes: { ...escolhaNovo }, semente: sementeDeTexto(semente) }); return; }
   try {
     const v = $('#n-nome').value.trim();
-    const r = modoNovo === 'criar' ? await api('mundos', { nome: v, opcoes: { ...escolhaNovo }, semente }) : await api('mundos/entrar', { codigo: v.toUpperCase() });
+    const entrar = () => api('mundos/entrar', { codigo: v.toUpperCase() });
+    let r;
+    if (modoNovo === 'criar') r = await api('mundos', { nome: v, opcoes: { ...escolhaNovo }, semente });
+    else {
+      // mundo de um amigo com Armas: o servidor pede a resposta dos 16 anos antes
+      try { r = await entrar(); } catch (err) {
+        if (!/16 anos/.test(err.message)) throw err;
+        if (!(await confirmarIdade16('O mundo do seu amigo'))) return;
+        r = await entrar();
+      }
+    }
     som.iniciar();
     jogarOnline(r.mundo);
   } catch (err) { $('#n-erro').textContent = err.message; }

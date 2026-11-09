@@ -579,3 +579,7 @@ body.mirando #mira::before { left: 4px; top: 4px; }
 @keyframes noticia { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
 @media (max-width: 640px), (max-height: 480px) { #feed { top: calc(max(10px, env(safe-area-inset-top)) + 160px); } .noticia { font-size: 12px; } }
 #armas-slots .aslot.maos .ic-svg { width: 28px; height: 28px; }
+
+/* ---------- pergunta "Você tem 16 anos ou mais?" (idade.js) ---------- */
+#idade { z-index: 40; }
+.idade-txt { font-size: 18px; text-align: center; margin: 8px 0 14px; }
