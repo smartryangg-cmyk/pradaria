@@ -24,6 +24,9 @@ const PRECO_LOJA = new Map(LOJA.map((x) => [x.b, x.preco]));
 // quanto os aldeões pagam por cada coisa coletada (o que não está aqui vale 1)
 const VENDA = { [TR]: 2, 80: 2, 81: 2, 82: 2, [FV]: 3, [FA]: 3, [FZ]: 3, [TRI]: 3, [FE]: 3, [LP]: 4, [VI]: 2, [TJ]: 2, [FAR]: 5, [PAO]: 9 };
 export const precoVenda = (b) => VENDA[b] || 1;
+// formas feitas na bancada (83..99: coluna, cerca, bola, rampa...) são para construir: ninguém compra.
+// Uma receita faz várias de uma vez (1 vidro = 4 vidros finos), então vender dava mais moedas que a matéria-prima.
+export const vendivel = (b) => !(b >= 83 && b <= 99);
 // na loja do jogador (o lojista vende para os moradores) tudo sai pelo dobro
 export const precoLoja = (b) => Math.max(2, precoVenda(b) * 2);
 // só dá para coletar blocos de verdade (nada de água, ar ou ids estranhos)
@@ -136,7 +139,7 @@ export function aplicar(e, op, a, ctx = {}) {
   const r = { ok: true, feitos: [], mudou: false };
   const falha = (erro) => ({ ok: false, erro, feitos: [], mudou: false });
   if (!a || typeof a !== 'object') return falha('?');
-  const tr = aplicarTrabalho(e, op, a, { por, tirar, guardavel, precoLoja, MAX_MOEDAS, pos: ctx.pos });
+  const tr = aplicarTrabalho(e, op, a, { por, tirar, guardavel, vendivel, precoLoja, MAX_MOEDAS, pos: ctx.pos });
   if (tr) {
     if (tr.erro) return { ...falha(tr.erro), falta: tr.falta, custo: tr.custo };
     ajustarCompra(e);
@@ -173,6 +176,7 @@ export function aplicar(e, op, a, ctx = {}) {
     // os moradores não compram de volta o que você comprou na loja deles (senão dava lucro sem trabalho)
     const n = Math.min(livreDe(e, b), Math.max(1, a.n | 0));
     if (guardavel(b) && tem > 0 && n <= 0) return falha('Os moradores não compram de volta o que você comprou na loja.');
+    if (!vendivel(b)) return falha('Os moradores não compram formas: elas são para construir.');
     if (!guardavel(b) || n <= 0) return falha('Você não tem isso para vender.');
     e.itens[b] = tem - n;
     if (!e.itens[b]) delete e.itens[b];

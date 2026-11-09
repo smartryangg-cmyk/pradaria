@@ -1,7 +1,7 @@
 // Mercado (moedas, loja dos aldeões, presentes) e objetivos: a parte da tela.
 // As regras ficam em economia.js. Online quem decide é a sala (servidor); sem internet, o próprio aparelho.
 import { icone, comIcone } from './icones.js';
-import { opcoesEcon, econLigada, estadoNovo, normalizar, aplicar, liberado, LOJA, LOTE_LOJA, precoVenda, objetivosDoMundo, objetivosAtivos, OBJETIVOS } from './economia.js';
+import { opcoesEcon, econLigada, estadoNovo, normalizar, aplicar, liberado, LOJA, LOTE_LOJA, precoVenda, vendivel, objetivosDoMundo, objetivosAtivos, OBJETIVOS } from './economia.js';
 import { OFICIOS, HORA_INI, HORA_FIM, livreDe } from './trabalho.js';
 
 const $ = (s) => document.querySelector(s);
@@ -224,7 +224,7 @@ export class Mercado {
     const lista = el('div', 'econ-lista');
     if (this.abaLoja === 'vender') {
       // o que você comprou aqui os moradores não compram de volta
-      const itens = Object.keys(this.e.itens).map((k) => [k, livreDe(this.e, +k)]).filter(([, n]) => n > 0);
+      const itens = Object.keys(this.e.itens).map((k) => [k, livreDe(this.e, +k)]).filter(([k, n]) => n > 0 && vendivel(+k));
       if (!itens.length) lista.appendChild(el('div', 'vazio', 'Nada para vender. Quebre blocos pelo mundo (terra, troncos, flores…) e traga aqui! O que você comprou na loja os moradores não compram de volta.'));
       for (const [k, n] of itens) {
         const b = +k, p = precoVenda(b);
@@ -291,7 +291,7 @@ export class Mercado {
     const lista = el('div', 'econ-lista');
     const itens = Object.entries(this.e.itens).filter(([, n]) => n > 0);
     if (!itens.length) lista.appendChild(el('div', 'vazio', 'Nada coletado ainda. Quebre blocos pelo mundo!'));
-    for (const [k, n] of itens) { const d = el('small', 'econ-dir'); d.innerHTML = moedaHtml(precoVenda(+k)) + ' cada'; lista.appendChild(this.linhaItem(+k, n, d)); }
+    for (const [k, n] of itens) { const d = el('small', 'econ-dir'); d.innerHTML = vendivel(+k) ? moedaHtml(precoVenda(+k)) + ' cada' : 'para construir'; lista.appendChild(this.linhaItem(+k, n, d)); }
     w.corpo.appendChild(lista);
     if (this.sala) {
       const amigos = this.ui.outros();

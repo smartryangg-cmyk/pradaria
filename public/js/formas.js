@@ -77,18 +77,23 @@ function caixa(p, x0, y0, z0, x1, y1, z1, tile, tapa = null) {
 const clamp = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 // cilindro em pé (eixo y), centro (cx, cz). Cada gomo usa 1/4 da largura do tile (casca não estica).
-function cilindro(p, cx, cz, r, y0, y1, tLado, tTopo, tampaCima, tampaBaixo, seg = 12) {
+// 8 gomos: já parece redondo e pesa pouco no tablet fraco. escondido(cx, sz) => true pula o gomo virado
+// para (cx, sz) (atrás de blocos cheios).
+const SEG = 8;
+function cilindro(p, cx, cz, r, y0, y1, tLado, tTopo, tampaCima, tampaBaixo, seg = SEG, escondido = null) {
   const tl = uvTile(tLado), tt = uvTile(tTopo);
   for (let i = 0; i < seg; i++) {
     const a0 = (i / seg) * Math.PI * 2, a1 = ((i + 1) / seg) * Math.PI * 2;
     const c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1);
     const q = i % 4;
-    const [u0, v0, u1, v1] = sub(tl, q / 4, (q + 1) / 4, y0 % 1 || 0, y1 > 1 ? 1 : y1);
-    p.v(cx + r * c1, y0, cz + r * s1, c1, 0, s1, u0, v0);
-    p.v(cx + r * c0, y0, cz + r * s0, c0, 0, s0, u1, v0);
-    p.v(cx + r * c0, y1, cz + r * s0, c0, 0, s0, u1, v1);
-    p.v(cx + r * c1, y1, cz + r * s1, c1, 0, s1, u0, v1);
-    p.quad();
+    if (!escondido || !escondido(c0 + c1, s0 + s1)) {
+      const [u0, v0, u1, v1] = sub(tl, q / 4, (q + 1) / 4, y0 % 1 || 0, y1 > 1 ? 1 : y1);
+      p.v(cx + r * c1, y0, cz + r * s1, c1, 0, s1, u0, v0);
+      p.v(cx + r * c0, y0, cz + r * s0, c0, 0, s0, u1, v0);
+      p.v(cx + r * c0, y1, cz + r * s0, c0, 0, s0, u1, v1);
+      p.v(cx + r * c1, y1, cz + r * s1, c1, 0, s1, u0, v1);
+      p.quad();
+    }
     const uc = (tt[0] + tt[2]) / 2, vc = (tt[1] + tt[3]) / 2, hu = (tt[2] - tt[0]) / 2, hv = (tt[3] - tt[1]) / 2;
     if (tampaCima) {
       p.v(cx, y1, cz, 0, 1, 0, uc, vc);
@@ -106,7 +111,7 @@ function cilindro(p, cx, cz, r, y0, y1, tLado, tTopo, tampaCima, tampaBaixo, seg
 }
 
 // pedaço de esfera (centro c, raio r) entre as latitudes lat0..lat1 (radianos)
-function esfera(p, cx, cy, cz, r, lat0, lat1, tile, nLon = 12, nLat = 8, tileInteiro = false) {
+function esfera(p, cx, cy, cz, r, lat0, lat1, tile, nLon = SEG, nLat = 6, tileInteiro = false) {
   const t = uvTile(tile);
   for (let j = 0; j < nLat; j++) {
     const f0 = lat0 + (lat1 - lat0) * (j / nLat), f1 = lat0 + (lat1 - lat0) * ((j + 1) / nLat);
@@ -123,7 +128,7 @@ function esfera(p, cx, cy, cz, r, lat0, lat1, tile, nLon = 12, nLat = 8, tileInt
 }
 
 // cilindro deitado no eixo x ou z (para o cano e a roda): faz em pé e troca os eixos
-function cilindroDeitado(A, x, y, z, cor, luz, eixo, r, a0, a1, tLado, tTopo, tampas, seg = 10) {
+function cilindroDeitado(A, x, y, z, cor, luz, eixo, r, a0, a1, tLado, tTopo, tampas, seg = SEG) {
   const T = { A: { P: [], N: [], U: [], C: [], O: [], L: [], BD: [], I: [] } };
   const p = new Pincel(T.A, 0, 0, 0, cor, luz);
   cilindro(p, 0.5, 0.5, r, a0, a1, tLado, tTopo, tampas, tampas, seg);
@@ -155,10 +160,14 @@ export function desenharFormaNova(A, get, x, y, z, b, cor = 1) {
   const base = baseForma(b);
   const p = new Pincel(A, x, y, z, cor, luz);
   const tapado = (dx, dy, dz) => OPACO[get(x + dx, y + dy, z + dz)];
+  // toda cercada de blocos cheios: ninguém vê, não desenha nada
+  if (tapado(1, 0, 0) && tapado(-1, 0, 0) && tapado(0, 0, 1) && tapado(0, 0, -1) && tapado(0, 1, 0) && tapado(0, -1, 0)) return;
+  // gomo de cilindro virado para (cx, sz) some se os blocos daquele lado (x e z) forem cheios
+  const escondido = (cx, sz) => (Math.abs(cx) < 1e-6 || tapado(cx > 0 ? 1 : -1, 0, 0)) && (Math.abs(sz) < 1e-6 || tapado(0, 0, sz > 0 ? 1 : -1));
   switch (def.forma) {
     case 'tronco': {
       const cima = get(x, y + 1, z), baixo = get(x, y - 1, z);
-      cilindro(p, 0.5, 0.5, 0.4, 0, 1, def.tiles[2], def.tiles[0], !ehTronco(cima) && !OPACO[cima], !ehTronco(baixo) && !OPACO[baixo]);
+      cilindro(p, 0.5, 0.5, 0.4, 0, 1, def.tiles[2], def.tiles[0], !ehTronco(cima) && !OPACO[cima], !ehTronco(baixo) && !OPACO[baixo], SEG, escondido);
       break;
     }
     case 'coluna': {
@@ -166,13 +175,13 @@ export function desenharFormaNova(A, get, x, y, z, b, cor = 1) {
       // base e capitel quadrados quando a coluna começa ou termina
       const ini = cima !== b, fim = baixo !== b;
       const y0 = fim ? 0.12 : 0, y1 = ini ? 0.88 : 1;
-      cilindro(p, 0.5, 0.5, 0.36, y0, y1, def.tiles[2], def.tiles[0], false, false);
+      cilindro(p, 0.5, 0.5, 0.36, y0, y1, def.tiles[2], def.tiles[0], false, false, SEG, escondido);
       if (fim) caixa(p, 0.06, 0, 0.06, 0.94, 0.12, 0.94, def.tiles[2], (i) => i === 3 && tapado(0, -1, 0));
       if (ini) caixa(p, 0.06, 0.88, 0.06, 0.94, 1, 0.94, def.tiles[2], (i) => i === 2 && tapado(0, 1, 0));
       break;
     }
     case 'cerca': {
-      cilindro(p, 0.5, 0.5, 0.13, 0, 1, def.tiles[2], def.tiles[0], !(get(x, y + 1, z) === b), get(x, y - 1, z) !== b && !tapado(0, -1, 0), 8);
+      cilindro(p, 0.5, 0.5, 0.13, 0, 1, def.tiles[2], def.tiles[0], !(get(x, y + 1, z) === b), get(x, y - 1, z) !== b && !tapado(0, -1, 0), 6);
       for (const [dx, dz] of H4) {
         if (!ligaCerca(get(x + dx, y, z + dz))) continue;
         const xa = dx > 0 ? 0.6 : dx < 0 ? 0 : 0.44, xb = dx > 0 ? 1 : dx < 0 ? 0.4 : 0.56;
@@ -207,27 +216,27 @@ export function desenharFormaNova(A, get, x, y, z, b, cor = 1) {
         // reto: atravessa a célula inteira no eixo ligado (em pé se não ligar em nada)
         if (nx) cilindroDeitado(A, x, y, z, cor, luz, 'x', r, 0, 1, t, t, false);
         else if (nz) cilindroDeitado(A, x, y, z, cor, luz, 'z', r, 0, 1, t, t, false);
-        else cilindro(p, 0.5, 0.5, r, 0, 1, t, t, !lig[2], !lig[3], 10);
+        else cilindro(p, 0.5, 0.5, r, 0, 1, t, t, !lig[2], !lig[3]);
       } else {
         // curva/cruzamento: uma junta no meio e um braço para cada lado ligado
         caixa(p, 0.5 - r - 0.03, 0.5 - r - 0.03, 0.5 - r - 0.03, 0.5 + r + 0.03, 0.5 + r + 0.03, 0.5 + r + 0.03, t);
         if (lig[0]) cilindroDeitado(A, x, y, z, cor, luz, 'x', r, 0.5, 1, t, t, false);
         if (lig[1]) cilindroDeitado(A, x, y, z, cor, luz, 'x', r, 0, 0.5, t, t, false);
-        if (lig[2]) cilindro(p, 0.5, 0.5, r, 0.5, 1, t, t, false, false, 10);
-        if (lig[3]) cilindro(p, 0.5, 0.5, r, 0, 0.5, t, t, false, false, 10);
+        if (lig[2]) cilindro(p, 0.5, 0.5, r, 0.5, 1, t, t, false, false);
+        if (lig[3]) cilindro(p, 0.5, 0.5, r, 0, 0.5, t, t, false, false);
         if (lig[4]) cilindroDeitado(A, x, y, z, cor, luz, 'z', r, 0.5, 1, t, t, false);
         if (lig[5]) cilindroDeitado(A, x, y, z, cor, luz, 'z', r, 0, 0.5, t, t, false);
       }
       break;
     }
     case 'bola':
-      esfera(p, 0.5, 0.5, 0.5, 0.5, -Math.PI / 2, Math.PI / 2, def.tiles[2]);
+      esfera(p, 0.5, 0.5, 0.5, 0.5, -Math.PI / 2, Math.PI / 2, def.tiles[2], SEG, 5);
       break;
     case 'cupula': {
       const vidro = b === F.CUPULA_VIDRO;
-      esfera(p, 0.5, 0, 0.5, 0.5, 0, Math.PI / 2, def.tiles[2], 12, vidro ? 4 : 6, vidro);
+      esfera(p, 0.5, 0, 0.5, 0.5, 0, Math.PI / 2, def.tiles[2], SEG, 3, vidro);
       // fundo (só aparece se não estiver em cima de bloco cheio)
-      if (!tapado(0, -1, 0) && !vidro) cilindro(p, 0.5, 0.5, 0.5, 0, 0.001, def.tiles[2], def.tiles[2], false, true);
+      if (!tapado(0, -1, 0) && !vidro) cilindro(p, 0.5, 0.5, 0.5, 0, 0.001, def.tiles[2], def.tiles[2], false, true, SEG, () => true);
       break;
     }
     case 'laje':
@@ -262,12 +271,12 @@ export function desenharFormaNova(A, get, x, y, z, b, cor = 1) {
     case 'roda': {
       const eixo = eixoRoda(get, x, y, z);
       const t = def.tiles[2];
-      // disco de madeira (16 gomos), raios em cruz saltados e o miolo de metal
-      cilindroDeitado(A, x, y, z, cor, luz, eixo, 0.47, 0.42, 0.58, t, t, true, 16);
+      // disco de madeira (12 gomos), raios em cruz saltados e o miolo de metal
+      cilindroDeitado(A, x, y, z, cor, luz, eixo, 0.47, 0.42, 0.58, t, t, true, 12);
       const raio = eixo === 'x' ? [[0.4, 0.1, 0.46, 0.6, 0.9, 0.54], [0.4, 0.46, 0.1, 0.6, 0.54, 0.9]]
         : [[0.46, 0.1, 0.4, 0.54, 0.9, 0.6], [0.1, 0.46, 0.4, 0.9, 0.54, 0.6]];
       for (const c of raio) caixa(p, ...c, 21);
-      cilindroDeitado(A, x, y, z, cor, luz, eixo, 0.12, 0.36, 0.64, 55, 55, true, 8);
+      cilindroDeitado(A, x, y, z, cor, luz, eixo, 0.12, 0.36, 0.64, 55, 55, true, 6);
       break;
     }
     default: break;
