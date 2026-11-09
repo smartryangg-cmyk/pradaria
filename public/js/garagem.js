@@ -12,7 +12,8 @@ import { PRECO_VEICULO, RECEITA_VEICULO, VEICULOS_LIVRES, temVeiculo, precoServi
 const $ = (s) => document.querySelector(s);
 const MAX_LOCAL = 40;
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
-const PERTO_POSTO = 6.5; // distância (centro do veículo até o posto) para abastecer/consertar
+const PERTO_POSTO = 6.5;
+const ARVORE = new Set([B.FOLHAS, B.TRONCO, B.FOLHAS_PINHEIRO, B.TRONCO_PINHEIRO, B.TRONCO_BETULA, B.FOLHAS_SELVA].filter(Boolean)); // distância (centro do veículo até o posto) para abastecer/consertar
 const moedaHtml = (n) => `<span class="econ-m">${icone('moeda')}<span>${n}</span></span>`;
 
 // posto: chão de concreto, cobertura, bomba de gasolina, carregador e a placa da oficina (só enfeite: não é sólido)
@@ -647,6 +648,7 @@ export class Garagem {
     const h = m.alturaEm(bx, bz);
     for (let y = Math.min(h + 12, 94); y > Math.max(1, h - 12); y--) {
       const b = m.bloco(bx, y, bz);
+      if (ARVORE.has(b)) continue; // copa de árvore não é chão
       if (AGUA[b]) return agua ? y : null;
       if (SOLIDO[b]) return agua ? null : y + 1;
     }
@@ -661,12 +663,12 @@ export class Garagem {
     for (const p of postos) {
       vistos.add(p.k);
       if (this.postos.has(p.k) || Math.hypot(p.x - pos.x, p.z - pos.z) > 90) continue;
-      const y = this.chaoEm(p.x, p.z, false);
-      if (y === null) continue;
+      const lugar = this.lugarPosto(p);
+      if (!lugar) continue;
       const malha = montarPosto();
-      malha.position.set(p.x, y, p.z); malha.rotation.y = p.yaw;
+      malha.position.set(lugar.x, lugar.y, lugar.z); malha.rotation.y = p.yaw;
       this.J.cena.add(malha);
-      this.postos.set(p.k, { x: p.x, y, z: p.z, malha });
+      this.postos.set(p.k, { ...lugar, malha });
     }
     for (const [k, p] of this.postos) if (!vistos.has(k) && Math.hypot(p.x - pos.x, p.z - pos.z) > 140) { this.J.cena.remove(p.malha); this.postos.delete(k); }
     // veículos estacionados: cada um aparece uma vez só por mundo, quando alguém chega perto
@@ -682,6 +684,29 @@ export class Garagem {
         this.veic.criar({ id: 'L' + this.veic.seq++, tipo: c.tipo, cor: c.cor, p: lugar, r: c.yaw, k: c.k, c: 0.6 + (c.cor % 4) * 0.1 });
       }
     }
+  }
+
+  // o posto (e a garagem do lado) precisa de chão plano e livre: se no ponto planejado tem casa ou árvore,
+  // anda mais para fora pela rua até achar (o mundo é o mesmo para todos, então todos acham o mesmo lugar)
+  lugarPosto(p) {
+    const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), m = this.J.mundo();
+    for (const k of [0, 4, 8, 12, 16, 20, 26, -4]) {
+      const x = p.x + fx * k, z = p.z + fz * k;
+      const y = this.chaoEm(x, z, false);
+      if (y === null) continue;
+      let bom = true;
+      for (let lx = -9; lx <= 3 && bom; lx += 2) for (let lz = -3; lz <= 3 && bom; lz += 2) {
+        // ponto do desenho girado para o mundo (o desenho é feito com +x para o lado e -z para a frente)
+        const wx = x + lx * Math.cos(p.yaw) + lz * Math.sin(p.yaw), wz = z - lx * Math.sin(p.yaw) + lz * Math.cos(p.yaw);
+        const bx = Math.floor(wx), bz = Math.floor(wz);
+        // chão de cada pedacinho no máximo 2 blocos acima/abaixo, e nada (casa, árvore) por cima
+        let g = null;
+        for (let yy = y + 3; yy >= y - 4; yy--) if (SOLIDO[m.bloco(bx, yy, bz)]) { g = yy + 1; break; }
+        if (g === null || g > y + 2 || g < y - 3) bom = false;
+      }
+      if (bom) return { x, y, z };
+    }
+    return null;
   }
 
   lugarParado(c) {
