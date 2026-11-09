@@ -79,7 +79,7 @@ export class Visao {
     if (b.grupo.parent !== this.cena) this.cena.add(b.grupo);
     const yaw = jog.yaw, pitch = jog.pitch;
     // boneco: a frente do modelo é +z; a câmera olha para -z, por isso o meio giro
-    b.grupo.position.set(jog.pos.x, jog.pos.y, jog.pos.z);
+    b.grupo.position.set(jog.pos.x, jog.yVisual ?? jog.pos.y, jog.pos.z);
     b.grupo.rotation.y = yaw + Math.PI;
     if (this.golpe < 1) this.golpe = Math.min(1, this.golpe + dt / GOLPE);
     const hv = Math.hypot(jog.vel.x, jog.vel.z);
@@ -90,7 +90,7 @@ export class Visao {
       golpe: this.golpe, pitch,
     }, dt);
 
-    const olho = this.olho.set(jog.pos.x, jog.pos.y + OLHOS, jog.pos.z);
+    const olho = this.olho.set(jog.pos.x, (jog.yVisual ?? jog.pos.y) + OLHOS, jog.pos.z);
     const cp = Math.cos(pitch);
     const frente = this.frente.set(-Math.sin(yaw) * cp, Math.sin(pitch), -Math.cos(yaw) * cp);
     let alvo;

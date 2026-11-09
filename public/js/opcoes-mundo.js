@@ -42,6 +42,13 @@ export const GERADORES = {
   classico: { nome: 'Clássico: biomas, cavernas e minérios' },
 };
 
+// visual do mundo (suave.js): blocos quadradinhos ou "Natural 3D" (morros lisos, copas redondas, bichos arredondados).
+// Só muda o desenho: os blocos, a colisão, colocar e quebrar são iguais nos dois.
+export const ESTILOS = {
+  blocos: { icone: 'bloco', nome: 'Blocos', desc: 'Tudo quadradinho, como sempre' },
+  suave: { icone: 'montanha', nome: 'Natural 3D', desc: 'Morros lisos, árvores e bichos redondos' },
+};
+
 // tipo do mundo: um campo só, compartilhado pelos modos especiais. Para um tipo novo, acrescente aqui.
 // historia = "Linha do Tempo": começa na era dos dinossauros e evolui com a experiência (eras-regras.js)
 export const TIPOS = {
@@ -52,8 +59,8 @@ export const TIPOS = {
 };
 
 // PADRAO_MUNDO: o que vale quando falta a opção (mundos antigos); PADRAO_NOVO: o que já vem marcado ao criar
-export const PADRAO_MUNDO = { ...Object.fromEntries(OPCOES_MUNDO.map((o) => [o.id, o.antigos ?? o.padrao])), tamanho: 'grande', tipo: 'normal', gerador: 'atual' };
-export const PADRAO_NOVO = { ...Object.fromEntries(OPCOES_MUNDO.map((o) => [o.id, o.padrao])), tamanho: TAMANHO_NOVO, tipo: 'normal', gerador: 'classico' };
+export const PADRAO_MUNDO = { ...Object.fromEntries(OPCOES_MUNDO.map((o) => [o.id, o.antigos ?? o.padrao])), tamanho: 'grande', tipo: 'normal', gerador: 'atual', estilo: 'blocos' };
+export const PADRAO_NOVO = { ...Object.fromEntries(OPCOES_MUNDO.map((o) => [o.id, o.padrao])), tamanho: TAMANHO_NOVO, tipo: 'normal', gerador: 'classico', estilo: 'blocos' };
 
 // aceita qualquer coisa (texto JSON, objeto, nada) e devolve só opções conhecidas, sempre true/false (+ tamanho)
 export function normalizarOpcoes(o) {
@@ -64,6 +71,7 @@ export function normalizarOpcoes(o) {
     if (typeof o.tamanho === 'string' && Object.prototype.hasOwnProperty.call(TAMANHOS, o.tamanho)) r.tamanho = o.tamanho;
     if (typeof o.gerador === 'string' && Object.prototype.hasOwnProperty.call(GERADORES, o.gerador)) r.gerador = o.gerador;
     if (typeof o.tipo === 'string' && Object.prototype.hasOwnProperty.call(TIPOS, o.tipo)) r.tipo = o.tipo;
+    if (typeof o.estilo === 'string' && Object.prototype.hasOwnProperty.call(ESTILOS, o.estilo)) r.estilo = o.estilo;
   }
   // mundos que ligaram "Monstros machucam" antes dos monstros virarem bichos selvagens continuam com corações
   if (o && typeof o === 'object' && typeof o.selvagensMachucam !== 'boolean' && o.monstrosMachucam === true) r.selvagensMachucam = true;
@@ -85,7 +93,8 @@ export function editarOpcoes(atual, pedido) {
 // quais opções mudaram (ids de OPCOES_MUNDO)
 // mudar estas não precisa recarregar o mundo de quem está jogando (semRecarregar: a sala aplica na hora)
 export const precisaRecarregar = (mudou) => mudou.some((id) => !OPCOES_MUNDO.find((o) => o.id === id)?.semRecarregar);
-export const opcoesMudadas = (a, b) => { const x = normalizarOpcoes(a), y = normalizarOpcoes(b); return OPCOES_MUNDO.filter((o) => x[o.id] !== y[o.id]).map((o) => o.id); };
+// (o jeito do mundo, 'estilo', só muda o desenho, então dá para trocar depois de criado)
+export const opcoesMudadas = (a, b) => { const x = normalizarOpcoes(a), y = normalizarOpcoes(b); return [...OPCOES_MUNDO.filter((o) => x[o.id] !== y[o.id]).map((o) => o.id), ...(x.estilo !== y.estilo ? ['estilo'] : [])]; };
 
 // semente: número digitado vira ele mesmo; palavra vira um número (sempre igual para a mesma palavra)
 export function sementeDeTexto(t) {
