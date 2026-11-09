@@ -16,7 +16,7 @@ export const vida = {
   aoDesmaiar: null, // definido pelo main.js
   aoMudar: null,
 
-  ligada() { return !!((opcoesMundo.selvagens && opcoesMundo.selvagensMachucam) || opcoesMundo.armas); },
+  ligada() { return !!((opcoesMundo.selvagens && opcoesMundo.selvagensMachucam) || opcoesMundo.armas || opcoesMundo.tipo === 'guerra'); },
 
   reiniciar() { this.atual = MAX; this.semDano = 99; this.protegido = 0; this.acumCura = 0; this.desenhar(); },
 

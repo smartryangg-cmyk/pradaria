@@ -17,7 +17,7 @@ const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a
 const lerp = (a, b, t) => a + (b - a) * t;
 
 // tipos de lugar: raio da área aplainada, forma (q = quadrado), nomes e ícone do aviso
-const TIPOS = {
+export const TIPOS_LUGAR = {
   cidade: { r: 37, q: true, nomes: ['Cidade Girassol', 'Cidade das Pipas', 'Centro Arco-Íris', 'Cidade Bem-te-vi'] },
   vila: { r: 18, nomes: ['Vila do Tatu', 'Recanto das Pitangas', 'Vilarejo do Sabiá', 'Aldeia do Caqui'] },
   fazenda: { r: 25, nomes: ['Fazenda Boa Vista', 'Sítio do Milho Verde', 'Rancho das Ovelhas'] },
@@ -32,7 +32,7 @@ const TIPOS = {
 };
 // ícone (icones.js) de cada tipo de lugar, para o aviso e os mapas
 export const ICONE_LUGAR = { cidade: 'vila', vila: 'casa', fazenda: 'milho', fabrica: 'engrenagem', patio: 'arvore', castelo: 'castelo', acampamento: 'estrela', catavento: 'flor', mirante: 'montanha', farol: 'pino', porto: 'onda' };
-const ORDEM = ['cidade', 'cidade', 'fabrica', 'fazenda', 'vila', 'patio', 'castelo', 'fazenda', 'vila', 'acampamento', 'catavento'];
+export const ORDEM_LUGARES = ['cidade', 'cidade', 'fabrica', 'fazenda', 'vila', 'patio', 'castelo', 'fazenda', 'vila', 'acampamento', 'catavento'];
 const CORES_CONT = [B.LA_VERMELHA, B.LA_AZUL, B.LA_AMARELA, B.LA_VERDE, B.LA_ROSA, B.LA_BRANCA];
 const TELHADOS = [B.LA_VERMELHA, B.LA_AZUL, B.TABUAS, B.LA_VERDE, B.LA_AMARELA];
 
@@ -97,8 +97,14 @@ export class IlhaAventura {
     return Math.max(4, Math.floor(h));
   }
 
+  // tipos de lugar e a ordem em que entram na ilha (o mundo de Guerra troca isso, ver guerra-mapa.js)
+  get tipos() { return TIPOS_LUGAR; }
+  get ordem() { return ORDEM_LUGARES; }
+  aceitar() { return true; } // regra extra para um lugar (x, z) poder ficar ali
+
   // ---------- planejamento (só números) ----------
   planejar() {
+    const TIPOS = this.tipos;
     const rng = rngSemente((Math.imul(this.s, 2654435761) ^ 0x51ed) >>> 0);
     for (let k = 0; k < 5; k++) rng();
     const ang = (a, d) => [Math.cos(a) * d, Math.sin(a) * d];
@@ -150,7 +156,7 @@ export class IlhaAventura {
       }
     }
     // o resto, no interior da ilha
-    for (const [i, tipo] of ORDEM.entries()) {
+    for (const [i, tipo] of this.ordem.entries()) {
       const T = TIPOS[tipo];
       for (let k = 0; k < 400; k++) {
         const dmax = i === 0 && k < 200 ? R * 0.35 : R * 0.78;
@@ -158,7 +164,7 @@ export class IlhaAventura {
         const h = this.bruta(x, z);
         if (h < NA + 2 || h > (tipo === 'castelo' || tipo === 'catavento' ? 42 : 36)) continue;
         if (this.distRio(x, z) < T.r * (T.q ? 1.42 : 1) + 14) continue;
-        if (!longe(x, z, T.r, 18)) continue;
+        if (!longe(x, z, T.r, 18) || !this.aceitar(tipo, x, z)) continue;
         // a área toda tem que estar em terra
         let ok = true;
         for (let a = 0; a < 8 && ok; a++) { const [ox, oz] = ang(a * Math.PI / 4, T.r * 1.3); if (this.bruta(x + ox, z + oz) <= NA + 1) ok = false; }
