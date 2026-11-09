@@ -71,6 +71,8 @@ export class Mercado {
     if (!r.mudou) { if (k) this.salvarLocal(); return; }
     // o pedreiro colocou blocos (sem internet quem põe no mundo é o próprio jogo)
     if (r.blocos && r.blocos.length && this.ui.porBlocos) this.ui.porBlocos(r.blocos);
+    // quebrou no "Coletar e criar": o que tinha ali cai no chão (online quem põe é a sala)
+    if (r.cai && r.cai.length && this.ui.caiu) this.ui.caiu(r.cai, acao);
     this.salvarLocal();
     this.recebeu(this.e, r.feitos, null, r, copia);
   }
@@ -97,11 +99,21 @@ export class Mercado {
     if (!this.sala) { this.enviar(a); return; }
     if (this.otimista(a)) this.sala.enviar(a);
   }
-  otimista(a) {
+  // mexe na mochila na hora (pegar/largar do chão): sem internet vale e guarda; online a sala confere depois
+  mexer(a, quieto) {
+    if (!this.ligado) return false;
+    if (this.sala) return this.otimista(a, quieto);
+    const r = aplicar(this.e, this.op, a);
+    if (!r.ok) { if (!quieto) this.ui.aviso(r.erro, 2200, 'mochila'); return false; }
+    this.salvarLocal();
+    this.recebeu(this.e, r.feitos);
+    return r;
+  }
+  otimista(a, quieto) {
     const r = aplicar(this.e, this.op, a);
     if (r.ok && r.mudou) { this.atualizarHud(); this.ui.aoMudar && this.ui.aoMudar(); }
-    else if (!r.ok) this.ui.aviso(r.erro, 2200, 'mochila');
-    return r.ok;
+    else if (!r.ok && !quieto) this.ui.aviso(r.erro, 2200, 'mochila');
+    return r.ok ? r : false;
   }
   podeColocar(b) { return liberado(this.e, b, this.op); }
   precoDe(b) { const x = LOJA.find((l) => l.b === b); return x ? x.preco : 0; }

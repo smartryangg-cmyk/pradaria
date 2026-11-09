@@ -1,8 +1,9 @@
 // Sala de um mundo: guarda as edições de blocos e repassa posições/emotes entre os jogadores.
 import { DurableObject } from 'cloudflare:workers';
 import { ARMAS, danoMaximo, VOLTA_ITEM } from '../../public/js/armas-dados.js';
-import { opcoesEcon, econLigada, normalizar, aplicar, dar, liberado, temVeiculo, estadoDaGaragem } from '../../public/js/economia.js';
-import { lugarVazio, gastoDe, ULTIMO_ITEM } from '../../public/js/receitas.js';
+import { opcoesEcon, econLigada, normalizar, aplicar, dar, liberado, temMochila, temVeiculo, estadoDaGaragem } from '../../public/js/economia.js';
+import { lugarVazio, gastoDe, oQueCai, ULTIMO_ITEM } from '../../public/js/receitas.js';
+import { Chao, publico, podePegar, pertoParaPegar, podeNoChao, MAX_LARGAR } from '../../public/js/regras-chao.js';
 import { normalizarOpcoes } from '../../public/js/opcoes-mundo.js';
 import { normalizarSkin } from '../../public/js/skin.js';
 import { filtrarChat } from '../../public/js/chat-filtro.js';
@@ -105,6 +106,47 @@ export class Sala extends DurableObject {
     return this.parados;
   }
 
+  // itens no chão (drops): ficam guardados um por chave ("d:i") e somem sozinhos depois de uns minutos
+  async carregarChao() {
+    if (this.chao) return this.chao;
+    const c = new Chao();
+    const lista = await this.ctx.storage.list({ prefix: 'd:' });
+    for (const [, d] of lista) if (d && Number.isInteger(d.i)) c.novo(d.id, d.n, d.x, d.y, d.z, d.v, d.dono, d.t, d.i, d.c);
+    this.chao = c;
+    await this.limparChao();
+    return c;
+  }
+  async limparChao() {
+    const fora = this.chao.limpar();
+    if (!fora.length) return;
+    const ks = fora.map((d) => 'd:' + d.i);
+    for (let i = 0; i < ks.length; i += 128) await this.ctx.storage.delete(ks.slice(i, i + 128));
+    for (const d of fora) this.enviarTodos({ t: 'chao-pegou', i: d.i, j: null });
+  }
+  // põe itens no chão e avisa todo mundo. itens: [[id, n, x, y, z, v?, c?]] (c = quantos são comprados)
+  async soltarNoChao(itens, dono = '') {
+    const c = await this.carregarChao();
+    const novos = [];
+    for (const [id, n, x, y, z, v, comp] of itens) {
+      const d = c.novo(id, n, x, y, z, v || [(Math.random() - 0.5) * 2.4, 3.2, (Math.random() - 0.5) * 2.4], dono, Date.now(), null, comp || 0);
+      if (d) novos.push(d);
+    }
+    if (!novos.length) return;
+    const put = {};
+    for (const d of novos) put['d:' + d.i] = d;
+    await this.ctx.storage.put(put);
+    await this.limparChao();
+    this.enviarTodos({ t: 'chao', d: novos.filter((d) => c.itens.has(d.i)).map((d) => publico(d)) });
+  }
+  // limite simples por jogador (fica na conexão)
+  balde(ws, eu, k, max, janela = 1000) {
+    const agora = Date.now();
+    if (!eu['j' + k] || agora - eu['j' + k] > janela) { eu['j' + k] = agora; eu['n' + k] = 0; }
+    if (++eu['n' + k] > max) return false;
+    ws.serializeAttachment(eu);
+    return true;
+  }
+
   // quem está sentado em cada veículo (fica guardado na conexão de cada jogador)
   ocupacao() {
     const o = new Map();
@@ -174,7 +216,7 @@ export class Sala extends DurableObject {
       for (const e of d.edicoes.slice(0, MAX_EDICOES)) {
         if (!Array.isArray(e) || e.length !== 4) continue;
         const [x, y, z, b] = e;
-        if (![x, y, z].every(Number.isInteger) || y < 1 || y > 63 || !blocoOk(b) || Math.abs(x) > LONGE || Math.abs(z) > LONGE) continue;
+        if (![x, y, z].every(Number.isInteger) || y < 1 || y > ALTURA_MAX || !blocoOk(b) || Math.abs(x) > LONGE || Math.abs(z) > LONGE) continue;
         const k = x + ',' + y + ',' + z;
         ed.set(k, b); lote['b:' + k] = b;
         if (++n % 128 === 0) { await this.ctx.storage.put(lote); lote = {}; }
@@ -251,8 +293,9 @@ export class Sala extends DurableObject {
     const vparados = await this.carregarParados();
     const lugares = (await this.ctx.storage.get('l:' + u.id)) || { casa: null, lista: [] };
     const barra = (await this.ctx.storage.get('h:' + u.id)) || null;
+    const chao = (await this.carregarChao()).lista().map((d) => publico(d));
     servidor.send(JSON.stringify({
-      t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia, dono: eu.dono, lugares, opcoes, econ, veiculos, vparados: [...vparados], barra,
+      t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia, dono: eu.dono, lugares, opcoes, econ, veiculos, vparados: [...vparados], barra, chao,
       chat: this.chat(), historico: this.chatRecente(),
       jogadores: this.jogadores().filter((j) => j.id !== id).map(({ id, nome, cor, skin, p, r, voz }) => ({ id, nome, cor, skin, p, r, voz: !!voz })),
     }));
@@ -441,6 +484,8 @@ export class Sala extends DurableObject {
       const k = x + ',' + y + ',' + z;
       if (!ed.has(k) && ed.size >= MAX_EDICOES) return;
       const natural = !ed.has(k); // ninguém mexeu aqui ainda: é um bloco do mundo original
+      // o que tinha ali: se alguém já mexeu, a sala sabe; se é do mundo original, vale o que o aparelho diz
+      const de = natural ? m.de | 0 : ed.get(k);
       ed.set(k, b);
       await this.ctx.storage.put('b:' + k, b);
       this.enviarTodos({ t: 'bloco', x, y, z, b }, ws);
@@ -449,8 +494,10 @@ export class Sala extends DurableObject {
       const comprado = !natural && !!(await this.ctx.storage.get('c:' + k));
       if (comprado) await this.ctx.storage.delete('c:' + k);
       if (econ && m.j) { // só o que o jogador fez com as mãos
-        const r = await this.econAplicar(ws, eu, econ, { t: 'bloco', b, x, y, z, de: m.de | 0, natural, comprado }, true);
+        const r = await this.econAplicar(ws, eu, econ, { t: 'bloco', b, x, y, z, de, natural, comprado }, true);
         if (r && r.ok && r.marca && b > 0) await this.ctx.storage.put('c:' + k, 1);
+        // coletar e criar: quebrou com as mãos, o que tinha ali cai no chão
+        if (r && r.ok && r.cai && b === 0) await this.soltarNoChao(r.cai.map(([id, n, c]) => [id, n, x + 0.5, y + 0.3, z + 0.5, null, c]));
       }
     } else if (m.t === 'vnovo') {
       if (eu.semVeiculos || !LUGARES[m.tipo] || MILITARES.has(m.tipo) || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
@@ -631,7 +678,14 @@ export class Sala extends DurableObject {
       }
       ws.serializeAttachment(eu);
       const econ = await this.econDe(eu.uid);
-      await this.econAplicar(ws, eu, econ, m, m.t === 'ev');
+      if (m.t === 'ev' && (m.e === 'caca' || m.e === 'la')) {
+        // cai no chão onde o bicho está (perto de quem fez; longe demais vai para os pés do jogador)
+        const onde = [m.x, m.y, m.z].every(Number.isFinite) && Math.hypot(m.x - eu.p[0], m.z - eu.p[2]) <= 12 && Math.abs(m.y - eu.p[1]) <= 12
+          ? [m.x, m.y, m.z] : [eu.p[0], eu.p[1] + 1, eu.p[2]];
+        m = { t: 'ev', e: m.e, b: m.b, f: m.f, x: onde[0], y: onde[1], z: onde[2] };
+      }
+      const r = await this.econAplicar(ws, eu, econ, m, m.t === 'ev');
+      if (r && r.ok && r.cai && m.t === 'ev') await this.soltarNoChao(r.cai.map(([id, n]) => [id, n, m.x, m.y, m.z]));
     } else if (ACOES_TRABALHO.has(m.t)) {
       const op = this.op();
       if (!op.mercado) return;
@@ -659,6 +713,37 @@ export class Sala extends DurableObject {
         }
       }
       await this.econAplicar(ws, eu, econ, m, m.t === 'turno', { pos: eu.p, agora });
+    } else if (m.t === 'chao-pegar' && Number.isInteger(m.i)) {
+      // pegou um item do chão (passou perto)
+      const op = this.op();
+      if (!temMochila(op) || !this.balde(ws, eu, 'pg', 30)) return;
+      const c = await this.carregarChao();
+      const econ = await this.econDe(eu.uid);
+      const d = c.itens.get(m.i);
+      // já foi (outro pegou ou sumiu): o aparelho tira da tela e volta a mochila certa
+      if (!d) { ws.send(JSON.stringify({ t: 'chao-pegou', i: m.i, j: null })); ws.send(JSON.stringify({ t: 'econ', s: econ })); return; }
+      if (!podePegar(d, eu.id) || !pertoParaPegar(d, eu.p)) { ws.send(JSON.stringify({ t: 'econ', s: econ })); ws.send(JSON.stringify({ t: 'chao', d: [publico(d)] })); return; }
+      const r = aplicar(econ, op, { t: 'pegar', id: d.id, n: d.n, c: d.c });
+      if (!r.ok) { ws.send(JSON.stringify({ t: 'econ', s: econ, msg: r.erro })); ws.send(JSON.stringify({ t: 'chao', d: [publico(d)] })); return; }
+      c.tirar(d.i);
+      await this.ctx.storage.delete('d:' + d.i);
+      await this.ctx.storage.put('e:' + eu.uid, econ);
+      ws.send(JSON.stringify({ t: 'econ', s: econ }));
+      this.enviarTodos({ t: 'chao-pegou', i: d.i, j: eu.id, id: d.id, n: d.n });
+    } else if (m.t === 'chao-largar') {
+      // largou da mochila no chão (para guardar depois ou passar para um amigo)
+      const op = this.op();
+      const id = m.id | 0, n = m.n | 0;
+      if (!temMochila(op) || !podeNoChao(id, n) || n > MAX_LARGAR || !this.balde(ws, eu, 'lg', 10)) return;
+      const econ = await this.econDe(eu.uid);
+      const r = aplicar(econ, op, { t: 'largar', id, n });
+      if (!r.ok) { ws.send(JSON.stringify({ t: 'econ', s: econ })); return; }
+      await this.ctx.storage.put('e:' + eu.uid, econ);
+      ws.send(JSON.stringify({ t: 'econ', s: econ }));
+      const v = Array.isArray(m.v) && m.v.length === 3 && m.v.every(Number.isFinite) ? m.v : [0, 2, 0];
+      // sai um pouco na frente do jogador (para onde foi jogado), não dentro da cabeça
+      const vh = Math.hypot(v[0], v[2]) || 1;
+      await this.soltarNoChao([[id, n, eu.p[0] + v[0] / vh * 0.6, eu.p[1] + 1.2, eu.p[2] + v[2] / vh * 0.6, v, r.c]], eu.id);
     } else if (m.t === 'dar') {
       if (!this.op().mercado) return;
       const agora = Date.now();

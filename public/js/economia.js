@@ -127,6 +127,8 @@ export function opcoesEcon(op) {
   // sem construção (ou com armas, que não deixam voar) as missões impossíveis ficam de fora
   return { mercado: !!op.mercado, objetivos: !!op.objetivos, sobrevivencia: !!op.sobrevivencia, construcao: op.construcao !== false, voo: !op.armas };
 }
+// tem mochila (dá para pegar e largar coisas no chão)
+export const temMochila = (op) => !!(op && (op.mercado || op.sobrevivencia));
 export const econLigada = (op) => !!(op && (op.mercado || op.objetivos || op.sobrevivencia));
 // no "Coletar e criar", comprar na loja traz este tanto do bloco (e dá para comprar de novo)
 export const LOTE_LOJA = 4;
@@ -185,8 +187,9 @@ function contar(e, op, k, n) {
 //  { t:'vender', b, n }      vende n unidades do item b
 //  { t:'comprar', b }        libera o bloco b (no "Coletar e criar": traz LOTE_LOJA dele)
 //  { t:'criar', r, bancada } receita r (receitas.js); bancada = tem uma bancada perto (a sala confere)
-//  { t:'ev', e:'la' }        carinho na ovelha deu lã (só no "Coletar e criar")
-//  { t:'ev', e:'caca', b, f } derrubou um bicho da espécie b (f = filhote): o que cai vai para a mochila
+//  { t:'ev', e:'la', x, y, z } carinho na ovelha deu lã (só no "Coletar e criar")
+//  { t:'ev', e:'caca', b, f, x, y, z } derrubou um bicho da espécie b (f = filhote): o que cai vai para o chão (x, y, z: onde caiu)
+//  { t:'pegar', id, n } / { t:'largar', id, n }   item do chão para a mochila e vice-versa
 //  { t:'moer' }              trigo da mochila vira farinha (no moinho girando)
 //  { t:'assar' }             farinha da mochila vira pão (no forno aceso)
 //  trabalhadores (trabalho.js): contratar, demitir, obra, cancelar-obra, depositar, retirar, turno
@@ -206,14 +209,18 @@ export function aplicar(e, op, a, ctx = {}) {
     const max = EVENTOS[a.e];
     if (!max) return falha('?');
     const n = Math.max(1, Math.min(max, a.n | 0 || 1));
-    if (a.e === 'la') {
-      if (!op.sobrevivencia) return falha('?');
-      por(e.itens, LB, 1);
-    } else if (a.e === 'caca') {
-      if (!op.sobrevivencia && !op.mercado) return falha('?');
-      const cai = caiDoBicho(String(a.b), !!a.f);
-      if (!cai.length) return falha('?');
-      for (const [id, q] of cai) por(e.itens, id, q);
+    // lã e caça: com x, y, z (onde o bicho está) o que sai cai no chão (regras-chao.js); sem, vai direto para a mochila
+    const noChao = [a.x, a.y, a.z].every(Number.isFinite);
+    if (a.e === 'la' || a.e === 'caca') {
+      let cai;
+      if (a.e === 'la') { if (!op.sobrevivencia) return falha('?'); cai = [[LB, 1]]; }
+      else {
+        if (!op.sobrevivencia && !op.mercado) return falha('?');
+        cai = caiDoBicho(String(a.b), !!a.f);
+        if (!cai.length) return falha('?');
+      }
+      if (noChao) r.cai = cai.map(([id, q]) => [id, q, 0]);
+      else for (const [id, q] of cai) por(e.itens, id, q);
     } else r.feitos = contar(e, op, a.e, n);
     r.mudou = true;
   } else if (a.t === 'bloco') {
@@ -225,8 +232,9 @@ export function aplicar(e, op, a, ctx = {}) {
         if (!tirar(e.itens, g, 1)) return falha('Você não tem esse bloco.');
         if (comprado) { e.compra[g] = Math.max(0, (e.compra[g] || 0) - 1); r.marca = 1; }
       } else if (!a.b) {
-        // quebrou: o que cai de um bloco que era comprado continua marcado (senão colocar e quebrar "lavava" a marca)
-        for (const [id, n] of oQueCai(a.de, a.x, a.y, a.z)) { por(e.itens, id, n); if (a.comprado) marcarCompra(e, id, n); }
+        // quebrou: o que cai vai para o chão (regras-chao.js); quem chamou põe no chão. A mochila só recebe quando
+        // alguém pega. O que cai de um bloco que era comprado continua marcado (c = quantos são comprados)
+        r.cai = oQueCai(a.de, a.x, a.y, a.z).map(([id, n]) => [id, n, a.comprado ? n : 0]);
       }
     }
     if (a.b > 0) {
@@ -311,6 +319,20 @@ export function aplicar(e, op, a, ctx = {}) {
     if (faltaBancada(rc, a.bancada)) return falha('Precisa de uma Bancada perto.');
     if (!temTudo(e.itens, rc)) return falha('Faltam coisas para essa receita.');
     if (!converter(e, () => criarEm(e.itens, rc, a.bancada))) return falha('Sua mochila já está cheia disso!');
+    r.mudou = true;
+  } else if (a.t === 'pegar' || a.t === 'largar') {
+    // pegar do chão / largar no chão (quem confere se o item existe e está perto é a sala ou o jogo sem internet)
+    if (!temMochila(op)) return falha('Este mundo não tem mochila.');
+    const id = a.id | 0, n = a.n | 0;
+    if (!guardavel(id) || n < 1 || n > 64) return falha('?');
+    // c = quantos são coisa comprada (a marca vai junto para o chão e volta para quem pegar)
+    if (a.t === 'pegar') {
+      if (qtdEm(e.itens, id) + n > MAX_ITEM || !por(e.itens, id, n)) return falha('Sua mochila já está cheia disso!');
+      marcarCompra(e, id, Math.max(0, Math.min(n, a.c | 0)));
+    } else {
+      r.c = Math.max(0, n - livreDe(e, id)); // a parte comprada é a última a sair
+      if (!tirar(e.itens, id, n)) return falha('Você não tem isso.');
+    }
     r.mudou = true;
   } else if (a.t === 'moer' || a.t === 'assar') {
     if (!op.mercado && !op.sobrevivencia) return falha('Este mundo não tem mochila.');

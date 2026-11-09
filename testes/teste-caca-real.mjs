@@ -1,6 +1,6 @@
 // Teste jogando de verdade (Chromium com WebGL): atacar os bichos.
 //  - tablet sem internet: toque rápido faz carinho; segurar o dedo bate. Ovelha foge com o bando, urso enfrenta
-//    e morde, matilha de lobos vem junto, cachorro não se machuca, bicho derrubado tomba e cai carne/lã na mochila.
+//    e morde, matilha de lobos vem junto, cachorro não se machuca, bicho derrubado tomba e cai carne/lã no chão (pega passando perto).
 //  - online com dois jogadores: computador (clique esquerdo bate, direito faz carinho) e tablet no mesmo mundo;
 //    a sala confere e põe o que caiu na mochila de cada um.
 // SO_ONLINE=1 roda só a parte online; SEM_ONLINE=1 só a do tablet sem internet.
@@ -63,6 +63,20 @@ async function preparar(p) {
   await p.waitForTimeout(500);
 }
 const qtd = (p, id) => p.evaluate((id) => window.__jogo.mercado.qtd(id), id);
+// o que o bicho deixa cai no chão (drops.js): o jogador vai até lá e pega passando perto
+async function juntarChao(p) {
+  await p.waitForFunction(() => window.__jogo.drops.lista().length > 0, null, { timeout: 6000 }).catch(() => {});
+  await p.waitForTimeout(900); // deixa cair e assentar
+  for (let k = 0; k < 8; k++) {
+    const d = await p.evaluate(() => {
+      const l = window.__jogo.drops.lista(), j = window.__jogo.jog.pos;
+      return l.sort((a, b) => Math.hypot(a.x - j.x, a.z - j.z) - Math.hypot(b.x - j.x, b.z - j.z))[0] || null;
+    });
+    if (!d) break;
+    await p.evaluate(([x, y, z]) => { const j = window.__jogo.jog; j.pos.x = x; j.pos.z = z + 0.3; if (j.pos.y < y - 1.5 || j.pos.y > y + 1.5) j.pos.y = y; }, [d.x, d.y, d.z]);
+    await p.waitForTimeout(800);
+  }
+}
 
 // segura o dedo no bicho (dedo parado = bater, como para quebrar bloco); mira de novo a cada segurada
 async function segurarNoBicho(p, cdp, achar, ms, ate) {
@@ -126,10 +140,10 @@ if (!process.env.SO_ONLINE) {
   const sumiu = await p.evaluate(() => !window.__jogo.bichos.lista.includes(window.__ov));
   if (!sumiu) { console.log('ovelha:', await p.evaluate(() => JSON.stringify({ g: window.__golpes, o: [window.__ov.x, window.__ov.y, window.__ov.z, window.__ov.vida, window.__ov.estado], j: [window.__jogo.jog.pos.x, window.__jogo.jog.pos.y, window.__jogo.jog.pos.z], inv: !document.querySelector('#inventario').hidden, loja: !document.querySelector('#loja').hidden }))); await p.screenshot({ path: SAIDA + '/caca-falha-ovelha.png' }); }
   conferir(await p.evaluate(() => window.__tombou) && sumiu, 'tablet: a ovelha tomba de lado e some (sem sangue)');
-  await p.waitForTimeout(500);
+  await juntarChao(p);
   const depois = { c: await qtd(p, CARNE), l: await qtd(p, LA) };
   const coleta = await p.evaluate(() => document.querySelector('#coleta').textContent);
-  conferir(depois.c === antes.c + 1 && depois.l === antes.l + 2, `tablet: caiu 1 carne e 2 lãs na mochila (carne ${antes.c}->${depois.c}, lã ${antes.l}->${depois.l})`);
+  conferir(depois.c === antes.c + 1 && depois.l === antes.l + 2, `tablet: caiu 1 carne e 2 lãs no chão e foram para a mochila (carne ${antes.c}->${depois.c}, lã ${antes.l}->${depois.l})`);
   conferir(/Carne/.test(coleta) && /Lã branca/.test(coleta), 'tablet: aparece na tela "' + coleta.replace(/\s+/g, ' ').trim() + '"');
   await p.screenshot({ path: SAIDA + '/caca-tablet-coleta.png' });
 
@@ -228,9 +242,10 @@ if (!process.env.SEM_ONLINE) {
     await A.waitForTimeout(400);
   }
   conferir(await A.evaluate(() => !!window.__pq.caindo), 'pc: clicando com o botão esquerdo o porquinho cai');
+  await juntarChao(A);
   await A.waitForFunction((c0) => window.__jogo.mercado.qtd(1007) >= c0 + 2, carneA0, { timeout: 8000 }).catch(() => {});
   const carneA = await qtd(A, CARNE);
-  conferir(carneA === carneA0 + 2, `online pc: a sala pôs 2 carnes na mochila (${carneA0} -> ${carneA})`);
+  conferir(carneA === carneA0 + 2, `online pc: 2 carnes caíram no chão e a sala confirmou na mochila (${carneA0} -> ${carneA})`);
   await A.screenshot({ path: SAIDA + '/caca-pc-porquinho.png' });
 
   // tablet online: segura o dedo até o veado (no buraco) cair: carne e couro
@@ -239,9 +254,10 @@ if (!process.env.SEM_ONLINE) {
   await B.evaluate(() => { window.__limpar(); window.__buraco(0, -3); const v = window.__criar('veado', 0, -3); v.calmo = 99; v.estado = 'parar'; v.timer = 99; window.__vd = v; });
   await segurarNoBicho(B, cdpB, () => (window.__vd.caindo || !window.__jogo.bichos.lista.includes(window.__vd) ? null : window.__vd), 25000, () => !!window.__vd.caindo);
   conferir(await B.evaluate(() => !!window.__vd.caindo || !window.__jogo.bichos.lista.includes(window.__vd)), 'tablet online: segurando o dedo o veado cai');
+  await juntarChao(B);
   await B.waitForFunction((k0) => window.__jogo.mercado.qtd(1008) >= k0 + 1, b0.k, { timeout: 8000 }).catch(() => {});
   const b1 = { c: await qtd(B, CARNE), k: await qtd(B, COURO) };
-  conferir(b1.c === b0.c + 2 && b1.k === b0.k + 1, `online tablet: a sala pôs 2 carnes e 1 couro na mochila (carne ${b0.c}->${b1.c}, couro ${b0.k}->${b1.k})`);
+  conferir(b1.c === b0.c + 2 && b1.k === b0.k + 1, `online tablet: 2 carnes e 1 couro caíram no chão e foram para a mochila (carne ${b0.c}->${b1.c}, couro ${b0.k}->${b1.k})`);
   // a mochila mostra Carne e Couro
   await B.tap('#barra .slot.mais');
   await B.waitForSelector('#inventario:not([hidden])');

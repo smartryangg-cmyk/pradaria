@@ -2,7 +2,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { F } from './formas.js';
 import { criarAtlas, iconeBloco, INVENTARIO, INVENTARIO_MAQUINAS, INVENTARIO_FORMAS, B, E, AR, BLOCOS, SOLIDO, AGUA, PRECISA_CHAO, ITEM, ehItem, nomeDe } from './blocos.js';
-import { oQueCai, toquesCom, receitasDoMundo, GRUPOS, podeCriar, faltaBancada, gastoDe } from './receitas.js';
+import { toquesCom, receitasDoMundo, GRUPOS, podeCriar, faltaBancada, gastoDe } from './receitas.js';
 import { BASE, PRECISA_ENERGIA, ELETRICO } from './energia.js';
 import { Mundo, ALT, NIVEL_AGUA } from './mundo.js';
 import { Jogador, OLHOS } from './jogador.js';
@@ -33,6 +33,8 @@ import { Negocios } from './negocios.js';
 import { MV } from './moveis.js';
 import { horaDe } from './trabalho.js';
 import { caiDoBicho } from './economia.js';
+import { Drops } from './drops.js';
+import { MAX_LARGAR } from './regras-chao.js';
 import { VERSAO } from './versao.js';
 import { preencherDono, contaModo, ligarApagarConta } from './dono.js';
 import { Armas } from './armas.js';
@@ -274,6 +276,8 @@ const mercado = new Mercado({
   trabalhoMudou: (antes, depois, extra) => negocios.estadoMudou(antes, depois, extra),
   erro: (r) => negocios.respostaObra(false, r),
   abrirNegocios: () => negocios.abrir(),
+  // sem internet: o que cai no chão (bloco quebrado: do meio do bloco; lã e caça: de onde o bicho está)
+  caiu: (cai, a) => (a.t === 'bloco' ? drops.cair(cai, a.x + 0.5, a.y + 0.3, a.z + 0.5) : drops.cair(cai, a.x, a.y, a.z)),
 });
 const negocios = new Negocios({
   cena, mercado, som, aviso,
@@ -292,6 +296,22 @@ function porBlocosObra(l, daRede) {
 $('#bt-negocios').addEventListener('click', () => { som.clique(); negocios.abrir(); });
 
 const qtd = (id) => mercado.qtd(id);
+
+// itens no chão: o que cai ao quebrar, o que os bichos soltam e o que o jogador larga (drops.js)
+const drops = new Drops(cena, matBlocos, {
+  mochila: mercado, som,
+  pegou: (id, n) => { som.pegar(); colocarNaBarra(id); mostrarColeta(id, n); },
+  cheio: (id) => aviso(`A mochila está cheia de ${nomeDe(id)}`, 1800, 'mochila'),
+});
+// larga o que está na mão (Q no computador, botão no tablet); tudo = a pilha inteira
+function largarDaMao(tudo) {
+  if (!jogando || pausado || !drops.ativo) return;
+  const id = barra[slotSel];
+  if (!id) { aviso('A mão está vazia', 900, 'mochila'); return; }
+  const tem = qtd(id);
+  if (!tem) { aviso(`Você não tem ${nomeDe(id)} na mochila`, 1400, 'mochila'); return; }
+  if (drops.largar(id, tudo ? Math.min(tem, MAX_LARGAR) : 1, jog)) som.largar();
+}
 
 // mecanismos das construções (portas, catavento, moinho, forno, poço)
 const mecanismos = new Mecanismos(cena, {
@@ -323,6 +343,7 @@ const podeConstruir = () => opcoesMundo.construcao !== false;
 function desenharBarra() {
   const el = $('#barra');
   el.innerHTML = '';
+  $('#bt-largar').hidden = !drops.ativo;
   el.hidden = !podeConstruir();
   if (el.hidden) return;
   const semArma = !armas.empunhando;
@@ -555,18 +576,17 @@ function mostrarColeta(id, n) {
   c.t = setTimeout(() => { c.el.classList.add('some'); setTimeout(() => { c.el.remove(); coletados.delete(id); }, 400); }, 1600);
   while (el.childElementCount > 4) el.lastElementChild.remove();
 }
-// depois de quebrar: mostra o que foi para a mochila (a conta de verdade é feita em economia.js)
-function mostrarQueCaiu(b, x, y, z) {
-  if (!sobrev()) return;
-  for (const [id, n] of oQueCai(b, x, y, z)) { colocarNaBarra(id); mostrarColeta(id, n); }
-}
+// depois de quebrar: o que tinha ali cai no chão (economia.js diz o quê: mercado ui.caiu chama drops.cair;
+// online quem põe no chão é a sala)
+function mostrarQueCaiu() {}
 // carinho na ovelha dá lã (uma vez a cada minuto por ovelha)
+const ondeBicho = (b) => ({ x: Math.round(b.x * 100) / 100, y: Math.round((b.y + 0.9) * 100) / 100, z: Math.round(b.z * 100) / 100 });
 function laDaOvelha(bicho) {
   if (!sobrev() || bicho.especie !== 'ovelha') return;
   const agora = performance.now();
   if (bicho.laEm && agora - bicho.laEm < 60000) return;
   bicho.laEm = agora;
-  setTimeout(() => { if (!jogando) return; mercado.evento('la'); colocarNaBarra(B.LA_BRANCA); mostrarColeta(B.LA_BRANCA, 1); }, 500);
+  setTimeout(() => { if (jogando) mercado.enviar({ t: 'ev', e: 'la', ...ondeBicho(bicho) }, true); }, 400);
 }
 
 function abrirPausa() {
@@ -699,6 +719,7 @@ addEventListener('keydown', (e) => {
   else if (e.code === 'KeyP') abrirPausa();
   else if (e.code === 'KeyC' && !pausado && e.target.tagName !== 'INPUT') cmd.abrir();
   else if (((e.code === 'KeyR' && !opcoesMundo.armas) || e.code === 'F5') && !pausado && e.target.tagName !== 'INPUT') { e.preventDefault(); if (!e.repeat) alternarVisao(); }
+  else if (e.code === 'KeyQ' && !pausado && !e.repeat) largarDaMao(e.ctrlKey || e.shiftKey);
   else if (e.code === 'KeyM') { if (!$('#mapa').hidden) fecharJanelas(); else if (!pausado) mapa.abrir(); }
 });
 // mundo pequeno/médio: como acaba no mar, dá para enxergar mais longe sem pesar
@@ -797,6 +818,16 @@ let barraArmado = null;
 function desenharBarraSeMudou() { if (barraArmado !== armas.empunhando) { barraArmado = armas.empunhando; desenharBarra(); } }
 $('#bt-comandos').addEventListener('click', () => { som.iniciar(); som.clique(); cmd.abrir(); });
 $('#bt-voar').addEventListener('click', () => alternarVoo());
+// largar: tocar larga 1; segurar larga a pilha toda
+{
+  const bt = $('#bt-largar');
+  let timer = 0, segurou = false;
+  bt.addEventListener('pointerdown', (e) => { e.preventDefault(); segurou = false; timer = setTimeout(() => { segurou = true; largarDaMao(true); }, 550); });
+  const soltar = () => { clearTimeout(timer); if (!segurou) largarDaMao(false); segurou = true; };
+  bt.addEventListener('pointerup', soltar);
+  bt.addEventListener('pointerleave', () => { clearTimeout(timer); segurou = true; });
+  bt.addEventListener('contextmenu', (e) => e.preventDefault());
+}
 document.querySelectorAll('[data-emote]').forEach((b) => b.addEventListener('click', () => {
   const e = b.dataset.emote; // nome do ícone: 'acenar', 'coracao', 'sorriso', 'estrela'
   som.oi();
@@ -1106,6 +1137,7 @@ function limparMundo() {
     for (const c of mundo.chunks.values()) for (const m of [c.malha, c.agua]) if (m) { cena.remove(m); m.geometry.dispose(); }
   }
   if (fisica) fisica.limpar();
+  drops.usarMundo(null);
   if (escav) { for (const k of [...escav.blocos.keys()]) escav.soltar(k); escav.atualizar(10, 0, 0); }
   if (bichos) for (let i = bichos.lista.length - 1; i >= 0; i--) bichos.remover(i);
   if (aldeoes) aldeoes.limpar();
@@ -1131,6 +1163,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   mundo.raio = raioVisao();
   mundo.suaveSimples = opcoesGraficas().sombra === 0; // gráfico Leve: arredondado simples (monta mais rápido)
   escav = new Escavacao(cena, mundo, matBlocos, atlasCanvas);
+  drops.usarMundo(mundo);
   fisica = new Fisica(cena, mundo, matBlocos);
   fisica.aoCair = (x, y, z) => { if (Math.abs(x - jog.pos.x) + Math.abs(z - jog.pos.z) < 24) som.passo(); };
   fisica.aoFolha = (x, y, z, b) => escav.estilhacar(x, y, z, b, null, null);
@@ -1208,8 +1241,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   bichos.aoCair = (b) => {
     const cai = caiDoBicho(b.especie, b.filhote);
     if (!cai.length || !(sobrev() || mercado.op.mercado)) return;
-    mercado.enviar({ t: 'ev', e: 'caca', b: b.especie, f: b.filhote ? 1 : 0 }, true);
-    for (const [id, n] of cai) mostrarColeta(id, n);
+    mercado.enviar({ t: 'ev', e: 'caca', b: b.especie, f: b.filhote ? 1 : 0, ...ondeBicho(b) }, true); // cai no chão onde ele estava
   };
   vida.reiniciar();
   armas.comecar();
@@ -1290,6 +1322,7 @@ async function jogarOnline(m, volta = null) {
         cmd.entrouOnline(msg);
         armas.entrouOnline(s);
         mercado.iniciar({ opcoes: msg.opcoes, estado: msg.econ, sala: s });
+        drops.ligarSala(s, msg.eu, msg.chao);
         desenharBarra();
         $('#status').innerHTML = comIcone('globo', m.nome);
         if (volta) aviso(volta.msg, 3500, 'lapis');
@@ -1299,6 +1332,7 @@ async function jogarOnline(m, volta = null) {
         mundo.carregarEdicoes(msg.edicoes);
         chat.reconectou(msg);
         armas.entrouOnline(sala);
+        drops.ligarSala(sala, msg.eu, msg.chao);
       }
       for (const id of [...outros.keys()]) removerOutro(id);
       for (const j of msg.jogadores) adicionarOutro(j);
@@ -1331,6 +1365,8 @@ async function jogarOnline(m, volta = null) {
       if (o && bichos && nome) bichos.icone(nome, o.grupo.position.x, o.grupo.position.y + 2.7, o.grupo.position.z, 2, 0.6);
     },
     erro: (msg) => { aviso(msg.msg || 'Erro', 3000); },
+    chao: (msg) => drops.recebeuChao(msg.d),
+    'chao-pegou': (msg) => drops.recebeuPegou(msg, (j) => { const o = outros.get(j); return o ? o.grupo.position.clone().setY(o.grupo.position.y + 0.9) : null; }),
     econ: (msg) => { mercado.recebeu(msg.s, msg.feitos, msg.msg, msg); desenharBarra(); },
     'econ-erro': (msg) => mercado.erro(msg.msg, msg),
     // o dono editou o mundo: nome novo vale na hora; opções novas recarregam o mundo (no mesmo lugar)
@@ -1634,6 +1670,7 @@ function laco(agora) {
 
   escav.atualizar(dt, jog.pos.x, jog.pos.z);
   fisica.atualizar(dt);
+  drops.quadro(dt, jog, !pausado && !garagem.dentro);
   if (mundo.aventura) verLugar();
   guerra.quadro(dt, pausado);
   // partículas de quebra
@@ -1757,4 +1794,4 @@ camera.position.set(0, 40, 0);
 if (conta.token) abrirMundos(); else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, armas, get pausado() { return pausado; }, mecanismos, guerra }; }
+if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, armas, get pausado() { return pausado; }, mecanismos, guerra, drops, largarDaMao }; }
