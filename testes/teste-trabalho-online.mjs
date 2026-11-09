@@ -21,7 +21,7 @@ async function jogador(nome, tablet) {
 const est = (p) => p.evaluate(() => JSON.parse(JSON.stringify(window.__jogo.mercado.e)));
 const a = await jogador('Ana' + sfx);
 await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Obras');
-await a.click('[data-opcao=sobrevivencia]'); // material por conta da casa (o Coletar e criar é testado sem internet)
+await a.click('[data-opcao=sobrevivencia]'); // desliga o Coletar e criar: blocos à vontade (a marca de comprado é testada em teste-compra-online)
 await a.click('#m-novo button[type=submit]');
 await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 20000 });
 await a.waitForTimeout(2500);
@@ -43,7 +43,13 @@ conferir(e.moedas === 25, 'Ana juntou 25 moedas (' + e.moedas + ')');
 await a.evaluate(() => window.__jogo.sala.enviar({ t: 'dia', v: 0.1 }));
 await a.waitForTimeout(800);
 // vai até um morador e contrata pela loja
-await a.evaluate(() => { const { jog, mundo } = window.__jogo; const v = mundo.vilas.regiao(0, 0); Object.assign(jog.pos, { x: v.x + 3.5, y: mundo.alturaEm(v.x + 3, v.z) + 2, z: v.z + 0.5 }); });
+// a vila mais perto do começo (a semente é sorteada: nem sempre tem vila na região 0,0)
+await a.evaluate(() => {
+  const { mundo } = window.__jogo; let melhor = null;
+  for (let rx = -2; rx <= 2; rx++) for (let rz = -2; rz <= 2; rz++) { const v = mundo.vilas.regiao(rx, rz); if (v && (!melhor || Math.hypot(v.x, v.z) < Math.hypot(melhor.x, melhor.z))) melhor = v; }
+  window.__vila = melhor;
+});
+await a.evaluate(() => { const { jog, mundo } = window.__jogo; const v = window.__vila; Object.assign(jog.pos, { x: v.x + 3.5, y: mundo.alturaEm(v.x + 3, v.z) + 2, z: v.z + 0.5 }); });
 await a.waitForTimeout(3500);
 await a.evaluate(() => window.__jogo.conversarCom(window.__jogo.aldeoes.lista[0]));
 await a.waitForTimeout(1200);
@@ -56,7 +62,7 @@ conferir(e.equipe.length === 1 && e.equipe[0].of === 'pedreiro' && e.moedas === 
 await a.click('#loja .caixa > .bt');
 // lugar plano longe da vila
 await a.evaluate(() => {
-  const { jog, mundo } = window.__jogo; const v = mundo.vilas.regiao(0, 0);
+  const { jog, mundo } = window.__jogo; const v = window.__vila;
   for (let r = v.raio + 10; r < v.raio + 70; r += 3) for (let k = 0; k < 16; k++) {
     const x = Math.round(v.x + Math.cos(k / 16 * 6.283) * r), z = Math.round(v.z + Math.sin(k / 16 * 6.283) * r);
     const h = mundo.alturaEm(x, z); let pior = 0;
@@ -108,6 +114,14 @@ conferir(volta.certos === volta.reais, `depois de sair e voltar a casinha contin
 await a.evaluate(() => window.__jogo.mercado.enviar({ t: 'obra', p: 'casa', e: 'madeira', x: 9000, y: 30, z: 9000, r: 0 }));
 await a.waitForTimeout(800);
 conferir((await est(a)).obras.length === 0, 'sala recusa obra longe do jogador');
+// griefing: obra em cima da casa pronta (ou de qualquer bloco que alguém pôs) a sala recusa
+await a.evaluate((o) => { const { jog } = window.__jogo; Object.assign(jog.pos, { x: o.x + 0.5, y: o.y + 6, z: o.z - 3.5 }); }, obra);
+await a.waitForTimeout(1500);
+await a.evaluate((o) => window.__jogo.mercado.enviar({ t: 'obra', p: 'casinha', e: 'pedra', x: o.x + 2, y: o.y, z: o.z + 1, r: 0, comprar: true }), obra);
+await a.waitForTimeout(1500);
+conferir((await est(a)).obras.length === 0, 'sala recusa obra por cima de uma construção');
+const casaDepois = await conta(bb, obra);
+conferir(casaDepois.certos === casaDepois.reais, `a casinha continua inteira (${casaDepois.certos}/${casaDepois.reais})`);
 console.log('erros:', erros);
 conferir(!erros.length, 'sem erros no console');
 await b.close();
