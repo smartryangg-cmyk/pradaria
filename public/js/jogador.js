@@ -1,5 +1,6 @@
 // Física do jogador: andar, pular, voar, nadar e colisão com blocos.
 import { SOLIDO, AGUA, B, E, ESTEIRA_DIRS } from './blocos.js';
+import { FORMA_NOVA, colideForma } from './formas.js';
 import { vida } from './vida.js';
 import { superficieAgua } from './agua.js';
 
@@ -51,8 +52,14 @@ export class Jogador {
     const x0 = Math.floor(x - LARG), x1 = Math.floor(x + LARG);
     const y0 = Math.floor(y), y1 = Math.floor(y + this.altura - 0.01);
     const z0 = Math.floor(z - LARG), z1 = Math.floor(z + LARG);
-    for (let bx = x0; bx <= x1; bx++) for (let by = y0; by <= y1; by++) for (let bz = z0; bz <= z1; bz++) {
-      if (SOLIDO[m.bloco(bx, by, bz)]) return true;
+    const get = this.get || (this.get = (a, b, c) => m.bloco(a, b, c));
+    // começa 1 abaixo: a cerca tem 1,5 de altura e pode encostar vindo da célula de baixo
+    for (let bx = x0; bx <= x1; bx++) for (let by = y0 - 1; by <= y1; by++) for (let bz = z0; bz <= z1; bz++) {
+      const b = m.bloco(bx, by, bz);
+      if (!SOLIDO[b]) continue;
+      if (FORMA_NOVA[b]) {
+        if (colideForma(b, get, bx, by, bz, x - LARG, y, z - LARG, x + LARG, y + this.altura - 0.01, z + LARG)) return true;
+      } else if (by >= y0) return true;
     }
     return false;
   }
@@ -180,6 +187,27 @@ export class Jogador {
     else if (p.y > this.pico) this.pico = p.y;
   }
 
+  // altura onde os pés encostam no que está embaixo (bloco cheio, meio bloco, rampa, bola...)
+  pousar(ny) {
+    const p = this.pos;
+    if (this.colide(p.x, p.y, p.z)) return Math.floor(ny) + (this.colide(p.x, Math.floor(ny), p.z) ? 1 : 0); // estava preso: jeito antigo
+    const inteiro = Math.floor(p.y);
+    if (inteiro > ny && !this.colide(p.x, inteiro, p.z)) {
+      // caso comum (chão de bloco cheio): encosta certinho no número inteiro
+      if (this.colide(p.x, inteiro - 0.0005, p.z)) return inteiro;
+    }
+    let lo = ny, hi = p.y; // lo encosta, hi está livre
+    for (let i = 0; i < 14; i++) { const m = (lo + hi) / 2; if (this.colide(p.x, m, p.z)) lo = m; else hi = m; }
+    return hi;
+  }
+
+  encostarTeto(ny) {
+    const p = this.pos;
+    let lo = p.y, hi = ny; // lo livre, hi encosta
+    for (let i = 0; i < 12; i++) { const m = (lo + hi) / 2; if (this.colide(p.x, m, p.z)) hi = m; else lo = m; }
+    return lo;
+  }
+
   // anda (dx, dy, dz) sem atravessar blocos. Devolve -1 se pousou no chão, 1 se bateu no teto, 0 se nada.
   mover(dx, dy, dz, podeSubir, naBeira) {
     const n = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz)) / SUB));
@@ -204,6 +232,17 @@ export class Jogador {
       // agachado não cai da beirada: só anda se continuar com algum bloco embaixo dos pés
       if (naBeira && this.temApoio(p.x, p.z) && !(e === 'x' ? this.temApoio(novo, p.z) : this.temApoio(p.x, novo))) return false;
       p[e] = novo; return true;
+    }
+    // degrau baixo (rampa, escada, meio bloco das formas redondas): sobe andando, sem pular
+    if (this.noChao && !this.voando) {
+      for (let s = 0.1; s <= 0.61; s += 0.1) {
+        if (this.colideEixo(e, novo, p.y + s)) continue;
+        if (this.colide(p.x, p.y + s, p.z)) break;
+        p.y += s + 0.001; p[e] = novo;
+        this.degrauY = Math.max(-1.2, this.degrauY - s);
+        if (this.vel.y < 0) this.vel.y = 0;
+        return true;
+      }
     }
     // degrau de 1 bloco: sobe suave, sem pulo, mantendo a velocidade
     if (podeSubir) {
@@ -234,12 +273,14 @@ export class Jogador {
     if (!this.colide(p.x, ny, p.z)) { p.y = ny; return 0; }
     if (d < 0) { // pousa exatamente em cima do bloco
       const y = Math.floor(ny) + 1;
-      if (y <= p.y + FOLGA && !this.colide(p.x, y, p.z)) p.y = y;
+      if (y <= p.y + FOLGA && !this.colide(p.x, y, p.z) && this.colide(p.x, y - 0.0005, p.z)) p.y = y;
+      else p.y = this.pousar(ny); // formas (meio bloco, rampa, bola): encosta onde der
       return -1;
     }
     // cabeça encosta no teto
     const y = Math.floor(ny + this.altura - 0.01) - this.altura + 0.01 - FOLGA;
     if (y >= p.y - FOLGA && !this.colide(p.x, y, p.z)) p.y = y;
+    else if (!this.colide(p.x, p.y, p.z)) p.y = this.encostarTeto(ny);
     return 1;
   }
 

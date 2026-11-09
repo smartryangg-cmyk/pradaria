@@ -489,3 +489,16 @@ body.dirigindo #botoes-toque { bottom: 60px; }
   #chat-caixa { bottom: 66px; }
 }
 #n-estilos, #e-estilos { grid-template-columns: repeat(2, 1fr); }
+
+/* meus negócios (trabalhadores, obras, padaria, loja) */
+.neg-caixa { width: min(560px, 100%); }
+.neg-abas { flex-wrap: wrap; }
+.neg-abas .bt { flex: 1 1 22%; min-width: 0; padding: 9px 6px; font-size: 14px; }
+.econ-linha.neg-parado { opacity: .75; }
+.neg-aviso { color: #a14a1c; font-weight: 800; opacity: 1; }
+#obra-escolha { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(max(12px, env(safe-area-inset-bottom)) + 84px); z-index: 30;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; background: rgba(255,248,232,.95); border-radius: 18px; padding: 10px 12px;
+  box-shadow: var(--sombra); width: min(560px, calc(100vw - 32px)); }
+#obra-escolha .tx { font-weight: 800; text-align: center; }
+#obra-escolha .linha-bts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+#obra-escolha .bt { padding: 10px 12px; font-size: 15px; }
