@@ -13,6 +13,8 @@ const erros = [];
 const res = [];
 const checar = (nome, ok, info) => { res.push({ nome, ok }); console.log((ok ? 'OK    ' : 'FALHA ') + nome + (info ? '  | ' + info : '')); };
 const f2 = (x) => (+x).toFixed(2);
+// quanto girou no total (soma quadro a quadro, sem o pulo de -pi para pi)
+const giroTotal = (r) => { let g = 0; for (let i = 1; i < r.length; i++) g += Math.abs(((r[i].yaw - r[i - 1].yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI); return g; };
 
 async function abrir(ctx, toque) {
   const p = await ctx.newPage();
@@ -36,8 +38,10 @@ async function montarPista(p) {
     const m = window.__jogo.mundo, j = window.__jogo.jog;
     const X0 = Math.floor(j.pos.x) + 8, Z0 = Math.floor(j.pos.z) - 50;
     let alto = 0;
-    for (let x = X0; x < X0 + 104; x += 4) for (let z = Z0; z < Z0 + 100; z += 4) alto = Math.max(alto, m.chao(x, z));
-    const FY = Math.min(84, Math.max(60, alto + 6));
+    for (let x = X0; x < X0 + 104; x++) for (let z = Z0 - 30; z < Z0 + 100; z++) alto = Math.max(alto, m.chao(x, z));
+    const FY = Math.min(84, Math.max(60, alto + 3));
+    // árvore ou morro alto que fure a pista: tira (a pista fica limpa, sem obstáculos que o teste não pôs)
+    for (let x = X0; x < X0 + 104; x++) for (let z = Z0 - 30; z < Z0 + 100; z++) for (let y = FY; y <= FY + 8; y++) if (m.bloco(x, y, z)) m.definir(x, y, z, 0);
     const PEDRA = 3, AGUA = 5, TIJOLO = 10;
     const enche = (x0, x1, y0, y1, z0, z1, bl) => { for (let x = x0; x < x1; x++) for (let y = y0; y <= y1; y++) for (let z = z0; z < z1; z++) m.definir(x, y, z, bl); };
     // pista 1: pátio 60x70 (arrancada, curva, frenagem, parede no fim, avião, helicóptero)
@@ -93,7 +97,7 @@ const ate = async (p, conds, ms) => {
 };
 
 // ================== computador (teclado) ==================
-{
+if (process.env.SO !== 'tablet') {
   const ctx = await b.newContext({ viewport: { width: 1024, height: 640 } });
   const p = await abrir(ctx, false);
   const A = await montarPista(p);
@@ -128,7 +132,7 @@ const ate = async (p, conds, ms) => {
   r = await reg(p);
   const latMax = Math.max(...r.map((q) => Math.abs(q.lat)));
   const rollMax = Math.max(...r.map((q) => q.roll));
-  const giro = Math.abs(r[r.length - 1].yaw - r[0].yaw);
+  const giro = giroTotal(r);
   checar('curva rápida derrapa um pouco (lateral)', latMax > 0.5 && latMax < 8, 'lateral máx ' + f2(latMax) + ' m/s, giro ' + f2(giro) + ' rad');
   checar('corpo inclina para fora na curva', rollMax > 0.01, 'roll máx ' + f2(rollMax));
   await limparReg(p);
@@ -143,7 +147,7 @@ const ate = async (p, conds, ms) => {
   await limparReg(p);
   await segura(p, ['KeyD'], 800);
   r = await reg(p);
-  const giroParado = Math.abs(r[r.length - 1].yaw - r[0].yaw);
+  const giroParado = giroTotal(r);
   checar('carro parado não gira no lugar', giroParado < 0.05, 'giro ' + f2(giroParado));
 
   // ---- 2. parede: bate, para, quica, não atravessa e não fica preso ----
@@ -160,6 +164,7 @@ const ate = async (p, conds, ms) => {
   const antes = iBate > 0 ? r[iBate - 1] : null, depois = iBate >= 0 ? r[Math.min(r.length - 1, iBate + 1)] : null;
   const zMin = Math.min(...r.map((q) => q.z));
   const presoAlgum = r.slice(iBate >= 0 ? iBate : 0).some((q) => q.col);
+  if (iBate < 0) console.log('  (sem batida) início', JSON.stringify(r[0]), 'fim', JSON.stringify(r[r.length - 1]));
   checar('bate na parede e quica (perde a velocidade)', iBate >= 0 && antes.vel > 8 && depois.vel < antes.vel * 0.4, iBate >= 0 ? `antes ${f2(antes.vel)} m/s, depois ${f2(depois.vel)} m/s, batida ${f2(r[iBate].bateu)}` : 'não bateu');
   checar('não atravessa a parede', zMin > Z0 + 2 + 1.5, 'z mín ' + f2(zMin) + ' (parede até ' + (Z0 + 2) + ')');
   checar('não fica preso dentro do bloco', !presoAlgum);
@@ -363,7 +368,7 @@ const ate = async (p, conds, ms) => {
   await jogo(p, 2500);
   const r = await reg(p);
   const anda = Math.hypot(r[r.length - 1].x - r[0].x, r[r.length - 1].z - r[0].z);
-  const giro = Math.abs(r[r.length - 1].yaw - r[0].yaw);
+  const giro = giroTotal(r);
   checar('tablet: joystick acelera, mostra km/h e vira', anda > 8 && giro > 0.3 && +velo > 10, `andou ${f2(anda)} m, girou ${f2(giro)} rad, velocímetro ${velo} km/h`);
   checar('tablet: solta o joystick e vai parando', Math.abs(r[r.length - 1].vel) < 4, 'vel ' + f2(r[r.length - 1].vel));
   await ctx.close();
