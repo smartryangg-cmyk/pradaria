@@ -151,11 +151,14 @@ await ir(p, info.prisao.x + 0.5, info.prisao.z + 25);
 await p.waitForTimeout(700);
 const fuga = await p.evaluate(() => ({ preso: !!window.__jogo.guerra.preso, est: window.__jogo.guerra.procurado, m: window.__jogo.guerra.missoes.fuga }));
 conferir(!fuga.preso && fuga.est >= 2 && fuga.m === true, 'fugiu do presídio: missão Fuga e 2 estrelas');
-// despista: some de perto da polícia
+// despista: some de perto da polícia (os reforços que vinham atrás ficam para trás)
+await p.evaluate(() => { const g = window.__jogo.guerra; for (const n of g.extras) g.pessoas.remover(n); g.extras = []; g.tReforco = 999; });
 await ir(p, info.base.x, info.base.z);
+await p.evaluate(() => { const g = window.__jogo.guerra, orig = g.prender; g.prender = function () { const jp = window.__jogo.jog.pos; window.__prisao = { p: [jp.x, jp.y, jp.z].map(Math.round), vida: window.__jogo.vida.atual, stack: new Error().stack.split("\n").slice(1, 4).join(" | "), pol: g.pessoas.lista.filter((n) => n.papel === 'policial').map((n) => [n.papel, Math.round(Math.hypot(n.x - jp.x, n.z - jp.z)), n.ve, g.hostil(n, 0)]).filter((q) => q[1] < 60) }; return orig.call(this); }; });
 await p.evaluate(() => { const g = window.__jogo.guerra; g.procurado = 3; g.maxProcurado = 3; g.semVer = 0; for (const n of g.extras) g.pessoas.remover(n); g.extras = []; g.tReforco = 999; });
 const despistou = await esperar(p, () => window.__jogo.guerra.procurado === 0, null, 150000);
 if (!despistou) console.log(await p.evaluate(() => { const g = window.__jogo.guerra; return JSON.stringify({ e: g.procurado, sv: g.semVer, ex: g.extras.length, vendo: g.pessoas.lista.filter((n) => n.ve && g.hostil(n, 0)).map((n) => n.papel) }); }));
+if (!despistou || await p.evaluate(() => !!window.__prisao)) console.log('prisao', await p.evaluate(() => JSON.stringify(window.__prisao)));
 console.log('despiste', despistou, await p.evaluate(() => JSON.stringify({ m: window.__jogo.guerra.missoes, max: window.__jogo.guerra.maxProcurado, preso: !!window.__jogo.guerra.preso })));
 conferir(despistou && await p.evaluate(() => window.__jogo.guerra.missoes.despiste === true), 'sem ninguém da polícia ver, as estrelas caem (missão Despiste)');
 
