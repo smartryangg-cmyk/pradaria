@@ -34,23 +34,23 @@ export const LOTE = 10;
 // objetivos, na ordem em que aparecem (ic = nome do ícone em icones.js). "conta" é o contador que faz andar a barrinha.
 // premio = moedas (com mercado) ou estrelas (sem mercado). "mercado: true" = só aparece com o mercado ligado.
 export const OBJETIVOS = [
-  { id: 'colocar10', ic: 'tijolos', txt: 'Coloque 10 blocos', conta: 'colocar', meta: 10, premio: 5 },
+  { id: 'colocar10', constroi: true, ic: 'tijolos', txt: 'Coloque 10 blocos', conta: 'colocar', meta: 10, premio: 5 },
   { id: 'carinho3', ic: 'ovelha', txt: 'Faça carinho em 3 bichinhos', conta: 'carinho', meta: 3, premio: 5 },
   { id: 'conversa1', ic: 'pessoa', txt: 'Converse com um aldeão', conta: 'conversa', meta: 1, premio: 5 },
-  { id: 'quebrar10', ic: 'bloco', txt: 'Quebre 10 blocos', conta: 'quebrar', meta: 10, premio: 5 },
-  { id: 'vender5', ic: 'moeda', txt: 'Venda 5 coisas para um aldeão', conta: 'vender', meta: 5, premio: 5, mercado: true },
-  { id: 'voar1', ic: 'voar', txt: 'Voe bem alto', conta: 'voar', meta: 1, premio: 5 },
-  { id: 'flores5', ic: 'flor', txt: 'Plante 5 flores', conta: 'flor', meta: 5, premio: 8 },
-  { id: 'comprar1', ic: 'chave', txt: 'Compre um bloco novo na loja', conta: 'comprar', meta: 1, premio: 8, mercado: true },
+  { id: 'quebrar10', constroi: true, ic: 'bloco', txt: 'Quebre 10 blocos', conta: 'quebrar', meta: 10, premio: 5 },
+  { id: 'vender5', constroi: true, ic: 'moeda', txt: 'Venda 5 coisas para um aldeão', conta: 'vender', meta: 5, premio: 5, mercado: true },
+  { id: 'voar1', voa: true, ic: 'voar', txt: 'Voe bem alto', conta: 'voar', meta: 1, premio: 5 },
+  { id: 'flores5', constroi: true, ic: 'flor', txt: 'Plante 5 flores', conta: 'flor', meta: 5, premio: 8 },
+  { id: 'comprar1', constroi: true, ic: 'chave', txt: 'Compre um bloco novo na loja', conta: 'comprar', meta: 1, premio: 8, mercado: true },
   { id: 'andar300', ic: 'mapa', txt: 'Ande 300 passos explorando', conta: 'andar', meta: 300, premio: 8 },
   { id: 'carinho10', ic: 'coracao', txt: 'Faça carinho em 10 bichinhos', conta: 'carinho', meta: 10, premio: 10 },
-  { id: 'colocar100', ic: 'casa', txt: 'Construa com 100 blocos', conta: 'colocar', meta: 100, premio: 15 },
+  { id: 'colocar100', constroi: true, ic: 'casa', txt: 'Construa com 100 blocos', conta: 'colocar', meta: 100, premio: 15 },
   { id: 'conversa5', ic: 'vila', txt: 'Converse com 5 aldeões', conta: 'conversa', meta: 5, premio: 10 },
-  { id: 'alto1', ic: 'montanha', txt: 'Coloque um bloco lá no alto (altura 50)', conta: 'alto', meta: 1, premio: 10 },
-  { id: 'agua1', ic: 'gota', txt: 'Faça uma fonte de água', conta: 'agua', meta: 1, premio: 8 },
+  { id: 'alto1', constroi: true, ic: 'montanha', txt: 'Coloque um bloco lá no alto (altura 50)', conta: 'alto', meta: 1, premio: 10 },
+  { id: 'agua1', constroi: true, ic: 'gota', txt: 'Faça uma fonte de água', conta: 'agua', meta: 1, premio: 8 },
   { id: 'emote3', ic: 'sorriso', txt: 'Mande 3 emotes', conta: 'emote', meta: 3, premio: 5 },
-  { id: 'vender50', ic: 'diamante', txt: 'Venda 50 coisas', conta: 'vender', meta: 50, premio: 20, mercado: true },
-  { id: 'flores30', ic: 'broto', txt: 'Faça um jardim com 30 flores', conta: 'flor', meta: 30, premio: 20 },
+  { id: 'vender50', constroi: true, ic: 'diamante', txt: 'Venda 50 coisas', conta: 'vender', meta: 50, premio: 20, mercado: true },
+  { id: 'flores30', constroi: true, ic: 'broto', txt: 'Faça um jardim com 30 flores', conta: 'flor', meta: 30, premio: 20 },
   { id: 'andar2000', ic: 'bussola', txt: 'Ande 2000 passos pelo mundo', conta: 'andar', meta: 2000, premio: 25 },
   { id: 'comprar5', ic: 'chave', txt: 'Compre 5 blocos novos', conta: 'comprar', meta: 5, premio: 25, mercado: true },
   { id: 'colocar500', ic: 'castelo', txt: 'Construa com 500 blocos', conta: 'colocar', meta: 500, premio: 40 },
@@ -107,7 +107,8 @@ export function estadoDaGaragem(e, tipo, agora) {
 // sobrevivencia = "Coletar e criar": a mochila (itens) é o que o jogador tem para construir (veja receitas.js)
 export function opcoesEcon(op) {
   op = op || {};
-  return { mercado: !!op.mercado, objetivos: !!op.objetivos, sobrevivencia: !!op.sobrevivencia };
+  // sem construção (ou com armas, que não deixam voar) as missões impossíveis ficam de fora
+  return { mercado: !!op.mercado, objetivos: !!op.objetivos, sobrevivencia: !!op.sobrevivencia, construcao: op.construcao !== false, voo: !op.armas };
 }
 export const econLigada = (op) => !!(op && (op.mercado || op.objetivos || op.sobrevivencia));
 // no "Coletar e criar", comprar na loja traz este tanto do bloco (e dá para comprar de novo)
@@ -136,7 +137,7 @@ export function normalizar(e, op) {
 
 export const liberado = (e, b, op) => !op.mercado || op.sobrevivencia || LIVRES.has(b) || !PRECO_LOJA.has(b) || e.comprados.includes(b);
 
-export function objetivosDoMundo(op) { return op.objetivos ? OBJETIVOS.filter((o) => !o.mercado || op.mercado) : []; }
+export function objetivosDoMundo(op) { return op.objetivos ? OBJETIVOS.filter((o) => (!o.mercado || op.mercado) && (!o.constroi || op.construcao !== false) && (!o.voa || op.voo !== false)) : []; }
 
 export function objetivosAtivos(e, op) {
   return objetivosDoMundo(op).filter((o) => !e.feitos.includes(o.id)).slice(0, ATIVOS);

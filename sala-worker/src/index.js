@@ -1,5 +1,6 @@
 // Sala de um mundo: guarda as edições de blocos e repassa posições/emotes entre os jogadores.
 import { DurableObject } from 'cloudflare:workers';
+import { ARMAS, danoMaximo, VOLTA_ITEM } from '../../public/js/armas-dados.js';
 import { opcoesEcon, econLigada, normalizar, aplicar, dar, liberado, temVeiculo, estadoDaGaragem } from '../../public/js/economia.js';
 import { lugarVazio, gastoDe, ULTIMO_ITEM } from '../../public/js/receitas.js';
 import { normalizarOpcoes } from '../../public/js/opcoes-mundo.js';
@@ -202,6 +203,9 @@ export class Sala extends DurableObject {
     const op = opcoesEcon(opcoes);
     const cicloDia = opcoes.cicloDia !== false;
     if (JSON.stringify(op) !== JSON.stringify(this.info.econ) || this.info.cicloDia !== cicloDia) { this.info.econ = op; this.info.cicloDia = cicloDia; await this.ctx.storage.put('info', this.info); }
+    // regras que o servidor faz valer: construção (colocar/quebrar) e armas
+    const regras = { construcao: opcoes.construcao !== false, armas: opcoes.armas === true };
+    if (JSON.stringify(regras) !== JSON.stringify(this.info.regras)) { this.info.regras = regras; await this.ctx.storage.put('info', this.info); }
     const chat = chatDe(opcoes);
     if (JSON.stringify(chat) !== JSON.stringify(this.info.chat)) await this.mudarChat(chat);
     const par = new WebSocketPair();
@@ -389,7 +393,7 @@ export class Sala extends DurableObject {
     if (!m || (dados.length > 2000 && m.t !== 'voz-sinal')) return;
     const eu = ws.deserializeAttachment();
     if (!eu) return;
-    if (m.t === 'pos' || m.t === 'emote' || m.t === 'vmov' || m.t === 'buzina') {
+    if (m.t === 'pos' || m.t === 'emote' || m.t === 'vmov' || m.t === 'buzina' || m.t === 'tiro') {
       // balde simples por conexão (fica na memória)
       if (!this.taxa) this.taxa = new Map();
       const agora = Date.now();
@@ -410,6 +414,8 @@ export class Sala extends DurableObject {
       const { x, y, z, b } = m;
       if (![x, y, z].every(Number.isInteger) || y < 1 || y > ALTURA_MAX || !blocoOk(b)) return;
       if (Math.abs(x) > LONGE || Math.abs(z) > LONGE) return;
+      // mundo sem construção: ninguém coloca nem quebra blocos com as mãos
+      if (m.j && !this.regras().construcao) return;
       const op = this.op();
       const econ = econLigada(op) ? await this.econDe(eu.uid) : null;
       // com o mercado, só dá para colocar os blocos que a pessoa já tem
@@ -539,6 +545,8 @@ export class Sala extends DurableObject {
       vs.delete(v.id);
       await this.ctx.storage.delete('v:' + v.id);
       this.enviarTodos({ t: 'vfim', id: v.id });
+    } else if (m.t === 'tiro' || m.t === 'arma' || m.t === 'acerto' || m.t === 'caiu' || m.t === 'pegar' || m.t === 'pegos') {
+      if (this.regras().armas) this.armas(ws, eu, m);
     } else if (m.t === 'buzina') {
       if (!eu.v || eu.v[0] !== m.id) return;
       this.enviarTodos({ t: 'buzina', id: m.id }, ws);
@@ -640,6 +648,54 @@ export class Sala extends DurableObject {
   }
 
   op() { return (this.info && this.info.econ) || { mercado: false, objetivos: false, sobrevivencia: false }; }
+  regras() { return (this.info && this.info.regras) || { construcao: true, armas: false }; }
+
+  // ---------- armas (só nos mundos com a opção ligada) ----------
+  // tiro: só repassa (para os outros verem o risquinho e ouvirem); acerto: confere e avisa quem levou;
+  // caiu: quem levou avisa que caiu (e todos veem quem derrubou); pegar: item do chão some para todos
+  armas(ws, eu, m) {
+    const agora = Date.now();
+    const vec = (v) => Array.isArray(v) && v.length === 3 && v.every(Number.isFinite);
+    if (m.t === 'tiro') {
+      if (!ARMAS[m.a] || !vec(m.o) || !vec(m.f)) return;
+      this.enviarTodos({ t: 'tiro', id: eu.id, a: m.a, o: arred(m.o), f: arred(m.f) }, ws);
+    } else if (m.t === 'arma') {
+      const a = m.a === null || ARMAS[m.a] ? m.a : null;
+      eu.a = a; ws.serializeAttachment(eu);
+      this.enviarTodos({ t: 'arma', id: eu.id, a }, ws);
+    } else if (m.t === 'acerto') {
+      if (!ARMAS[m.a] || typeof m.alvo !== 'string' || !Number.isInteger(m.dano) || m.dano < 1) return;
+      const [alvoWs, alvo] = this.conexaoDe(m.alvo);
+      if (!alvoWs || alvo.id === eu.id) return;
+      // perto o bastante para aquela arma (com folga para o atraso da rede)
+      const d = Math.hypot(alvo.p[0] - eu.p[0], alvo.p[1] - eu.p[1], alvo.p[2] - eu.p[2]);
+      if (d > ARMAS[m.a].alcance + 8) return;
+      // no máximo 15 acertos por segundo de cada jogador
+      if (!eu.acJan || agora - eu.acJan > 1000) { eu.acJan = agora; eu.acN = 0; }
+      if (++eu.acN > 15) return;
+      ws.serializeAttachment(eu);
+      alvoWs.send(JSON.stringify({ t: 'ferido', dano: Math.min(m.dano, danoMaximo(m.a)), de: eu.id, nome: eu.nome, p: eu.p }));
+    } else if (m.t === 'caiu') {
+      const por = typeof m.por === 'string' ? this.conexaoDe(m.por)[1] : null;
+      this.enviarTodos({ t: 'caiu', id: eu.id, nome: eu.nome, por: por ? por.id : null, porNome: por ? por.nome : null });
+    } else if (m.t === 'pegar') {
+      if (typeof m.k !== 'string' || m.k.length > 24) return;
+      if (!this.pegos) this.pegos = new Map();
+      const antes = this.pegos.get(m.k);
+      if (antes && agora - antes < VOLTA_ITEM * 1000) { ws.send(JSON.stringify({ t: 'pegou', k: m.k, id: null, tarde: true })); return; }
+      if (this.pegos.size > 5000) for (const [k, t] of this.pegos) if (agora - t > VOLTA_ITEM * 1000) this.pegos.delete(k);
+      this.pegos.set(m.k, agora);
+      this.enviarTodos({ t: 'pegou', k: m.k, id: eu.id });
+    } else if (m.t === 'pegos') {
+      // quem acabou de chegar pergunta o que já foi pego (e quanto tempo falta para voltar)
+      const l = [];
+      if (this.pegos) for (const [k, t] of this.pegos) if (agora - t < VOLTA_ITEM * 1000) l.push([k, Math.round((agora - t) / 1000)]);
+      ws.send(JSON.stringify({ t: 'pegos', l: l.slice(0, 2000) }));
+      // e as armas que cada um está segurando
+      for (const j of this.jogadores()) if (j.a && j.id !== eu.id) ws.send(JSON.stringify({ t: 'arma', id: j.id, a: j.a }));
+    }
+  }
+
 
   // tem uma Bancada (bloco 34) colocada a até 5 blocos de p? (bancadas nunca são do mundo original)
   async bancadaPerto(p) {
