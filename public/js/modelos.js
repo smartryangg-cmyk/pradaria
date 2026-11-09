@@ -49,6 +49,9 @@ export function contornar(m) {
   return m;
 }
 function malha(geo) { const m = new THREE.Mesh(geo, matModelo); m.castShadow = true; return contornar(m); }
+// partes que brilham sozinhas (olhos do robô-cão, neon do futuro): não dependem da luz
+export const matBrilho = new THREE.MeshBasicMaterial({ vertexColors: true });
+matBrilho.userData.compartilhado = true;
 // a luz do sol já faz o sombreado; aqui só um toque leve para o desenho ficar nítido
 const SOMBRA = [0.95, 0.95, 1, 0.85, 0.92, 0.92];
 
@@ -335,7 +338,16 @@ export function montarBicho(especie, r, filhote = false) {
     const pe = membro(w, h, d, cor, ...p);
     g.add(pe); pernas.push(pe);
   }
-  return { grupo: g, cabeca: cab, pernas };
+  // opcionais (bichos das eras): asas que batem, partes que brilham
+  const asas = [];
+  if (m.asas) for (const [geos, x, y, z, lado] of m.asas) {
+    const a = malha(juntar(geos));
+    a.position.set(x, y, z); a.userData.lado = lado;
+    g.add(a); asas.push(a);
+  }
+  if (m.brilho) g.add(new THREE.Mesh(juntar(m.brilho), matBrilho));
+  if (m.cabecaBrilho) cab.add(new THREE.Mesh(juntar(m.cabecaBrilho), matBrilho));
+  return { grupo: g, cabeca: cab, pernas, asas };
 }
 
 // ---------- boneco do jogador (o meu na 3ª pessoa, o dos amigos e o do editor de personagem) ----------

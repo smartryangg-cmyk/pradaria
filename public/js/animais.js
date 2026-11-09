@@ -15,6 +15,9 @@ import { SOLIDO, AGUA, B, BRILHO } from './blocos.js';
 import { G } from './gerador.js';
 import { opcoesMundo } from './opcoes-mundo.js';
 import { instinto, acordado } from './instintos.js';
+import { ERAS } from './eras-regras.js';
+import { CHAO_BICHOS } from './gerador-eras.js';
+import './fauna-eras.js'; // junta os bichos das eras (dinossauros, mamute, robô-cão...) em ESPECIES e nos instintos
 
 const MAX = 18; // bichos ao mesmo tempo perto do jogador
 const MAX_PREDADORES = 3; // na natureza há bem menos caçadores que presas
@@ -86,6 +89,24 @@ export class Bichos {
     return null;
   }
 
+  // cabe um bicho de altura `alt` com os pés em yPe na coluna (x, z)? (olha cada bloco da altura dele)
+  livre(x, yPe, z, alt) {
+    const m = this.mundo, bx = Math.floor(x), bz = Math.floor(z);
+    const y1 = Math.floor(yPe + Math.max(0.5, alt) - 0.05);
+    for (let y = Math.floor(yPe + 0.01); y <= y1; y++) if (SOLIDO[m.bloco(bx, y, bz)]) return false;
+    return true;
+  }
+
+  // cabe inteiro (largura também): os grandões não nascem dentro de árvore nem encostados no morro
+  cabeEm(x, yPe, z, e, esc = 1) {
+    const alt = e.alt * esc;
+    if (!this.livre(x, yPe, z, alt)) return false;
+    if (e.raio * esc < 0.5) return true;
+    const r = e.raio * esc * 0.9;
+    return this.livre(x + r, yPe, z + r, alt) && this.livre(x - r, yPe, z + r, alt)
+      && this.livre(x + r, yPe, z - r, alt) && this.livre(x - r, yPe, z - r, alt);
+  }
+
   criar(especie, x, y, z, { filhote = false, grupo = 0, mae = null } = {}) {
     const r = mae && mae.r !== undefined ? mae.r : Math.random(); // filhote puxa a cor da mãe
     const mod = montarBicho(especie, r, filhote);
@@ -103,7 +124,8 @@ export class Bichos {
       empX: 0, empZ: 0, semGolpe: 99, cura: 0, provocado: 0, caindo: 0,
     };
     b.vida = b.vidaMax;
-    b.grupo.position.set(x, y, z);
+    if (e.voa && !filhote) { b.voo = { estado: 'pousado', t: 0, solo: y, tSolo: 0, bloco: 0, R: 8, ang: 0, sentido: 1, alto: 12, cx: x, cz: z, inclina: 0 }; this.decolar(b, true); }
+    b.grupo.position.set(b.x, b.y, b.z);
     this.cena.add(b.grupo);
     this.lista.push(b);
     return b;
@@ -130,7 +152,8 @@ export class Bichos {
     const x = Math.floor(px + Math.cos(ang) * dist), z = Math.floor(pz + Math.sin(ang) * dist);
     const yTopo = this.mundo.chao(x, z);
     const topo = this.mundo.bloco(x, yTopo, z);
-    if (!CHAO_BOM.has(topo)) return;
+    const era = this.mundo.era;
+    if (!(era !== null && era !== undefined ? CHAO_BICHOS.has(topo) : CHAO_BOM.has(topo))) return;
     if (Math.abs(yTopo - py) > 14) return;
     const lugar = this.habitat(x, z, yTopo, topo);
     let predadores = 0;
@@ -138,11 +161,13 @@ export class Bichos {
     // sorteia uma espécie pelo peso do habitat (quem está acordado agora aparece mais)
     const opcoes = [];
     let soma = 0;
-    for (const esp of Object.keys(ESPECIES)) {
+    const eraFauna = this.especiesDaEra();
+    for (const esp of eraFauna || Object.keys(ESPECIES)) {
       const I = instinto(esp);
-      if (I.selvagem ? !selvagens : !domesticos) continue;
+      // no mundo Linha do Tempo só aparecem os bichos da era (com "Animais" ligado), em qualquer lugar
+      if (eraFauna ? !domesticos : I.selvagem ? !selvagens : !domesticos) continue;
       if (I.presas && predadores >= MAX_PREDADORES) continue;
-      let p = (I.habitat && I.habitat[lugar]) || 0;
+      let p = (I.habitat && I.habitat[lugar]) || (eraFauna ? 0.6 : 0);
       if (!p) continue;
       if (acordado(I.atividade, sol)) p *= 2;
       opcoes.push([esp, p]); soma += p;
@@ -152,15 +177,94 @@ export class Bichos {
     for (const [k, p] of opcoes) { r -= p; if (r <= 0) { esp = k; break; } }
     const I = instinto(esp);
     const grupo = this.proxGrupo++;
+    const e = ESPECIES[esp];
     const n = Math.min(sorteio(I.grupo[0], I.grupo[1]), MAX - this.lista.length);
+    const passo = Math.max(1.4, e.raio * 2.6); // os grandões nascem mais espaçados
     for (let i = 0; i < n; i++) {
-      const bx = x + 0.5 + (i % 3) * 1.4 - 1.4, bz = z + 0.5 + Math.floor(i / 3) * 1.4;
+      const bx = x + 0.5 + ((i % 3) - 1) * passo, bz = z + 0.5 + Math.floor(i / 3) * passo;
+      if (!e.voa && !this.cabeEm(bx, yTopo + 1, bz, e)) continue; // não nasce dentro de árvore nem do morro
       const mae = this.criar(esp, bx, yTopo + 1, bz, { grupo });
       if (I.filhotes && Math.random() < I.filhotes[0] && this.lista.length < MAX) {
         const nf = Math.min(sorteio(I.filhotes[1], I.filhotes[2]), MAX - this.lista.length);
-        for (let f = 0; f < nf; f++) this.criar(esp, bx + 0.6 * (f + 1), yTopo + 1, bz - 0.6, { filhote: true, grupo, mae });
+        for (let f = 0; f < nf; f++) {
+          const fx = bx + Math.max(0.6, e.raio * 1.2) * (f + 1), fz = bz - Math.max(0.6, e.raio * 1.2);
+          if (e.voa || this.cabeEm(fx, yTopo + 1, fz, e, 0.55)) this.criar(esp, fx, yTopo + 1, fz, { filhote: true, grupo, mae });
+        }
       }
     }
+  }
+
+  // bichos que nascem agora no mundo Linha do Tempo (os da era atual); null no mundo normal
+  especiesDaEra() {
+    const era = this.mundo.era;
+    if (era === null || era === undefined) return null;
+    return ERAS[era].fauna.filter((e) => ESPECIES[e]);
+  }
+
+  // a era mudou: os bichos de antes vão embora com uma nuvenzinha
+  trocarEra() {
+    for (let i = this.lista.length - 1; i >= 0; i--) {
+      const b = this.lista[i];
+      this.icone('brilho', b.x, b.y + b.e.alt * 0.6, b.z, 0.9, 0.8);
+      this.remover(i);
+    }
+    this.tempoSpawn = 0;
+  }
+
+  // ---------- voo (pterossauro): plana em círculos lá no alto e de vez em quando pousa ----------
+  decolar(b, jaNoAlto = false) {
+    const v = b.voo, R = Math.random;
+    v.estado = 'voando';
+    v.t = 20 + R() * 25; // quanto tempo fica voando antes de pensar em pousar
+    v.R = 7 + R() * 6; v.alto = 10 + R() * 6; v.sentido = R() < 0.5 ? 1 : -1;
+    v.ang = R() * TAU;
+    // o círculo passa por onde ele está agora (sai voando sem dar pulo)
+    v.cx = b.x - Math.cos(v.ang) * v.R; v.cz = b.z - Math.sin(v.ang) * v.R;
+    v.solo = this.mundo.chao(Math.floor(b.x), Math.floor(b.z)) + 1;
+    if (jaNoAlto) b.y = Math.max(b.y, v.solo) + v.alto;
+    b.vy = 0; b.andando = false; b.estado = 'vagar';
+  }
+
+  voar(b, dt, tempo) {
+    const v = b.voo, m = this.mundo;
+    v.tSolo -= dt;
+    if (v.tSolo <= 0) { // altura do chão embaixo (de vez em quando: é a conta mais cara)
+      v.tSolo = 0.35;
+      const bx = Math.floor(b.x), bz = Math.floor(b.z);
+      v.solo = m.chao(bx, bz) + 1; v.bloco = m.bloco(bx, v.solo - 1, bz);
+    }
+    v.ang += v.sentido * (b.e.velVoo / v.R) * dt;
+    // o centro do círculo passeia devagar, para o caminho não ficar sempre igual
+    v.cx += Math.sin(tempo * 0.05 + b.fase) * 0.4 * dt; v.cz += Math.cos(tempo * 0.04 + b.fase) * 0.4 * dt;
+    const nx = v.cx + Math.cos(v.ang) * v.R, nz = v.cz + Math.sin(v.ang) * v.R;
+    b.dir = Math.atan2(nx - b.x, nz - b.z);
+    b.x = nx; b.z = nz;
+    v.t -= dt;
+    let alvo;
+    if (v.estado === 'voando') {
+      alvo = v.solo + v.alto;
+      if (v.t <= 0) v.estado = 'descendo';
+    } else { // descendo para pousar
+      alvo = v.solo;
+      if (b.y - v.solo < 0.7) {
+        if (SOLIDO[v.bloco] && !AGUA[v.bloco]) { v.estado = 'pousado'; v.t = 8 + Math.random() * 10; b.vy = 0; b.estado = 'parar'; b.timer = 1; }
+        else { v.estado = 'voando'; v.t = 5 + Math.random() * 6; } // embaixo tem água: dá mais uma volta
+      }
+    }
+    const vy = Math.max(-3, Math.min(2.5, (alvo - b.y) * 0.8));
+    b.y += vy * dt;
+    if (v.estado === 'voando' && b.y < v.solo + 1.5) b.y = v.solo + 1.5; // morro na frente: sobe
+    // asas: planando quase paradas, batendo forte quando sobe
+    const forca = vy > 0.4 ? 1 : 0.3 + 0.2 * Math.max(0, Math.sin(tempo * 0.7 + b.fase));
+    const bate = Math.sin(tempo * (vy > 0.4 ? 9 : 5) + b.fase) * 0.6 * forca;
+    for (const a of b.asas) { a.rotation.y = 0; a.rotation.z = a.userData.lado * bate; a.scale.x = 1; }
+    for (const pe of b.pernas) pe.rotation.x = 1.3; // perninhas recolhidas
+    b.cabeca.rotation.x = 0.1;
+    v.inclina += (0.3 * v.sentido - v.inclina) * Math.min(1, dt * 2);
+    b.grupo.rotation.z = v.inclina;
+    const atual = b.grupo.rotation.y;
+    b.grupo.rotation.y = atual + (((b.dir - atual + Math.PI * 3) % TAU) - Math.PI) * Math.min(1, dt * 4);
+    b.grupo.position.set(b.x, b.y, b.z);
   }
 
   // procura um bloco que brilha (lampião, lâmpada acesa) perto: bicho selvagem evita luz de noite
@@ -209,12 +313,20 @@ export class Bichos {
       b.grupo.visible = true;
       if (dt <= 0) continue; // pausado
       if (b.caindo > 0) { this.tombar(b, dt, i); continue; }
+      if (b.voo) {
+        if (b.voo.estado !== 'pousado') { this.voar(b, dt, tempo); continue; }
+        // pousado: anda um pouco (com os instintos de sempre) e depois sai voando de novo; assustado, decola
+        b.voo.t -= dt;
+        if ((b.voo.t <= 0 && b.segue <= 0) || b.estado === 'fugir') { this.decolar(b); continue; }
+        b.voo.inclina *= Math.max(0, 1 - dt * 4); b.grupo.rotation.z = b.voo.inclina;
+      }
       b.pensa -= dt;
       if (b.pensa <= 0) { b.pensa = PENSAR * (0.8 + Math.random() * 0.4); this.pensar(b, ctx, jog); }
       this.agir(b, dt, jog);
       if (!this.lista.includes(b)) continue; // virou caça
       this.mover(b, dt);
       this.animar(b, dt, tempo);
+      if (b.voo) for (const a of b.asas) { a.rotation.y = a.userData.lado * 1.45; a.rotation.z = a.userData.lado * 0.12; a.scale.x = 0.55; } // asas dobradas
     }
 
     // partículas (corações etc.)
@@ -533,7 +645,7 @@ export class Bichos {
     // gravidade
     const s = this.chao(b.x, b.z, b.y);
     // sem chão conhecido (pedaço ainda carregando ou buraco fundo): fica onde está em vez de cair pelo mundo
-    const piso = s ? s.y - (s.agua ? 0.45 : 0) : b.y;
+    const piso = s ? s.y - (s.agua ? (b.e.afunda ?? 0.45) : 0) : b.y;
     b.vy -= 20 * dt;
     b.y += b.vy * dt;
     if (b.y <= piso) { b.y = piso; b.vy = 0; }
@@ -541,18 +653,30 @@ export class Bichos {
 
   // dá para o bicho ficar em (nx, nz)? (degrau de até 1 bloco, sem parede, água só se puder)
   cabe(b, nx, nz, s, podeAgua, degrau = 1.05) {
+    // bicho grande (mamute, dinossauro) olha à frente do focinho e dos lados, com a altura inteira dele
+    const alt = b.e.alt * b.esc, raio = b.e.raio * b.esc;
+    let fx = nx, fz = nz, sx = 0, sz = 0;
+    const grande = raio >= 0.5;
+    if (grande) {
+      const dx = nx - b.x, dz = nz - b.z, n = Math.hypot(dx, dz) || 1;
+      sx = dx / n; sz = dz / n;
+      fx = nx + sx * raio * 0.8; fz = nz + sz * raio * 0.8;
+      s = this.chao(fx, fz, b.y);
+    }
     if (!s) return false;
     const altura = s.y - b.y;
-    const alto = b.e.alt * b.esc > 1;
-    return altura <= degrau && altura > -3 && (!s.agua || podeAgua) && !SOLIDO[this.mundo.bloco(Math.floor(nx), Math.floor(s.y), Math.floor(nz))]
-      && !SOLIDO[this.mundo.bloco(Math.floor(nx), Math.floor(s.y) + (alto ? 1 : 0), Math.floor(nz))];
+    if (!(altura <= degrau && altura > -3 && (!s.agua || podeAgua))) return false;
+    if (!this.livre(fx, s.y, fz, alt)) return false;
+    if (!grande) return true;
+    const fr = raio * 0.8;
+    return this.livre(fx + sz * fr, s.y, fz - sx * fr, alt) && this.livre(fx - sz * fr, s.y, fz + sx * fr, alt);
   }
 
   animar(b, dt, tempo) {
     const dorme = b.estado === 'dormir' || b.estado === 'descansar' || b.estado === 'comer' || b.estado === 'repousar';
     b.deita += ((dorme ? 1 : 0) - b.deita) * Math.min(1, dt * 3);
     const corre = b.vel > b.e.vel * 1.6;
-    b.fase += dt * (b.andando ? (corre ? 16 : 9) : 0);
+    b.fase += dt * (b.andando ? (corre ? 16 : 9) * (b.e.passo || 1) : 0); // grandões dão passos lentos
     const balanco = b.andando ? Math.sin(b.fase) * (corre ? 0.9 : 0.6) : 0;
     b.pernas.forEach((pe, k) => { pe.rotation.x = (k % 2 === (k < 2 ? 0 : 1) ? 1 : -1) * balanco * (1 - b.deita) + (k < 2 ? -1.3 : 1.3) * b.deita; });
     // cabeça: baixa pastando, alta e firme em alerta, encostada dormindo

@@ -13,6 +13,7 @@ const BASICO = [
   '/js/texturas.js', '/js/texturas-worker.js',
   '/js/guerra.js', '/js/guerra-npc.js', '/js/guerra-mapa.js', '/js/guerra-veiculos.js',
   '/tv.css', '/js/tv.js', '/vendor/qrcode.mjs', '/controle.html', '/js/controle-celular.js',
+  '/js/eras-regras.js', '/js/eras.js', '/js/gerador-eras.js', '/js/fauna-eras.js', '/js/clima-eras.js',
 ];
 
 self.addEventListener('install', (e) => {

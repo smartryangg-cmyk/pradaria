@@ -18,9 +18,9 @@ import { BE } from './blocos-eras.js';
 // 1 = terreno que alisa, 2 = folhas, 3 = tronco (conta como cheio dentro da copa)
 export const GRUPO_SUAVE = new Uint8Array(256);
 for (const b of [B.GRAMA, B.TERRA, B.PEDRA, B.AREIA, B.CASCALHO, B.CARVAO, B.FERRO, B.OURO, B.DIAMANTE, B.ROCHA_MAE,
-  BE.NEVE, BE.BLOCO_NEVE, BE.ARENITO]) GRUPO_SUAVE[b] = 1;
-for (const b of [B.FOLHAS, B.FOLHAS_PINHEIRO, B.FOLHAS_SELVA, BE.FOLHAS_NEVE]) GRUPO_SUAVE[b] = 2;
-for (const b of [B.TRONCO, B.TRONCO_PINHEIRO, B.TRONCO_BETULA]) GRUPO_SUAVE[b] = 3;
+  BE.NEVE, BE.BLOCO_NEVE, BE.ARENITO, BE.MUSGO, BE.BASALTO, BE.PEDRA_LAVA, BE.BARRO, BE.CARVAO]) GRUPO_SUAVE[b] = 1; // + chão das eras (Linha do Tempo)
+for (const b of [B.FOLHAS, B.FOLHAS_PINHEIRO, B.FOLHAS_SELVA, BE.FOLHAS_NEVE, BE.FOLHA_PALMEIRA]) GRUPO_SUAVE[b] = 2;
+for (const b of [B.TRONCO, B.TRONCO_PINHEIRO, B.TRONCO_BETULA, BE.TRONCO_PALMEIRA]) GRUPO_SUAVE[b] = 3;
 // troncos redondos (formas 80..82), se existirem nesta versão
 for (const b of [80, 81, 82]) if (BLOCOS[b] && /tronco/i.test(BLOCOS[b].nome)) GRUPO_SUAVE[b] = 3;
 
