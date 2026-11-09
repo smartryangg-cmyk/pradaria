@@ -11,6 +11,7 @@ import { ESPECIAL } from './mecanismos.js';
 import { F, FORMA_NOVA, desenharFormaNova, mirarForma } from './formas.js';
 const ELET = new Uint8Array(256);
 for (let b = 1; b < 256; b++) ELET[b] = ELETRICO(b) ? 1 : 0;
+import { criarSuavizador } from './suave.js';
 
 export const CX = 16, CZ = 16, ALT = 96;
 export const NIVEL_AGUA = 20; // mar do terreno de antes (o clássico usa mundo.nivelAgua = 40)
@@ -28,6 +29,7 @@ const FACES = [
   { n: [0, 0, -1], c: [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]], s: 0.65, t: 2 },
 ];
 const AO = [0.45, 0.65, 0.82, 1];
+const AO_SUAVE = [0.68, 0.8, 0.9, 1];
 
 // ---------- líquidos ----------
 const TICK_AGUA = 200; // ms entre cada "passo" da água (5 por segundo)
@@ -97,6 +99,9 @@ export class Mundo {
     this.aventura = opcoesMundo.tipo === 'aventura' ? new IlhaAventura(this) : null; // Ilha de Aventura
     this.ocultos = new Map(); // "x,y,z" -> [x,y,z]: blocos sendo escavados (desenhados à parte)
     this.energia = new Energia(this); // fios e máquinas
+    // estilo Natural 3D: terreno e copas arredondados (só o desenho; os blocos são os mesmos). suave.js
+    this.suave = opcoesMundo.estilo === 'suave';
+    this.suaveSimples = false; // aparelho fraco: arredondado simples (main.js liga no gráfico Leve)
   }
 
   // esconde/mostra um bloco da malha do pedaço (o bloco continua existindo para colisão e mira)
@@ -128,6 +133,14 @@ export class Mundo {
     const t = Math.min(1, Math.max(0, (d - 0.55) / 0.45)); // 0 = terra normal, 1 = fundo do mar
     const s = t * t * (3 - 2 * t);
     return Math.floor(h * (1 - s) + (NIVEL_AGUA - 7) * s);
+  }
+
+  // altura do chão que o gerador fez (sem casas nem construções): estilo suave só alisa até aqui
+  alturaNatural(x, z) {
+    const cx = Math.floor(x / CX), cz = Math.floor(z / CZ);
+    const c = this.chunks.get(chave(cx, cz));
+    if (c && c.altNat) return c.altNat[(x - cx * CX) + (z - cz * CZ) * CX];
+    return this.gen ? this.gen.alturaEm(x, z) : Math.min(TETO_ANTIGO, Math.max(4, this.alturaEm(x, z)));
   }
 
   // nome do bioma (só no mundo clássico; -1 no de antes)
@@ -172,6 +185,7 @@ export class Mundo {
         d[idx(x, h + 1, z)] = t < 0.4 ? B.FLOR_VERMELHA : t < 0.75 ? B.FLOR_AMARELA : B.FLOR_AZUL;
       } else if (r2 < 0.2) d[idx(x, h + 1, z)] = B.CAPIM;
     }
+    this.ultAltNat = alturas; // chão natural (o estilo suave só alisa até essa altura)
     // vilas (casas, ruas, poço e plantações)
     this.vilas.carimbar(d, cx, cz, CX, CZ);
     if (this.aventura) this.aventura.carimbar(d, cx, cz, CX, CZ);
@@ -240,6 +254,8 @@ export class Mundo {
       this.ultAlturas = null;
       c = { cx, cz, dados: this.gerarDados(cx, cz), malha: null, agua: null, sujo: true };
       c.alturas = this.ultAlturas; // altura do terreno gerado (mundo clássico), para esconder as cavernas
+      c.altNat = this.ultAlturas || this.ultAltNat || null; // chão natural (estilo suave)
+      this.ultAltNat = null;
       this.chunks.set(k, c);
       // a água corrente não é salva: perto de cada edição ela é recalculada
       const ed = this.edicoes.get(k);
@@ -484,10 +500,15 @@ export class Mundo {
       return n ? soma / n : 0.88;
     };
     const HC = [[0, 0], [0, 0]];
+    const SC = [null, null, null, null];
     const FORMA_A = { P, U, C, I, N, O, L, BD }; // peças que não são cubos (fio, alavanca, formas redondas...)
 
     let topo = 0;
     for (let i = d.length - 1; i >= 0; i--) if (d[i]) { topo = Math.floor(i / (CX * CZ)); break; }
+    // estilo Natural 3D: cantos das faces do terreno e das folhas vão para a superfície lisa (suave.js)
+    let temEd = false;
+    for (let a = -1; a <= 1; a++) for (let b2 = -1; b2 <= 1; b2++) { const m = this.edicoes.get(chave(c.cx + a, c.cz + b2)); if (m && m.size) temEd = true; }
+    const sv = this.suave ? criarSuavizador(get, temEd ? (x, y, z) => this.editado(ox + x, y, oz + z) : () => false, (x, z) => this.alturaNatural(ox + x, oz + z), topo, this.suaveSimples) : null;
 
     // "luz do céu": altura do bloco opaco mais alto de cada coluna (com borda de 1 dos vizinhos).
     // Embaixo de árvore, beiral ou caverna a face fica mais escura (sombra macia, custo zero ao jogar).
@@ -536,9 +557,10 @@ export class Mundo {
         const [u0, v0, u1, v1] = uvTile(def.tiles[0]);
         const base = P.length / 3;
         const q = [[0.15, 0.15, 0.85, 0.85], [0.15, 0.85, 0.85, 0.15]];
+        const py = y + (sv ? sv.ajustePlanta(x, y, z) : 0); // no chão liso a plantinha acompanha o chão
         for (const [ax, az, bx, bz] of q) {
           const k = P.length / 3;
-          P.push(x + ax, y, z + az, x + bx, y, z + bz, x + bx, y + 0.9, z + bz, x + ax, y + 0.9, z + az);
+          P.push(x + ax, py, z + az, x + bx, py, z + bz, x + bx, py + 0.9, z + bz, x + ax, py + 0.9, z + az);
           U.push(u0, v0, u1, v0, u1, v1, u0, v1);
           const lp = 0.95 * (coberto(x, y, z) ? 0.7 : 1);
           for (let n = 0; n < 4; n++) { C.push(lp, lp, lp); N.push(0, 1, 0); L.push(0); BD.push(0); }
@@ -558,6 +580,7 @@ export class Mundo {
         fluxoZ = (HC[0][0] + HC[1][0]) - (HC[0][1] + HC[1][1]);
         caindo = NIVEL[b] === 8 ? 1 : 0;
       }
+      let gs = -1; // 1 terreno liso, 2 copa redonda, 0 quadrado (só calcula se alguma face aparece)
       for (const f of FACES) {
         const nb = get(x + f.n[0], y + f.n[1], z + f.n[2]);
         if (agua) {
@@ -570,14 +593,26 @@ export class Mundo {
             if (qx >= 0 && qx < CX && qz >= 0 && qz < CZ && y + f.n[1] < cortar[qx + qz * CX] - FUNDO_CAVERNA) continue;
           }
         }
-        const [u0, v0, u1, v1] = uvTile(def.tiles[f.t]);
+        // cantos lisos: deslocamento + normal de cada canto (null = canto preso, fica no lugar)
+        if (gs < 0) gs = sv && !agua ? sv.grupo(x, y, z, b) : 0;
+        let sc = null, ft = f.t;
+        if (gs) {
+          sc = SC;
+          for (let q = 0; q < 4; q++) { const cn = f.c[q]; SC[q] = sv.canto(x + cn[0], y + cn[1], z + cn[2]); }
+          // a textura segue a inclinação: rampa de grama mostra grama, não o lado com terra
+          let ny = 0;
+          for (const r of sc) ny += r ? r[4] : f.n[1];
+          ny /= 4;
+          ft = ny > 0.55 ? 0 : ny < -0.55 ? 1 : 2;
+        }
+        const [u0, v0, u1, v1] = uvTile(def.tiles[ft]);
         const PP = agua ? PA : P, UU = agua ? UA : U, CC = agua ? CA : C, II = agua ? IA : I;
         const k = PP.length / 3;
         const aos = [];
         // arestas "arredondadas" (shader): 1 + bits das bordas expostas da face, 0 = sem efeito.
         // Eixos da face na ordem x,y,z (os que não são a normal): bit0 eixo1-, bit1 eixo1+, bit2 eixo2-, bit3 eixo2+
         let bd = 0;
-        if (!agua && OPACO[b] && b !== B.FOLHAS) {
+        if (!agua && !gs && OPACO[b] && b !== B.FOLHAS) {
           let bit = 1;
           for (let a = 0; a < 3; a++) {
             if (f.n[a] !== 0) continue;
@@ -589,10 +624,13 @@ export class Mundo {
           }
           bd += 1;
         }
+        let ic = 0;
         for (const cn of f.c) {
           let py = y + cn[1];
           if (agua && cn[1] === 1) py = y + HC[cn[0]][cn[2]];
-          PP.push(x + cn[0], py, z + cn[2]);
+          const s = sc && sc[ic++];
+          if (s) PP.push(x + cn[0] + s[0], py + s[1], z + cn[2] + s[2]);
+          else PP.push(x + cn[0], py, z + cn[2]);
           let ao = 3;
           if (!agua) {
             // AO: dois lados e canto na camada da face
@@ -616,9 +654,9 @@ export class Mundo {
             if (f.n[2] && (i >> 1)) continue;
             cob += coberto(qx, y + f.n[1], qz); nc++;
           }
-          const v = AO[ao] * (1 - 0.32 * cob / nc);
+          const v = (gs ? AO_SUAVE : AO)[ao] * (1 - 0.32 * cob / nc); // no chão liso o AO é mais leve (sem "curvas de nível" escuras)
           CC.push(v, v, v);
-          N.push(f.n[0], f.n[1], f.n[2]);
+          if (s) N.push(s[3], s[4], s[5]); else N.push(f.n[0], f.n[1], f.n[2]);
           O.push(FOLHAGEM[b] ? 0.6 : 0);
           L.push(BRILHO[b]);
           BD.push(bd);

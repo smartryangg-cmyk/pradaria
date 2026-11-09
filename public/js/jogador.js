@@ -16,7 +16,9 @@ export class Jogador {
     this.voando = false;
     this.naAgua = false;
     this.passo = 0;
+    this.degrau = 0; // estilo suave: sobe o degrau na hora e a câmera acompanha devagar (parece rampa)
   }
+  get yVisual() { return this.pos.y + this.degrau; }
 
   colide(x, y, z) {
     const m = this.mundo;
@@ -93,12 +95,16 @@ export class Jogador {
     // movimento eixo a eixo
     const nx = p.x + v.x * dt;
     if (!this.colide(nx, p.y, p.z)) p.x = nx;
-    else if (this.degrau(nx, p.z)) p.x = nx;
-    else { this.tentarSubir(nx, p.z, len); v.x = 0; }
+    else if (this.degrauForma(nx, p.z)) p.x = nx;
+    else if (this.tentarSubir(nx, p.z, len)) p.x = nx;
+    else v.x = 0;
     const nz = p.z + v.z * dt;
     if (!this.colide(p.x, p.y, nz)) p.z = nz;
-    else if (this.degrau(p.x, nz)) p.z = nz;
-    else { this.tentarSubir(p.x, nz, len); v.z = 0; }
+    else if (this.degrauForma(p.x, nz)) p.z = nz;
+    else if (this.tentarSubir(p.x, nz, len)) p.z = nz;
+    else v.z = 0;
+    // a câmera alcança o degrau aos poucos (mais rápido quanto mais rápido anda)
+    if (this.degrau < 0) this.degrau = Math.min(0, this.degrau + dt * Math.max(4, len * vel * 1.4));
     const ny = p.y + v.y * dt;
     if (!this.colide(p.x, ny, p.z)) { p.y = ny; this.noChao = false; }
     else {
@@ -146,7 +152,7 @@ export class Jogador {
   }
 
   // degrau baixo (rampa, escada, meio bloco): sobe andando, sem pular
-  degrau(x, z) {
+  degrauForma(x, z) {
     if (!this.noChao || this.voando) return false;
     const p = this.pos;
     for (let s = 0.1; s <= 0.61; s += 0.1) {
@@ -160,9 +166,19 @@ export class Jogador {
   }
 
   // sobe degraus de 1 bloco sozinho (bom para o toque)
+  // no estilo suave (morros lisos) sobe na hora, sem pulinho, e devolve true para continuar andando
   tentarSubir(x, z, querAndar) {
-    if (!this.noChao || this.voando || querAndar < 0.1) return;
-    if (!this.colide(x, this.pos.y + 1.01, z) && !this.colide(this.pos.x, this.pos.y + 1.01, this.pos.z)) this.vel.y = 8.2, this.noChao = false;
+    if (!this.noChao || this.voando || querAndar < 0.1) return false;
+    if (this.colide(x, this.pos.y + 1.01, z) || this.colide(this.pos.x, this.pos.y + 1.01, this.pos.z)) return false;
+    if (this.mundo.suave && !this.naAgua) {
+      const ny = Math.floor(this.pos.y) + 1;
+      if (this.colide(x, ny, z)) return false;
+      this.degrau = Math.max(-1.2, this.degrau - (ny - this.pos.y));
+      this.pos.y = ny;
+      return true;
+    }
+    this.vel.y = 8.2; this.noChao = false;
+    return false;
   }
 
   ocupa(bx, by, bz) {

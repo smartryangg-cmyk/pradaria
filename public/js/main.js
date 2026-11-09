@@ -25,13 +25,13 @@ import { icone, preencherIcones, comIcone, nomeEmote } from './icones.js';
 import { Escavacao, toquesPara } from './escavar.js';
 import { Fisica } from './fisica.js';
 import { criarComandos } from './comandos.js';
-import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto, raioExtraMundo } from './opcoes-mundo.js';
+import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, ESTILOS, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto, raioExtraMundo } from './opcoes-mundo.js';
 import { vida } from './vida.js';
 import { Mapa } from './mapa.js';
 import { Mercado } from './mercado.js';
 import { VERSAO } from './versao.js';
 import { preencherDono, contaModo, ligarApagarConta } from './dono.js';
-import { abrirEditarMundo, desenharListaOpcoes, marcarLista, baixarArquivo, escolherArquivo, montarArquivo } from './editar-mundo.js';
+import { abrirEditarMundo, desenharEstilos, desenharListaOpcoes, marcarLista, baixarArquivo, escolherArquivo, montarArquivo } from './editar-mundo.js';
 import { Mecanismos } from './mecanismos.js';
 
 const $ = (s) => document.querySelector(s);
@@ -1036,6 +1036,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   if (!opcoesMundo.cicloDia) tempoDia = 0.3;
   mundo = new Mundo(cena, matBlocos, matAgua, semente);
   mundo.raio = raioVisao();
+  mundo.suaveSimples = opcoesGraficas().sombra === 0; // gráfico Leve: arredondado simples (monta mais rápido)
   escav = new Escavacao(cena, mundo, matBlocos, atlasCanvas);
   fisica = new Fisica(cena, mundo, matBlocos);
   fisica.aoCair = (x, y, z) => { if (Math.abs(x - jog.pos.x) + Math.abs(z - jog.pos.z) < 24) som.passo(); };
@@ -1328,13 +1329,13 @@ async function abrirMundos() {
 }
 
 // ---------- criar mundo: nome + opções (o que vai ter no mundo) + semente ----------
-const iconesOpcoes = (o) => { const n = normalizarOpcoes(o); return (n.tipo !== 'normal' ? icone(TIPOS[n.tipo].icone, 'ic-svg ic-mini') : '') + (TIPOS[n.tipo].limite ? '' : icone(TAMANHOS[n.tamanho].icone, 'ic-svg ic-mini')) + OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => icone(x.icone, 'ic-svg ic-mini')).join(''); };
+const iconesOpcoes = (o) => { const n = normalizarOpcoes(o); return (n.tipo !== 'normal' ? icone(TIPOS[n.tipo].icone, 'ic-svg ic-mini') : '') + (n.estilo !== 'blocos' ? icone(ESTILOS[n.estilo].icone, 'ic-svg ic-mini') : '') + (TIPOS[n.tipo].limite ? '' : icone(TAMANHOS[n.tamanho].icone, 'ic-svg ic-mini')) + OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => icone(x.icone, 'ic-svg ic-mini')).join(''); };
 function resumoOpcoes(o) {
   const n = normalizarOpcoes(o);
   const t = TAMANHOS[n.tamanho];
   const com = OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => x.nome);
   const sem = OPCOES_MUNDO.filter((x) => !n[x.id]).map((x) => x.nome.toLowerCase());
-  return (n.tipo !== 'normal' ? TIPOS[n.tipo].nome + ' · ' : '') + (TIPOS[n.tipo].limite ? '' : `Mundo ${t.nome.toLowerCase()} · `) + (com.join(', ') || 'só blocos') + (sem.length ? ' · sem ' + sem.join(', ') : '');
+  return (n.tipo !== 'normal' ? TIPOS[n.tipo].nome + ' · ' : '') + (n.estilo !== 'blocos' ? ESTILOS[n.estilo].nome + ' · ' : '') + (TIPOS[n.tipo].limite ? '' : `Mundo ${t.nome.toLowerCase()} · `) + (com.join(', ') || 'só blocos') + (sem.length ? ' · sem ' + sem.join(', ') : '');
 }
 let escolhaNovo = { ...PADRAO_NOVO };
 function desenharOpcoesNovo() {
@@ -1350,6 +1351,8 @@ function desenharOpcoesNovo() {
     tp.appendChild(b);
   }
   $('#n-tipos').hidden = $('#n-tipos-titulo').hidden = tp.childElementCount < 2;
+  // jeito do mundo: blocos ou Natural 3D (suave.js)
+  desenharEstilos($('#n-estilos'), escolhaNovo, () => { som.iniciar(); som.clique(); });
   const lt = $('#n-tamanhos');
   lt.innerHTML = '';
   for (const [id, t] of Object.entries(TAMANHOS)) {
@@ -1450,7 +1453,7 @@ function laco(agora) {
   }
   const dirigindo = garagem.camera(camera);
   if (!visao.quadro(dt, jog, camera, mundo, meuSkin, dirigindo) && !dirigindo) {
-    camera.position.set(jog.pos.x, jog.pos.y + OLHOS, jog.pos.z);
+    camera.position.set(jog.pos.x, jog.yVisual + OLHOS, jog.pos.z);
     camera.rotation.set(jog.pitch, jog.yaw, 0, 'YXZ');
   }
 
