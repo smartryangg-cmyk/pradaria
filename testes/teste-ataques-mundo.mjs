@@ -31,7 +31,8 @@ function salaCru(codigo, token, extra, corpo) {
     req.end(corpo ? JSON.stringify(corpo) : undefined);
   });
 }
-const sfx = String(Date.now() % 10000);
+// letras sorteadas (nome sem 5 números seguidos e sem repetir entre testes rodados em seguida)
+const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join('');
 const dono = await api('cadastrar', { nome: 'Dono' + sfx, senha: 'senha123' });
 const chato = await api('cadastrar', { nome: 'Chato' + sfx, senha: 'senha123' });
 ok(dono.token && chato.token, 'contas criadas');
@@ -49,7 +50,7 @@ const ex = await salaCru(mundo.codigo, chato.token, { 'x-admin': 'exportar' });
 ok(ex.status === 101 && !/^\{"edicoes"/.test(ex.texto), `x-admin: exportar é ignorado, vira conexão normal (${ex.status} ${ex.texto.slice(0, 40)})`);
 await salaCru(mundo.codigo, chato.token, { 'x-admin': 'importar' }, { edicoes: [[0, 30, 0, 9], [1, 30, 0, 9]] });
 await salaCru(mundo.codigo, chato.token, { 'x-admin': 'apagar' });
-await salaCru(mundo.codigo, chato.token, { 'x-admin': 'editar' }, { nome: 'Hackeado', opcoes: { monstros: true }, recarregar: true });
+await salaCru(mundo.codigo, chato.token, { 'x-admin': 'editar' }, { nome: 'Hackeado', opcoes: { selvagens: false }, recarregar: true });
 await salaCru(mundo.codigo, chato.token, { 'x-admin': 'esquecer' }, { uid: dono.usuario.id });
 await espera(500);
 const depois = await blocosDoDono();
@@ -80,7 +81,7 @@ ok((await imp(arq, { toString: 1 })).status === 400, 'nome que não é texto: 40
 ok((await imp(arq)).status === 429, 'importar sem parar: limite por hora (429)');
 const sujo = {
   ...arq, nome: '<img src=x onerror=alert(1)>',
-  opcoes: { tamanho: 'enorme', tipo: '__proto__', gerador: 'constructor', monstros: 'sim', animais: false, __proto__: { veiculos: false }, extra: 1 },
+  opcoes: { tamanho: 'enorme', tipo: '__proto__', gerador: 'constructor', selvagens: 'sim', animais: false, __proto__: { veiculos: false }, extra: 1 },
   edicoes: [[1, 30, 1, 3], [200000, 30, 0, 3], [0, 0, 0, 3], [0, 64, 0, 3], [0, 30, 0, 256], [0, 30, 0, -1], ['1', 30, 0, 3], [1.5, 30, 0, 3], [0, 30], null, { x: 1 }, [0, 30, 0, 3, 9]],
 };
 // (conta nova: cada um só importa 10 por hora, e os pedidos ruins acima também contam)
@@ -89,7 +90,7 @@ const r = await api('mundos/importar', { arquivo: sujo, nome: 'Arquivo Sujo' }, 
 ok(r.mundo, 'arquivo cheio de lixo ainda importa só o que presta');
 if (r.mundo) {
   ok(r.mundo.opcoes.tamanho === 'grande' && r.mundo.opcoes.tipo === 'normal' && r.mundo.opcoes.gerador === 'atual', 'opções inválidas viram as de padrão');
-  ok(r.mundo.opcoes.animais === false && typeof r.mundo.opcoes.monstros === 'boolean' && !('extra' in r.mundo.opcoes), 'só opções conhecidas e true/false');
+  ok(r.mundo.opcoes.animais === false && typeof r.mundo.opcoes.selvagens === 'boolean' && !('extra' in r.mundo.opcoes), 'só opções conhecidas e true/false');
   const e = (await api('mundos/exportar', { codigo: r.mundo.codigo }, limpo.token)).edicoes || [];
   ok(e.length === 1 && e[0].join() === '1,30,1,3', 'só o bloco válido entrou: ' + JSON.stringify(e));
   ok(r.mundo.nome === 'Arquivo Sujo', 'nome do arquivo com HTML não é usado (vale o nome validado)');
@@ -102,7 +103,7 @@ ok((await api('mundos/apagar', { codigo: mundo.codigo }, chato.token)).status ==
 ok((await api('mundos/exportar', { codigo: mundo.codigo }, chato.token)).status === 403, 'membro não exporta');
 ok((await api('mundos/editar', { codigo: mundo.codigo, nome: 'Fazenda 12345' }, dono.token)).status === 400, 'dono: nome com 5 números barrado');
 ok((await api('mundos/editar', { codigo: mundo.codigo, nome: ['Mundo'] }, dono.token)).status === 400, 'dono: nome que não é texto barrado');
-const est = await api('mundos/editar', { codigo: mundo.codigo, opcoes: '{"monstros":true,"tamanho":"pequeno"}' }, dono.token);
+const est = await api('mundos/editar', { codigo: mundo.codigo, opcoes: '{"selvagens":false,"tamanho":"pequeno"}' }, dono.token);
 ok(est.mundo && est.mundo.opcoes.tamanho === 'grande', 'opções como texto: tamanho continua travado');
 const arr = await api('mundos/editar', { codigo: mundo.codigo, opcoes: [true, false] }, dono.token);
 ok(arr.mundo && arr.mundo.nome === 'Mundo Alvo', 'opções como lista: nada quebra');
