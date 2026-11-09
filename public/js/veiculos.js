@@ -1,11 +1,12 @@
 // Veículos de blocos: carros, caminhão, ônibus, trator, moto, bicicleta, skate, barco, avião e helicóptero.
-// Cada tipo é só uma ficha (medidas, velocidade, lugares e o desenho em caixinhas); a física é a mesma para todos,
-// mudando conforme o "meio": terra, água, ar (avião) ou hélice (helicóptero). Ninguém se machuca: os veículos
-// atravessam as pessoas e freiam sozinhos na frente dos bichos.
+// Cada tipo é só uma ficha (medidas, velocidade, lugares e o desenho em caixinhas); a física (fisica-veiculos.js)
+// é a mesma para todos, mudando conforme o "meio": terra, água, ar (avião) ou hélice (helicóptero), com alguns
+// números por tipo (aderência, mola, densidade) em FISICA. Ninguém se machuca: os veículos atravessam as pessoas
+// e freiam sozinhos na frente dos bichos.
 import * as THREE from '../vendor/three.module.min.js';
 import { caixa, juntar, matModelo } from './modelos.js';
 import { SOLIDO, AGUA } from './blocos.js';
-import { ALT } from './mundo.js';
+import * as F from './fisica-veiculos.js';
 
 export const CORES_VEICULO = [0xe53935, 0x1e88e5, 0xfdd835, 0x43a047, 0xf5f5f5, 0xfb8c00, 0xf48fb1, 0x8e24aa];
 
@@ -238,7 +239,7 @@ export class Veiculos {
     const [x, y, z] = dados.p;
     const v = {
       id: dados.id, tipo: dados.tipo, cor: dados.cor | 0, d, ...m,
-      x, y, z, yaw: dados.r || 0, pitch: 0, roll: 0, vel: 0, vy: 0, yVis: y, noChao: false,
+      x, y, z, yaw: dados.r || 0, pitch: 0, roll: 0, vel: 0, lat: 0, vy: 0, yVis: y, noChao: false,
       ocup: new Array(d.assentos.length).fill(null), bonecos: new Array(d.assentos.length).fill(null),
       alvo: null, giroRoda: 0, girohelice: 0, motorLigado: 0, viraRoda: 0, salvo: 0,
     };
@@ -281,7 +282,7 @@ export class Veiculos {
       v.corpo.add(boneco.grupo);
       v.bonecos[a] = boneco;
     }
-    if (a === 0) { v.alvo = null; v.vel = 0; }
+    if (a === 0) { v.alvo = null; v.vel = 0; v.lat = 0; v.dorme = 0; }
   }
   desocupar(v, a) {
     v.ocup[a] = null;
@@ -373,7 +374,8 @@ export class Veiculos {
     }
   }
 
-  // ---------- física ----------
+  // ---------- física (em fisica-veiculos.js) ----------
+  // caixa inteira do veículo (para achar lugar livre ao criar)
   colide(v, x, y, z, yaw) {
     const d = v.d, m = this.mundo;
     const n = Math.max(1, Math.ceil(d.L / Math.max(d.W, 0.8)));
@@ -389,145 +391,49 @@ export class Veiculos {
     }
     return false;
   }
+  // paredes ao andar (só acima do degrau de 1 bloco, com a caixa inclinada junto com o chão)
+  colideCorpo(v, x, y, z, yaw, pitch) { return F.colideCorpo(this, v, x, y, z, yaw, pitch); }
 
-  // tocando a água (para a velocidade) e afundado (para boiar)
-  naAgua(v) { return !!AGUA[this.mundo.bloco(Math.floor(v.x), Math.floor(v.y + 0.1), Math.floor(v.z))] || this.afundado(v); }
-  afundado(v) { return !!AGUA[this.mundo.bloco(Math.floor(v.x), Math.floor(v.y + 0.5), Math.floor(v.z))]; }
-  boiar(v, dt) {
-    if (this.afundado(v)) v.vy += 30 * dt;
-    v.vy -= 25 * 0.6 * dt;
-    v.vy *= Math.max(0, 1 - 3 * dt);
-  }
+  // água: superfície (ou null), fração submersa 0..1 e empuxo (veja empuxo() em fisica-veiculos.js)
+  nivelAgua(v) { return F.nivelAgua(this, v); }
+  submersao(v) { return F.submersao(this, v); }
+  empuxo(v, dt, densidade) { return F.empuxo(this, v, dt, densidade); }
+  naAgua(v) { return F.submersao(this, v) > 0; }
+  afundado(v) { return F.submersao(this, v) >= 0.99; }
+  boiar(v, dt) { if (!this.empuxo(v, dt)) v.vy -= F.GRAV * dt; }
 
-  // altura do chão perto de y (para inclinar o corpo)
+  // altura do chão (ou da água) perto de y
   chaoPerto(x, y, z) {
     const bx = Math.floor(x), bz = Math.floor(z);
     for (let by = Math.floor(y) + 1; by > y - 3; by--) { const b = this.mundo.bloco(bx, by - 1, bz); if (SOLIDO[b] || AGUA[b]) return by; }
     return y - 3;
   }
+  // pose do chão pelas 4 rodas: { y, p (pitch), r (roll), bloco }
+  chaoRodas(v) { return F.chaoRodas(this, v); }
 
   // ent: { frente, lado, subir, descer }; obst: [{x,z}] (bichos e pessoas: o veículo freia antes)
   dirigir(v, dt, ent, obst) {
-    // passos de no máximo 0,05 s: num tablet lento (poucos quadros) o veículo anda na mesma velocidade
-    if (dt > 0.05) { const n = Math.min(4, Math.ceil(dt / 0.05)); for (let i = 0; i < n; i++) this.dirigir(v, dt / n, ent, obst); return; }
-    const d = v.d;
-    const agua = this.naAgua(v);
-    const voa = d.meio === 'ar' || d.meio === 'helice';
-    let vmax = d.vmax;
-    if (d.meio === 'terra' && agua) vmax *= 0.35; // carro na água boia e vai devagarzinho
-    if (d.meio === 'agua' && !agua) vmax *= 0.18; // barco na terra só se arrasta
-    const a = ent.frente;
-    if (a > 0.05) v.vel = v.vel < 0 ? v.vel + d.acel * 2 * dt : Math.min(vmax * Math.min(1, a * 1.15), v.vel + d.acel * a * dt);
-    else if (a < -0.05) v.vel = v.vel > 0.3 ? v.vel - d.acel * 2.2 * dt : Math.max(voa ? 0 : -d.vmax * 0.35, v.vel + d.acel * 0.6 * a * dt);
-    else v.vel -= Math.sign(v.vel) * Math.min(Math.abs(v.vel), (voa && !v.noChao ? 0.6 : 2.5 + Math.abs(v.vel) * 0.15) * dt);
-    if (v.vel > vmax) v.vel = Math.max(vmax, v.vel - d.acel * 1.5 * dt);
-
-    // freia sozinho na frente de bichos e pessoas (ninguém se machuca)
-    if (!(voa && !v.noChao) && Math.abs(v.vel) > 0.2) {
-      const sentido = Math.sign(v.vel);
-      for (const o of obst) {
-        if (Math.abs((o.y ?? v.y) - v.y) > 3) continue;
-        const l = this.local(v, o.x, o.z);
-        const frente = -l.z * sentido - d.L / 2; // distância à frente do para-choque
-        if (frente > -0.3 && frente < 3 && Math.abs(l.x) < d.W / 2 + 0.6) {
-          const lim = Math.max(0, frente - 0.4) * 2.2;
-          if (Math.abs(v.vel) > lim) v.vel = sentido * lim;
-        }
-      }
-    }
-
-    // direção
-    const fator = voa && !v.noChao ? 1 : Math.min(1, Math.abs(v.vel) / 2.5);
-    const giro = ent.lado * d.giro * fator / (1 + Math.abs(v.vel) * 0.025);
-    v.yaw = angulo(v.yaw - giro * dt * (v.vel < 0 ? -1 : 1));
-    v.viraRoda += (ent.lado * 0.45 - v.viraRoda) * Math.min(1, dt * 8);
-
-    // anda (frente = -z)
-    const fx = -Math.sin(v.yaw), fz = -Math.cos(v.yaw);
-    const nx = v.x + fx * v.vel * dt, nz = v.z + fz * v.vel * dt;
-    if (!this.colide(v, nx, v.y, nz, v.yaw)) { v.x = nx; v.z = nz; }
-    else if (v.noChao && !this.colide(v, nx, v.y + 1.02, nz, v.yaw) && !this.colide(v, v.x, v.y + 1.02, v.z, v.yaw)) {
-      // sobe degrau de 1 bloco (o corpo sobe suave pelo yVis)
-      v.y = Math.floor(v.y + 0.05) + 1; v.x = nx; v.z = nz; v.vy = 0;
-    } else {
-      if (Math.abs(v.vel) > 4) this.som.ruido(0.12, { vol: 0.25, freq: 380 });
-      v.vel *= -0.2;
-    }
-
-    // vertical
-    const g = 25;
-    if (d.meio === 'helice') {
-      const alvo = ((ent.subir ? 1 : 0) - (ent.descer ? 1 : 0)) * 6;
-      v.vy += (alvo - v.vy) * Math.min(1, dt * 4);
-      v.motorLigado = 1;
-    } else if (d.meio === 'ar') {
-      const sobe = v.vel >= d.decola;
-      if (sobe) {
-        const alvo = ((ent.subir ? 1 : 0) - (ent.descer ? 1 : 0)) * 6 + (v.noChao ? 0 : 0);
-        v.vy += (alvo - v.vy) * Math.min(1, dt * 3);
-        if (v.noChao && ent.subir) v.vy = 3;
-      } else if (!v.noChao) v.vy += (-4 - v.vy) * Math.min(1, dt * 2); // plana devagar até o chão
-      else v.vy -= g * dt;
-    } else if (agua) this.boiar(v, dt);
-    else v.vy = Math.max(-30, v.vy - g * dt);
-    this.moverVertical(v, dt);
-    if (v.y > ALT + 40) { v.y = ALT + 40; v.vy = Math.min(0, v.vy); }
-
-    // inclinação
-    const s = Math.sin(v.yaw), co = Math.cos(v.yaw);
-    let pitchAlvo = 0, rollAlvo = 0;
-    if (voa && !v.noChao) {
-      pitchAlvo = d.meio === 'ar' ? Math.atan2(v.vy, Math.max(4, v.vel)) * 0.8 : -v.vel / d.vmax * 0.18;
-      rollAlvo = -ent.lado * (d.meio === 'ar' ? 0.5 : 0.18);
-    } else if (!agua) {
-      const off = d.L * 0.4;
-      const hf = this.chaoPerto(v.x - s * off, v.y, v.z - co * off), hb = this.chaoPerto(v.x + s * off, v.y, v.z + co * off);
-      pitchAlvo = THREE.MathUtils.clamp(Math.atan2(hf - hb, d.L * 0.8), -0.45, 0.45);
-      if (d.inclina) rollAlvo = -ent.lado * Math.min(1, Math.abs(v.vel) / 6) * 0.35;
-    } else {
-      pitchAlvo = Math.min(0.12, v.vel * 0.01); // nariz do barco levanta
-      rollAlvo = Math.sin(performance.now() / 700) * 0.03;
-    }
-    const k = Math.min(1, dt * 6);
-    v.pitch += (pitchAlvo - v.pitch) * k; v.roll += (rollAlvo - v.roll) * k;
+    v.dorme = 0;
+    F.passo(this, v, dt, ent, obst, true);
     this.posicionar(v, dt);
   }
 
-  moverVertical(v, dt) {
-    const ny = v.y + v.vy * dt;
-    if (!this.colide(v, v.x, ny, v.z, v.yaw)) { v.y = ny; v.noChao = false; return; }
-    if (v.vy < 0) {
-      const base = Math.floor(ny);
-      v.y = base + (this.colide(v, v.x, base, v.z, v.yaw) ? 1 : 0);
-      if (this.colide(v, v.x, v.y, v.z, v.yaw)) v.y = Math.floor(v.y) + 1;
-      v.noChao = true;
-    }
-    v.vy = 0;
-  }
-
-  // veículo sem motorista: só cai/boia até parar
+  // veículo sem motorista: cai, boia, escorrega até parar e depois dorme
   assentar(v, dt) {
-    if (dt > 0.05) { const n = Math.min(4, Math.ceil(dt / 0.05)); for (let i = 0; i < n; i++) this.assentar(v, dt / n); return; }
-    const agua = this.naAgua(v);
-    if (v.d.meio === 'helice' || v.d.meio === 'ar') v.vy += (-4 - v.vy) * Math.min(1, dt * 2); // desce devagar, de paraquedas
-    else if (agua) this.boiar(v, dt);
-    else v.vy = Math.max(-30, v.vy - 25 * dt);
-    v.vel *= Math.max(0, 1 - dt * 2);
-    if (Math.abs(v.vel) > 0.05) {
-      const nx = v.x - Math.sin(v.yaw) * v.vel * dt, nz = v.z - Math.cos(v.yaw) * v.vel * dt;
-      if (!this.colide(v, nx, v.y, nz, v.yaw)) { v.x = nx; v.z = nz; } else v.vel = 0;
-    }
-    this.moverVertical(v, dt);
-    v.pitch *= 1 - Math.min(1, dt * 3); v.roll *= 1 - Math.min(1, dt * 3);
+    if (v.dorme > dt) { v.dorme -= dt; return; }
+    F.assentar(this, v, dt);
     this.posicionar(v, dt);
   }
 
-  posicionar(v, dt = 1) {
-    v.yVis += (v.y - v.yVis) * Math.min(1, dt * 12);
-    if (Math.abs(v.y - v.yVis) > 3) v.yVis = v.y;
+  posicionar(v, dt = 1) { // eslint-disable-line no-unused-vars
+    v.yVis = v.y; // a física já anda suave (degraus sobem aos poucos)
     v.grupo.position.set(v.x, v.yVis, v.z);
     v.grupo.rotation.set(0, v.yaw, 0);
     v.corpo.rotation.set(v.pitch, 0, v.roll, 'YXZ');
+    // suspensão: o corpo sobe e desce na mola e as rodas ficam no chão
+    const h = v.su ? v.su.h : 0;
+    v.corpo.position.y = h;
+    for (const r of v.rodas) { if (r.userData.y0 === undefined) r.userData.y0 = r.position.y; r.position.y = r.userData.y0 - h; }
   }
 
   // pose vinda da rede (motorista é outra pessoa)
