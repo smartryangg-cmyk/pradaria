@@ -1,5 +1,5 @@
 // Armas de brinquedo (opção "Armas" do mundo): duas armas na mão, munição por tipo, recarga, mira com zoom,
-// tiro com acerto e dano (corpo e cabeça), itens espalhados pelo mapa, alvos de treino, queda e renascimento.
+// tiro com acerto e dano (corpo e cabeça; bicho não se machuca, o selvagem só foge), itens espalhados pelo mapa, alvos de treino, queda e renascimento.
 // Funciona em qualquer tipo de mundo; no multijogador o servidor repassa os tiros, confere os acertos e
 // decide quem pegou cada item do chão.
 import * as THREE from '../vendor/three.module.min.js';
@@ -97,7 +97,7 @@ function modeloAlvo() {
 
 export class Armas {
   constructor(o) {
-    this.o = o; // { cena, camera, som, aviso, outros, mundo, monstros, jog, sala, euId, nomeEu, parado, fovBase, controles }
+    this.o = o; // { cena, camera, som, aviso, outros, mundo, bichos, jog, sala, euId, nomeEu, parado, fovBase, controles }
     this.slots = [null, null]; // { a, pente }
     this.sel = -1; // -1 = mãos (blocos/carinho)
     this.reserva = { leve: 0, media: 0, cartucho: 0, pesada: 0 };
@@ -301,10 +301,10 @@ export class Armas {
         danos.set(h.jogador, (danos.get(h.jogador) || 0) + d);
         acertouAlgo = true; cabeca = cabeca || h.cabeca;
         this.faiscas(fim, 0xffe08a, 4);
-      } else if (h.monstro) {
-        const mon = this.o.monstros();
-        if (mon) mon.espantar(h.monstro);
-        acertouAlgo = true;
+      } else if (h.bicho) {
+        const bichos = this.o.bichos();
+        if (bichos && h.bicho.I && h.bicho.I.selvagem) bichos.espantar(h.bicho);
+        this.faiscas(fim, 0xffffff, 2);
       } else if (h.extra) {
         h.extra(h.cabeca ? A.dano * CABECA : A.dano, h.cabeca, fim);
         acertouAlgo = true; cabeca = cabeca || h.cabeca;
@@ -333,7 +333,7 @@ export class Armas {
     this.desenhar();
   }
 
-  // o que o tiro encontra primeiro: bloco, jogador (corpo/cabeça), monstrinho ou alvo de treino
+  // o que o tiro encontra primeiro: bloco, jogador (corpo/cabeça), bicho ou alvo de treino
   lancar(o, dir, alcance) {
     const mundo = this.o.mundo();
     const hb = mundo.raycast(o, dir, alcance);
@@ -348,8 +348,9 @@ export class Armas {
       const th = raioCaixa(o, dir, mn, mx, melhor.t);
       if (th >= 0 && th < melhor.t) melhor = { t: th, jogador: id, cabeca: true };
     }
-    const mon = this.o.monstros();
-    if (mon) { const hm = mon.atingir(o, dir, melhor.t); if (hm && hm.t < melhor.t) melhor = { t: hm.t, monstro: hm.monstro }; }
+    // bichos: o tiro de brinquedo não machuca; para no bicho e o selvagem se assusta e foge
+    const bichos = this.o.bichos();
+    if (bichos) { const hb = bichos.atingir(o, dir, melhor.t); if (hb && hb.t < melhor.t) melhor = { t: hb.t, bicho: hb.bicho }; }
     // alvos de outros módulos: { min, max, aoAcertar(dano, cabeca, p) } ou { testar(o, dir, max) -> { t, aoAcertar, cabeca } }
     for (const x of this.alvosExtras) {
       if (x.testar) { const r = x.testar(o, dir, melhor.t); if (r && r.t >= 0 && r.t < melhor.t) melhor = { t: r.t, extra: r.aoAcertar, cabeca: !!r.cabeca }; continue; }

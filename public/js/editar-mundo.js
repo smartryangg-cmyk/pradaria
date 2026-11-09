@@ -1,12 +1,29 @@
 // Editar um mundo já criado (só o dono): nome e opções.
 // A lista de opções vem de OPCOES_MUNDO (opcoes-mundo.js): uma opção nova aparece aqui sozinha.
 // Tipo, tamanho e gerador fazem o terreno, então aparecem travados (FIXAS_AO_CRIAR).
-import { OPCOES_MUNDO, TAMANHOS, TIPOS, normalizarOpcoes, editarOpcoes, opcoesMudadas, precisaRecarregar } from './opcoes-mundo.js';
+import { OPCOES_MUNDO, TAMANHOS, TIPOS, ESTILOS, normalizarOpcoes, editarOpcoes, opcoesMudadas, precisaRecarregar } from './opcoes-mundo.js';
 import { icone } from './icones.js';
 import { api } from './rede.js';
 import { montarArquivo, lerArquivo, nomeArquivo } from './arquivo-mundo.js';
 
 const $ = (s) => document.querySelector(s);
+
+// escolha do jeito do mundo (Blocos / Natural 3D): botões de rádio, na criação e na edição
+export function desenharEstilos(l, escolha, aoMudar) {
+  l.innerHTML = '';
+  for (const [id, t] of Object.entries(ESTILOS)) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'opcao-mundo'; b.dataset.estilo = id; b.setAttribute('role', 'radio');
+    b.innerHTML = '<span class="ic"></span><b></b><small></small>';
+    b.querySelector('.ic').innerHTML = icone(t.icone); b.querySelector('b').textContent = t.nome; b.querySelector('small').textContent = t.desc;
+    b.addEventListener('click', () => { escolha.estilo = id; marcarEstilos(l, escolha); aoMudar && aoMudar('estilo'); });
+    l.appendChild(b);
+  }
+  marcarEstilos(l, escolha);
+}
+export function marcarEstilos(l, escolha) {
+  for (const b of l.children) { const sel = b.dataset.estilo === escolha.estilo; b.setAttribute('aria-pressed', String(sel)); b.setAttribute('aria-checked', String(sel)); }
+}
 
 // botões liga/desliga das opções (mesmos da criação do mundo); `escolha` é alterado na hora
 export function desenharListaOpcoes(l, escolha, aoMudar) {
@@ -20,9 +37,9 @@ export function desenharListaOpcoes(l, escolha, aoMudar) {
     b.querySelector('small').textContent = o.desc;
     b.addEventListener('click', () => {
       escolha[o.id] = !escolha[o.id];
-      // "Monstros machucam" só faz sentido com monstrinhos: um liga/desliga o outro
-      if (o.id === 'monstrosMachucam' && escolha.monstrosMachucam) escolha.monstros = true;
-      if (o.id === 'monstros' && !escolha.monstros) escolha.monstrosMachucam = false;
+      // "Animais podem machucar" só faz sentido com bichos selvagens: um liga/desliga o outro
+      if (o.id === 'selvagensMachucam' && escolha.selvagensMachucam) escolha.selvagens = true;
+      if (o.id === 'selvagens' && !escolha.selvagens) escolha.selvagensMachucam = false;
       marcarLista(l, escolha);
       aoMudar && aoMudar(o.id);
     });
@@ -31,12 +48,12 @@ export function desenharListaOpcoes(l, escolha, aoMudar) {
   marcarLista(l, escolha);
 }
 export function marcarLista(l, escolha) {
-  // alguns tipos não têm monstrinhos (ex.: Linha do Tempo)
-  const sem = !!(TIPOS[escolha.tipo] && TIPOS[escolha.tipo].semMonstros);
+  // alguns tipos têm os próprios bichos (ex.: Linha do Tempo)
+  const sem = !!(TIPOS[escolha.tipo] && TIPOS[escolha.tipo].semSelvagens);
   for (const b of l.children) {
     const id = b.dataset.opcao;
-    if (sem && (id === 'monstros' || id === 'monstrosMachucam')) escolha[id] = false;
-    b.disabled = sem && (id === 'monstros' || id === 'monstrosMachucam');
+    if (sem && (id === 'selvagens' || id === 'selvagensMachucam')) escolha[id] = false;
+    b.disabled = sem && (id === 'selvagens' || id === 'selvagensMachucam');
     b.setAttribute('aria-pressed', String(!!escolha[id]));
   }
 }
@@ -93,7 +110,9 @@ export function abrirEditarMundo({ mundo = null, opcoes, salvarLocal = null, aoS
     av.textContent = partes.join(' ');
     av.hidden = !partes.length;
     for (const b of lista.children) b.classList.toggle('mudou', mudou.includes(b.dataset.opcao));
+    for (const b of $('#e-estilos').children) b.classList.toggle('mudou', mudou.includes('estilo') && b.dataset.estilo === escolha.estilo);
   };
+  desenharEstilos($('#e-estilos'), escolha, () => { som && som(); atualizarAvisos(); });
   desenharListaOpcoes(lista, escolha, () => { som && som(); atualizarAvisos(); });
   atualizarAvisos();
   const salvar = $('#e-salvar');
