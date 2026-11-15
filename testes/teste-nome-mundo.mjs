@@ -16,7 +16,7 @@ async function jogador(nome, tablet) {
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
   if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
   await p.click('#c-ok');
-  await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
+  await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])', { timeout: 15000 }); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 }); } })();
   return p;
 }
 async function criar(p, nomeNovo, foto) {
@@ -32,7 +32,7 @@ async function criar(p, nomeNovo, foto) {
   // sai do mundo pelo menu (botão de menu na tela) e volta para a lista
   await p.click('#bt-menu');
   await p.click('#bt-sair-mundo');
-  await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
+  await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])', { timeout: 15000 }); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 }); } })();
   return { sugerido, nomeNoJogo };
 }
 const sfx = Date.now() % 10000;
@@ -54,7 +54,7 @@ for (const [rot, tablet] of [['pc', false], ['tablet', true]]) {
   await p.screenshot({ path: `${SAIDA}/${rot}-4-lista-e-sugestao.png` });
   // código de amigo não vem preenchido
   await p.click('[data-voltar-mundos]');
-  await p.waitForSelector('#m-mundos:not([hidden])');
+  await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])'); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])'); } })();
   await p.screenshot({ path: `${SAIDA}/${rot}-5-lista.png` });
   await p.click('#bt-codigo');
   conferir(await p.inputValue('#n-nome') === '', `${rot}: entrar por código não vem preenchido`);

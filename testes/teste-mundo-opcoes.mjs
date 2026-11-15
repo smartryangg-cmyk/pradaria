@@ -58,7 +58,7 @@ await q.click('#bt-criar-conta');
 await q.fill('#c-nome', nome); await q.fill('#c-senha', 'senha123');
 if (await q.isVisible('#c-adulto-ok')) await q.check('#c-adulto-ok');
 await q.click('#c-ok');
-await q.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
+await (async () => { await q.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])', { timeout: 15000 }); if (await q.isVisible('#m-jogos')) { await q.click('.jogo[data-jogo=pradaria]'); await q.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 }); } })();
 await q.click('#bt-novo-mundo');
 await q.fill('#n-nome', 'Ilha Monstro');
 await q.click('[data-tamanho=pequeno]');

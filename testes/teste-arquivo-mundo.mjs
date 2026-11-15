@@ -23,7 +23,7 @@ async function criarConta(p, nome, aperta) {
   await aperta(p, '#bt-criar-conta');
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
   await aperta(p, '#c-ok');
-  await p.waitForSelector('#m-mundos:not([hidden])');
+  await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])'); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])'); } })();
 }
 const naSala = (p) => p.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala && !document.querySelector('#hud').hidden, null, { timeout: 60000 });
 const noJogo = (p) => p.waitForFunction(() => window.__jogo && window.__jogo.jog && !document.querySelector('#hud').hidden, null, { timeout: 60000 });
@@ -81,7 +81,7 @@ await A.click('#e-cancelar'); await A.click('#pausa [data-fechar]');
 
 // ---------- importar pela lista: vira um mundo novo ----------
 await A.click('#bt-menu'); await A.click('#bt-sair-mundo');
-await A.waitForSelector('#m-mundos:not([hidden])');
+await (async () => { await A.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])'); if (await A.isVisible('#m-jogos')) { await A.click('.jogo[data-jogo=pradaria]'); await A.waitForSelector('#m-mundos:not([hidden])'); } })();
 // arquivo errado
 const ruim = SAIDA + '/nao-e-mundo.json';
 (await import('fs')).writeFileSync(ruim, '{"oi":1}');
@@ -103,7 +103,7 @@ await A.evaluate(() => { const j = window.__jogo.jog; j.voando = true; j.pos.x =
 await A.waitForTimeout(2500);
 await A.screenshot({ path: SAIDA + '/arquivo-pc-torre-importada.png' });
 await A.click('#bt-menu'); await A.click('#bt-sair-mundo');
-await A.waitForSelector('#m-mundos:not([hidden])');
+await (async () => { await A.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])'); if (await A.isVisible('#m-jogos')) { await A.click('.jogo[data-jogo=pradaria]'); await A.waitForSelector('#m-mundos:not([hidden])'); } })();
 
 // ---------- apagar pela lista (o amigo está jogando nele) ----------
 await A.click('#lista-mundos .linha-mundo:has-text("Castelo Azul") .bt-editar');
@@ -116,7 +116,7 @@ A.once('dialog', (d) => { conferir(/para sempre/.test(d.message()), 'confirmaç�
 await A.click('#e-apagar');
 await A.waitForFunction(() => document.querySelectorAll('#lista-mundos .mundo').length === 1, null, { timeout: 30000 });
 conferir(!(await A.textContent('#lista-mundos')).includes('Castelo Azul'), 'mundo apagado some da lista do dono');
-await B.waitForSelector('#m-mundos:not([hidden])', { timeout: 30000 });
+await (async () => { await B.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])', { timeout: 30000 }); if (await B.isVisible('#m-jogos')) { await B.click('.jogo[data-jogo=pradaria]'); await B.waitForSelector('#m-mundos:not([hidden])', { timeout: 30000 }); } })();
 conferir(/apagou/.test(await B.textContent('#mundos-erro')), 'amigo sai do mundo com aviso: ' + await B.textContent('#mundos-erro'));
 await B.waitForTimeout(800);
 conferir(!(await B.textContent('#lista-mundos')).includes('Castelo Azul'), 'mundo apagado some da lista do amigo');
@@ -131,7 +131,7 @@ await toque(B, '#bt-menu'); await toque(B, '#bt-editar-mundo'); await toque(B, '
 await B.screenshot({ path: SAIDA + '/arquivo-tablet-opcoes.png' });
 B.once('dialog', (d) => d.accept());
 await toque(B, '#e-apagar');
-await B.waitForSelector('#m-mundos:not([hidden])', { timeout: 30000 });
+await (async () => { await B.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])', { timeout: 30000 }); if (await B.isVisible('#m-jogos')) { await B.click('.jogo[data-jogo=pradaria]'); await B.waitForSelector('#m-mundos:not([hidden])', { timeout: 30000 }); } })();
 await B.waitForTimeout(800);
 conferir(!(await B.textContent('#lista-mundos')).includes('Casa do Amigo'), 'tablet: apagar dentro do jogo volta para a lista sem o mundo');
 

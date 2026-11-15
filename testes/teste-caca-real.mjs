@@ -191,7 +191,7 @@ if (!process.env.SEM_ONLINE) {
     await aperta('#bt-criar-conta');
     await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
     await aperta('#c-ok');
-    await p.waitForSelector('#m-mundos:not([hidden])');
+    await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])'); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])'); } })();
   }
   const naSala = (p) => p.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala && !document.querySelector('#hud').hidden, null, { timeout: 60000 });
   await conta(A, 'Caca' + sfx, (s) => A.click(s));
