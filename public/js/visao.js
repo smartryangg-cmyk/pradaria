@@ -5,7 +5,8 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { montarBoneco, animarBoneco } from './modelos.js';
 import { OLHOS } from './jogador.js';
-import { AGUA } from './blocos.js';
+import { AGUA, SOLIDO } from './blocos.js';
+import { FORMA_NOVA, colideForma } from './formas.js';
 
 export const MODOS = [
   { nome: 'olhos', texto: 'Vendo com os olhos', icone: 'camera' },
@@ -25,6 +26,30 @@ const BOB = 0.035;
 const suave = (a, b, taxa, dt) => a + (b - a) * Math.min(1, taxa * dt);
 
 const v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3();
+const CANTOS_TELA = [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, 0]];
+
+// o ponto está dentro de um bloco sólido (seguindo a forma: meio bloco, bola, cerca...)?
+export function pontoNoBloco(mundo, x, y, z) {
+  const bx = Math.floor(x), by = Math.floor(y), bz = Math.floor(z);
+  for (let dy = -1; dy <= 0; dy++) { // a cerca (1,5 de altura) entra na célula de cima
+    const k = mundo.bloco(bx, by + dy, bz);
+    if (!SOLIDO[k]) continue;
+    if (!FORMA_NOVA[k]) { if (dy === 0) return true; continue; }
+    const get = (a, b, c) => mundo.bloco(a, b, c), e = 0.002;
+    if (colideForma(k, get, bx, by + dy, bz, x - e, y - e, z - e, x + e, y + e, z + e)) return true;
+  }
+  return false;
+}
+
+// a tela da câmera (o plano de perto: 4 cantos e o meio) encosta em algum bloco?
+export function telaNoBloco(camera, mundo) {
+  camera.updateMatrixWorld();
+  for (const [a, b] of CANTOS_TELA) {
+    v1.set(a, b, -1).unproject(camera);
+    if (pontoNoBloco(mundo, v1.x, v1.y, v1.z)) return true;
+  }
+  return false;
+}
 
 export class Visao {
   constructor(cena) {
@@ -164,6 +189,16 @@ export class Visao {
       this.suavizar(alvo, dt);
       camera.position.copy(olho).addScaledVector(frente, this.dist);
       camera.rotation.set(-pitch, yaw + Math.PI, 0, 'YXZ'); // olha de volta para o rosto (lookAt falha com a câmera colada no olho)
+    }
+    // ainda encostou num bloco (teto baixo bem em cima do ombro, quina): chega mais perto dos olhos,
+    // que estão sempre livres (dentro da caixa do corpo), até a tela não entrar em nada
+    if (telaNoBloco(camera, mundo)) {
+      v2.copy(camera.position);
+      for (let i = 1; i <= 10; i++) {
+        camera.position.lerpVectors(v2, olho, i / 10);
+        if (!telaNoBloco(camera, mundo)) break;
+      }
+      this.dist = Math.min(this.dist, camera.position.distanceTo(olho));
     }
     // câmera muito perto (encostado na parede): some com o boneco para não tampar a tela
     b.grupo.visible = this.dist > 0.9;

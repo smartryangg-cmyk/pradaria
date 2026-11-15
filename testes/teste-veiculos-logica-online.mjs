@@ -66,11 +66,15 @@ ok(Math.abs(ca.c - cb.c) < 0.01 && Math.abs(ca.d - cb.d) < 0.01, `B vê o tanque
 
 // posto: a sala cobra e manda o carro cheio para todos
 const pp = await a.evaluate(() => { const q = [...window.__jogo.garagem.postos.values()][0]; return { x: q.x, y: q.y, z: q.z }; });
-await a.evaluate((q) => { const g = window.__jogo.garagem, v = g.dentro.v; v.x = q.x + 1.5; v.z = q.z; v.y = q.y; v.yVis = q.y; v.vel = 0; g._esperado = null; g._tPosto = 0; }, pp);
+await a.evaluate((q) => { const g = window.__jogo.garagem, v = g.dentro.v, vg = g.vagaPosto([...g.postos.values()][0], 1); v.x = vg.x; v.z = vg.z; v.yaw = vg.yaw; v.y = q.y; v.yVis = q.y; v.vel = 0; g._esperado = null; g._tPosto = 0; }, pp);
 await a.waitForTimeout(1500);
 ok(await a.isVisible('#bt-abastecer'), 'A vê o botão Abastecer no posto');
 const m0 = await a.evaluate(() => window.__jogo.mercado.e.moedas);
 await a.click('#bt-abastecer');
+await a.waitForFunction(() => !!window.__jogo.garagem.enchendo, null, { timeout: 4000 }).catch(() => {});
+const enc = await a.evaluate(() => { const g = window.__jogo.garagem; return g.enchendo ? [g.enchendo.k, g.enchendo.de, g.dentro.v.comb] : null; });
+ok(!!enc && enc[1] < 0.9, `no online A vê o tanque encher aos poucos depois da sala cobrar (${JSON.stringify(enc)})`);
+await a.waitForFunction(() => !window.__jogo.garagem.enchendo, null, { timeout: 8000 }).catch(() => {});
 await a.waitForFunction(() => window.__jogo.garagem.dentro.v.comb === 1, null, { timeout: 5000 }).catch(() => {});
 await a.waitForTimeout(800);
 const m1 = await a.evaluate(() => window.__jogo.mercado.e.moedas);

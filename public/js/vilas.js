@@ -157,6 +157,33 @@ export class Vilas {
         rua.lados.push({ t, lado, est });
       }
     });
+    // posto de combustível (com a garagem do lado) no fim de uma rua, num pátio de concreto aplainado
+    // (só com a opção Veículos). garagem.js põe a cobertura, as bombas e a garagem em cima dele.
+    if (opcoesMundo.veiculos !== false) for (const rua of v.ruas) {
+      const tc = 4 + rua.L + 11; // meio do pátio, ao longo da rua (depois das últimas casas)
+      const cantos = [];
+      for (const t of [tc - 4, tc + 4]) for (const q of [-10, 5]) cantos.push(this.ponto(C, rua.dx, rua.dz, t, q));
+      const r = [Math.min(...cantos.map((c) => c[0])), Math.min(...cantos.map((c) => c[1])), Math.max(...cantos.map((c) => c[0])), Math.max(...cantos.map((c) => c[1]))];
+      if (r[0] - 1 < rx * REGIAO || r[1] - 1 < rz * REGIAO || r[2] + 1 >= (rx + 1) * REGIAO || r[3] + 1 >= (rz + 1) * REGIAO) continue;
+      if (!livre(r)) continue;
+      const [px, pz] = this.ponto(C, rua.dx, rua.dz, tc, 0);
+      const y = Math.max(this.alt(px, pz), this.nivel + 1);
+      // a rua continua até o pátio, subindo ou descendo no máximo 1 bloco por passo (dá para ir de carro)
+      const ext = this.retRua(C, rua.dx, rua.dz, 4 + rua.L + 1, tc - 5, 1);
+      if (!livre(ext)) continue;
+      const [ex, ez] = this.ponto(C, rua.dx, rua.dz, 4 + rua.L, 0);
+      const h0 = Math.max(this.alt(ex, ez), this.nivel + 1), n = tc - 5 - (4 + rua.L);
+      if (Math.abs(y - h0) > n) continue;
+      ocupado.push(r, ext);
+      for (let i = 1; i <= n; i++) {
+        const t = 4 + rua.L + i, hy = Math.round(h0 + (y - h0) * i / (n + 1));
+        const [a0, b0] = this.ponto(C, rua.dx, rua.dz, t, -1), [a1, b1] = this.ponto(C, rua.dx, rua.dz, t, 1);
+        v.estruturas.push({ tipo: 'rampa', r: [Math.min(a0, a1), Math.min(b0, b1), Math.max(a0, a1), Math.max(b0, b1)], y: hy, mat: E.rua });
+      }
+      v.estruturas.push({ tipo: 'posto', r, y, x: px, z: pz });
+      v.posto = { x: px + 0.5, z: pz + 0.5, y: y + 1, yaw: Math.atan2(-rua.dx, -rua.dz), rua: v.ruas.indexOf(rua) };
+      break;
+    }
     // moinho de vento no fim da rua mais comprida (a hélice olha para a praça)
     const ruasPorTamanho = v.ruas.map((r, i) => [r.L, i]).sort((a, b) => b[0] - a[0]);
     for (const [, ri] of ruasPorTamanho) {
@@ -220,6 +247,8 @@ export class Vilas {
       else if (e.tipo === 'poste') this.pintarPoste(ctx, e);
       else if (e.tipo === 'fazenda') this.pintarFazenda(ctx, e);
       else if (e.tipo === 'moinho') this.pintarMoinho(ctx, e);
+      else if (e.tipo === 'posto') this.aplainar(ctx, e.r[0], e.r[1], e.r[2], e.r[3], e.y, BE.CONCRETO, 9);
+      else if (e.tipo === 'rampa') this.aplainar(ctx, e.r[0], e.r[1], e.r[2], e.r[3], e.y, e.mat, 6);
       else if (e.planta) this.pintarPlanta(ctx, e, v);
       else this.pintarCasa(ctx, e);
     }

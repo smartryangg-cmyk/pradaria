@@ -16,23 +16,38 @@ const PERTO_POSTO = 6.5;
 const ARVORE = new Set([B.FOLHAS, B.TRONCO, B.FOLHAS_PINHEIRO, B.TRONCO_PINHEIRO, B.TRONCO_BETULA, B.FOLHAS_SELVA].filter(Boolean)); // distância (centro do veículo até o posto) para abastecer/consertar
 const moedaHtml = (n) => `<span class="econ-m">${icone('moeda')}<span>${n}</span></span>`;
 
-// posto: chão de concreto, cobertura, bomba de gasolina, carregador e a placa da oficina (só enfeite: não é sólido)
+// posto: chão de concreto, cobertura, ilha com bomba de gasolina e carregador, placa, e a garagem do lado.
+// O carro para numa das duas faixas, do lado da ilha das bombas (x local entre 0,5 e 3), embaixo da cobertura.
 let geoPosto = null;
+const COLUNAS_POSTO = [[-3.1, -2.8], [3.1, -2.8], [-3.1, 2.8], [3.1, 2.8]];
+// partes sólidas (caixas locais: x0, y0, z0, x1, y1, z1): batem no carro e na pessoa
+const CAIXAS_POSTO = [
+  [-3.5, -1.6, -3.2, 3.5, 0, 3.2], [-8.8, -1.6, -3.1, -3.2, 0, 3.1], // piso de concreto (sobe-se nele como num degrau)
+  [-0.45, 0, -1.3, 0.45, 1.75, 1.3], // ilha das bombas
+  ...COLUNAS_POSTO.map(([x, z]) => [x - 0.13, 0, z - 0.13, x + 0.13, 3.8, z + 0.13]),
+  [3.9 - 0.12, 0, -3.5 - 0.12, 3.9 + 0.12, 4.6, -3.5 + 0.12], // poste da placa
+  [-8.8, 0, -3.1, -8.6, 3.6, 3.1], // fundo da garagem
+  [-8.8, 0, -3.0, -3.2, 3.6, -2.8], [-8.8, 0, 2.8, -3.2, 3.6, 3.0], // lados da garagem
+];
 function montarPosto() {
   if (!geoPosto) {
-    const c = caixa, CIM = 0xb9b4aa, TETO = 0xf4f4f4, VERM = 0xe53935, AZUL = 0x1e88e5, PRETO = 0x333333, AMAR = 0xfdd835;
+    const c = caixa, CIM = 0xb9b4aa, TETO = 0xf4f4f4, VERM = 0xe53935, AZUL = 0x1e88e5, PRETO = 0x333333, AMAR = 0xfdd835, FAIXA = 0xf4f4f4;
     geoPosto = juntar([
-      c(5.2, 0.12, 6.2, CIM, 0, 0.06, 0),
-      ...[[-2.3, -2.8], [2.3, -2.8], [-2.3, 2.8], [2.3, 2.8]].map(([x, z]) => c(0.22, 3.7, 0.22, TETO, x, 1.95, z)),
-      c(5.4, 0.3, 6.4, TETO, 0, 3.9, 0), c(5.44, 0.14, 6.44, VERM, 0, 3.72, 0),
-      // ilha das bombas no meio
+      c(7.0, 0.12, 6.4, CIM, 0, 0.06, 0), c(6.96, 1.5, 6.36, 0x9e9a92, 0, -0.75, 0), // piso e a base (onde o chão é mais baixo)
+      // faixas brancas das duas vagas (uma de cada lado da ilha)
+      ...[-1.75, 1.75].flatMap((x) => [c(0.1, 0.02, 5.6, FAIXA, x - 1.1, 0.13, 0), c(0.1, 0.02, 5.6, FAIXA, x + 1.1, 0.13, 0)]),
+      ...COLUNAS_POSTO.map(([x, z]) => c(0.24, 3.7, 0.24, TETO, x, 1.95, z)),
+      c(7.2, 0.3, 6.6, TETO, 0, 3.9, 0), c(7.24, 0.14, 6.64, VERM, 0, 3.72, 0),
+      // ilha das bombas no meio: gasolina (vermelha, com mangueira) e carregador (azul, com cabo)
       c(0.9, 0.25, 2.6, CIM, 0, 0.2, 0),
-      c(0.6, 1.4, 0.5, VERM, 0, 1.0, -0.7), c(0.5, 0.35, 0.06, 0xbfe6ff, 0, 1.35, -0.98), c(0.08, 0.5, 0.08, PRETO, 0.34, 0.8, -0.7),
+      c(0.6, 1.4, 0.5, VERM, 0, 1.0, -0.7), c(0.5, 0.35, 0.06, 0xbfe6ff, 0, 1.35, -0.98), c(0.5, 0.35, 0.06, 0xbfe6ff, 0, 1.35, -0.42),
+      ...[1, -1].map((l) => c(0.06, 0.9, 0.06, PRETO, l * 0.34, 0.75, -0.7)), ...[1, -1].map((l) => c(0.1, 0.18, 0.1, PRETO, l * 0.36, 1.25, -0.7)),
       c(0.6, 1.4, 0.5, AZUL, 0, 1.0, 0.7), c(0.5, 0.35, 0.06, 0xbfe6ff, 0, 1.35, 0.98), c(0.14, 0.14, 0.14, AMAR, 0, 1.85, 0.7),
+      ...[1, -1].map((l) => c(0.06, 0.9, 0.06, PRETO, l * 0.34, 0.75, 0.7)),
       // placa alta
-      c(0.18, 4.6, 0.18, PRETO, 3.3, 2.3, -3.3), c(1.4, 1.1, 0.16, VERM, 3.3, 4.9, -3.3), c(1.0, 0.7, 0.18, AMAR, 3.3, 4.9, -3.3),
+      c(0.2, 4.6, 0.2, PRETO, 3.9, 2.3, -3.5), c(1.4, 1.1, 0.16, VERM, 3.9, 4.9, -3.5), c(1.0, 0.7, 0.18, AMAR, 3.9, 4.9, -3.5),
       // garagem do lado: galpão aberto na frente, quadro de chaves na parede do fundo
-      c(5.6, 0.12, 6.2, CIM, -6, 0.06, 0),
+      c(5.6, 0.12, 6.2, CIM, -6, 0.06, 0), c(5.56, 1.5, 6.16, 0x9e9a92, -6, -0.75, 0),
       c(0.2, 3.6, 6.2, 0xd9c8a5, -8.7, 1.8, 0), ...[-2.9, 2.9].map((z) => c(5.6, 3.6, 0.2, 0xd9c8a5, -6, 1.8, z)),
       c(6.0, 0.3, 6.6, AZUL, -6, 3.75, 0),
       c(0.08, 1.0, 1.6, 0x8a5a2b, -8.56, 1.7, 0), ...[-0.5, 0, 0.5].map((z) => c(0.1, 0.22, 0.12, AMAR, -8.5, 1.8, z)),
@@ -43,6 +58,9 @@ function montarPosto() {
   m.castShadow = true; m.receiveShadow = true;
   return m;
 }
+// ponto local (lx, lz) do desenho do posto girado para o mundo (o desenho é feito com +x para o lado e -z para a frente)
+const doPosto = (p, lx, lz) => [p.x + lx * Math.cos(p.yaw) + lz * Math.sin(p.yaw), p.z - lx * Math.sin(p.yaw) + lz * Math.cos(p.yaw)];
+const noPosto = (p, wx, wz) => { const dx = wx - p.x, dz = wz - p.z, c = Math.cos(p.yaw), s = Math.sin(p.yaw); return [dx * c - dz * s, dx * s + dz * c]; };
 
 export class Garagem {
   // J: { cena, camera, som, aviso, corBoneco(), sala(), euId(), outros, jog(), ctrl(), mundo(), bichos(), aldeoes(), pausar(bool) }
@@ -478,6 +496,10 @@ export class Garagem {
   quadro(dt, ent, pausado) {
     if (!this.veic) return false;
     const J = this.J, jog = J.jog();
+    // partes sólidas do posto valem para o veículo e para a pessoa
+    if (!this._extra) this._extra = (x0, y0, z0, x1, y1, z1) => this.postos.size > 0 && this.solidoExtra(x0, y0, z0, x1, y1, z1);
+    this.veic.extraColide = this._extra;
+    if (jog && jog.extraColide !== this._extra) jog.extraColide = this._extra;
     // alguém teleportou o jogador (comandos, desmaio): desce do veículo e fica lá
     if (this.dentro && this._esperado && Math.hypot(jog.pos.x - this._esperado.x, jog.pos.y - this._esperado.y, jog.pos.z - this._esperado.z) > 3) {
       const p = { x: jog.pos.x, y: jog.pos.y, z: jog.pos.z }, yaw = this.dentro.v.yaw + jog.yaw;
@@ -491,7 +513,10 @@ export class Garagem {
       const al = J.aldeoes();
       if (al) for (const a of al.lista) obst.push(a);
       for (const o of J.outros.values()) if (!o.sentado) obst.push(o.grupo.position);
-      this.veic.dirigir(meu, dt, { frente: ent.frente, lado: ent.lado, subir: ent.pular, descer: ent.descer }, obst);
+      this.passoEnchendo(dt);
+      // enchendo o tanque: o veículo fica parado na bomba
+      const parado = !!this.enchendo;
+      this.veic.dirigir(meu, dt, { frente: parado ? 0 : ent.frente, lado: parado ? 0 : ent.lado, subir: !parado && ent.pular, descer: !parado && ent.descer }, obst);
       const d = meu.d;
       J.som.motor(this.veic.quebrado(meu) || this.veic.semEnergia(meu) ? 0.05 : Math.min(1, Math.abs(meu.vel) / d.vmax), d.grave || 1, d.som);
       $('#velo b').textContent = Math.round(Math.abs(meu.vel) * 3.6);
@@ -552,6 +577,14 @@ export class Garagem {
     const perto = this.pertoDeMim();
     $('#bt-veic-entrar').hidden = !perto;
     $('#bt-garagem-lugar').hidden = !this.ligados() || !this.garagemPerto();
+    // a pé do lado da bomba: explica como abastecer (uma vez por visita)
+    let naBomba = null;
+    for (const q of this.postos.values()) {
+      const [lx, lz] = noPosto(q, jog.pos.x, jog.pos.z);
+      if (Math.abs(lx) < 2.2 && Math.abs(lz) < 2.2 && Math.abs(q.y - jog.pos.y) < 2) naBomba = q;
+    }
+    if (naBomba && this._bombaAPe !== naBomba) this.J.aviso('Para abastecer, venha com o veículo e pare do lado da bomba', 3000, 'combustivel');
+    this._bombaAPe = naBomba;
     if (perto && this._ultPerto !== perto.tipo) { this._ultPerto = perto.tipo; $('#bt-veic-entrar').innerHTML = icone(perto.tipo) + 'Entrar'; }
     return false;
   }
@@ -562,7 +595,7 @@ export class Garagem {
     const v = this.dentro.v, d = v.d, jog = this.J.jog();
     const cy = v.yaw + jog.yaw, cp = jog.pitch;
     const alvo = this._alvo || (this._alvo = new THREE.Vector3());
-    alvo.set(v.x, v.yVis + Math.min(d.H, 3.2) * 0.75 + 0.9, v.z);
+    alvo.set(v.x, v.yVis + Math.min(d.alto || d.H, 3.2) * 0.75 + 0.9, v.z);
     const tras = this._tras || (this._tras = new THREE.Vector3());
     tras.set(Math.sin(cy) * Math.cos(cp), -Math.sin(cp), Math.cos(cy) * Math.cos(cp));
     let dist = Math.max(4.2, d.L * 0.85 + 3.4);
@@ -576,7 +609,9 @@ export class Garagem {
   // ---------- combustível, dano e posto ----------
   medidores(v) {
     if (!v.d.energia) return;
-    const pc = Math.round(v.comb * 100), pd = Math.round((1 - v.dano) * 100);
+    const e = this.enchendo && this.enchendo.v === v ? this.enchendo : null, f = e ? Math.min(1, e.t / e.dur) : 1;
+    const comb = e && e.k === 'comb' ? e.de + (e.ate - e.de) * f : v.comb, dano = e && e.k === 'conserto' ? e.de + (e.ate - e.de) * f : v.dano;
+    const pc = Math.round(comb * 100), pd = Math.round((1 - dano) * 100);
     if (pc !== this._pc) {
       this._pc = pc;
       const el = $('#med-comb'); el.querySelector('u').style.width = pc + '%';
@@ -589,49 +624,94 @@ export class Garagem {
     }
   }
 
-  postoPerto(v) {
-    let melhor = null, dm = PERTO_POSTO;
+  // caixa (no mundo) encosta numa parte sólida de algum posto?
+  solidoExtra(x0, y0, z0, x1, y1, z1) {
     for (const p of this.postos.values()) {
-      const d = Math.hypot(p.x - v.x, p.z - v.z);
-      if (d < dm && Math.abs(p.y - v.y) < 4) { dm = d; melhor = p; }
+      if (x1 < p.x - 12 || x0 > p.x + 12 || z1 < p.z - 12 || z0 > p.z + 12) continue;
+      for (const c of p.caixas) if (c[0] < x1 && c[3] > x0 && c[1] < y1 && c[4] > y0 && c[2] < z1 && c[5] > z0) return true;
     }
-    return melhor;
+    return false;
+  }
+
+  // o veículo está parado numa das vagas do lado da bomba? (embaixo da cobertura, ao lado da ilha)
+  postoPerto(v) {
+    for (const p of this.postos.values()) {
+      if (Math.abs(p.y - v.y) > 2 || Math.hypot(p.x - v.x, p.z - v.z) > PERTO_POSTO) continue;
+      const [lx, lz] = noPosto(p, v.x, v.z);
+      if (Math.abs(lx) > 0.5 && Math.abs(lx) < 3.1 && Math.abs(lz) < 3.4) return p;
+    }
+    return null;
+  }
+  // ponto no meio da vaga (lado 1 ou -1) e o giro para entrar nela de frente
+  vagaPosto(p, lado = 1, frente = 0) { const [x, z] = doPosto(p, 1.75 * lado, frente); return { x, z, yaw: p.yaw }; }
+  // chegando no posto (sem estar na vaga)
+  postoChegando(v) {
+    for (const p of this.postos.values()) if (Math.abs(p.y - v.y) < 4 && Math.hypot(p.x - v.x, p.z - v.z) < 16) return p;
+    return null;
   }
 
   verPosto(v, dt) {
     this._tPosto = (this._tPosto || 0) - dt;
     if (this._tPosto > 0) return;
     this._tPosto = 0.25;
-    const p = v.d.energia && Math.abs(v.vel) < 1.5 ? this.postoPerto(v) : null;
-    const precisaComb = v.comb < 0.99, precisaConserto = v.dano > 0.01;
     const box = $('#veic-posto');
-    box.hidden = !p || (!precisaComb && !precisaConserto);
+    if (!v.d.energia) { box.hidden = true; return; }
+    const p = this.postoPerto(v);
+    const parado = Math.abs(v.vel) < 1.5;
+    // chegou perto mas não está na vaga: ensina onde parar (uma vez por chegada)
+    const chegando = !p && this.postoChegando(v);
+    if (chegando && !this._avisouPosto) { this._avisouPosto = true; this.J.aviso('Posto! Pare o veículo do lado da bomba, embaixo da cobertura', 3000, 'combustivel'); }
+    if (!chegando && !p) this._avisouPosto = false;
+    box.hidden = !p || !parado;
     if (box.hidden) return;
+    this._avisouPosto = true;
     const loja = this.comMercado();
     const preco = (k, falta) => (loja ? ' ' + moedaHtml(precoServico(k, falta)) : '');
-    const bat = v.d.energia === 'bateria';
+    const bat = v.d.energia === 'bateria', cheio = v.comb >= 0.99, inteiro = v.dano <= 0.01;
     const a = $('#bt-abastecer'), c = $('#bt-consertar');
-    a.hidden = !precisaComb; c.hidden = !precisaConserto;
-    const ha = icone(bat ? 'bateria' : 'combustivel') + (bat ? 'Carregar' : 'Abastecer') + preco('comb', 1 - v.comb);
-    const hc = icone('ferramenta') + 'Consertar' + preco('conserto', v.dano);
+    const ocupado = !!this.enchendo;
+    const ha = icone(bat ? 'bateria' : 'combustivel') + (this.enchendo && this.enchendo.k === 'comb' ? (bat ? 'Carregando...' : 'Abastecendo...') : cheio ? (bat ? 'Bateria cheia' : 'Tanque cheio') : (bat ? 'Carregar' : 'Abastecer') + preco('comb', 1 - v.comb));
+    const hc = icone('ferramenta') + (this.enchendo && this.enchendo.k === 'conserto' ? 'Consertando...' : inteiro ? 'Sem amassados' : 'Consertar' + preco('conserto', v.dano));
     if (a.innerHTML !== ha) a.innerHTML = ha;
     if (c.innerHTML !== hc) c.innerHTML = hc;
-    if (!this._avisouPosto) { this._avisouPosto = true; this.J.aviso('Posto! Aqui você abastece e conserta o veículo', 2400, 'combustivel'); }
+    a.disabled = cheio || ocupado; c.disabled = inteiro || ocupado;
   }
 
   servico(k) {
-    if (!this.dentro || this.dentro.a !== 0) return;
+    if (!this.dentro || this.dentro.a !== 0 || this.enchendo) return;
     const v = this.dentro.v;
-    if (!this.postoPerto(v)) return;
+    if (!this.postoPerto(v) || Math.abs(v.vel) > 1.5) return;
     const falta = k === 'comb' ? 1 - v.comb : v.dano;
     if (falta <= 0.005) return;
     if (this.J.sala()) { this.J.sala().enviar({ t: 'servico', id: v.id, k }); this._tPosto = 0; return; }
     const m = this.mercado();
     if (m && !m.servico(k, falta)) return;
+    const de = k === 'comb' ? v.comb : v.dano;
     if (k === 'comb') v.comb = 1; else v.dano = 0;
-    this.J.som.porta();
-    this.J.aviso(k === 'comb' ? (v.d.energia === 'bateria' ? 'Bateria carregada!' : 'Tanque cheio!') : 'Veículo consertado, novinho!', 1800, k === 'comb' ? (v.d.energia === 'bateria' ? 'bateria' : 'combustivel') : 'ferramenta');
+    this.comecarEnchendo(v, k, de);
+  }
+
+  // o marcador enche (ou o dano some) aos poucos, com o veículo parado e o som da bomba; já está pago
+  comecarEnchendo(v, k, de) {
+    const ate = k === 'comb' ? v.comb : v.dano;
+    this.enchendo = { v, k, de, ate, t: 0, dur: k === 'comb' ? 0.8 + 2.6 * Math.abs(ate - de) : 0.8 + 1.6 * Math.abs(ate - de), som: 0 };
+    const bat = v.d.energia === 'bateria';
+    this.J.aviso(k === 'comb' ? (bat ? 'Carregando a bateria...' : 'Abastecendo...') : 'Consertando...', 1600, k === 'comb' ? (bat ? 'bateria' : 'combustivel') : 'ferramenta');
     this._tPosto = 0;
+  }
+  passoEnchendo(dt) {
+    const e = this.enchendo;
+    if (!e) return;
+    if (!this.dentro || this.dentro.v !== e.v) { this.enchendo = null; return; }
+    e.t += dt; e.som -= dt;
+    if (e.som <= 0) { e.som = 0.35; this.J.som.ruido(0.12, { vol: 0.12, freq: e.k === 'comb' ? 900 : 300 }); }
+    if (e.t >= e.dur) {
+      const v = e.v, bat = v.d.energia === 'bateria';
+      this.enchendo = null;
+      this.J.som.porta();
+      this.J.aviso(e.k === 'comb' ? (bat ? 'Bateria carregada!' : 'Tanque cheio!') : 'Veículo consertado, novinho!', 1800, e.k === 'comb' ? (bat ? 'bateria' : 'combustivel') : 'ferramenta');
+      this._tPosto = 0;
+    }
   }
 
   acabou(v, como) {
@@ -675,9 +755,15 @@ export class Garagem {
       const lugar = this.lugarPosto(p);
       if (!lugar) continue;
       const malha = montarPosto();
-      malha.position.set(lugar.x, lugar.y, lugar.z); malha.rotation.y = p.yaw;
+      malha.position.set(lugar.x, lugar.y - 0.1, lugar.z); malha.rotation.y = p.yaw; // piso rente ao chão
       this.J.cena.add(malha);
-      this.postos.set(p.k, { ...lugar, malha });
+      const pt = { ...lugar, yaw: p.yaw, malha };
+      // caixas sólidas no mundo (o giro é sempre de 90 em 90 graus: continuam alinhadas aos eixos)
+      pt.caixas = CAIXAS_POSTO.map(([x0, y0, z0, x1, y1, z1]) => {
+        const [ax, az] = doPosto(pt, x0, z0), [bx, bz] = doPosto(pt, x1, z1);
+        return [Math.min(ax, bx), lugar.y + y0, Math.min(az, bz), Math.max(ax, bx), lugar.y + y1, Math.max(az, bz)];
+      });
+      this.postos.set(p.k, pt);
     }
     for (const [k, p] of this.postos) if (!vistos.has(k) && Math.hypot(p.x - pos.x, p.z - pos.z) > 140) { this.J.cena.remove(p.malha); this.postos.delete(k); }
     // veículos estacionados: cada um aparece uma vez só por mundo, quando alguém chega perto
@@ -698,22 +784,26 @@ export class Garagem {
   // o posto (e a garagem do lado) precisa de chão plano e livre: se no ponto planejado tem casa ou árvore,
   // anda mais para fora pela rua até achar (o mundo é o mesmo para todos, então todos acham o mesmo lugar)
   lugarPosto(p) {
+    // posto de vila: o pátio já vem aplainado pelo gerador (o mesmo para todos)
+    if (Number.isFinite(p.y)) return { x: p.x, y: p.y, z: p.z };
     const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), m = this.J.mundo();
-    for (const k of [0, 4, 8, 12, 16, 20, 26, -4]) {
-      const x = p.x + fx * k, z = p.z + fz * k;
+    for (const k of [0, 4, 8, 12, 16, 20, 26, 32, 38, -4, -8]) for (const lado of [0, 6, -6, 12, -12]) {
+      const x = p.x + fx * k - fz * lado, z = p.z + fz * k + fx * lado;
       const y = this.chaoEm(x, z, false);
       if (y === null) continue;
-      let bom = true;
-      for (let lx = -9; lx <= 3 && bom; lx += 2) for (let lz = -3; lz <= 3 && bom; lz += 2) {
-        // ponto do desenho girado para o mundo (o desenho é feito com +x para o lado e -z para a frente)
-        const wx = x + lx * Math.cos(p.yaw) + lz * Math.sin(p.yaw), wz = z - lx * Math.sin(p.yaw) + lz * Math.cos(p.yaw);
+      // chão de cada pedacinho do terreno do posto: nada alto (casa, árvore) e quase plano (no máximo 1 de desnível;
+      // o piso fica na altura do mais alto e a base de concreto cobre o vão)
+      let lo = Infinity, hi = -Infinity;
+      for (let lx = -9; lx <= 4 && hi - lo <= 1; lx += 1) for (let lz = -3.4; lz <= 3.4 && hi - lo <= 1; lz += 0.85) {
+        const [wx, wz] = doPosto({ x, z, yaw: p.yaw }, lx, lz);
         const bx = Math.floor(wx), bz = Math.floor(wz);
-        // chão de cada pedacinho no máximo 2 blocos acima/abaixo, e nada (casa, árvore) por cima
         let g = null;
-        for (let yy = y + 3; yy >= y - 4; yy--) if (SOLIDO[m.bloco(bx, yy, bz)]) { g = yy + 1; break; }
-        if (g === null || g > y + 2 || g < y - 3) bom = false;
+        for (let yy = y + 6; yy >= y - 5; yy--) if (SOLIDO[m.bloco(bx, yy, bz)]) { g = yy + 1; break; }
+        if (g === null) { lo = -Infinity; break; }
+        lo = Math.min(lo, g); hi = Math.max(hi, g);
       }
-      if (bom) return { x, y, z };
+      const bom = hi - lo <= 1;
+      if (bom) return { x, y: hi, z };
     }
     return null;
   }
@@ -792,9 +882,9 @@ export class Garagem {
         if (Number.isFinite(msg.c)) v.comb = msg.c;
         if (Number.isFinite(msg.d)) v.dano = msg.d;
         if (this.dentro && this.dentro.v === v && this.dentro.a === 0) {
-          if (v.comb > antes.c + 0.01) this.J.aviso(v.d.energia === 'bateria' ? 'Bateria carregada!' : 'Tanque cheio!', 1800, v.d.energia === 'bateria' ? 'bateria' : 'combustivel');
-          if (v.dano < antes.d - 0.01) this.J.aviso('Veículo consertado, novinho!', 1800, 'ferramenta');
-          this.J.som.porta();
+          // a sala cobrou: o marcador enche aos poucos aqui também
+          if (v.comb > antes.c + 0.01) this.comecarEnchendo(v, 'comb', antes.c);
+          else if (v.dano < antes.d - 0.01) this.comecarEnchendo(v, 'conserto', antes.d);
         }
         return true;
       }

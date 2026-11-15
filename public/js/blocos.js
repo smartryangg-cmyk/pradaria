@@ -23,6 +23,8 @@ export const B = {
   TRONCO_PINHEIRO: 71, FOLHAS_PINHEIRO: 72, TRONCO_BETULA: 73, FOLHAS_SELVA: 74, ARBUSTO_SECO: 75,
   // trigo plantado crescendo (plantacoes.js): broto -> verde -> Trigo maduro
   TRIGO_BROTO: 76, TRIGO_VERDE: 77,
+  // muda que vira árvore (arvores-regras.js): cai das folhas
+  MUDA: 78, MUDA_PINHEIRO: 79,
 };
 
 // tiles: [cima, baixo, lados]
@@ -74,6 +76,8 @@ def(B.FOLHAS_SELVA, 'Folhas da selva', 39);
 def(B.ARBUSTO_SECO, 'Arbusto seco', 40, { solido: false, opaco: false, planta: true });
 def(B.TRIGO_BROTO, 'Trigo plantado', 140, { solido: false, opaco: false, planta: true });
 def(B.TRIGO_VERDE, 'Trigo crescendo', 141, { solido: false, opaco: false, planta: true });
+def(B.MUDA, 'Muda de árvore', 143, { solido: false, opaco: false, planta: true });
+def(B.MUDA_PINHEIRO, 'Muda de pinheiro', 144, { solido: false, opaco: false, planta: true });
 def(B.BANCADA, 'Bancada', [128, 9, 129]);
 
 // ---------- itens (não são blocos: não vão para o mundo) ----------
@@ -84,6 +88,7 @@ export const ITEM = {
   MACHADO_MADEIRA: 1003, MACHADO_PEDRA: 1004,
   PA_MADEIRA: 1005, PA_PEDRA: 1006,
   CARNE: 1007, COURO: 1008, // caem dos bichos (animais.js -> economia.js CAI_BICHO)
+  BALDE: 1009, // balde vazio: pega a água parada (fonte). Cheio, é a Água na mão; colocar a água devolve o balde
 };
 export const ITENS = {
   [ITEM.GRAVETO]: { nome: 'Graveto', tile: 130 },
@@ -95,6 +100,7 @@ export const ITENS = {
   [ITEM.PA_PEDRA]: { nome: 'Pá de pedra', tile: 136 },
   [ITEM.CARNE]: { nome: 'Carne', tile: 137 },
   [ITEM.COURO]: { nome: 'Couro', tile: 138 },
+  [ITEM.BALDE]: { nome: 'Balde', tile: 142 },
 };
 export const ehItem = (id) => id >= 1000;
 // nome de qualquer coisa que cabe na mão (bloco ou item)
@@ -193,7 +199,7 @@ NIVEL[AGUA_CAINDO] = 8;
 export const INVENTARIO = [
   B.GRAMA, B.TERRA, B.PEDRA, B.PEDRISCO, B.AREIA, B.TRONCO, B.TABUAS, B.FOLHAS, B.VIDRO, B.TIJOLO,
   B.LAMPIAO, B.FENO, B.BANCADA, B.TERRA_ARADA, B.LA_BRANCA, B.LA_VERMELHA, B.LA_AZUL, B.LA_AMARELA, B.LA_VERDE, B.LA_ROSA,
-  B.FLOR_VERMELHA, B.FLOR_AMARELA, B.FLOR_AZUL, B.CAPIM, B.TRIGO, B.AGUA,
+  B.FLOR_VERMELHA, B.FLOR_AMARELA, B.FLOR_AZUL, B.CAPIM, B.TRIGO, B.MUDA, B.MUDA_PINHEIRO, B.AGUA,
   B.CACTO, B.CASCALHO, B.CARVAO, B.FERRO, B.OURO, B.DIAMANTE,
   B.TRONCO_PINHEIRO, B.FOLHAS_PINHEIRO, B.TRONCO_BETULA, B.FOLHAS_SELVA, B.ARBUSTO_SECO,
   M.PORTA, M.FORNO, M.FARINHA, M.PAO,
@@ -369,6 +375,18 @@ function pintarCriacao(img) {
   pintarTile(img, 130, (x, y, r) => {
     if (x + y === 15 && x >= 3 && x <= 12) return var_(cabo, r, 0.08);
     if (x + y === 16 && x >= 3 && x <= 12) return var_(caboEsc, r, 0.08);
+    return [0, 0, 0, 0];
+  });
+  // 142 balde: de tábuas, com aros escuros e alça
+  pintarTile(img, 142, (x, y, r) => {
+    const alca = Math.hypot(x - 7.5, y - 6.5);
+    if (y <= 6 && alca > 5.2 && alca < 6.3) return var_(caboEsc, r, 0.06);
+    // um pouco mais largo em cima
+    if (y >= 6 && y <= 14 && Math.abs(x - 7.5) <= 5.5 - (y - 6) * 0.2) {
+      if (y === 6) return var_(madEsc, r, 0.05);
+      if (y === 8 || y === 13) return var_(hex(0x4b4f55), r, 0.05);
+      return var_(x % 3 === 0 ? madEsc : mad, r, 0.1);
+    }
     return [0, 0, 0, 0];
   });
   // picareta: arco no alto

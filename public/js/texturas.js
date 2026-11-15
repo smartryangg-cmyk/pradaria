@@ -705,6 +705,29 @@ PINT[141] = (t) => {
   }
   t.relevo(0.6, 0.5, 0.5, (i) => t.A[i] > 0);
 };
+// 143 muda de árvore: caule fininho com tufos de folhas redondas
+PINT[143] = (t) => {
+  planta(t);
+  const r = rngSemente(14301);
+  caule(t, 8, 16, 7.6, 7, 0.55, 0x6b4a2a);
+  caule(t, 7.8, 11, 10.5, 8.5, 0.3, 0x6b4a2a);
+  caule(t, 7.7, 12.5, 5, 10, 0.3, 0x6b4a2a);
+  for (const [cu, cv, ra] of [[7.6, 5.6, 2.6], [10.8, 7.2, 2], [4.8, 8.6, 2], [8.6, 3.6, 1.6]]) {
+    t.elipse(cu + (r() - 0.5) * 0.4, cv, ra, ra * 0.85, r() * 3, (i, a, b, d) => { t.H[i] = 2 + (1 - d) * 0.8; t.set(i, esc(mix(hex(0x3f7a2a), hex(0x8cc95a), (1 - d) * 0.8), 1), 1); });
+  }
+  t.relevo(0.6, 0.5, 0.5, (i) => t.A[i] > 0);
+};
+// 144 muda de pinheiro: caule e camadas de agulhas em triângulo
+PINT[144] = (t) => {
+  planta(t);
+  caule(t, 8, 16, 8, 3, 0.5, 0x5a3c22);
+  for (let k = 0; k < 4; k++) {
+    const v = 6 + k * 2.6, w = 1.6 + k * 1.1;
+    t.traco(8 - w, v + 1.2, 8, v - 1.4, 0.7, 0.35, (i, s2, d) => { t.H[i] = 2 + (1 - d) * 0.5; t.set(i, esc(hex(0x2f5e34), 1.15 - d * 0.35), 1); });
+    t.traco(8 + w, v + 1.2, 8, v - 1.4, 0.7, 0.35, (i, s2, d) => { t.H[i] = 2 + (1 - d) * 0.5; t.set(i, esc(hex(0x3b7040), 1.15 - d * 0.35), 1); });
+  }
+  t.relevo(0.6, 0.5, 0.5, (i) => t.A[i] > 0);
+};
 // feno: palha cortada (topo) e fardo amarrado (lado)
 function palhas(t, sem, n, angBase, angVar, comp) {
   const r = rngSemente(sem);
