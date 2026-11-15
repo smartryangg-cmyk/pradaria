@@ -5,6 +5,7 @@ import { DurableObject } from 'cloudflare:workers';
 import * as X from '../../public/js/xadrez-regras.js';
 import * as D from '../../public/js/dama-regras.js';
 import * as T from '../../public/js/truco-regras.js';
+import * as P from '../../public/js/pontos-regras.js';
 
 // cada jogo: novo, validar(estado, mensagem), avancar, fim, publico (as regras ficam em public/js)
 const JOGOS = { xadrez: X, dama: D };
@@ -27,7 +28,7 @@ export class Partida extends DurableObject {
     const jog = {};
     for (const l of LUGARES) { const j = p.lugares[l]; jog[l] = j ? { nome: j.nome, online: this.online(j.uid) } : null; }
     const voce = LUGARES.find((l) => p.lugares[l] && p.lugares[l].uid === uid) || null;
-    return { t: 'estado', jogo: p.jogo, estado: JOGOS[p.jogo].publico(p.e), jogadores: jog, voce, fim: p.fim, empate: p.empate || null, revanche: p.revanche || [], n: p.partidas, relogio: this.relogioAgora() };
+    return { t: 'estado', jogo: p.jogo, estado: JOGOS[p.jogo].publico(p.e), jogadores: jog, voce, fim: p.fim, empate: p.empate || null, revanche: p.revanche || [], n: p.partidas, relogio: this.relogioAgora(), ranqueada: !!p.ranqueada, pontos: p.pontos || null, resultado: p.registrado || null };
   }
   avisarTodos() { for (const w of this.conexoes()) { try { w.send(JSON.stringify(this.visao(w.deserializeAttachment().uid))); } catch {} } }
 
@@ -36,6 +37,37 @@ export class Partida extends DurableObject {
     if (trocar) { const w = p.lugares.w; p.lugares.w = p.lugares.b; p.lugares.b = w; }
     p.e = JOGOS[p.jogo].novo(); p.fim = null; p.empate = null; p.revanche = []; p.partidas = (p.partidas || 1) + (trocar ? 1 : 0);
     if (p.relogio) p.relogio = this.relogioNovo(p.relogio.ritmo);
+    p.registrado = null;
+  }
+
+  // ---------- pontos (partidas que valem pontos) ----------
+  categoria() { return this.p.relogio ? P.CATEGORIAS[this.p.relogio.ritmo] : null; }
+  async lerPontos() {
+    const p = this.p, cat = this.categoria();
+    if (!p.ranqueada || !cat || !this.env.PONTOS || !p.lugares.w || !p.lugares.b) return;
+    try {
+      const r = await this.env.PONTOS.get(this.env.PONTOS.idFromName('geral')).fetch('https://pontos/interno?uids=' + p.lugares.w.uid + ',' + p.lugares.b.uid, { headers: { 'x-interno': 'ver' } });
+      const n = await r.json();
+      const um = (uid) => { const x = P.envelhecer({ ...P.INICIAL, ...((n[uid] || {})[cat] || {}) }, Date.now()); return { r: x.r, rd: x.rd, mostrar: P.mostrar(x) }; };
+      p.pontos = { w: um(p.lugares.w.uid), b: um(p.lugares.b.uid) };
+    } catch {}
+  }
+  // no fim de uma partida que vale pontos: manda o resultado (uma vez). Menos de 2 lances = partida anulada, não conta.
+  async registrar() {
+    const p = this.p, cat = this.categoria();
+    if (!p.ranqueada || !p.fim || p.registrado || !cat || !this.env.PONTOS || !p.lugares.w || !p.lugares.b) return;
+    if ((p.e.hist || []).length < 2) { p.registrado = { anulada: true }; return; }
+    const s = p.fim.vencedor === 'w' ? 1 : p.fim.vencedor === 'b' ? 0 : 0.5;
+    try {
+      const r = await this.env.PONTOS.get(this.env.PONTOS.idFromName('geral')).fetch('https://pontos/interno', {
+        method: 'POST', headers: { 'x-interno': 'resultado', 'content-type': 'application/json' },
+        body: JSON.stringify({ cat, w: p.lugares.w.uid, b: p.lugares.b.uid, s }),
+      });
+      if (!r.ok) return;
+      const d = await r.json();
+      const um = (x) => ({ antes: Math.round(x.antes.r), depois: x.depois.r, mostrar: P.mostrar(x.depois) });
+      p.registrado = { cat, w: um(d.w), b: um(d.b) };
+    } catch {}
   }
 
   // ---------- relógio (xadrez com ritmo) ----------
@@ -69,6 +101,16 @@ export class Partida extends DurableObject {
   }
 
   async fetch(request) {
+    // partida criada pela busca de adversário (src/pontos.js), por dentro do worker
+    if (request.headers.get('x-interno') === 'criar') {
+      if (this.p) return new Response('já existe', { status: 409 });
+      const d = await request.json();
+      this.p = { jogo: 'xadrez', lugares: { w: d.w, b: d.b }, e: X.novo(), fim: null, criado: Date.now(), partidas: 1, ranqueada: true };
+      this.p.relogio = this.relogioNovo(d.ritmo);
+      await this.lerPontos();
+      await this.salvar();
+      return new Response('ok');
+    }
     const u = JSON.parse(request.headers.get('x-usuario') || 'null');
     const jogo = new URL(request.url).searchParams.get('jogo');
     if (!u) return new Response('sem dados', { status: 400 });
@@ -85,6 +127,8 @@ export class Partida extends DurableObject {
       // quem abre a partida joga de brancas
       this.p = { jogo, lugares: { w: { uid: u.id, nome: u.nome }, b: null }, e: JOGOS[jogo].novo(), fim: null, criado: Date.now(), partidas: 1 };
       this.p.relogio = jogo === 'xadrez' ? this.relogioNovo(new URL(request.url).searchParams.get('ritmo')) : null;
+      // partida entre amigos valendo pontos (só com relógio)
+      this.p.ranqueada = !!this.p.relogio && new URL(request.url).searchParams.get('ranqueada') === '1';
       await this.salvar();
       }
     } else if (jogo && jogo !== this.p.jogo) return recusar('Este convite é de outro jogo.');
@@ -104,6 +148,7 @@ export class Partida extends DurableObject {
       meu = LUGARES.find((l) => !p.lugares[l]);
       if (!meu) return recusar('Esta partida já tem dois jogadores.');
       p.lugares[meu] = { uid: u.id, nome: u.nome };
+      await this.lerPontos();
       await this.salvar();
     }
     }
@@ -130,7 +175,7 @@ export class Partida extends DurableObject {
     if (!meu) return;
     const outro = meu === 'w' ? 'b' : 'w';
     const erro = (msg) => ws.send(JSON.stringify({ t: 'aviso', msg }));
-    if (this.tempoAcabou()) { await this.salvar(); this.avisarTodos(); return; }
+    if (this.tempoAcabou()) { await this.registrar(); await this.salvar(); this.avisarTodos(); return; }
     if (m.t === 'tempo') return; // o navegador viu o relógio zerar: a conferência acima já resolve
     if (m.t === 'lance') {
       if (p.fim) return erro('A partida acabou.');
@@ -161,9 +206,10 @@ export class Partida extends DurableObject {
     } else if (m.t === 'revanche') {
       if (!p.fim) return;
       p.revanche = [...new Set([...(p.revanche || []), meu])];
-      if (p.revanche.length === 2) this.novaPartida(true);
+      if (p.revanche.length === 2) { this.novaPartida(true); await this.lerPontos(); }
     } else return;
     if (p.fim && p.relogio && p.relogio.desde != null) { const r = p.relogio; r[p.e.vez] = Math.max(0, r[p.e.vez] - (Date.now() - r.desde)); r.desde = null; }
+    await this.registrar();
     await this.salvar();
     this.agendarTempo();
     this.avisarTodos();
@@ -198,7 +244,7 @@ export class Partida extends DurableObject {
     const p = this.p;
     if (p && p.jogo !== 'truco') {
       // relógio do xadrez: o tempo de quem joga acabou?
-      if (this.tempoAcabou()) { await this.salvar(); this.avisarTodos(); } else this.agendarTempo();
+      if (this.tempoAcabou()) { await this.registrar(); await this.salvar(); this.avisarTodos(); } else this.agendarTempo();
       return;
     }
     if (!p || p.jogo !== 'truco' || !p.e || p.e.fim) return;
