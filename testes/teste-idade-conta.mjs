@@ -115,6 +115,34 @@ if (LOCAL) {
   await p.reload(); await p.waitForSelector('#m-jogos:not([hidden])', { timeout: 15000 });
   ok(!(await p.isVisible('#idade')), 'pc: depois de responder não pergunta mais');
   await p.context().close();
+
+  // 4) conta antiga que respondeu "menos de 16" (idade16 = 0): não se libera digitando um ano de adulto
+  const k = await pagina('tablet-antiga', { ...devices['Galaxy Tab S4 landscape'] });
+  const nomeK = 'Antiga' + sfx;
+  await criarConta(k, nomeK, [1, 1, 2000], true);
+  await k.tap('#c-ok');
+  await k.waitForSelector('#m-jogos:not([hidden])', { timeout: 15000 });
+  execSync(`npx wrangler d1 execute pradaria-db --local --persist-to ${process.env.ESTADO || '.estado'} --command "UPDATE usuarios SET nascimento = NULL, idade16 = 0 WHERE nome = '${nomeK}'"`, { stdio: 'ignore' });
+  await k.evaluate(() => localStorage.removeItem('pradaria.token'));
+  await k.reload(); await k.waitForTimeout(500);
+  await k.tap('#bt-entrar');
+  await k.fill('#c-nome', nomeK); await k.fill('#c-senha', 'senha123');
+  await k.tap('#c-ok');
+  await k.waitForSelector('#idade:not([hidden])', { timeout: 15000 });
+  await data(k, '#idade', 1, 1, 1990);
+  await k.tap('#idade-sim');
+  await k.waitForFunction(() => /menos de 16/.test(document.querySelector('#idade-erro').textContent), null, { timeout: 5000 }).catch(() => {});
+  ok(/menos de 16/.test(await k.textContent('#idade-erro')) && await k.isVisible('#idade'), 'tablet: quem já respondeu "menos de 16" não consegue pôr ano de adulto');
+  await k.screenshot({ path: SAIDA + '/6-tablet-antiga-recusada.png' });
+  r = await api(k, 'eu/nascimento', { nascimento: '1990-01-01' });
+  u = await eu(k);
+  ok(r[0] === 403 && u.idade16 !== true && !u.temNascimento, 'servidor recusa ano de adulto para essa conta: ' + r[0]);
+  await data(k, '#idade', 3, 4, new Date().getFullYear() - 12);
+  await k.tap('#idade-sim');
+  await k.waitForSelector('#m-jogos:not([hidden])', { timeout: 15000 });
+  u = await eu(k);
+  ok(u.temNascimento && u.idade16 === false && await k.isVisible('.jogo[data-jogo=arena].bloqueado'), 'tablet: com a data certa (12 anos) entra e as armas continuam bloqueadas');
+  await k.context().close();
 }
 
 ok(!erros.length, 'sem erros no console' + (erros.length ? ': ' + erros.join(' | ') : ''));
