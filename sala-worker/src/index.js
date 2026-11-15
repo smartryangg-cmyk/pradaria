@@ -32,7 +32,10 @@ const LUGARES = { carro: 4, jipe: 4, esportivo: 2, quadriciclo: 2, moto: 2, bici
 const MILITARES = new Set(['tanque', 'jipeArmado', 'helicopteroGuerra', 'viatura']);
 // armas dos veículos: alcance da metralhadora e raio da bomba do canhão (igual ao public/js/guerra-veiculos.js)
 const ARMA_VEIC = { tanque: { raio: 4.2 }, jipeArmado: { alcance: 55 }, helicopteroGuerra: { alcance: 65 } };
-const VAGA_OK = /^[a-z0-9]{1,6}$/;
+// vagas dos veículos de guerra (guerra-mapa.js): cada vaga tem um tipo só
+const VAGAS_GUERRA = { bt: 'tanque', bj: 'jipeArmado', bh: 'helicopteroGuerra', ft: 'tanque', dv1: 'viatura', dv2: 'viatura' };
+const MAX_CACA_MIN = 12, MAX_LA_MIN = 10; // bichos derrubados e lã tirada por conta, por minuto
+const ANDA_MAX = 40; // blocos por segundo (veja pv no 'pos')
 const MAX_VEICULOS = 40; // por mundo
 const MAX_VEICULOS_POR_JOGADOR = 6;
 const MAX_PARADOS = 40; // veículos que moram nas vilas/portos (aparecem quando alguém chega perto)
@@ -113,7 +116,7 @@ export class Sala extends DurableObject {
     if (this.chao) return this.chao;
     const c = new Chao();
     const lista = await this.ctx.storage.list({ prefix: 'd:' });
-    for (const [, d] of lista) if (d && Number.isInteger(d.i)) c.novo(d.id, d.n, d.x, d.y, d.z, d.v, d.dono, d.t, d.i, d.c);
+    for (const [, d] of lista) if (d && Number.isInteger(d.i)) c.novo(d.id, d.n, d.x, d.y, d.z, d.v, d.dono, d.t, d.i, d.c, d.q);
     this.chao = c;
     await this.limparChao();
     return c;
@@ -126,11 +129,12 @@ export class Sala extends DurableObject {
     for (const d of fora) this.enviarTodos({ t: 'chao-pegou', i: d.i, j: null });
   }
   // põe itens no chão e avisa todo mundo. itens: [[id, n, x, y, z, v?, c?]] (c = quantos são comprados)
-  async soltarNoChao(itens, dono = '') {
+  // q = a conta de quem fez cair (cada um tem um limite no chão: encher o chão não apaga os itens dos outros)
+  async soltarNoChao(itens, dono = '', q = '') {
     const c = await this.carregarChao();
     const novos = [];
     for (const [id, n, x, y, z, v, comp] of itens) {
-      const d = c.novo(id, n, x, y, z, v || [(Math.random() - 0.5) * 2.4, 3.2, (Math.random() - 0.5) * 2.4], dono, Date.now(), null, comp || 0);
+      const d = c.novo(id, n, x, y, z, v || [(Math.random() - 0.5) * 2.4, 3.2, (Math.random() - 0.5) * 2.4], dono, Date.now(), null, comp || 0, q);
       if (d) novos.push(d);
     }
     if (!novos.length) return;
@@ -480,6 +484,16 @@ export class Sala extends DurableObject {
     if (m.t === 'pos' && Array.isArray(m.p) && m.p.length === 3 && m.p.every(Number.isFinite)) {
       if (Math.abs(m.p[0]) > LONGE || Math.abs(m.p[2]) > LONGE || m.p[1] < -64 || m.p[1] > 512) return;
       eu.p = m.p.map((v) => Math.round(v * 100) / 100);
+      // pv = a posição "andada": segue eu.p no máximo a ANDA_MAX blocos por segundo (o avião, o mais rápido, faz 26).
+      // Quem pega item do chão é conferido por ela: dizer que está do lado de um item longe não pega na hora.
+      const agoraP = Date.now();
+      if (!eu.pv) eu.pv = eu.p;
+      else {
+        const dt = Math.min(10, (agoraP - (eu.pvEm || agoraP)) / 1000), dx = eu.p[0] - eu.pv[0], dz = eu.p[2] - eu.pv[2];
+        const d = Math.hypot(dx, dz), max = ANDA_MAX * dt + 2;
+        eu.pv = d <= max ? eu.p : [eu.pv[0] + dx * max / d, eu.p[1], eu.pv[2] + dz * max / d].map((v) => Math.round(v * 100) / 100);
+      }
+      eu.pvEm = agoraP;
       const fin = (v) => (Number.isFinite(v) ? v : 0); // r:[] deixava o boneco invisível (NaN) nos outros
       eu.r = Array.isArray(m.r) ? [fin(m.r[0]), fin(m.r[1])] : [0, 0];
       ws.serializeAttachment(eu);
@@ -533,7 +547,7 @@ export class Sala extends DurableObject {
         const r = await this.econAplicar(ws, eu, econ, { t: 'bloco', b, x, y, z, de, natural, comprado }, true);
         if (r && r.ok && r.marca && b > 0) await this.ctx.storage.put('c:' + k, 1);
         // coletar e criar: quebrou com as mãos, o que tinha ali cai no chão
-        if (r && r.ok && r.cai && b === 0) await this.soltarNoChao(r.cai.map(([id, n, c]) => [id, n, x + 0.5, y + 0.3, z + 0.5, null, c]));
+        if (r && r.ok && r.cai && b === 0) await this.soltarNoChao(r.cai.map(([id, n, c]) => [id, n, x + 0.5, y + 0.3, z + 0.5, null, c]), '', eu.uid);
       }
     } else if (m.t === 'vnovo') {
       if (eu.semVeiculos || !LUGARES[m.tipo] || MILITARES.has(m.tipo) || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
@@ -565,7 +579,7 @@ export class Sala extends DurableObject {
       ws.send(JSON.stringify({ t: 'vnovo', v: pub, n: Number.isFinite(m.n) ? m.n : 0 }));
     } else if (m.t === 'vparado') {
       // veículo que mora numa vila/porto: o primeiro que chega perto pede, e ele aparece uma vez só
-      if (eu.semVeiculos || !LUGARES[m.tipo] || typeof m.k !== 'string' || !/^[va][-0-9a-z.,]{1,40}$/.test(m.k) || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
+      if (eu.semVeiculos || !LUGARES[m.tipo] || MILITARES.has(m.tipo) || typeof m.k !== 'string' || !/^[va][-0-9a-z.,]{1,40}$/.test(m.k) || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
       // só perto de quem pede (o jogo pede os que estão a até 90 blocos) e no máximo 12 a cada 15 s por jogador
       // (uma vila tem alguns; sem limite, um aparelho modificado criava milhares e enchia o mundo)
       if (!eu.p || Math.hypot(m.p[0] - eu.p[0], m.p[2] - eu.p[2]) > 120) return;
@@ -718,6 +732,13 @@ export class Sala extends DurableObject {
         const k = m.e === 'caca' ? 'cacaEm' : 'laEm', espera = m.e === 'caca' ? 1500 : 4000;
         if (eu[k] && agora - eu[k] < espera) return;
         eu[k] = agora;
+        // e por conta, por minuto (reconectar ou abrir duas abas não zera): sem isso um aparelho modificado
+        // dizia "derrubei um urso" a cada 1,5 s e ganhava carne e couro sem fim
+        const min = Math.floor(agora / 60000), kc = m.e + ':' + eu.uid, lim = this.bichosMin ??= new Map();
+        const c = lim.get(kc) || { min, n: 0 };
+        if (c.min !== min) { c.min = min; c.n = 0; }
+        if (++c.n > (m.e === 'caca' ? MAX_CACA_MIN : MAX_LA_MIN)) return;
+        lim.set(kc, c);
       }
       ws.serializeAttachment(eu);
       const econ = await this.econDe(eu.uid);
@@ -728,7 +749,7 @@ export class Sala extends DurableObject {
         m = { t: 'ev', e: m.e, b: m.b, f: m.f, x: onde[0], y: onde[1], z: onde[2] };
       }
       const r = await this.econAplicar(ws, eu, econ, m, m.t === 'ev');
-      if (r && r.ok && r.cai && m.t === 'ev') await this.soltarNoChao(r.cai.map(([id, n]) => [id, n, m.x, m.y, m.z]));
+      if (r && r.ok && r.cai && m.t === 'ev') await this.soltarNoChao(r.cai.map(([id, n]) => [id, n, m.x, m.y, m.z]), '', eu.uid);
     } else if (ACOES_TRABALHO.has(m.t)) {
       const op = this.op();
       if (!op.mercado) return;
@@ -767,7 +788,7 @@ export class Sala extends DurableObject {
       const d = c.itens.get(m.i);
       // já foi (outro pegou ou sumiu): o aparelho tira da tela e volta a mochila certa
       if (!d) { ws.send(JSON.stringify({ t: 'chao-pegou', i: m.i, j: null })); ws.send(JSON.stringify({ t: 'econ', s: econ })); return; }
-      if (!podePegar(d, eu.id) || !pertoParaPegar(d, eu.p)) { ws.send(JSON.stringify({ t: 'econ', s: econ })); ws.send(JSON.stringify({ t: 'chao', d: [publico(d)] })); return; }
+      if (!podePegar(d, eu.id) || !pertoParaPegar(d, eu.pv || eu.p)) { ws.send(JSON.stringify({ t: 'econ', s: econ })); ws.send(JSON.stringify({ t: 'chao', d: [publico(d)] })); return; }
       const r = aplicar(econ, op, { t: 'pegar', id: d.id, n: d.n, c: d.c });
       if (!r.ok) { ws.send(JSON.stringify({ t: 'econ', s: econ, msg: r.erro })); ws.send(JSON.stringify({ t: 'chao', d: [publico(d)] })); return; }
       c.tirar(d.i);
@@ -788,7 +809,7 @@ export class Sala extends DurableObject {
       const v = Array.isArray(m.v) && m.v.length === 3 && m.v.every(Number.isFinite) ? m.v : [0, 2, 0];
       // sai um pouco na frente do jogador (para onde foi jogado), não dentro da cabeça
       const vh = Math.hypot(v[0], v[2]) || 1;
-      await this.soltarNoChao([[id, n, eu.p[0] + v[0] / vh * 0.6, eu.p[1] + 1.2, eu.p[2] + v[2] / vh * 0.6, v, r.c]], eu.id);
+      await this.soltarNoChao([[id, n, eu.p[0] + v[0] / vh * 0.6, eu.p[1] + 1.2, eu.p[2] + v[2] / vh * 0.6, v, r.c]], eu.id, eu.uid);
     } else if (m.t === 'dar') {
       if (!this.op().mercado) return;
       const agora = Date.now();
@@ -813,7 +834,7 @@ export class Sala extends DurableObject {
   async guerra(ws, eu, m) {
     const agora = Date.now();
     if (m.t === 'gveic') {
-      if (eu.semVeiculos || !VAGA_OK.test(String(m.k)) || !MILITARES.has(m.tipo) || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
+      if (eu.semVeiculos || !Object.hasOwn(VAGAS_GUERRA, String(m.k)) || VAGAS_GUERRA[m.k] !== m.tipo || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
       // no máximo 6 pedidos a cada 4 s por jogador (uma base tem 3 vagas, a delegacia 2)
       if (!eu.gvEm || agora - eu.gvEm > 4000) { eu.gvEm = agora; eu.gvN = 0; }
       if (++eu.gvN > 6) return;
@@ -837,12 +858,17 @@ export class Sala extends DurableObject {
       await this.ctx.storage.put('v:' + id, novo);
       this.enviarTodos({ t: 'vnovo', v: pubV(novo) });
     } else if (m.t === 'gx') {
+      // no máximo 10 por segundo (cada um vira desenho e som em todos os tablets)
+      if (!this.balde(ws, eu, 'gx', 10)) return;
       const f = (a) => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite) ? a.map((x) => arrV(x)) : null;
       if (m.k === 'estrelas') {
         const n = Math.max(0, Math.min(5, m.n | 0));
         eu.estrelas = n; ws.serializeAttachment(eu);
         this.enviarTodos({ t: 'gx', k: 'estrelas', id: eu.id, n }, ws);
-      } else if ((m.k === 'tiro' || m.k === 'rajada') && eu.v) {
+      } else if (m.k === 'tiro' || m.k === 'rajada') {
+        // só quem está no lugar do atirador de um veículo armado
+        const vg = eu.v && eu.v[1] === 0 ? (await this.carregarVeiculos()).get(eu.v[0]) : null;
+        if (!vg || !ARMA_VEIC[vg.tipo]) return;
         const o = f(m.o), d = f(m.k === 'tiro' ? m.d : m.f);
         if (!o || !d) return;
         this.enviarTodos(m.k === 'tiro' ? { t: 'gx', k: 'tiro', id: eu.id, o, d } : { t: 'gx', k: 'rajada', id: eu.id, o, f: d }, ws);
@@ -1020,6 +1046,7 @@ export class Sala extends DurableObject {
   async sair(ws) {
     const eu = ws.deserializeAttachment();
     if (eu && this.taxa) this.taxa.delete(eu.id);
+    if (eu && this.taxaGuerra) this.taxaGuerra.delete(eu.id);
     try { ws.close(1000, 'tchau'); } catch {}
     if (!eu) return;
     if (eu.v) { const [id, a] = eu.v; this.enviarTodos({ t: 'vassento', id, a, j: null }, ws); }

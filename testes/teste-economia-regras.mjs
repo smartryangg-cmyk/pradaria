@@ -2,6 +2,7 @@
 // Uso: node testes/teste-economia-regras.mjs
 import { LOJA, LOTE_LOJA, precoVenda, vendivel, estadoNovo, aplicar, normalizar } from '../public/js/economia.js';
 import { oQueCai, IDS, RECEITAS } from '../public/js/receitas.js';
+import { Chao, MAX_CHAO, MAX_POR_JOGADOR } from '../public/js/regras-chao.js';
 let falhas = 0;
 const conferir = (ok, msg) => { console.log((ok ? 'ok   ' : 'FALHA') + ' ' + msg); if (!ok) falhas++; };
 for (const { b, preco } of LOJA) conferir(preco >= LOTE_LOJA * precoVenda(b), `bloco ${b}: lote de ${LOTE_LOJA} custa ${preco} e vende por ${LOTE_LOJA * precoVenda(b)}`);
@@ -59,5 +60,19 @@ for (let x = 0; x < 200; x++) {
   if (oQueCai(IDS.FOLHAS, x, 40, 7, true).length > 1) extraNatural++;
 }
 conferir(extraEditado === 0 && extraNatural > 0, `extra só em bloco natural (editado ${extraEditado}, natural ${extraNatural})`);
+// itens no chão: quem enche o chão perde os próprios itens mais antigos, não os dos outros
+{
+  const c = new Chao();
+  const t0 = Date.now();
+  for (let i = 0; i < 5; i++) c.novo(3, 1, i, 40, 0, [0, 0, 0], '', t0 - 1000 + i, null, 0, 'vitima');
+  for (let i = 0; i < 300; i++) c.novo(3, 1, i, 40, 9, [0, 0, 0], '', t0 + i, null, 0, 'chato');
+  c.limpar(t0 + 400);
+  const de = (q) => c.lista().filter((d) => d.q === q).length;
+  conferir(de('vitima') === 5 && de('chato') === MAX_POR_JOGADOR, `chão: os 5 da vítima ficam e o chato fica com ${MAX_POR_JOGADOR} (${de('vitima')}, ${de('chato')})`);
+  const s = new Chao(); // sem internet (sem q): só o limite do mundo, sai o mais antigo
+  for (let i = 0; i < MAX_CHAO + 10; i++) s.novo(3, 1, i, 40, 0, [0, 0, 0], '', t0 + i);
+  s.limpar(t0 + 1000);
+  conferir(s.itens.size === MAX_CHAO && !s.itens.has(1) && s.itens.has(MAX_CHAO + 10), `chão sem internet: guarda ${MAX_CHAO} e tira os mais antigos`);
+}
 if (falhas) { console.log(falhas + ' falha(s)'); process.exit(1); }
 console.log('tudo certo');

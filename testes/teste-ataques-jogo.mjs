@@ -3,7 +3,9 @@
 // 2) mundo com Construção: apagar a construção de outro e colocar blocos sem "j"
 // 3) Armas: acerto sem arma na mão, acertos mais rápidos que a arma, "derrubada" inventada
 // 4) quem não tem 16 anos sai na hora quando o dono liga Armas
-// 5) veículo da vila pedido longe e sem parar
+// 5) veículo da vila pedido longe e sem parar; tanque pedido como "veículo da vila"; vaga de guerra com outro tipo
+// 6) itens no chão: pegar dizendo que está longe de onde está; encher o chão para apagar os itens dos outros
+// 7) caça: "derrubei um urso" sem parar
 const BASE = process.env.BASE || 'http://localhost:8788';
 let falhas = 0;
 const ok = (c, msg) => { console.log((c ? 'OK   ' : 'FALHA') + ' ' + msg); if (!c) falhas++; };
@@ -134,6 +136,88 @@ const tem = (eds, x, y, z) => { const e = eds.find((q) => q[0] === x && q[1] ===
   await espera(1500);
   const novos = w.msgs.filter((m) => m.t === 'vnovo');
   ok(novos.length === 12, `veículo da vila: longe não vale e no máximo 12 a cada 15 s (${novos.length})`);
+  w.close();
+  await api('mundos/apagar', { codigo: mundo.codigo }, dono.token);
+}
+
+// ---------- 5b) tanque como veículo da vila, vaga de guerra trocada ----------
+{
+  const { mundo } = await api('mundos', { nome: 'Vila', opcoes: { veiculos: true } }, dono.token);
+  const w = await conectar(mundo.codigo, dono.token);
+  mandar(w, { t: 'pos', p: [0, 40, 0], r: [0, 0] });
+  await espera(200);
+  mandar(w, { t: 'vparado', tipo: 'tanque', k: 'v-tanque', p: [5, 40, 5], r: 0 });
+  await espera(600);
+  ok(!w.msgs.some((m) => m.t === 'vnovo' && m.v.tipo === 'tanque'), 'mundo normal: tanque pedido como "veículo da vila" não aparece');
+  w.close();
+  await api('mundos/apagar', { codigo: mundo.codigo }, dono.token);
+  const g = (await api('mundos', { nome: 'Guerra', opcoes: { tipo: 'guerra' } }, dono.token)).mundo;
+  if (g) {
+    const wg = await conectar(g.codigo, dono.token);
+    mandar(wg, { t: 'pos', p: [0, 40, 0], r: [0, 0] });
+    await espera(200);
+    mandar(wg, { t: 'gveic', k: 'dv1', tipo: 'tanque', p: [5, 40, 5], r: 0 }); // vaga da viatura pedindo tanque
+    mandar(wg, { t: 'gveic', k: 'zz9', tipo: 'tanque', p: [6, 40, 5], r: 0 }); // vaga que não existe
+    mandar(wg, { t: 'gveic', k: 'bt', tipo: 'tanque', p: [7, 40, 5], r: 0 }); // a vaga certa
+    await espera(600);
+    const tq = wg.msgs.filter((m) => m.t === 'vnovo' && m.v.tipo === 'tanque').map((m) => m.v.id);
+    ok(tq.length === 1 && tq[0] === 'gbt', 'Guerra: só a vaga certa dá tanque (' + tq.join(',') + ')');
+    for (let i = 0; i < 40; i++) mandar(wg, { t: 'gx', k: 'tiro', o: [0, 41, 0], d: [9, 41, 9] }); // sem estar no canhão
+    await espera(500);
+    ok(!wg.msgs.some((m) => m.t === 'gx' && m.k === 'tiro'), 'Guerra: tiro de canhão sem estar no lugar do atirador não vale');
+    wg.close();
+    await api('mundos/apagar', { codigo: g.codigo }, dono.token);
+  } else ok(false, 'criar mundo de Guerra');
+}
+
+// ---------- 6) itens no chão ----------
+{
+  const { mundo } = await api('mundos', { nome: 'Chao', opcoes: { sobrevivencia: true, mercado: true } }, dono.token);
+  await api('mundos/entrar', { codigo: mundo.codigo }, chato.token);
+  const wv = await conectar(mundo.codigo, dono.token), wg = await conectar(mundo.codigo, chato.token);
+  const idG = wg.msgs.find((m) => m.t === 'ola').eu;
+  mandar(wv, { t: 'pos', p: [100, 40, 100], r: [0, 0] }); mandar(wg, { t: 'pos', p: [0, 40, 0], r: [0, 0] });
+  await espera(300);
+  for (let i = 0; i < 5; i++) mandar(wv, { t: 'bloco', x: 100 + i, y: 39, z: 100, b: 0, de: 3, j: 1 });
+  await espera(800);
+  const daVitima = [...new Set(wv.msgs.filter((m) => m.t === 'chao').flatMap((m) => m.d).map((d) => d.i))];
+  ok(daVitima.length === 5, 'quebrar 5 blocos põe 5 itens no chão (' + daVitima.length + ')');
+  await espera(400);
+  // diz que está do lado dos itens (a 140 blocos) e tenta pegar na hora
+  mandar(wg, { t: 'pos', p: [102, 40, 100], r: [0, 0] });
+  await espera(150);
+  for (const i of daVitima.slice(0, 2)) mandar(wg, { t: 'chao-pegar', i });
+  await espera(600);
+  ok(!wv.msgs.some((m) => m.t === 'chao-pegou' && m.j === idG), 'pegar item a 140 blocos "teletransportando" não vale');
+  mandar(wg, { t: 'pos', p: [0, 40, 0], r: [0, 0] });
+  // o chato quebra 240 blocos (10 s): os itens dele somem, os do dono continuam
+  for (let s = 0; s < 10; s++) { for (let i = 0; i < 24; i++) mandar(wg, { t: 'bloco', x: s, y: 39, z: i, b: 0, de: 3, j: 1 }); await espera(1050); }
+  await espera(800);
+  const sumiram = wv.msgs.filter((m) => m.t === 'chao-pegou' && m.j === null && daVitima.includes(m.i)).length;
+  ok(sumiram === 0, `encher o chão não apaga os itens dos outros (${sumiram} sumiram)`);
+  // quem anda de verdade até o item pega
+  for (let k = 1; k <= 10; k++) { mandar(wg, { t: 'pos', p: [k * 10, 40, 100], r: [0, 0] }); await espera(400); }
+  mandar(wg, { t: 'pos', p: [101, 40, 100], r: [0, 0] });
+  await espera(300);
+  mandar(wg, { t: 'chao-pegar', i: daVitima[0] });
+  await espera(500);
+  ok(wv.msgs.some((m) => m.t === 'chao-pegou' && m.j === idG && m.i === daVitima[0]), 'andando até o item, pega');
+  wv.close(); wg.close();
+  await api('mundos/apagar', { codigo: mundo.codigo }, dono.token);
+}
+
+// ---------- 7) caça forjada ----------
+{
+  const { mundo } = await api('mundos', { nome: 'Caca', opcoes: { sobrevivencia: true, mercado: true } }, dono.token);
+  const w = await conectar(mundo.codigo, dono.token);
+  mandar(w, { t: 'pos', p: [0, 40, 0], r: [0, 0] });
+  await espera(200);
+  // o limite é por minuto do relógio: começa no início de um minuto para os 30 s caberem nele
+  if (new Date().getSeconds() > 25) await espera((61 - new Date().getSeconds()) * 1000);
+  for (let i = 0; i < 19; i++) { mandar(w, { t: 'ev', e: 'caca', b: 'urso', x: 2, y: 40, z: 2 }); await espera(1600); }
+  await espera(500);
+  const quedas = w.msgs.filter((m) => m.t === 'chao').length;
+  ok(quedas === 12, `caça: 19 "ursos" em 30 s dão no máximo 12 bichos por minuto (${quedas})`);
   w.close();
   await api('mundos/apagar', { codigo: mundo.codigo }, dono.token);
 }

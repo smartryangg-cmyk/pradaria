@@ -15,6 +15,7 @@ const PLANO = 0.46;         // item/planta (dois planos cruzados)
 const PEGA_H = 1.5;         // distância para pegar (no chão, em volta do jogador)
 const GRAVIDADE = 18;
 const PISCA = 10000;        // pisca nos últimos 10 s antes de sumir
+const LONGE = 48;           // mais longe que isso não desenha (nem calcula a queda)
 
 // faces de um cubo (mesma ordem/UV da malha do mundo: t = 0 cima, 1 baixo, 2 lados)
 const FACES = [
@@ -205,6 +206,8 @@ export class Drops {
     for (const e of [...this.vivos.values()]) {
       // sem internet o jogo some com os velhos; online a sala avisa (mas some daqui também, por garantia)
       if (agora - e.t > VIDA_CHAO + (this.sala ? 5000 : 0)) { if (!this.sala) this.chao.tirar(e.i); this.sumir(e.i); continue; }
+      // longe (mais de LONGE blocos): não desenha nem calcula (tablet fraco com 200 itens no chão)
+      if (jog && (e.x - jog.pos.x) ** 2 + (e.z - jog.pos.z) ** 2 > LONGE * LONGE) { e.grupo.visible = false; continue; }
       this.fisica(e, dt);
       e.grupo.position.set(e.x, e.y, e.z);
       e.malha.rotation.y += dt * 1.8;
