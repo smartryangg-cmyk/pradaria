@@ -2,12 +2,14 @@
 // Não importe nada daqui que dependa do navegador.
 //
 // Um item no chão: { i, id, n, x, y, z, v: [vx, vy, vz], t (quando caiu, ms), dono (quem largou, ou ''),
-//   c (quantos são coisa comprada na loja: a marca vai junto, veja trabalho.js) }
+//   c (quantos são coisa comprada na loja: a marca vai junto, veja trabalho.js),
+//   q (quem fez cair: largou, quebrou ou caçou; só a sala usa, para um jogador não apagar os itens dos outros) }
 // A física (cair, quicar, boiar) é só desenho no aparelho; quem decide quem pegou é a sala (ou o próprio jogo, sem internet).
 import { guardavel, ULTIMO_ITEM } from './receitas.js';
 
 export const VIDA_CHAO = 5 * 60 * 1000;   // some depois de 5 minutos no chão
-export const MAX_CHAO = 200;              // por mundo; passando disso some o mais antigo
+export const MAX_CHAO = 200;              // por mundo; passando disso some o mais antigo de quem tem mais no chão
+export const MAX_POR_JOGADOR = 60;        // por jogador: passando disso some o mais antigo DELE (não o dos outros)
 export const ESPERA_DONO = 1500;          // quem largou só pega de volta depois disso (dá tempo de o amigo pegar)
 export const ESPERA_PEGAR = 350;          // ninguém pega no mesmo instante em que caiu (dá para ver pular)
 export const MAX_LARGAR = 64;             // de uma vez
@@ -20,9 +22,9 @@ const arr = (v) => Math.round(v * 100) / 100;
 export class Chao {
   constructor() { this.itens = new Map(); this.prox = 1; }
 
-  novo(id, n, x, y, z, v = [0, 0, 0], dono = '', t = Date.now(), i = null, c = 0) {
+  novo(id, n, x, y, z, v = [0, 0, 0], dono = '', t = Date.now(), i = null, c = 0, q = '') {
     if (!podeNoChao(id, n) || ![x, y, z].every(Number.isFinite)) return null;
-    const d = { i: i ?? this.prox++, id, n, x: arr(x), y: arr(y), z: arr(z), v: v.map((c) => arr(Math.max(-9, Math.min(9, Number(c) || 0)))), t, dono: String(dono || ''), c: Math.max(0, Math.min(n, c | 0)) };
+    const d = { i: i ?? this.prox++, id, n, x: arr(x), y: arr(y), z: arr(z), v: v.map((c) => arr(Math.max(-9, Math.min(9, Number(c) || 0)))), t, dono: String(dono || ''), c: Math.max(0, Math.min(n, c | 0)), q: String(q || '') };
     if (i != null) this.prox = Math.max(this.prox, i + 1);
     this.itens.set(d.i, d);
     return d;
@@ -33,9 +35,21 @@ export class Chao {
     const fora = [];
     for (const d of this.itens.values()) if (agora - d.t > VIDA_CHAO) fora.push(d);
     for (const d of fora) this.itens.delete(d.i);
-    if (this.itens.size > MAX_CHAO) {
-      const velhos = [...this.itens.values()].sort((a, b) => a.t - b.t).slice(0, this.itens.size - MAX_CHAO);
-      for (const d of velhos) { this.itens.delete(d.i); fora.push(d); }
+    if (this.itens.size <= MAX_POR_JOGADOR) return fora; // ninguém passou de nenhum limite
+    // por jogador (q): quem enche o chão perde os próprios itens mais antigos, não os dos outros.
+    // Sem dono conhecido (q = '', o jogo sem internet) vale só o limite do mundo.
+    const de = new Map();
+    for (const d of [...this.itens.values()].sort((a, b) => a.t - b.t)) {
+      if (!de.has(d.q)) de.set(d.q, []);
+      de.get(d.q).push(d);
+    }
+    const tirar = (d) => { this.itens.delete(d.i); fora.push(d); };
+    for (const [q, l] of de) if (q) while (l.length > MAX_POR_JOGADOR) tirar(l.shift());
+    // passou do limite do mundo: sai o mais antigo de quem tem mais itens no chão
+    while (this.itens.size > MAX_CHAO) {
+      let maior = null;
+      for (const l of de.values()) if (l.length && (!maior || l.length > maior.length)) maior = l;
+      tirar(maior.shift());
     }
     return fora;
   }

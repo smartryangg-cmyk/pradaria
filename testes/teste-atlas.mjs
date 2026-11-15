@@ -19,11 +19,13 @@ const furos = await p.evaluate(async () => {
   };
   const r = [];
   for (const def of Object.values(B.BLOCOS)) {
-    if (!def || !def.opaco || !def.tiles) continue;
-    for (const t of new Set(def.tiles)) for (const [cv, T] of [[c16, 16], [c32, 32], [c64, 64]]) if (cheio(cv, t, T) < 0.99) r.push(`${def.id} ${def.nome} tile ${t} (${T}px)`);
+    if (!def || !def.tiles) continue;
+    // opaco: tile inteiro pintado; vidro, planta, item: pelo menos alguma coisa pintada (tile vazio = bloco invisível)
+    const minimo = def.opaco ? 0.99 : 0.01;
+    for (const t of new Set(def.tiles)) for (const [cv, T] of [[c16, 16], [c32, 32], [c64, 64]]) if (cheio(cv, t, T) < minimo) r.push(`${def.id} ${def.nome} tile ${t} (${T}px)`);
   }
   return r;
 });
 await b.close();
-if (furos.length) { console.log('FALHOU: blocos opacos com textura vazia:\n' + furos.join('\n')); process.exit(1); }
-console.log('ok: todos os blocos opacos têm textura nos atlas de 16px, 32px e 64px');
+if (furos.length) { console.log('FALHOU: blocos com textura vazia:\n' + furos.join('\n')); process.exit(1); }
+console.log('ok: todos os blocos têm textura nos atlas de 16px, 32px e 64px');

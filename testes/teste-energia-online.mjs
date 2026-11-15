@@ -12,12 +12,15 @@ async function jogador(nome) {
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
   if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
   await p.click('#c-ok');
-  await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
+  await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])', { timeout: 15000 }); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 }); } })();
   return p;
 }
 const sfx = Date.now() % 10000;
 const a = await jogador('Ana' + sfx);
-await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Oficina'); await a.click('#m-novo button[type=submit]');
+await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Oficina');
+// blocos à vontade (sem Coletar e criar): Ana monta com as mãos sem precisar juntar antes
+if (await a.getAttribute('[data-opcao=sobrevivencia]', 'aria-pressed') === 'true') await a.click('[data-opcao=sobrevivencia]');
+await a.click('#m-novo button[type=submit]');
 await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 20000 });
 await a.waitForTimeout(2000);
 const codigo = await a.evaluate(() => window.__jogo.sala.codigo);
@@ -27,12 +30,15 @@ await bb.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jo
 await bb.waitForTimeout(1500);
 // Ana monta perto de onde os dois estão
 const pos = await a.evaluate(() => {
-  const { mundo, jog } = window.__jogo;
+  const { mundo, jog, comoJogador } = window.__jogo;
   const X = Math.floor(jog.pos.x) + 2, Z = Math.floor(jog.pos.z) + 2, Y = 50;
-  for (let d = -1; d <= 4; d++) mundo.definir(X + d, Y, Z, 3);
-  mundo.definir(X, Y + 1, Z, 102);
-  mundo.definir(X + 1, Y + 1, Z, 100); mundo.definir(X + 2, Y + 1, Z, 100);
-  mundo.definir(X + 3, Y + 1, Z, 108);
+  // como o jogador colocando com as mãos (a sala só aceita blocos novos assim)
+  comoJogador(() => {
+    for (let d = -1; d <= 4; d++) mundo.definir(X + d, Y, Z, 3);
+    mundo.definir(X, Y + 1, Z, 102);
+    mundo.definir(X + 1, Y + 1, Z, 100); mundo.definir(X + 2, Y + 1, Z, 100);
+    mundo.definir(X + 3, Y + 1, Z, 108);
+  });
   return [X, Y, Z];
 });
 await a.waitForTimeout(1000);

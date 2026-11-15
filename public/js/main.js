@@ -106,6 +106,14 @@ function palpiteGrafico() {
   palpiteFeito = n;
   return n;
 }
+// a placa de vídeo desistiu (memória cheia, comum em tablet fraco): volta para o nível leve e lembra disso
+canvas.addEventListener('webglcontextlost', (e) => {
+  e.preventDefault(); // deixa o navegador devolver a tela
+  if (ajustes.graf === 'auto') { ajustes.grafAuto = 'baixa'; ajustes.grafTeto = 'baixa'; }
+  else if (ajustes.graf !== 'baixa') { ajustes.graf = 'baixa'; ajustes.grafManual = false; }
+  salvarAjustes();
+});
+canvas.addEventListener('webglcontextrestored', () => { try { aplicarGraficos(); preencherGraficos(); } catch {} });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 const cena = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 400);
@@ -740,7 +748,7 @@ addEventListener('keydown', (e) => {
   else if (e.target.tagName === 'INPUT') return; // escrevendo no chat (ou num campo): as letras não são atalhos
   else if (e.code === 'KeyP') abrirPausa();
   else if (e.code === 'KeyC' && !pausado && e.target.tagName !== 'INPUT') cmd.abrir();
-  else if (((e.code === 'KeyR' && !opcoesMundo.armas) || e.code === 'F5') && !pausado && e.target.tagName !== 'INPUT') { e.preventDefault(); if (!e.repeat) alternarVisao(); }
+  else if (((e.code === 'KeyR' && !opcoesMundo.armas) || e.code === 'F5') && !e.ctrlKey && !e.metaKey && !pausado && e.target.tagName !== 'INPUT') { e.preventDefault(); if (!e.repeat) alternarVisao(); }
   else if (e.code === 'KeyQ' && !pausado && !e.repeat) largarDaMao(e.ctrlKey || e.shiftKey);
   else if (e.code === 'KeyM') { if (!$('#mapa').hidden) fecharJanelas(); else if (!pausado) mapa.abrir(); }
 });
@@ -1040,6 +1048,7 @@ function eventoEnergia(tipo, x, y, z) {
 // (areia caindo, folhas secando, grama crescendo e máquinas não contam)
 let porJogador = false;
 function comoJogador(fn) { porJogador = true; try { return fn(); } finally { porJogador = false; } }
+let maoQuebrando = 0; // o que estava na mão ao quebrar (vidro só sai inteiro com picareta)
 
 // segurar o dedo (ou clicar) num bicho bate nele. Como no clássico: cada coisa na mão tem dano (em meios corações)
 // e um tempo de recarga; bater antes de recarregar dá golpe fraco (20% a 100%). Segurando o dedo, o golpe
@@ -1108,6 +1117,7 @@ function quebrar(ponto) {
   // cada toque arranca um pedaço; o último derruba o bloco (a ferramenta certa precisa de menos toques)
   const p = raio.ray.at(h.t + 0.001, new THREE.Vector3());
   const total = toquesCom(toquesPara(h.b), h.b, mao);
+  maoQuebrando = mao;
   if (comoJogador(() => escav.bater(h, p, total))) { som.quebrar(); mostrarQueCaiu(h.b, h.x, h.y, h.z); } else som.bater(h.b);
 }
 
@@ -1253,6 +1263,13 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   mundo.raio = raioVisao();
   mundo.suaveSimples = opcoesGraficas().sombra === 0; // gráfico Leve: arredondado simples (monta mais rápido)
   escav = new Escavacao(cena, mundo, matBlocos, atlasCanvas);
+  // rachadura: os amigos veem o bloco rachando (no máximo 1 aviso a cada 0,15 s)
+  let ultimaRacha = 0;
+  escav.aoRachar = (x, y, z, b, toques, total) => {
+    const ag = performance.now();
+    if (!sala || ag - ultimaRacha < 150) return;
+    ultimaRacha = ag; sala.enviar({ t: 'racha', x, y, z, b, n: toques, de: total });
+  };
   drops.usarMundo(mundo);
   fisica = new Fisica(cena, mundo, matBlocos);
   plantacoes = new Plantacoes(mundo);
@@ -1261,9 +1278,9 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   mundo.carregarEdicoes(edicoes);
   mundo.aoMudarBloco = (x, y, z, b, de, natural) => {
     edicoesPendentes = true;
-    if (sala) sala.enviar(porJogador ? { t: 'bloco', x, y, z, b, de, j: 1 } : { t: 'bloco', x, y, z, b });
+    if (sala) sala.enviar(porJogador ? { t: 'bloco', x, y, z, b, de, j: 1, mao: b ? 0 : maoQuebrando } : { t: 'bloco', x, y, z, b, de });
     if (fisica) fisica.mudou(x, y, z, b);
-    if (porJogador) mercado.bloco(b, y, de, natural, x, z);
+    if (porJogador) mercado.bloco(b, y, de, natural, x, z, b ? 0 : maoQuebrando);
   };
   mundo.energia.aoEvento = eventoEnergia;
   minhaPlaca = null;
@@ -1381,6 +1398,10 @@ function jogarLocal(novo = null, idadeOk = false) {
     confirmarIdade16(normalizarOpcoes(salvo ? salvo.opcoes : novo.opcoes).tipo === 'guerra' ? 'O mundo de Guerra' : 'Este mundo').then((ok) => { if (ok) jogarLocal(novo, true); else if (!jogando) mostrarMenu('m-inicio'); });
     return;
   }
+  // mundo novo não herda os lugares marcados nem a marca do mapa do mundo antigo
+  if (novo) {
+    try { localStorage.removeItem('pradaria.lugares.local'); localStorage.removeItem('pradaria.mapa.local'); } catch {}
+  }
   modo = 'local'; mundoAtual = null;
   if (salvo && salvo.barra) barra = salvo.barra;
   tempoDia = salvo ? salvo.dia ?? 0.3 : 0.3;
@@ -1431,6 +1452,7 @@ async function jogarOnline(m, volta = null) {
         mundo.carregarEdicoes(msg.edicoes);
         chat.reconectou(msg);
         armas.entrouOnline(sala);
+        if (msg.econ) { mercado.recebeu(msg.econ); desenharBarra(); } // reconectou: a mochila certa é a do servidor
         drops.ligarSala(sala, msg.eu, msg.chao);
       }
       for (const id of [...outros.keys()]) removerOutro(id);
@@ -1451,6 +1473,7 @@ async function jogarOnline(m, volta = null) {
     voz: (msg) => chat.mensagemVoz(msg), 'voz-lista': (msg) => chat.mensagemVoz(msg), 'voz-sinal': (msg) => chat.mensagemVoz(msg), 'voz-fala': (msg) => chat.mensagemVoz(msg),
     pos: recebeuPos,
     bloco: (msg) => { if (mundo) mundo.definir(msg.x, msg.y, msg.z, msg.b, true); },
+    racha: (msg) => { if (escav) escav.remoto(msg.x, msg.y, msg.z, msg.b, msg.n, msg.de); },
     blocos: (msg) => { if (Array.isArray(msg.l)) porBlocosObra(msg.l, true); },
     emote: (msg) => {
       const o = outros.get(msg.id);
@@ -1836,7 +1859,7 @@ function laco(agora) {
     o.vAnim.lerp(o.vTmp, Math.min(1, dt * 8));
     // 1 = batendo, 2 = voando, 4 = na água, 8 = no ar, 16 = correndo, 32 = agachado (versões antigas só mandam até 8)
     const acao = o.acao | 0;
-    if (acao & 1 && (o.golpe ?? 1) >= 1) o.golpe = 0;
+    if (acao & 1 && (o.golpe ?? 1) >= 1) { o.golpe = 0; o.acao = acao & ~1; } // uma batida por aviso (senão repete ou fica batendo para sempre)
     if ((o.golpe ?? 1) < 1) o.golpe = Math.min(1, o.golpe + dt / 0.3);
     const v = o.vAnim, noChao = !(acao & 14);
     animarBoneco(o, {
@@ -1896,7 +1919,10 @@ const calib = {
     if (this.aguardar > 0) { this.aguardar--; return; }
     const alvo = ajustes.fpsMax || 60; // tela de 60 Hz não passa de ~60
     const atual = NIVEIS.indexOf(nivelAuto());
-    const teto = NIVEIS.includes(ajustes.grafTeto) ? NIVEIS.indexOf(ajustes.grafTeto) : NIVEIS.length - 1;
+    // sem teto marcado: no máximo um nível acima do palpite, e tablet/celular ou pouca memória nunca vão sozinhos ao Ultra
+    const fraco = ehToque || (navigator.deviceMemory || 8) <= 4;
+    const tetoPadrao = Math.min(NIVEIS.indexOf(palpiteGrafico()) + 1, NIVEIS.length - (fraco ? 2 : 1));
+    const teto = NIVEIS.includes(ajustes.grafTeto) ? NIVEIS.indexOf(ajustes.grafTeto) : tetoPadrao;
     this.bons = fps >= alvo * 0.9 ? this.bons + 1 : 0;
     this.ruins = fps < alvo * 0.62 ? this.ruins + 1 : 0;
     let novo = atual;
@@ -1908,6 +1934,8 @@ const calib = {
     }
     ajustes.grafAuto = NIVEIS[novo];
     salvarAjustes(); aplicarGraficos(); preencherGraficos();
+    if (mundo) mundo.raio = raioVisao();
+    ajustarNevoa();
     this.reiniciar();
     if (novo < atual) aviso('Ajustei os gráficos para rodar liso', 2200, 'brilho');
   },
@@ -1957,4 +1985,4 @@ if (conta.token) abrirJogos().then(() => { if (mundoPedido && conta.usuario) ent
 else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; } }; }
+if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; }, get escav() { return escav; } }; }

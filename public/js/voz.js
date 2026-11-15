@@ -1,7 +1,10 @@
 // Chat de voz: áudio direto entre os aparelhos (WebRTC), a sala só passa os recados para eles se acharem.
 // Microfone fica DESLIGADO o tempo todo; só manda som enquanto o jogador segura o botão de falar.
 // Quem não tem microfone (ou não deixou usar) entra só para ouvir.
-const ICE = [{ urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'] }];
+import { candidatoSeguro, sdpSemIp } from './voz-filtro.js';
+// sem STUN: ninguém (nem empresa de fora) descobre o IP de casa; a voz funciona entre aparelhos da mesma rede.
+// Para falar entre casas diferentes precisa de um servidor TURN (retransmissão), que esconde o IP.
+const ICE = [];
 
 export class Voz {
   // enviar(msg): manda pela sala; aoMudar(): redesenhar a tela; silenciado(id): esta pessoa foi silenciada aqui
@@ -102,7 +105,7 @@ export class Voz {
     if (this.stream) for (const t of this.stream.getAudioTracks()) pc.addTrack(t, this.stream);
     else pc.addTransceiver('audio', { direction: 'recvonly' });
     pc.onicecandidate = (e) => {
-      if (e.candidate) this.enviar({ t: 'voz-sinal', para: id, d: { ice: { candidate: e.candidate.candidate, sdpMid: e.candidate.sdpMid, sdpMLineIndex: e.candidate.sdpMLineIndex } } });
+      if (e.candidate && candidatoSeguro(e.candidate.candidate)) this.enviar({ t: 'voz-sinal', para: id, d: { ice: { candidate: e.candidate.candidate, sdpMid: e.candidate.sdpMid, sdpMLineIndex: e.candidate.sdpMLineIndex } } });
     };
     pc.ontrack = (e) => {
       if (!par.audio) {
@@ -124,7 +127,7 @@ export class Voz {
       (async () => {
         try {
           await pc.setLocalDescription(await pc.createOffer());
-          this.enviar({ t: 'voz-sinal', para: id, d: { sdp: { type: pc.localDescription.type, sdp: pc.localDescription.sdp } } });
+          this.enviar({ t: 'voz-sinal', para: id, d: { sdp: { type: pc.localDescription.type, sdp: sdpSemIp(pc.localDescription.sdp) } } });
         } catch (e) { console.warn('voz: oferta', e); }
       })();
     }
@@ -141,7 +144,7 @@ export class Voz {
           this.naVoz.add(de);
           await par.pc.setRemoteDescription(d.sdp);
           await par.pc.setLocalDescription(await par.pc.createAnswer());
-          this.enviar({ t: 'voz-sinal', para: de, d: { sdp: { type: par.pc.localDescription.type, sdp: par.pc.localDescription.sdp } } });
+          this.enviar({ t: 'voz-sinal', para: de, d: { sdp: { type: par.pc.localDescription.type, sdp: sdpSemIp(par.pc.localDescription.sdp) } } });
         } else if (par && par.pc.signalingState === 'have-local-offer') {
           await par.pc.setRemoteDescription(d.sdp);
         }

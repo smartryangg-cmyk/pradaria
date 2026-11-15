@@ -20,7 +20,7 @@ async function jogador(nome, toque) {
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
   if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
   await p.click('#c-ok');
-  await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
+  await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])', { timeout: 15000 }); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 }); } })();
   return p;
 }
 const ultimas = (p) => p.$$eval('#chat-log .chat-msg', (l) => l.map((e) => e.textContent));
@@ -28,8 +28,10 @@ const ultimas = (p) => p.$$eval('#chat-log .chat-msg', (l) => l.map((e) => e.tex
 const sfx = Date.now() % 10000;
 const a = await jogador('Ana' + sfx, false);
 await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Conversa');
-// as duas opções novas aparecem na criação, já ligadas
-ok(await a.getAttribute('[data-opcao=chatTexto]', 'aria-pressed') === 'true' && await a.getAttribute('[data-opcao=chatVoz]', 'aria-pressed') === 'true', 'criação: chat de texto e de voz aparecem ligados');
+// as duas opções aparecem na criação: texto ligado, voz desligada (o dono liga se quiser)
+ok(await a.getAttribute('[data-opcao=chatTexto]', 'aria-pressed') === 'true' && await a.getAttribute('[data-opcao=chatVoz]', 'aria-pressed') === 'false', 'criação: chat de texto ligado e voz desligada');
+await a.click('[data-opcao=chatVoz]');
+ok(await a.getAttribute('[data-opcao=chatVoz]', 'aria-pressed') === 'true', 'dono liga a voz ao criar');
 await a.click('#m-novo button[type=submit]');
 await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 20000 });
 await a.waitForTimeout(2000);
