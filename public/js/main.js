@@ -3,8 +3,8 @@ import { CHAO_DA_MUDA } from './arvores-regras.js';
 import * as THREE from '../vendor/three.module.min.js';
 import { F } from './formas.js';
 import { FOLHAGEM } from './blocos.js';
-import { criarAtlas, iconeBloco, INVENTARIO, INVENTARIO_MAQUINAS, INVENTARIO_FORMAS, B, E, AR, BLOCOS, SOLIDO, AGUA, PRECISA_CHAO, ITEM, ehItem, nomeDe } from './blocos.js';
-import { toquesCom, receitasDoMundo, GRUPOS, podeCriar, faltaBancada, gastoDe, receitaDaGrade, arrumar, cabeNaGrade, pilhaDe, cabe } from './receitas.js';
+import { criarAtlas, iconeBloco, INVENTARIO, INVENTARIO_MAQUINAS, INVENTARIO_FORMAS, B, E, AR, BLOCOS, SOLIDO, AGUA, PRECISA_CHAO, ITEM, ehItem, nomeDe, FORNALHA } from './blocos.js';
+import { toquesCom, receitasDoMundo, GRUPOS, podeCriar, faltaBancada, gastoDe, receitaDaGrade, arrumar, cabeNaGrade, pilhaDe, cabe, nivelFalta, NOME_NIVEL, baseDe, DURA } from './receitas.js';
 import { Inventario, MAO2 } from './inventario.js';
 import { BASE, PRECISA_ENERGIA, ELETRICO } from './energia.js';
 import { Mundo, ALT, NIVEL_AGUA } from './mundo.js';
@@ -38,6 +38,7 @@ import { ehCama } from './dormir-regras.js';
 import { ESCADA_MAO, PAREDE } from './escada-mao.js';
 import { LAVA, ehLava, DANO_LAVA } from './lava-regras.js';
 import { FOGO, ISQUEIRO, DANO_FOGO, inflamavel } from './fogo-regras.js';
+import { fornoNovo, avancar, normalizarForno, fornoDaRede, conteudo, assavel, queima, TEMPO_FORNO } from './fornalha-regras.js';
 import { FORMA_NOVA } from './formas.js';
 import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, ESTILOS, MODOS_JOGO, DIFICULDADES, modoJogoDe, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto, raioExtraMundo, precisa16 } from './opcoes-mundo.js';
 import { vida } from './vida.js';
@@ -441,6 +442,7 @@ function desenharBarra() {
     b.appendChild(iconeBloco(atlasCanvas, id, 48));
     if (!sv && !mercado.podeColocar(id)) { b.classList.add('trancado'); b.title = 'Compre na loja de uma vila'; b.insertAdjacentHTML('beforeend', `<span class="cad">${icone('cadeado')}</span>`); }
     if (sv && id && !ehItem(id) || sv && n > 1) { const q = document.createElement('b'); q.className = 'qtd'; q.textContent = n; b.appendChild(q); }
+    if (sv && id && n) barraDesg(b, i, id);
     b.addEventListener('click', () => { slotSel = i; armas.escolher(-1); som.clique(); desenharBarra(); aviso(id ? nomeDe(id) : 'Mão vazia', 900); });
     el.appendChild(b);
   });
@@ -494,7 +496,7 @@ function abrirInventario(aba) {
   }
   $('#dica-maquinas').hidden = abaInv !== 'maquinas';
   $('#bancada-status').hidden = abaInv !== 'criar';
-  $('#inv-titulo').textContent = { maquinas: 'Engenharia', mochila: inv.w === 3 ? 'Bancada' : 'Mochila', criar: 'Receitas', formas: 'Formas' }[abaInv] || 'Blocos';
+  $('#inv-titulo').textContent = { maquinas: 'Engenharia', mochila: fornoAberto ? 'Fornalha' : inv.w === 3 ? 'Bancada' : 'Mochila', criar: 'Receitas', formas: 'Formas' }[abaInv] || 'Blocos';
   $('#inv-sub').textContent = abaInv === 'criar' ? 'Toque numa receita: ela vai para a grade de criar' : abaInv === 'mochila' ? (toqueInv ? 'Toque para pegar e soltar. Segure o dedo para dividir. Arraste para mover' : 'Clique para pegar e soltar, botão direito divide, Shift move rápido, 1 a 9 troca com a barra') : 'Escolha um bloco para a mão';
   const g = $('#grade');
   const rolagem = g.dataset.aba === abaInv ? g.scrollTop : 0;
@@ -532,6 +534,7 @@ const toqueInv = matchMedia('(pointer: coarse)').matches;
 const chaveInv = () => 'pradaria.inv.' + (modo === 'online' && mundoAtual ? mundoAtual.codigo + '.' + (conta.usuario ? conta.usuario.nome : '') : 'local');
 // a mochila já tem a contagem certa deste mundo: carrega a arrumação guardada e acerta
 function prepararInventario() {
+  carregarFornos(); fecharFornalha();
   carregarCorpo(); morto = false; pararComer(); $('#morte').hidden = true;
   inv = new Inventario(); invChave = chaveInv(); invPronto = sobrev();
   barraVista = new Array(9).fill(0); // a barra guardada (na sala ou no mundo) diz o que fica em cada espaço
@@ -569,12 +572,34 @@ function sincronizarBarra() {
   if (mudou) guardarBarraDepois();
 }
 const grandeDe = (l, i) => (l === 's' && i === MAO2 ? 'mao2' : l);
+// desgaste da ferramenta no espaço i (receitas.js DURA; e.desg[id]: a primeira é a da mão, depois na ordem dos espaços)
+function desgDoEspaco(i, id) {
+  if (!DURA[id] || !invPronto) return 0;
+  const l = (mercado.e.desg && mercado.e.desg[id]) || [];
+  if (!l.some((v) => v > 0)) return 0;
+  const ordem = [];
+  if (inv.s[slotSel] && inv.s[slotSel].id === id) ordem.push(slotSel);
+  inv.s.forEach((p, k) => { if (p && p.id === id && k !== slotSel) ordem.push(k); });
+  const n = ordem.indexOf(i);
+  return n >= 0 ? l[n] || 0 : 0;
+}
+// barrinha de uso embaixo da ferramenta (verde -> vermelho), como no clássico
+function barraDesg(el, i, id) {
+  const d = desgDoEspaco(i, id);
+  if (!d) return;
+  const resta = Math.max(0, 1 - d / DURA[id]);
+  const b = document.createElement('span'); b.className = 'desg';
+  b.innerHTML = `<i style="width:${Math.max(4, Math.round(resta * 100))}%;background:hsl(${Math.round(resta * 120)},80%,45%)"></i>`;
+  b.title = `Ainda aguenta ${DURA[id] - d} usos`;
+  el.appendChild(b);
+}
 function slotInv(l, i, p, cls = '') {
   const b = document.createElement('button');
   b.type = 'button'; b.className = 'slot-inv ' + cls; b.dataset.l = l; b.dataset.i = i;
   if (p) {
     b.appendChild(imgIcone(p.id)); b.title = nomeDe(p.id);
     if (p.n > 1) { const q = document.createElement('b'); q.className = 'qtd'; q.textContent = p.n; b.appendChild(q); }
+    if (l === 's') barraDesg(b, i, p.id);
     b.setAttribute('aria-label', `${nomeDe(p.id)} (${p.n})`);
   } else b.setAttribute('aria-label', grandeDe(l, i) === 'mao2' ? 'Segunda mão vazia' : 'Vazio');
   return b;
@@ -594,6 +619,7 @@ function desenharMochila(g) {
   saida.id = 'inv-saida';
   if (r) saida.setAttribute('aria-label', `Criar ${nomeDe(r.faz[0])}`);
   criar.append(gr, seta, saida);
+  const forno = fornoAberto ? painelForno() : null;
   const lado = document.createElement('div'); lado.className = 'inv-lado';
   const m2 = document.createElement('label'); m2.className = 'inv-mao2';
   m2.append(slotInv('s', MAO2, inv.s[MAO2], 'mao2'), Object.assign(document.createElement('small'), { textContent: 'Segunda mão' }));
@@ -601,12 +627,13 @@ function desenharMochila(g) {
   rap.setAttribute('aria-pressed', moverRapido); rap.innerHTML = icone('raio'); rap.append(' Mover rápido');
   rap.addEventListener('click', () => { moverRapido = !moverRapido; som.clique(); desenharMochila(g); });
   lado.append(m2, rap);
-  cima.append(criar, lado);
+  cima.append(forno || criar, lado);
   const moch = document.createElement('div'); moch.className = 'inv-mochila';
   for (let i = 9; i < 36; i++) moch.appendChild(slotInv('s', i, inv.s[i]));
   const bar = document.createElement('div'); bar.className = 'inv-barra';
   for (let i = 0; i < 9; i++) bar.appendChild(slotInv('s', i, inv.s[i], i === slotSel ? 'sel' : ''));
   g.append(cima, moch, bar);
+  if (forno) desenharForno();
   if (inv.extra.length) {
     const ex = document.createElement('div'); ex.className = 'inv-extra';
     const t = document.createElement('p'); t.className = 'sub'; t.textContent = 'Sobrando (a mochila passou do limite): use ou largue para caber';
@@ -662,6 +689,8 @@ function pegarResultado(tudo) {
 function acaoSlot(l, i, direito, shift) {
   som.iniciar();
   if (l === 'o') { pegarResultado(shift || moverRapido); return; }
+  if (l === 'f') { acaoForno(i, direito); return; }
+  if (fornoAberto && (shift || moverRapido) && !inv.cursor && !direito && moverParaForno(l, i)) { invMudou(); return; }
   if (direito) inv.clicarDireito(l, i);
   else if ((shift || moverRapido) && !inv.cursor) inv.moverRapido(l, i);
   else inv.clicar(l, i);
@@ -707,9 +736,9 @@ function largarCursor(um) {
     if (!ap.arrastando && Math.hypot(e.clientX - ap.x, e.clientY - ap.y) > 10) {
       ap.arrastando = true; clearTimeout(ap.timer);
       // começou a arrastar uma pilha (sem nada preso): pega ela para soltar onde largar o dedo
-      if (!ap.tinha && ap.l !== 'o') { if (ap.direito) inv.clicarDireito(ap.l, ap.i); else inv.clicar(ap.l, ap.i); invMudou(); }
+      if (!ap.tinha && ap.l !== 'o' && ap.l !== 'f') { if (ap.direito) inv.clicarDireito(ap.l, ap.i); else inv.clicar(ap.l, ap.i); invMudou(); }
     }
-    if (ap.arrastando && ap.tinha) { const t = alvo(e.clientX, e.clientY); if (t && t[0] !== 'o' && !ap.passou.some(([a, b]) => a === t[0] && b === t[1])) ap.passou.push(t); }
+    if (ap.arrastando && ap.tinha) { const t = alvo(e.clientX, e.clientY); if (t && t[0] !== 'o' && t[0] !== 'f' && !ap.passou.some(([a, b]) => a === t[0] && b === t[1])) ap.passou.push(t); }
   });
   addEventListener('pointerup', (e) => {
     if (!ap) return;
@@ -724,7 +753,9 @@ function largarCursor(um) {
       return;
     }
     // arrastar e soltar uma pilha
-    if (t && t[0] !== 'o') { if (!(t[0] === a.l && t[1] === a.i) || inv.cursor) { inv.clicar(t[0], t[1]); som.clique(); invMudou(); } }
+    if (a.l === 'f') { acaoSlot('f', a.i, false, false); return; } // arrastou da fornalha: tira para a mochila
+    if (t && t[0] === 'f') { if (inv.cursor) acaoForno(t[1], false); if (inv.cursor && a.l !== 'f') { inv.clicar(a.l, a.i); invMudou(); } } // soltou na fornalha
+    else if (t && t[0] !== 'o') { if (!(t[0] === a.l && t[1] === a.i) || inv.cursor) { inv.clicar(t[0], t[1]); som.clique(); invMudou(); } }
     else if (!t && !e.target.closest('#inventario .caixa')) largarCursor(false);
     else if (inv.cursor) { inv.clicar(a.l, a.i); invMudou(); } // soltou em lugar nenhum dentro da janela: volta
   });
@@ -739,17 +770,137 @@ function largarCursor(um) {
   addEventListener('keydown', (e) => {
     if ($('#inventario').hidden || !g.classList.contains('inv-classico') || !/^Digit[1-9]$/.test(e.code)) return;
     const t = alvo(cursorXY[0], cursorXY[1]);
-    if (!t || t[0] === 'o') return;
+    if (!t || t[0] === 'o' || t[0] === 'f') return;
     e.preventDefault(); e.stopImmediatePropagation();
     inv.trocarComBarra(t[0], t[1], +e.code.slice(5) - 1); som.clique(); invMudou();
   }, true);
 })();
 // fechou o inventário: grade e cursor voltam para a mochila
 function guardarGrade() {
+  fecharFornalha();
   if (!invPronto) return;
   if (inv.cursor || inv.g.some(Boolean)) { inv.devolver(); sincronizarBarra(); salvarInvDepois(); }
   inv.mudarGrade(2);
   desenharCursor();
+}
+
+// ---------- fornalha (regras em fornalha-regras.js) ----------
+// Sem internet o estado fica guardado no aparelho; online fica na sala (todos usam a mesma fornalha) e
+// o aparelho só mostra (e mexe na hora, a sala confere). A conta do tempo é feita na hora de olhar.
+let fornoAberto = null, timerForno = 0;
+const fornos = new Map(); // "x,y,z" -> estado
+const chaveFornos = () => chaveInv().replace('pradaria.inv.', 'pradaria.fornos.');
+function carregarFornos() {
+  fornos.clear();
+  if (sala) return;
+  try { const o = JSON.parse(localStorage.getItem(chaveFornos()) || '{}'); for (const k in o) fornos.set(k, normalizarForno(o[k])); } catch {}
+}
+function salvarFornos() {
+  if (sala) return;
+  const o = {};
+  for (const [k, f] of fornos) if (conteudo(f).length || f.q > 0) o[k] = f;
+  try { localStorage.setItem(chaveFornos(), JSON.stringify(o)); } catch {}
+}
+const fornoK = (x, y, z) => x + ',' + y + ',' + z;
+function abrirFornalha(x, y, z) {
+  fornoAberto = { x, y, z, k: fornoK(x, y, z) };
+  if (sala) sala.enviar({ t: 'forno-ver', x, y, z });
+  inv.mudarGrade(2);
+  abrirInventario('mochila');
+  clearInterval(timerForno);
+  timerForno = setInterval(() => { if (fornoAberto && !$('#inventario').hidden) desenharForno(); }, 250);
+}
+function fecharFornalha() { fornoAberto = null; clearInterval(timerForno); }
+// o estado agora (com o tempo que passou), sem mexer no guardado
+function fornoVista() {
+  const f = fornos.get(fornoAberto.k);
+  if (!f) return fornoNovo();
+  const v = { ...f, e: f.e && [...f.e], c: f.c && [...f.c], s: f.s && [...f.s] };
+  avancar(v, Date.now());
+  return v;
+}
+function fornoDaSala(m) {
+  const k = fornoK(m.x, m.y, m.z);
+  if (m.f) fornos.set(k, fornoDaRede(m.f)); else fornos.delete(k);
+  if (fornoAberto && fornoAberto.k === k && !$('#inventario').hidden) {
+    if (!m.f && mundo && mundo.bloco(m.x, m.y, m.z) !== FORNALHA) { fecharJanelas(); return; }
+    desenharForno();
+  }
+}
+// mexe na fornalha aberta: a mochila e a fornalha mudam juntas (economia.js forno-por / forno-tirar)
+function mexerForno(a) {
+  const { x, y, z, k } = fornoAberto;
+  const velho = fornos.get(k) || fornoNovo();
+  const f = { ...velho, e: velho.e && [...velho.e], c: velho.c && [...velho.c], s: velho.s && [...velho.s] };
+  const r = mercado.mexer({ ...a, f, agora: Date.now() });
+  if (!r) return null;
+  fornos.set(k, f);
+  if (sala) sala.enviar({ t: a.t, x, y, z, k: a.k, id: a.id, n: a.n });
+  else salvarFornos();
+  return r;
+}
+// clicou num espaço da fornalha (0 = o que assa, 1 = combustível, 2 = pronto)
+function acaoForno(i, direito) {
+  const k = 'ecs'[i], c = inv.cursor;
+  if (c && k !== 's') {
+    const r = mexerForno({ t: 'forno-por', k, id: c.id, n: direito ? 1 : c.n });
+    if (!r) return;
+    c.n -= r.foi; if (c.n <= 0) inv.cursor = null;
+    som.clique();
+  } else if (!c) {
+    const r = mexerForno({ t: 'forno-tirar', k });
+    if (!r) return;
+    if (k === 's') som.criar(); else som.clique();
+  } else return;
+  invMudou();
+}
+// Shift (ou mover rápido) numa pilha da mochila com a fornalha aberta: vai para a fornalha
+function moverParaForno(l, i) {
+  const p = l === 's' ? inv.s[i] : null;
+  if (!p) return false;
+  const k = assavel(p.id) ? 'e' : queima(p.id) ? 'c' : null;
+  if (!k) return false;
+  const r = mexerForno({ t: 'forno-por', k, id: p.id, n: p.n });
+  if (r) som.clique();
+  return true;
+}
+function desenharForno() {
+  const el = $('#forno-painel');
+  if (!el || !fornoAberto) return;
+  const f = fornoVista();
+  const chave = JSON.stringify([f.e, f.c, f.s]);
+  if (el.dataset.chave !== chave) {
+    el.dataset.chave = chave;
+    for (const [i, k] of [[0, 'e'], [1, 'c'], [2, 's']]) {
+      const novo = slotInv('f', i, f[k] ? { id: f[k][0], n: f[k][1] } : null, 'forno-' + k);
+      if (!f[k]) novo.setAttribute('aria-label', ['O que vai assar (minério, areia, carne...)', 'Combustível (carvão, madeira)', 'Pronto'][i]);
+      el.querySelector('.forno-' + k).replaceWith(novo);
+    }
+  }
+  el.querySelector('.chama i').style.height = (f.Q > 0 ? Math.round((f.q / f.Q) * 100) : 0) + '%';
+  el.querySelector('.forno-seta i').style.width = Math.round((f.p / TEMPO_FORNO) * 100) + '%';
+  el.classList.toggle('acesa', f.q > 0);
+}
+// a fornalha saiu do lugar: sem internet, o que tinha dentro cai no chão (online a sala faz isso)
+function fornalhaSumiu(x, y, z) {
+  const k = fornoK(x, y, z);
+  if (fornoAberto && fornoAberto.k === k && !$('#inventario').hidden) fecharJanelas();
+  if (sala) return;
+  const f = fornos.get(k);
+  fornos.delete(k);
+  if (!f) return;
+  avancar(f, Date.now());
+  for (const [id, n] of conteudo(f)) drops.novoLocal(id, n, x + 0.5, y + 0.4, z + 0.5);
+  salvarFornos();
+}
+function painelForno() {
+  const el = document.createElement('div'); el.className = 'inv-criar forno'; el.id = 'forno-painel';
+  const col = document.createElement('div'); col.className = 'forno-col';
+  const chama = document.createElement('span'); chama.className = 'chama'; chama.innerHTML = icone('fogo') + '<i></i>';
+  col.append(Object.assign(document.createElement('span'), { className: 'forno-e' }), chama, Object.assign(document.createElement('span'), { className: 'forno-c' }));
+  const seta = document.createElement('span'); seta.className = 'seta-criar forno-seta'; seta.innerHTML = icone('seta') + '<i></i>';
+  el.append(col, seta, Object.assign(document.createElement('span'), { className: 'forno-s' }));
+  return el;
 }
 
 // bancada perto do jogador (até 4 blocos)
@@ -895,7 +1046,15 @@ function mostrarColeta(id, n) {
 }
 // depois de quebrar: o que tinha ali cai no chão (economia.js diz o quê: mercado ui.caiu chama drops.cair;
 // online quem põe no chão é a sala)
-function mostrarQueCaiu() {}
+// jogo clássico: quebrou pedra/minério sem a picareta certa (não caiu nada): diz qual precisa
+let avisouPicareta = 0;
+function mostrarQueCaiu(b) {
+  if (!sobrev() || !mercado.op.fome) return;
+  const n = nivelFalta(b, maoQuebrando);
+  if (!n || tempoTotal - avisouPicareta < 3) return;
+  avisouPicareta = tempoTotal;
+  aviso(`Não caiu nada: ${nomeDe(baseDe(b))} só sai com picareta ${NOME_NIVEL[n]} ou melhor`, 2600, 'martelo');
+}
 // carinho na ovelha dá lã (uma vez a cada minuto por ovelha)
 const ondeBicho = (b) => ({ x: Math.round(b.x * 100) / 100, y: Math.round((b.y + 0.9) * 100) / 100, z: Math.round(b.z * 100) / 100 });
 function laDaOvelha(bicho) {
@@ -1326,6 +1485,8 @@ function usar(ponto) {
   if (!h) { tentarComer(); return; }
   // tocar na bancada abre a grade de criar 3x3
   if (h.b === B.BANCADA && sobrev()) { som.clique(); if (invPronto) { inv.mudarGrade(3); abrirInventario('mochila'); } else abrirInventario('criar'); return; }
+  // tocar na fornalha abre a fornalha (com a mochila embaixo)
+  if (h.b === FORNALHA && sobrev() && invPronto) { som.clique(); abrirFornalha(h.x, h.y, h.z); return; }
   // tocar na cama: deita (de noite, dorme até amanhecer)
   if (ehCama(h.b) && !armas.empunhando) {
     som.clique();
@@ -1758,6 +1919,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
     if (sala) sala.enviar(porJogador ? { t: 'bloco', x, y, z, b, de, j: 1, mao: b ? 0 : maoQuebrando } : acendendo ? { t: 'bloco', x, y, z, b, de, isq: 1 } : { t: 'bloco', x, y, z, b, de });
     if (fisica) fisica.mudou(x, y, z, b);
     if (porJogador) mercado.bloco(b, y, de, natural, x, z, b ? 0 : maoQuebrando);
+    if (de === FORNALHA && b !== FORNALHA) fornalhaSumiu(x, y, z);
   };
   mundo.energia.aoEvento = eventoEnergia;
   minhaPlaca = null;
@@ -1896,7 +2058,7 @@ function jogarLocal(novo = null, idadeOk = false) {
   if (novo) salvarLocal();
   cmd.entrouLocal();
   mercado.iniciar({ opcoes: opcoesMundo, novo: !!novo });
-  if (novo) try { localStorage.removeItem('pradaria.inv.local'); localStorage.removeItem('pradaria.corpo.local'); } catch {}
+  if (novo) try { localStorage.removeItem('pradaria.inv.local'); localStorage.removeItem('pradaria.corpo.local'); localStorage.removeItem('pradaria.fornos.local'); } catch {}
   prepararInventario();
   desenharBarra();
   $('#status').innerHTML = comIcone('casa', 'Sem internet');
@@ -1971,6 +2133,7 @@ async function jogarOnline(m, volta = null) {
     },
     erro: (msg) => { aviso(msg.msg || 'Erro', 3000); },
     chao: (msg) => drops.recebeuChao(msg.d),
+    forno: (msg) => fornoDaSala(msg),
     'chao-pegou': (msg) => drops.recebeuPegou(msg, (j) => { const o = outros.get(j); return o ? o.grupo.position.clone().setY(o.grupo.position.y + 0.9) : null; }),
     econ: (msg) => { mercado.recebeu(msg.s, msg.feitos, msg.msg, msg); desenharBarra(); },
     'econ-erro': (msg) => mercado.erro(msg.msg, msg),
@@ -2505,4 +2668,4 @@ if (conta.token) abrirJogos().then(() => { if (mundoPedido && conta.usuario) ent
 else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, get inv() { return inv; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; }, get escav() { return escav; }, som }; }
+if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, get inv() { return inv; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; }, get escav() { return escav; }, som, fornos, get fornoAberto() { return fornoAberto; } }; }

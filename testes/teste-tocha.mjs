@@ -10,7 +10,7 @@ const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftsha
 let falhas = 0;
 const ok = (c, t) => { console.log((c ? 'OK   ' : 'FALHA') + ' ' + t); if (!c) falhas++; };
 const erros = [];
-const PEDRA = 3, TOCHA = 221, CARVAO = 66;
+const PEDRA = 3, TOCHA = 221, CARVAO = 1100; // carvão (item: sai do minério de carvão)
 
 async function tocarEm(q, alvo, toque = true) {
   await q.evaluate(([x, y, z]) => {
@@ -31,12 +31,12 @@ await p.tap('#bt-sozinho'); await p.waitForSelector('#m-novo:not([hidden])'); aw
 await p.waitForFunction(() => window.__jogo && window.__jogo.jog, null, { timeout: 30000 });
 await p.waitForTimeout(4000);
 ok(await p.evaluate(() => window.__jogo.opcoesMundo.sobrevivencia === true), 'mundo novo é de coletar e criar');
-// criar pelo livro de receitas: 1 graveto + 1 carvão = 4 tochas
+// criar pelo livro de receitas: 1 graveto + 1 carvão = 4 tochas (o carvão que sai do minério)
 const GRAVETO = 1000;
 await p.evaluate(([G, C]) => { const m = window.__jogo.mercado; m.e.itens[G] = 1; m.e.itens[C] = 1; m.recebeu(m.e); }, [GRAVETO, CARVAO]);
 await p.evaluate(() => window.__jogo.abrirInventario('criar'));
-await p.waitForSelector('#inventario:not([hidden]) [data-receita=tocha]');
-await p.click('[data-receita=tocha]'); // o livro arruma a grade de criar
+await p.waitForSelector('#inventario:not([hidden]) [data-receita=tocha-carvao]');
+await p.click('[data-receita=tocha-carvao]'); // o livro arruma a grade de criar
 await p.click('#inv-saida', { modifiers: ['Shift'] }); // tira o resultado direto para a mochila
 const it = await p.evaluate(([G, C, T]) => { const e = window.__jogo.mercado.e.itens; return [e[G] || 0, e[C] || 0, e[T] || 0]; }, [GRAVETO, CARVAO, TOCHA]);
 ok(it[0] === 0 && it[1] === 0 && it[2] === 4, `criou 4 tochas com 1 graveto e 1 carvão, sem bancada (graveto, carvão, tochas: ${it})`);

@@ -41,18 +41,18 @@ const base = await p.evaluate(([PEDRA, TABUAS]) => {
   m.definir(x0 + 3, y0, z0 + 2, 34); // bancada
   j.voando = false; j.pos.x = x0 + 0.5; j.pos.y = y0; j.pos.z = z0 + 0.5; j.vel.x = j.vel.y = j.vel.z = 0;
   J.dia = 0.3; J.bichos.limpar(); J.bichos.tempoSpawn = 1e9;
-  const me = J.mercado; me.e.itens[20] = 1; me.e.itens[67] = 1; me.recebeu(me.e);
+  const me = J.mercado; me.e.itens[20] = 1; me.e.itens[1101] = 1; me.recebeu(me.e);
   return [x0, y0, z0];
 }, [PEDRA, TABUAS]);
 const [x0, y0, z0] = base;
 await p.waitForTimeout(800);
-// isqueiro na bancada: pedrisco + minério de ferro
+// isqueiro na bancada: pedrisco + barra de ferro (jogo clássico: o minério vai antes para a fornalha)
 await p.evaluate(() => window.__jogo.abrirInventario('criar'));
-await p.waitForSelector('#inventario:not([hidden]) [data-receita=isqueiro]');
-await p.click('[data-receita=isqueiro]'); // o livro arruma a grade 3x3 da bancada
+await p.waitForSelector('#inventario:not([hidden]) [data-receita=isqueiro-ferro]');
+await p.click('[data-receita=isqueiro-ferro]'); // o livro arruma a grade 3x3 da bancada
 await p.click('#inv-saida', { modifiers: ['Shift'] }); // tira o resultado direto para a mochila
-const it = await p.evaluate(() => { const e = window.__jogo.mercado.e.itens; return [e[20] || 0, e[67] || 0, e[1010] || 0]; });
-ok(it[0] === 0 && it[1] === 0 && it[2] === 1, `criou o isqueiro na bancada com pedrisco e minério de ferro (${it})`);
+const it = await p.evaluate(() => { const e = window.__jogo.mercado.e.itens; return [e[20] || 0, e[1101] || 0, e[1010] || 0]; });
+ok(it[0] === 0 && it[1] === 0 && it[2] === 1, `criou o isqueiro na bancada com pedrisco e barra de ferro (${it})`);
 await p.click('#inventario [data-fechar]');
 await p.evaluate(() => { const J = window.__jogo; const i = J.barra.indexOf(1010); J.slot = i >= 0 ? i : (J.barra[0] = 1010, 0); });
 // no chão de pedra, longe da madeira: acende e apaga sozinho em poucos segundos

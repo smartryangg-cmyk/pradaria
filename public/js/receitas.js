@@ -21,13 +21,20 @@ export const IDS = {
   PORTA: 47, CATAVENTO: 49, MO: 51, CABO: 53, FORNO: 55, FARINHA: 57, PAO: 58, SARILHO: 59,
   // itens (não são blocos)
   GRAVETO: 1000, PICARETA_MADEIRA: 1001, PICARETA_PEDRA: 1002, MACHADO_MADEIRA: 1003, MACHADO_PEDRA: 1004, PA_MADEIRA: 1005, PA_PEDRA: 1006, CARNE: 1007, COURO: 1008, BALDE: 1009,
+  // jogo clássico: minérios, fornalha e ferramentas de ferro e diamante (blocos 188..210, itens 1100..1299)
+  CARVAO_MINERIO: 66, FERRO_MINERIO: 67, OURO_MINERIO: 68, DIAMANTE_MINERIO: 69,
+  FORNALHA: 188, BLOCO_FERRO: 190, BLOCO_OURO: 191, BLOCO_DIAMANTE: 192,
+  CARVAO: 1100, BARRA_FERRO: 1101, BARRA_OURO: 1102, DIAMANTE: 1103, CARNE_ASSADA: 1104,
+  PICARETA_FERRO: 1105, MACHADO_FERRO: 1106, PA_FERRO: 1107, PICARETA_DIAMANTE: 1108, MACHADO_DIAMANTE: 1109, PA_DIAMANTE: 1110,
 };
 const I = IDS;
 export const ULTIMO_ITEM = 1010; // 1010 isqueiro (fogo-regras.js)
+export const PRIMEIRO_CLASSICO = 1100, ULTIMO_CLASSICO = 1110; // itens do jogo clássico (minérios, fornalha)
+export const MAIOR_ITEM = ULTIMO_CLASSICO;
 export const MAX_BLOCO = 255;
 
 // pode ficar guardado na mochila: blocos (menos as águas correntes) e os itens conhecidos
-export const guardavel = (id) => Number.isInteger(id) && ((id > 0 && id <= MAX_BLOCO && !(id >= 23 && id <= 30)) || (id >= 1000 && id <= ULTIMO_ITEM));
+export const guardavel = (id) => Number.isInteger(id) && ((id > 0 && id <= MAX_BLOCO && !(id >= 23 && id <= 30)) || (id >= 1000 && id <= ULTIMO_ITEM) || (id >= PRIMEIRO_CLASSICO && id <= ULTIMO_CLASSICO));
 
 // ---------- o que cai ao quebrar ----------
 // as peças ligadas (101, 103...) voltam a ser a peça desligada; esteiras viradas viram esteira
@@ -41,10 +48,24 @@ export function baseDe(b) {
   if (b >= 176 && b <= 183) return b - ((b - 176) % 4); // cama e cadeira viradas (moveis.js)
   if (b >= 211 && b <= 214) return 211; // escada de mão virada (escada-mao.js)
   if (b === 76 || b === 77) return I.TRIGO; // trigo plantado ainda crescendo: é o mesmo trigo
+  if (b === 189) return I.FORNALHA; // fornalha acesa
   return b;
 }
 // o tronco redondo das árvores dá o tronco comum (dá para refazer o redondo no livro, 1 por 1)
-const VIRA = { [I.GRAMA]: I.TERRA, [I.TERRA_ARADA]: I.TERRA, 80: I.TRONCO, 81: 71, 82: 73 };
+// carvão e diamante saem prontos do minério (ferro e ouro saem como minério: vão para a fornalha)
+const VIRA = { [I.GRAMA]: I.TERRA, [I.TERRA_ARADA]: I.TERRA, 80: I.TRONCO, 81: 71, 82: 73, [I.CARVAO_MINERIO]: I.CARVAO, [I.DIAMANTE_MINERIO]: I.DIAMANTE };
+
+// jogo clássico: pedra e minério só caem com a picareta certa (1 madeira, 2 pedra, 3 ferro, 4 diamante);
+// com a mão ou picareta fraca o bloco quebra (devagar) e não dá nada, como no clássico
+export const PRECISA_PICARETA = {
+  [I.PEDRA]: 1, [I.PEDRISCO]: 1, [I.TIJOLO]: 1, [I.CARVAO_MINERIO]: 1, [I.FERRO_MINERIO]: 2, [I.OURO_MINERIO]: 3,
+  [I.DIAMANTE_MINERIO]: 3, [I.FORNALHA]: 1, 189: 1, [I.BLOCO_FERRO]: 2, [I.BLOCO_OURO]: 3, [I.BLOCO_DIAMANTE]: 3,
+  83: 1, 86: 1, 87: 1, 88: 1, 90: 1, 91: 1, 92: 1, 93: 1, 94: 1, // formas de pedra e tijolo
+};
+export const NOME_NIVEL = ['', 'de madeira', 'de pedra', 'de ferro', 'de diamante'];
+export const nivelPicareta = (mao) => (FERRAMENTAS[mao] && FERRAMENTAS[mao][0] === 'picareta' ? FERRAMENTAS[mao][2] : 0);
+// quanto falta: 0 = pode; senão o nível de picareta que precisa
+export const nivelFalta = (b, mao) => { const p = PRECISA_PICARETA[b] || 0; return p && nivelPicareta(mao) < p ? p : 0; };
 // extras: [chance em %, item]; sorteio fixo pela posição (o jogo e o servidor tiram o mesmo resultado)
 // trigo maduro: colher dá mais do que plantou (é assim que a plantação rende)
 // folhas: às vezes solta uma muda (planta e ela vira árvore: a madeira do mundo não acaba)
@@ -55,8 +76,9 @@ const EXTRA = {
 const sorteio = (x, y, z) => (((Math.imul(x | 0, 73856093) ^ Math.imul(y | 0, 19349663) ^ Math.imul(z | 0, 83492791)) >>> 0) % 100);
 
 // natural = bloco do mundo original (o extra só vale nele; senão era só pôr e tirar folha no lugar da sorte); mao = ferramenta
-export function oQueCai(b, x = 0, y = 0, z = 0, natural = true, mao = 0) {
+export function oQueCai(b, x = 0, y = 0, z = 0, natural = true, mao = 0, classico = false) {
   if (!Number.isInteger(b) || b <= 0 || (b >= 23 && b <= 30) || b > MAX_BLOCO) return [];
+  if (classico && nivelFalta(b, mao)) return [];
   // vidro estilhaça: só sai inteiro com picareta na mão (com a mão vazia vira cacos)
   if (b === I.VIDRO && !(FERRAMENTAS[mao] && FERRAMENTAS[mao][0] === 'picareta')) return [];
   if (b >= 215 && b <= 219) return []; // lava não se quebra: só sai com balde (lava-regras.js)
@@ -76,10 +98,13 @@ export const lugarVazio = (de) => !de || de === 5 || (de >= 23 && de <= 30) || (
 export const gastoDe = (b) => baseDe(b);
 
 // ---------- ferramentas ----------
+// [tipo, força (divide os toques), nível (1 madeira, 2 pedra, 3 ferro, 4 diamante)]
 export const FERRAMENTAS = {
-  [I.PICARETA_MADEIRA]: ['picareta', 2], [I.PICARETA_PEDRA]: ['picareta', 3],
-  [I.MACHADO_MADEIRA]: ['machado', 2], [I.MACHADO_PEDRA]: ['machado', 3],
-  [I.PA_MADEIRA]: ['pa', 2], [I.PA_PEDRA]: ['pa', 3],
+  [I.PICARETA_MADEIRA]: ['picareta', 2, 1], [I.PICARETA_PEDRA]: ['picareta', 3, 2],
+  [I.MACHADO_MADEIRA]: ['machado', 2, 1], [I.MACHADO_PEDRA]: ['machado', 3, 2],
+  [I.PA_MADEIRA]: ['pa', 2, 1], [I.PA_PEDRA]: ['pa', 3, 2],
+  [I.PICARETA_FERRO]: ['picareta', 4, 3], [I.MACHADO_FERRO]: ['machado', 4, 3], [I.PA_FERRO]: ['pa', 4, 3],
+  [I.PICARETA_DIAMANTE]: ['picareta', 6, 4], [I.MACHADO_DIAMANTE]: ['machado', 6, 4], [I.PA_DIAMANTE]: ['pa', 6, 4],
 };
 const TIPO_DO_BLOCO = {};
 for (const b of [I.PEDRA, I.PEDRISCO, I.TIJOLO, I.LAMPIAO, I.VIDRO, 108, 109, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122]) TIPO_DO_BLOCO[b] = 'picareta';
@@ -92,7 +117,7 @@ for (const b of [80, 81, 82, 84, 95, 96, 97, 98, 99]) TIPO_DO_BLOCO[b] = 'machad
 for (const b of [83, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94]) TIPO_DO_BLOCO[b] = 'picareta';
 // troncos das outras árvores, folhas, minérios e cascalho do mundo clássico
 for (const b of [71, 72, 73, 74, 131, 132]) TIPO_DO_BLOCO[b] = 'machado';
-for (const b of [66, 67, 68, 69, 220]) TIPO_DO_BLOCO[b] = 'picareta'; // 220 obsidiana
+for (const b of [66, 67, 68, 69, 220, 188, 189, 190, 191, 192]) TIPO_DO_BLOCO[b] = 'picareta'; // 220 obsidiana, 188 fornalha
 TIPO_DO_BLOCO[65] = 'pa';
 
 // quantos toques o bloco b precisa com `naMao` na mão (base = toques sem ferramenta)
@@ -128,14 +153,30 @@ export const RECEITAS = [
   { id: 'picareta-pedra', faz: [I.PICARETA_PEDRA, 1], usa: [[I.PEDRA, 3], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas', forma: ['PPP', '.G.', '.G.'] },
   { id: 'machado-pedra', faz: [I.MACHADO_PEDRA, 1], usa: [[I.PEDRA, 3], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas', forma: ['PP', 'PG', '.G'] },
   { id: 'pa-pedra', faz: [I.PA_PEDRA, 1], usa: [[I.PEDRA, 1], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas', forma: ['P', 'G', 'G'] },
+  { id: 'picareta-ferro', faz: [I.PICARETA_FERRO, 1], usa: [[I.BARRA_FERRO, 3], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas', forma: ['FFF', '.G.', '.G.'] },
+  { id: 'machado-ferro', faz: [I.MACHADO_FERRO, 1], usa: [[I.BARRA_FERRO, 3], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas', forma: ['FF', 'FG', '.G'] },
+  { id: 'pa-ferro', faz: [I.PA_FERRO, 1], usa: [[I.BARRA_FERRO, 1], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas', forma: ['F', 'G', 'G'] },
+  { id: 'picareta-diamante', faz: [I.PICARETA_DIAMANTE, 1], usa: [[I.DIAMANTE, 3], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas', forma: ['DDD', '.G.', '.G.'] },
+  { id: 'machado-diamante', faz: [I.MACHADO_DIAMANTE, 1], usa: [[I.DIAMANTE, 3], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas', forma: ['DD', 'DG', '.G'] },
+  { id: 'pa-diamante', faz: [I.PA_DIAMANTE, 1], usa: [[I.DIAMANTE, 1], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas', forma: ['D', 'G', 'G'] },
   { id: 'balde', faz: [I.BALDE, 1], usa: [[I.TABUAS, 3]], bancada: true, grupo: 'ferramentas', forma: ['T.T', '.T.'] },
   // construção
   { id: 'pedrisco', faz: [I.PEDRISCO, 2], usa: [[I.PEDRA, 2]], grupo: 'construir', forma: ['P.', '.P'] },
   { id: 'terra-arada', faz: [I.TERRA_ARADA, 1], usa: [[I.TERRA, 1]], grupo: 'construir' },
   { id: 'tijolo', faz: [I.TIJOLO, 2], usa: [[I.TERRA, 1], [I.AREIA, 1]], bancada: true, grupo: 'construir' },
   { id: 'vidro', faz: [I.VIDRO, 1], usa: [[I.AREIA, 2]], bancada: true, grupo: 'construir' },
-  { id: 'isqueiro', faz: [1010, 1], usa: [[20, 1], [67, 1]], bancada: true, grupo: 'ferramentas' }, // pedrisco + minério de ferro
-  { id: 'tocha', faz: [221, 4], usa: [[I.GRAVETO, 1], [66, 1]], grupo: 'construir' }, // 66 = carvão
+  // isqueiro e tocha: no clássico com barra de ferro e carvão; os mundos com mods guardam a receita antiga (minério)
+  { id: 'isqueiro', faz: [1010, 1], usa: [[20, 1], [67, 1]], bancada: true, grupo: 'ferramentas', classico: false }, // pedrisco + minério de ferro
+  { id: 'isqueiro-ferro', faz: [1010, 1], usa: [[20, 1], [I.BARRA_FERRO, 1]], bancada: true, grupo: 'ferramentas' },
+  { id: 'tocha', faz: [221, 4], usa: [[I.GRAVETO, 1], [66, 1]], grupo: 'construir', classico: false }, // 66 = minério de carvão
+  { id: 'tocha-carvao', faz: [221, 4], usa: [[I.CARVAO, 1], [I.GRAVETO, 1]], grupo: 'construir', forma: ['C', 'G'] },
+  { id: 'fornalha', faz: [I.FORNALHA, 1], usa: [[I.PEDRISCO, 8]], bancada: true, grupo: 'construir', forma: ['RRR', 'R.R', 'RRR'] },
+  { id: 'bloco-ferro', faz: [I.BLOCO_FERRO, 1], usa: [[I.BARRA_FERRO, 9]], bancada: true, grupo: 'construir', forma: ['FFF', 'FFF', 'FFF'] },
+  { id: 'barras-ferro', faz: [I.BARRA_FERRO, 9], usa: [[I.BLOCO_FERRO, 1]], grupo: 'construir' },
+  { id: 'bloco-ouro', faz: [I.BLOCO_OURO, 1], usa: [[I.BARRA_OURO, 9]], bancada: true, grupo: 'construir', forma: ['OOO', 'OOO', 'OOO'] },
+  { id: 'barras-ouro', faz: [I.BARRA_OURO, 9], usa: [[I.BLOCO_OURO, 1]], grupo: 'construir' },
+  { id: 'bloco-diamante', faz: [I.BLOCO_DIAMANTE, 1], usa: [[I.DIAMANTE, 9]], bancada: true, grupo: 'construir', forma: ['DDD', 'DDD', 'DDD'] },
+  { id: 'diamantes', faz: [I.DIAMANTE, 9], usa: [[I.BLOCO_DIAMANTE, 1]], grupo: 'construir' },
   { id: 'escada-mao', faz: [211, 3], usa: [[I.GRAVETO, 7]], bancada: true, grupo: 'construir', forma: ['G.G', 'GGG', 'G.G'] },
   { id: 'lampiao', faz: [I.LAMPIAO, 1], usa: [[I.VIDRO, 1], [I.GRAVETO, 1]], bancada: true, grupo: 'construir' },
   { id: 'feno', faz: [I.FENO, 1], usa: [[I.TRIGO, 3]], grupo: 'construir', forma: ['WWW'] },
@@ -192,9 +233,18 @@ export function adicionarReceitas(lista) { for (const r of lista) if (!RECEITAS.
 export const regras = { liberada: () => true };
 
 // receitas que aparecem no livro deste mundo
+// jogo clássico de verdade (igual a vida.js classico() e economia.js op.fome)
+export const mundoClassico = (o) => {
+  if (!o || !o.sobrevivencia || o.armas || o.tipo === 'guerra') return false;
+  const dif = typeof o.dificuldade === 'string' ? o.dificuldade : o.selvagensMachucam ? 'normal' : 'pacifico';
+  return dif !== 'pacifico';
+};
+// receita com `classico: false` = só nos mundos com mods (no clássico há a receita certa, com barra/carvão)
+export const receitaNoMundo = (r, classico) => !(classico && r.classico === false);
 export function receitasDoMundo(opcoes) {
   const fora = new Set(GRUPOS.filter((g) => g.opcao && opcoes && opcoes[g.opcao] === false).map((g) => g.id));
-  return RECEITAS.filter((r) => !fora.has(r.grupo) && regras.liberada(r, opcoes));
+  const cl = mundoClassico(opcoes);
+  return RECEITAS.filter((r) => !fora.has(r.grupo) && receitaNoMundo(r, cl) && regras.liberada(r, opcoes));
 }
 export const receita = (id) => RECEITAS.find((r) => r.id === id) || null;
 
@@ -234,8 +284,9 @@ function cabeDepois(itens, r) {
 // ---------- grade de criar (2x2 na mochila, 3x3 na bancada) ----------
 // receita com `forma`: o desenho tem de ser esse (em qualquer lugar da grade, e pode ser espelhado);
 // sem `forma`: as coisas podem estar em qualquer lugar (uma por espaço). Cada espaço gasta 1.
-// Letras: T tábuas, G graveto, P pedra, R pedrisco, W trigo, L = o único ingrediente da receita.
-const LETRAS = { T: I.TABUAS, G: I.GRAVETO, P: I.PEDRA, R: I.PEDRISCO, W: I.TRIGO };
+// Letras: T tábuas, G graveto, P pedra, R pedrisco, W trigo, F barra de ferro, D diamante, O barra de ouro,
+// C carvão, L = o único ingrediente da receita.
+const LETRAS = { T: I.TABUAS, G: I.GRAVETO, P: I.PEDRA, R: I.PEDRISCO, W: I.TRIGO, F: I.BARRA_FERRO, D: I.DIAMANTE, O: I.BARRA_OURO, C: I.CARVAO };
 const letra = (r, c) => (c === '.' ? 0 : c === 'L' ? r.usa[0][0] : LETRAS[c]);
 export function desenhoDe(r) {
   if (r.forma) return r.forma.map((l) => [...l].map((c) => letra(r, c)));
@@ -306,7 +357,7 @@ export function criarEm(itens, r, temBancada, limite = false) {
 // e.desg[id] = lista com o uso já gasto de cada ferramenta desse tipo (a primeira é a da mão: gasta primeiro).
 // Quebrar um bloco com a ferramenta gasta 1 (plantas e coisas de um toque não); acender com o isqueiro gasta 1.
 // Quando chega no máximo, a ferramenta quebra. Largar no chão leva o desgaste junto (pegar de volta não conserta).
-export const DURA = { 1001: 59, 1003: 59, 1005: 59, 1002: 131, 1004: 131, 1006: 131, 1010: 64 };
+export const DURA = { 1001: 59, 1003: 59, 1005: 59, 1002: 131, 1004: 131, 1006: 131, 1010: 64, 1105: 250, 1106: 250, 1107: 250, 1108: 1561, 1109: 1561, 1110: 1561 };
 const lim = (id, v) => Math.max(0, Math.min(DURA[id] - 1, v | 0));
 // desgaste válido para n ferramentas id (lista de números; o que faltar é ferramenta nova)
 export const desgLista = (id, l, n) => (DURA[id] && Array.isArray(l) ? l.slice(0, Math.max(0, n | 0)).map((v) => lim(id, v)) : []);
