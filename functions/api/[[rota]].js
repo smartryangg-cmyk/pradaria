@@ -2,6 +2,7 @@
 // Dono do mundo: /api/mundos/membros  /api/mundos/expulsar  /api/mundos/codigo-novo  /api/mundos/editar  /api/mundos/chat
 // /api/mundos/apagar  /api/mundos/exportar.  Importar (vira um mundo novo de quem importa): /api/mundos/importar.  Apagar conta: DELETE /api/eu
 import { json, erro, banco, criarToken, usuarioDa, hashSenha, iguais, limitar, codigoNovo, textoProibido } from '../../lib/base.js';
+import { listarAmigos, pedirAmizade, responderAmizade, removerAmizade } from '../../lib/amigos.js';
 import { normalizarOpcoes, sementeDeTexto, editarOpcoes, opcoesMudadas, precisaRecarregar, precisa16 } from '../../public/js/opcoes-mundo.js';
 import { lerArquivo, montarArquivo } from '../../public/js/arquivo-mundo.js';
 import { normalizarSkin } from '../../public/js/skin.js';
@@ -291,6 +292,7 @@ async function apagarConta(request, env, u) {
   await db.batch([
     db.prepare('DELETE FROM membros WHERE usuario_id = ? OR mundo_id IN (SELECT id FROM mundos WHERE dono_id = ?)').bind(u.id, u.id),
     db.prepare('DELETE FROM mundos WHERE dono_id = ?').bind(u.id),
+    db.prepare('DELETE FROM amizades WHERE de = ?1 OR para = ?1').bind(u.id),
     db.prepare('DELETE FROM usuarios WHERE id = ?').bind(u.id),
   ]);
   for (const m of meus) await avisarSala(env, m, 'apagar');
@@ -336,6 +338,10 @@ export async function onRequest({ request, env, params }) {
     if (rota === 'mundos/exportar' && metodo === 'POST') return await exportarMundo(request, env, u);
     if (rota === 'mundos/importar' && metodo === 'POST') return await importarMundo(request, env, u);
     if (rota === 'mundos/chat' && metodo === 'POST') return await opcoesChat(request, env, u);
+    if (rota === 'amigos' && metodo === 'GET') return await listarAmigos(env, u);
+    if (rota === 'amigos/pedir' && metodo === 'POST') return await pedirAmizade(request, env, u);
+    if (rota === 'amigos/responder' && metodo === 'POST') return await responderAmizade(request, env, u);
+    if (rota === 'amigos/remover' && metodo === 'POST') return await removerAmizade(request, env, u);
     return erro('Rota não encontrada', 404);
   } catch (e) {
     console.error(e);

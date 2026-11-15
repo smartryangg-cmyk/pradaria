@@ -8,7 +8,7 @@ import { idade16, confirmarIdade16 } from './idade.js';
 const $ = (s) => document.querySelector(s);
 let cb = {};
 
-// cb: { mostrarMenu(id), abrirMundos(), abrirConta(modo, erro), som() }
+// cb: { lobby, amigos, mostrarMenu(id), abrirMundos(), abrirConta(modo, erro), som() }
 export function ligarHub(callbacks) {
   cb = callbacks;
   $('#bt-voltar-jogos').addEventListener('click', () => { cb.som && cb.som(); abrirJogos(); });
@@ -55,6 +55,7 @@ export async function abrirJogos() {
     else { cb.mostrarMenu('m-inicio'); alert('Não consegui falar com o servidor agora. Você pode jogar sem internet.\n\n' + err.message); }
     return;
   }
+  if (cb.lobby) { if (!cb.lobby.ws || cb.lobby.fechado) cb.lobby.reabrir(); cb.lobby.jogo('hub'); cb.amigos.carregar(); }
   $('#j-nome').textContent = conta.usuario.nome;
   $('#jogos-msg').textContent = '';
   const l = $('#lista-jogos');

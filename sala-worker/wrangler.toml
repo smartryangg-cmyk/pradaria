@@ -20,3 +20,12 @@ new_sqlite_classes = ["Sala"]
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["Controle"]
+
+# saguão da plataforma: amigos online e convites (src/lobby.js)
+[[durable_objects.bindings]]
+name = "LOBBY"
+class_name = "Lobby"
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["Lobby"]

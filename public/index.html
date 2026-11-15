@@ -189,6 +189,7 @@
     <h2>Pausa</h2>
     <p id="pausa-mundo" class="sub"></p>
     <p id="pausa-opcoes" class="sub"></p>
+    <button class="bt verde" type="button" id="bt-chamar-amigos" hidden><span data-icone="acenar"></span>Chamar amigos para cá</button>
     <button class="bt" type="button" id="bt-editar-mundo" hidden><span data-icone="lapis"></span>Editar o mundo</button>
     <details class="mais" id="pausa-dono" hidden>
       <summary>Quem pode entrar no meu mundo</summary>
@@ -297,6 +298,7 @@
   <!-- a plataforma: escolher o jogo (hub.js, lista em jogos.js) -->
   <div class="caixa larga" id="m-jogos" hidden>
     <h2>Olá, <span id="j-nome"></span>!</h2>
+    <button class="bt amigos-bt" id="bt-amigos" type="button"><span data-icone="amigos"></span>Amigos<span id="amigos-contador" class="contador" hidden></span></button>
     <p class="sub centro">Escolha um jogo</p>
     <div id="lista-jogos" class="jogos"></div>
     <p id="jogos-msg" class="sub centro" aria-live="polite"></p>
