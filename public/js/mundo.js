@@ -112,6 +112,7 @@ export class Mundo {
     // Ilha de Aventura; o mundo de Guerra usa a mesma ilha com base, forte, presídio e delegacia
     this.aventura = opcoesMundo.tipo === 'aventura' ? new IlhaAventura(this) : opcoesMundo.tipo === 'guerra' ? new IlhaGuerra(this) : null;
     this.ocultos = new Map(); // "x,y,z" -> [x,y,z]: blocos sendo escavados (desenhados à parte)
+    this.montagem = null; // pedaço sendo montado em fatias: { c, g (gerador), limite }
     this.energia = new Energia(this); // fios e máquinas
     // estilo Natural 3D: terreno e copas arredondados (só o desenho; os blocos são os mesmos). suave.js
     this.suave = opcoesMundo.estilo === 'suave';
@@ -628,24 +629,46 @@ export class Mundo {
   }
 
   // ---------- malhas ----------
+  // monta a malha do pedaço de uma vez (pedaço editado, entrada no mundo)
   construir(c) {
-    // blocos escondidos viram ar só durante a montagem (assim os vizinhos mostram as faces)
-    if (this.ocultos.size) {
-      const trocas = [];
-      for (const [x, y, z] of this.ocultos.values()) {
-        const ch = this.chunks.get(chave(Math.floor(x / CX), Math.floor(z / CZ)));
-        if (!ch) continue;
-        const i = idx(x - ch.cx * CX, y, z - ch.cz * CZ);
-        trocas.push([ch.dados, i, ch.dados[i]]);
-        ch.dados[i] = AR;
-      }
-      try { this.construirMalha(c); } finally { for (const [d, i, b] of trocas) d[i] = b; }
-      return;
-    }
-    this.construirMalha(c);
+    if (this.montagem && this.montagem.c === c) this.montagem = null; // a montagem em fatias dele fica velha
+    const g = this.construirMalha(c);
+    const trocas = this.esconderOcultos();
+    try { while (!g.next().done); } finally { for (const [d, i, b] of trocas) d[i] = b; }
   }
 
-  construirMalha(c) {
+  // blocos escondidos viram ar só durante a montagem (assim os vizinhos mostram as faces)
+  esconderOcultos() {
+    const trocas = [];
+    if (!this.ocultos.size) return trocas;
+    for (const [x, y, z] of this.ocultos.values()) {
+      const ch = this.chunks.get(chave(Math.floor(x / CX), Math.floor(z / CZ)));
+      if (!ch) continue;
+      const i = idx(x - ch.cx * CX, y, z - ch.cz * CZ);
+      trocas.push([ch.dados, i, ch.dados[i]]);
+      ch.dados[i] = AR;
+    }
+    return trocas;
+  }
+
+  // Montagem em fatias: um pedaço novo (andando pelo mundo) é montado aos poucos, no máximo `ms` por quadro;
+  // a malha velha continua na tela até a nova ficar pronta. Retorna true quando terminou (ou não tinha nada).
+  // No tablet fraco um pedaço do Natural 3D levava ~50 ms de uma vez (engasgo a cada pedaço novo).
+  montarFatia(ms) {
+    const j = this.montagem;
+    if (!j) return true;
+    if (this.chunks.get(chave(j.c.cx, j.c.cz)) !== j.c) { this.montagem = null; return true; } // descarregou
+    j.limite = performance.now() + ms;
+    const trocas = this.esconderOcultos();
+    let fim;
+    try { fim = j.g.next().done; } finally { for (const [d, i, b] of trocas) d[i] = b; }
+    if (fim) this.montagem = null;
+    return fim;
+  }
+
+  // gerador: monta a malha; com `fatia` (objeto com .limite em ms de performance.now) pausa (yield) quando passa
+  // do limite e continua no próximo quadro. Sem fatia vai até o fim.
+  *construirMalha(c, fatia = null) {
     const P = [], U = [], C = [], I = [], N = [], O = [], L = [], BD = [];
     // Natural 3D com cores lisas: índices do material liso (IS) e as duas cores de cada vértice (topo e lado)
     const IS = [], CT = [], CL = [];
@@ -725,7 +748,9 @@ export class Mundo {
       const o = a || b2 ? this.chunks.get(chave(c.cx + a, c.cz + b2)) : c;
       arrs.push(o ? o.dados : null);
     }
+    if (fatia && performance.now() > fatia.limite) yield;
     const luzB = calcularLuz(arrs, CX, CZ, ALT);
+    if (fatia && performance.now() > fatia.limite) yield;
     // água (para o shader): profundidade e beirada no canto de uma face.
     // Retorna [fundura 0..1, 1 - beirada, 1]; (1,1,1) = "fundo, sem espuma" (padrão seguro).
     const ehAgua = (q) => !!(BLOCOS[q] && BLOCOS[q].agua);
@@ -831,7 +856,9 @@ export class Mundo {
       IA.push(k, k + 1, k + 2, k, k + 2, k + 3);
     };
 
-    for (let y = 0; y <= topo; y++) for (let z = 0; z < CZ; z++) for (let x = 0; x < CX; x++) {
+    for (let y = 0; y <= topo; y++) for (let z = 0; z < CZ; z++) {
+      if (fatia && performance.now() > fatia.limite) yield;
+      for (let x = 0; x < CX; x++) {
       const b = d[idx(x, y, z)];
       if (b === AR) continue;
       const def = BLOCOS[b];
@@ -978,6 +1005,7 @@ export class Mundo {
         else II.push(k, k + 1, k + 2, k, k + 2, k + 3);
       }
     }
+    }
 
     const fazer = (P, U, C, I, mat, antiga, extra, fluxo, IL) => {
       if (antiga) { this.cena.remove(antiga); antiga.geometry.dispose(); }
@@ -1013,13 +1041,14 @@ export class Mundo {
       this.cena.add(m);
       return m;
     };
+    if (fatia && performance.now() > fatia.limite) yield;
     c.malha = fazer(P, U, C, I, this.mat, c.malha, true, null, IS);
     c.luzes = luzes;
     c.temLuz = !!luzB;
     c.especiais = especiais;
     c.agua = fazer(PA, UA, CA, IA, this.matAgua, c.agua, false, FA);
     if (c.agua) c.agua.renderOrder = 1;
-    c.sujo = false;
+    if (!fatia) c.sujo = false; // em fatias o sujo já foi limpo no começo (mexeram no meio: monta de novo)
     c.prioridade = false;
     c.temMalha = true;
   }
@@ -1066,9 +1095,27 @@ export class Mundo {
       if (c.sujo) pend.push([d2, c]);
     }
     pend.sort((a, b) => a[0] - b[0]);
-    for (const [, c] of pend) {
-      this.construir(c);
-      if (performance.now() - ini > orcamentoMs) break;
+    if (orcamentoMs >= 50) {
+      // entrada no mundo (tela de carregando): monta de uma vez
+      for (const [, c] of pend) {
+        this.construir(c);
+        if (performance.now() - ini > orcamentoMs) break;
+      }
+    } else {
+      // andando: monta em fatias dentro do orçamento do quadro (um pedaço pode levar vários quadros)
+      let k = 0;
+      for (let resto = orcamentoMs - (performance.now() - ini); resto > 0.5; resto = orcamentoMs - (performance.now() - ini)) {
+        if (!this.montagem) {
+          while (k < pend.length && !pend[k][1].sujo) k++;
+          if (k >= pend.length) break;
+          const c = pend[k++][1];
+          c.sujo = false;
+          const job = { c, limite: 0 };
+          job.g = this.construirMalha(c, job);
+          this.montagem = job;
+        }
+        this.montarFatia(resto);
+      }
     }
     // descarregar longe
     for (const [k, c] of this.chunks) {
@@ -1084,7 +1131,7 @@ export class Mundo {
       const [a, b] = k.split(',').map(Number);
       if ((a - pcx) ** 2 + (b - pcz) ** 2 > (R + 5) * (R + 5)) this.prontos.delete(k);
     }
-    return pend.length;
+    return pend.length + (this.montagem ? 1 : 0);
   }
 
   // raio (DDA) a partir da câmera: retorna bloco atingido e a face

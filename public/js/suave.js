@@ -114,18 +114,31 @@ export function criarSuavizador(get, editado, alturaNatural, topo, simples = fal
   // densidade larga: média 5x5x5 com peso em "tenda" (1 2 3 2 1). O chão vira colina lisa: os degraus de
   // 1 bloco do terreno somem numa rampa de uns 5 blocos (a 3x3x3 deixava "curvas de nível").
   const PESO = [1 / 9, 2 / 9, 3 / 9, 2 / 9, 1 / 9];
+  // separável e com cache em cada passo: linha em z (5 blocos) -> placa em x (5 linhas) -> cubo em y (5 placas).
+  // Cada bloco novo custa ~15 contas em vez de 125 (montar o pedaço ficava pesado no tablet).
+  const linZ = new Float32Array(N).fill(-1), plaX = new Float32Array(N).fill(-1);
+  function linhaZ(x, y, z) {
+    if (fora(x, y, z)) return 1;
+    const i = ix(x, y, z);
+    if (linZ[i] >= 0) return linZ[i];
+    let s = 0;
+    for (let c = -2; c <= 2; c++) if (cls(x, y, z + c)) s += PESO[c + 2];
+    return (linZ[i] = s);
+  }
+  function placaX(x, y, z) {
+    if (fora(x, y, z)) return 1;
+    const i = ix(x, y, z);
+    if (plaX[i] >= 0) return plaX[i];
+    let s = 0;
+    for (let a = -2; a <= 2; a++) s += linhaZ(x + a, y, z) * PESO[a + 2];
+    return (plaX[i] = s);
+  }
   function densidadeLarga(x, y, z) {
     if (fora(x, y, z)) return 1;
     const i = ix(x, y, z);
     if (densG[i] >= 0) return densG[i];
     let s = 0;
-    for (let a = -2; a <= 2; a++) {
-      const wa = PESO[a + 2];
-      for (let b = -2; b <= 2; b++) {
-        const wb = wa * PESO[b + 2];
-        for (let c = -2; c <= 2; c++) if (cls(x + a, y + b, z + c)) s += wb * PESO[c + 2];
-      }
-    }
+    for (let b = -2; b <= 2; b++) s += placaX(x, y + b, z) * PESO[b + 2];
     return (densG[i] = s);
   }
 
@@ -189,10 +202,14 @@ export function criarSuavizador(get, editado, alturaNatural, topo, simples = fal
     let nx = 0, ny = 0, nz = 0;
     if (largaUsada) {
       // chão liso: gradiente num cubo 4x4x4 (normal bem lisa; com só os 8 blocos a luz marcava cada degrau)
-      for (let a = -2; a <= 1; a++) for (let b = -2; b <= 1; b++) for (let c = -2; c <= 1; c++) {
-        const dd = densidadeLarga(x + a, y + b, z + c), oa = a + 0.5, ob = b + 0.5, oc = c + 0.5;
-        const w = (Math.abs(oa) > 1 ? 0.5 : 1) * (Math.abs(ob) > 1 ? 0.5 : 1) * (Math.abs(oc) > 1 ? 0.5 : 1);
-        nx -= dd * oa * w; ny -= dd * ob * w; nz -= dd * oc * w;
+      // (cada eixo: 4 blocos ao longo dele x os 2x2 do meio nos outros = 32 blocos no total, não 64)
+      for (let a = -2; a <= 1; a++) {
+        const o = a + 0.5, w = a === -2 || a === 1 ? 0.5 : 1;
+        for (let b = -1; b <= 0; b++) for (let c = -1; c <= 0; c++) {
+          nx -= densidadeLarga(x + a, y + b, z + c) * o * w;
+          ny -= densidadeLarga(x + b, y + a, z + c) * o * w;
+          nz -= densidadeLarga(x + b, y + c, z + a) * o * w;
+        }
       }
     } else for (let i = 0; i < 8; i++) { nx -= d8[i] * OFF[i][0]; ny -= d8[i] * OFF[i][1]; nz -= d8[i] * OFF[i][2]; }
     const l = Math.hypot(nx, ny, nz);
