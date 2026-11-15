@@ -12,6 +12,9 @@ export class Controles {
     this.ultimoEspaco = 0;
     this.sensToque = 0.0055;
     this.ativo = true;
+    // outras fontes de comando (tv.js): controle de videogame e celular-controle somam aqui { frente, lado, pular, descer, correr }
+    this.fontes = {};
+    this.tv = false; // modo TV: setas esquerda/direita viram o personagem (o controle remoto não tem mouse)
     this.teclado(); this.mouse(); this.toques();
   }
 
@@ -174,13 +177,19 @@ export class Controles {
     let f = 0, l = 0;
     if (t.has('KeyW') || t.has('ArrowUp')) f += 1;
     if (t.has('KeyS') || t.has('ArrowDown')) f -= 1;
-    if (t.has('KeyD') || t.has('ArrowRight')) l += 1;
-    if (t.has('KeyA') || t.has('ArrowLeft')) l -= 1;
+    if (t.has('KeyD') || (!this.tv && t.has('ArrowRight'))) l += 1;
+    if (t.has('KeyA') || (!this.tv && t.has('ArrowLeft'))) l -= 1;
     if (this.joy) { f -= this.joy.dy; l += this.joy.dx; }
-    s.frente = f; s.lado = l;
     s.pular = t.has('Space') || this.botaoPular;
     s.descer = t.has('ShiftLeft') || t.has('ShiftRight') || this.botaoDescer;
     s.correr = t.has('ControlLeft') || (this.joy && Math.hypot(this.joy.dx, this.joy.dy) > 0.97);
+    for (const k in this.fontes) {
+      const o = this.fontes[k];
+      if (!o) continue;
+      f += o.frente || 0; l += o.lado || 0;
+      s.pular = s.pular || !!o.pular; s.descer = s.descer || !!o.descer; s.correr = s.correr || !!o.correr;
+    }
+    s.frente = Math.max(-1, Math.min(1, f)); s.lado = Math.max(-1, Math.min(1, l));
     return s;
   }
 }

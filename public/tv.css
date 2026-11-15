@@ -1,0 +1,17 @@
+/* Modo TV: tudo maior para ler do sofá (o desenho 3D não muda) e o botão escolhido bem marcado. */
+body.modo-tv > :not(#tela):not(#vinheta):not(script) { zoom: var(--tv-zoom, 1); }
+body.modo-tv .foco-tv, body.modo-tv :focus-visible { outline: 5px solid #ffcf1f !important; outline-offset: 3px; box-shadow: 0 0 0 9px rgba(28, 22, 16, .55) !important; }
+.foco-tv { outline: 4px solid #ffcf1f; outline-offset: 3px; }
+body.modo-tv .caixa { width: min(620px, 100%); }
+body.modo-tv .caixa.larga { width: min(760px, 100%); }
+
+/* painel do código para o celular */
+.tv-par { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.tv-qr { width: 220px; height: 220px; display: block; border: 4px solid var(--txt); border-radius: 14px; background: #fff; }
+.tv-passos { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 4px; }
+.tv-passos p { margin: 0; font-weight: 700; }
+.tv-codigo { font-size: 46px; font-weight: 900; letter-spacing: 6px; color: var(--verde-borda); font-variant-numeric: tabular-nums; }
+#tv-status { display: flex; align-items: center; gap: 8px; }
+#tv-status .ic-svg { width: 22px; height: 22px; }
+.bt-celular-controle .ic-svg, #bt-ser-controle .ic-svg { width: 26px; height: 26px; }
+.bt-celular-controle .tv-sit { color: var(--verde-borda); }
