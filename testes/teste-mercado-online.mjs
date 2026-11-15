@@ -20,10 +20,11 @@ const a = await jogador('Ana' + sfx);
 await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Feirinha');
 await a.click('[data-modo=criativo]'); // este teste é do mercado com blocos à vontade (o "Coletar e criar" tem o teste dele)
 await a.click('#m-novo [data-opcao=mercado]'); // mod (desligado nos mundos novos)
+await a.click('#m-novo [data-opcao=objetivos]'); // mod Missões
 await a.click('#m-novo button[type=submit]');
 await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 20000 });
 await a.waitForTimeout(2500);
-conferir(await a.evaluate(() => window.__jogo.mercado.op.mercado && window.__jogo.mercado.op.objetivos), 'mundo novo vem com mercado e missões');
+conferir(await a.evaluate(() => window.__jogo.mercado.op.mercado && window.__jogo.mercado.op.objetivos), 'mundo com os mods Mercado e Missões ligados');
 conferir((await est(a)).moedas === 10, 'servidor deu 10 moedas iniciais');
 // coloca 10 blocos e quebra 3 do chão
 await a.evaluate(() => {
