@@ -45,6 +45,9 @@ import { Guerra } from './guerra.js';
 import { confirmarIdade16 } from './idade.js';
 import { ligarHub, abrirJogos } from './hub.js';
 import { modoTV, iniciarTV } from './tv.js';
+import { Lobby } from './lobby.js';
+import { criarAmigos } from './amigos.js';
+import { jogo as dadosJogo } from './jogos.js';
 
 const $ = (s) => document.querySelector(s);
 preencherIcones();
@@ -608,6 +611,7 @@ function abrirPausa() {
   $('#pausa-opcoes').textContent = 'Neste mundo: ' + resumoOpcoes(opcoesMundo);
   // editar o mundo: só o dono (no mundo sem internet, quem joga é o dono)
   $('#bt-editar-mundo').hidden = !(modo === 'local' || (mundoAtual && mundoAtual.dono));
+  $('#bt-chamar-amigos').hidden = !(modo === 'online' && mundoAtual && mundoAtual.dono && conta.token);
   $('#pausa').hidden = false;
   pausado = true;
 }
@@ -1451,6 +1455,7 @@ function sairDoMundo(op = {}) {
   jogando = false; pausado = false;
   fecharJanelas();
   $('#hud').hidden = true;
+  if (op.semMenu) return;
   if (conta.usuario) abrirMundos(); else mostrarMenu('m-inicio');
 }
 
@@ -1496,17 +1501,53 @@ $('#m-conta').addEventListener('submit', async (e) => {
   } catch (err) { $('#c-erro').textContent = err.message; }
   $('#c-ok').disabled = false;
 });
-const sairDaConta = () => { conta.salvar(null); conta.usuario = null; mostrarMenu('m-inicio'); };
+const sairDaConta = () => { conta.salvar(null); conta.usuario = null; lobby.fechar(); mostrarMenu('m-inicio'); };
 $('#bt-sair-conta').addEventListener('click', sairDaConta);
 $('#bt-sair-conta2').addEventListener('click', sairDaConta);
 $('#bt-personagem4').addEventListener('click', () => abrirPersonagem());
-ligarHub({ mostrarMenu, abrirMundos, som: () => { som.iniciar(); som.clique(); }, abrirConta: (m, msg) => { abrirConta(m); if (msg) $('#c-erro').textContent = msg; } });
+// ---------- amigos da plataforma: quem está online e convites (lobby.js, amigos.js) ----------
+const lobby = new Lobby('hub');
+async function entrarPorCodigo(codigo) {
+  const entrar = () => api('mundos/entrar', { codigo });
+  let r;
+  try { r = await entrar(); } catch (err) {
+    if (!/16 anos/.test(err.message)) throw err;
+    if (!(await confirmarIdade16('O mundo do seu amigo'))) return;
+    r = await entrar();
+  }
+  som.iniciar();
+  jogarOnline(r.mundo);
+}
+const amigos = criarAmigos({
+  lobby, som: () => { som.iniciar(); som.clique(); }, aviso,
+  contador: ({ online, pedidos }) => {
+    const c = $('#amigos-contador');
+    c.textContent = pedidos ? `${pedidos} pedido${pedidos > 1 ? 's' : ''}` : online ? `${online} online` : '';
+    c.hidden = !c.textContent; c.classList.toggle('pedidos', !!pedidos);
+  },
+  async aceitarConvite(m) {
+    const j = dadosJogo(m.jogo);
+    if (!j || !j.pronto) return;
+    if (m.jogo !== 'pradaria') { location.href = j.abrir + '?sala=' + encodeURIComponent(m.sala); return; }
+    if (jogando && mundoAtual && mundoAtual.codigo === m.sala) { aviso('Você já está neste mundo!', 2000, 'globo'); return; }
+    if (jogando) sairDoMundo({ semMenu: true });
+    amigos.fechar();
+    try { await entrarPorCodigo(m.sala); } catch (err) { aviso(err.message, 3000, 'relogio'); abrirMundos(); }
+  },
+});
+$('#bt-amigos').addEventListener('click', () => { som.iniciar(); som.clique(); amigos.abrir(); });
+$('#bt-chamar-amigos').addEventListener('click', () => {
+  som.clique(); $('#pausa').hidden = true;
+  amigos.abrir({ jogo: 'pradaria', sala: mundoAtual.codigo, titulo: mundoAtual.nome }, () => { if (jogando) abrirPausa(); });
+});
+ligarHub({ lobby, amigos, mostrarMenu, abrirMundos, som: () => { som.iniciar(); som.clique(); }, abrirConta: (m, msg) => { abrirConta(m); if (msg) $('#c-erro').textContent = msg; } });
 ligarApagarConta(() => mostrarMenu('m-inicio'));
 $('#bt-personagem').addEventListener('click', () => abrirPersonagem());
 $('#bt-personagem2').addEventListener('click', () => abrirPersonagem());
 $('#bt-personagem3').addEventListener('click', () => { $('#pausa').hidden = true; abrirPersonagem(() => { if (jogando) abrirPausa(); }); });
 
 async function abrirMundos() {
+  lobby.jogo('pradaria');
   mostrarMenu('m-carregando');
   $('#carregando-txt').textContent = 'Buscando seus mundos…';
   try {
