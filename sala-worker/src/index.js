@@ -13,7 +13,7 @@ import { candidatoSeguro, sdpSemIp } from '../../public/js/voz-filtro.js';
 import { horaDe, MAX_TURNO } from '../../public/js/trabalho.js';
 import { blocosDaObra, PLANTAS, ESTILOS_OBRA } from '../../public/js/casas.js';
 import { mudancaSemMao } from '../../public/js/blocos-rede.js';
-import { FOGO, ISQUEIRO } from '../../public/js/fogo-regras.js';
+import { FOGO, ISQUEIRO, ALCANCE_FOGO, inflamavel } from '../../public/js/fogo-regras.js';
 import { podeCrescer } from '../../public/js/plantacoes-regras.js';
 import { ehCama, podeDormir, ACORDA, PERTO_DA_CAMA } from '../../public/js/dormir-regras.js';
 import { MUDAS, MUDA_MIN, TRONCO_DA_MUDA, BLOCOS_ARVORE, podeCrescerMuda, naCaixa } from '../../public/js/arvores-regras.js';
@@ -550,18 +550,25 @@ export class Sala extends DurableObject {
       // O que alguém construiu só pega fogo de fogo de verdade; o fogo sem marca (o da lava, ou o de um aparelho
       // modificado mentindo o "de") só queima o que é do mundo original. Os aparelhos seguem a mesma regra (mundo.js).
       if (!m.j && b === FOGO) {
-        const bons = (this.fogoBom ??= new Set());
+        const bons = (this.fogoBom ??= new Map()); // posição -> [x, y, z] do isqueiro que acendeu
+        const atual = ed.has(k) ? ed.get(k) : m.de | 0;
         const construido = !!(ed.has(k) && ed.get(k));
-        let bom = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]].some(([a, c, d]) => bons.has((x + a) + ',' + (y + c) + ',' + (z + d)));
+        // herda a marca só ao queimar algo que pega fogo (não anda pelo ar) e perto do isqueiro de origem
+        let bom = null;
+        if (inflamavel(atual)) for (const [a, c, d] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
+          const o = bons.get((x + a) + ',' + (y + c) + ',' + (z + d));
+          if (o && Math.max(Math.abs(x - o[0]), Math.abs(y - o[1]), Math.abs(z - o[2])) <= ALCANCE_FOGO) { bom = o; break; }
+        }
         if (m.isq) {
+          if (!this.regras().construcao) return; // isqueiro é ação de jogador: mundo sem construção, nada
           const p = eu.pv || eu.p || [0, 0, 0]; // a posição andada (não dá para pular de longe)
           const perto = Math.hypot(x + 0.5 - p[0], y - p[1], z + 0.5 - p[2]) < 9;
           const tem = !(econ && op.sobrevivencia) || (econ.itens[ISQUEIRO] || 0) > 0;
           if (!perto || !tem || construido) return;
-          bom = true;
+          bom = [x, y, z];
         }
         if (construido && !bom) return;
-        if (bom) { bons.add(k); if (bons.size > 20000) bons.clear(); }
+        if (bom) { bons.set(k, bom); if (bons.size > 20000) bons.clear(); }
       }
       if (b !== FOGO && this.fogoBom) this.fogoBom.delete(k);
       // coletar e criar: água parada só sai com balde na mão (a mira atravessa a água)
@@ -594,7 +601,7 @@ export class Sala extends DurableObject {
       await this.ctx.storage.put('b:' + k, b);
       if (b === 76 || b === 77 || MUDAS.has(b)) { (this.estagioEm ??= new Map()).set(k, Date.now()); if (this.estagioEm.size > 5000) this.estagioEm.clear(); }
       // j: foi a mão de alguém (os outros ouvem o som de quebrar/colocar; água escorrendo fica quieta)
-      this.enviarTodos(m.j ? { t: 'bloco', x, y, z, b, j: 1 } : b === FOGO && this.fogoBom && this.fogoBom.has(k) ? { t: 'bloco', x, y, z, b, bom: 1 } : { t: 'bloco', x, y, z, b }, ws);
+      this.enviarTodos(m.j ? { t: 'bloco', x, y, z, b, j: 1 } : b === FOGO && this.fogoBom && this.fogoBom.has(k) ? { t: 'bloco', x, y, z, b, bom: this.fogoBom.get(k) } : { t: 'bloco', x, y, z, b }, ws);
       // "c:x,y,z" = ali está um bloco feito com coisa comprada (quebrar devolve marcado, para ninguém lucrar
       // colocando e quebrando, nem passando para um amigo quebrar). Mudou o bloco, a marca sai.
       const comprado = !natural && !!(await this.ctx.storage.get('c:' + k));

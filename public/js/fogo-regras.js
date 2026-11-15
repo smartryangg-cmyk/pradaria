@@ -8,6 +8,7 @@ export const FOGO = 222;
 export const ISQUEIRO = 1010;
 export const TICK_FOGO = 500; // ms entre cada passo
 export const DANO_FOGO = 1; // corações por segundo dentro do fogo
+export const ALCANCE_FOGO = 16; // fogo de verdade só passa a marca até esta distância do isqueiro que acendeu
 export const MAX_FOGOS = 400; // teto de fogos acesos (tablet fraco)
 // chance de pegar fogo por passo, para cada vizinho em chamas
 export const QUEIMA = new Float32Array(256);
