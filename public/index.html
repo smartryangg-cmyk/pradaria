@@ -12,7 +12,8 @@
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icone-apple.png">
 <meta name="apple-mobile-web-app-title" content="Pradaria">
-<link rel="stylesheet" href="estilo.css?v=20">
+<link rel="stylesheet" href="estilo.css?v=22">
+<link rel="stylesheet" href="tv.css?v=1">
 </head>
 <body>
 <canvas id="tela"></canvas>
@@ -31,10 +32,14 @@
     <button id="bt-missoes" class="redondo" aria-label="Missões (tecla N)" hidden><span data-icone="medalha"></span></button>
     <div id="status-linha"><div id="status"></div></div>
     <div id="emotes">
-      <button data-emote="acenar" aria-label="Acenar"><span data-icone="acenar"></span></button>
-      <button data-emote="coracao" aria-label="Coração"><span data-icone="coracao"></span></button>
-      <button data-emote="sorriso" aria-label="Sorriso"><span data-icone="sorriso"></span></button>
-      <button data-emote="estrela" aria-label="Estrela"><span data-icone="estrela"></span></button>
+      <!-- no celular os 4 emotes ficam guardados atrás deste botão (não cabem na linha de cima) -->
+      <button id="bt-emotes" aria-label="Emotes: acenar, coração, sorriso e estrela" aria-expanded="false"><span data-icone="sorriso"></span></button>
+      <div id="emotes-lista">
+        <button data-emote="acenar" aria-label="Acenar"><span data-icone="acenar"></span></button>
+        <button data-emote="coracao" aria-label="Coração"><span data-icone="coracao"></span></button>
+        <button data-emote="sorriso" aria-label="Sorriso"><span data-icone="sorriso"></span></button>
+        <button data-emote="estrela" aria-label="Estrela"><span data-icone="estrela"></span></button>
+      </div>
     </div>
   </div>
   <div id="conversa" hidden>
@@ -287,6 +292,19 @@
     <p class="versao" id="versao-inicio"></p>
   </div>
 
+  <!-- a plataforma: escolher o jogo (hub.js, lista em jogos.js) -->
+  <div class="caixa larga" id="m-jogos" hidden>
+    <h2>Olá, <span id="j-nome"></span>!</h2>
+    <p class="sub centro">Escolha um jogo</p>
+    <div id="lista-jogos" class="jogos"></div>
+    <p id="jogos-msg" class="sub centro" aria-live="polite"></p>
+    <div class="linha-bts">
+      <button class="bt" id="bt-personagem4"><span data-icone="camiseta"></span>Meu personagem</button>
+      <button class="bt fraco" id="bt-sair-conta2"><span data-icone="sair"></span>Sair da conta</button>
+    </div>
+    <p class="versao" id="versao-jogos"></p>
+  </div>
+
   <form class="caixa" id="m-conta" hidden>
     <h2 id="conta-titulo">Entrar</h2>
     <label class="campo">Nome de jogador<input id="c-nome" autocomplete="username" maxlength="16" required></label>
@@ -302,6 +320,7 @@
   </form>
 
   <div class="caixa" id="m-mundos" hidden>
+    <button class="bt fraco voltar-jogos" type="button" id="bt-voltar-jogos"><span data-icone="voltar"></span>Todos os jogos</button>
     <h2>Olá, <span id="m-nome"></span>!</h2>
     <p class="sub">Escolha um mundo</p>
     <p id="mundos-erro" class="erro"></p>
@@ -399,6 +418,6 @@
 
 <div id="desmaio" hidden></div>
 <div id="fps" hidden></div>
-<script type="module" src="js/main.js?v=23"></script>
+<script type="module" src="js/main.js?v=24"></script>
 </body>
 </html>

@@ -15,7 +15,7 @@ const PLANO = 0.46;         // item/planta (dois planos cruzados)
 const PEGA_H = 1.5;         // distância para pegar (no chão, em volta do jogador)
 const GRAVIDADE = 18;
 const PISCA = 10000;        // pisca nos últimos 10 s antes de sumir
-const LONGE = 48;           // mais longe que isso não desenha (nem calcula a queda)
+const LONGE = 48;           // mais longe que isso do jogador não desenha nem calcula (tablet fraco)
 
 // faces de um cubo (mesma ordem/UV da malha do mundo: t = 0 cima, 1 baixo, 2 lados)
 const FACES = [
@@ -35,20 +35,8 @@ const plano = (id) => {
 };
 const tileDe = (id) => (ehItem(id) ? (ITENS[id] ? ITENS[id].tile : 0) : BLOCOS[id].icone ?? BLOCOS[id].tiles[2]);
 
-function geometria(P, U, Nn, I, brilho) {
-  const g = new THREE.BufferGeometry();
-  const n = P.length / 3;
-  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
-  g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
-  g.setAttribute('normal', new THREE.Float32BufferAttribute(Nn, 3));
-  g.setAttribute('color', new THREE.Float32BufferAttribute(new Array(n * 3).fill(1), 3));
-  g.setAttribute('onda', new THREE.Float32BufferAttribute(new Array(n).fill(0), 1));
-  g.setAttribute('brilho', new THREE.Float32BufferAttribute(new Array(n).fill(brilho), 1));
-  g.setAttribute('borda', new THREE.Float32BufferAttribute(new Array(n).fill(0), 1));
-  g.setIndex(I);
-  g.computeBoundingSphere();
-  return g;
-}
+// forma de um item (em volta da origem): copiada a cada quadro para a malha única de todos os itens
+const geometria = (P, U, Nn, I, brilho) => ({ P, U, N: Nn, I, brilho, n: P.length / 3 });
 
 function geoCubo(id) {
   const def = BLOCOS[id];
@@ -95,13 +83,39 @@ export class Drops {
   // ui: { mochila (Mercado), pegou(id, n), cheio(id), som }
   constructor(cena, mat, ui) {
     this.cena = cena; this.mat = mat; this.ui = ui;
-    this.vivos = new Map();   // i -> { i, id, n, x, y, z, v, t, dono, grupo, malha, fase, parado }
+    this.vivos = new Map();   // i -> { i, id, n, x, y, z, v, t, dono, c, g (forma), copias, giro, bob, fase, parado }
     this.voando = [];         // indo para a mão de quem pegou
     this.geos = new Map();
     this.chao = new Chao();   // sem internet o jogo mesmo guarda
     this.mundo = null; this.sala = null; this.eu = 'eu';
     this.recusados = new Map(); // i -> até quando não tentar de novo (a sala disse não)
     this.cheioEm = 0;
+    // todos os itens do chão num desenho só (no tablet, 200 itens seriam 600 desenhos com sombra)
+    this.cap = 0;
+    this.malha = new THREE.Mesh(new THREE.BufferGeometry(), mat);
+    this.malha.castShadow = true;
+    this.malha.frustumCulled = false; // muda a cada quadro; o que está longe nem entra (LONGE)
+    this.malha.visible = false;
+    cena.add(this.malha);
+    this.desenhados = 0;
+  }
+
+  // garante espaço para v vértices e k índices na malha única
+  espaco(v, k) {
+    if (this.cap >= v && this.capI >= k) return;
+    const cv = Math.max(512, this.cap, 1 << Math.ceil(Math.log2(v))), ck = Math.max(1024, this.capI || 0, 1 << Math.ceil(Math.log2(k)));
+    const g = new THREE.BufferGeometry();
+    const at = (n, t) => { const a = new THREE.BufferAttribute(new Float32Array(cv * n), n); a.setUsage(THREE.DynamicDrawUsage); g.setAttribute(t, a); return a; };
+    at(3, 'position'); at(2, 'uv'); at(3, 'normal'); at(1, 'brilho');
+    g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(cv * 3).fill(1), 3));
+    g.setAttribute('onda', new THREE.BufferAttribute(new Float32Array(cv), 1));
+    g.setAttribute('borda', new THREE.BufferAttribute(new Float32Array(cv), 1));
+    const ind = new THREE.BufferAttribute(new Uint32Array(ck), 1); ind.setUsage(THREE.DynamicDrawUsage);
+    g.setIndex(ind);
+    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e9);
+    this.malha.geometry.dispose();
+    this.malha.geometry = g;
+    this.cap = cv; this.capI = ck;
   }
 
   get ativo() { return !!this.mundo && temMochila(this.ui.mochila.op); }
@@ -116,8 +130,8 @@ export class Drops {
   }
   limpar() {
     for (const i of [...this.vivos.keys()]) this.sumir(i);
-    for (const f of this.voando) this.cena.remove(f.grupo);
     this.voando = [];
+    this.malha.visible = false;
     this.recusados.clear();
   }
 
@@ -132,23 +146,11 @@ export class Drops {
     if (!podeNoChao(p.id, p.n)) return;
     const velho = this.vivos.get(p.i);
     if (velho) return;
-    const grupo = new THREE.Group();
-    const malha = new THREE.Group();
-    const g = this.geo(p.id);
-    // pilha: mostra 1, 2 ou 3 cópias
-    const copias = p.n >= 16 ? 3 : p.n > 1 ? 2 : 1;
-    for (let k = 0; k < copias; k++) {
-      const m = new THREE.Mesh(g, this.mat);
-      m.position.set(k * 0.07, k * 0.05, -k * 0.06);
-      m.castShadow = true;
-      malha.add(m);
-    }
-    grupo.add(malha);
-    grupo.position.set(p.x, p.y, p.z);
-    this.cena.add(grupo);
     const e = {
       i: p.i, id: p.id, n: p.n, x: p.x, y: p.y, z: p.z, v: [...(p.v || [0, 0, 0])],
-      t: Date.now() - (p.idade || 0), dono: p.dono || '', c: p.c || 0, grupo, malha, fase: Math.random() * 6, parado: false,
+      t: Date.now() - (p.idade || 0), dono: p.dono || '', c: p.c || 0, fase: Math.random() * 6, parado: false,
+      g: this.geo(p.id), copias: p.n >= 16 ? 3 : p.n > 1 ? 2 : 1, // pilha: mostra 1, 2 ou 3 cópias
+      giro: 0, bob: 0, visivel: true,
     };
     this.vivos.set(p.i, e);
     const r = this.recusados.get(p.i);
@@ -160,8 +162,7 @@ export class Drops {
     const e = this.vivos.get(i);
     if (!e) return;
     this.vivos.delete(i);
-    if (para) this.voando.push({ grupo: e.grupo, de: e.grupo.position.clone(), para, t: 0 });
-    else this.cena.remove(e.grupo);
+    if (para) this.voando.push({ e, de: new THREE.Vector3(e.x, e.y, e.z), para, t: 0 });
   }
 
   // ---------- pôr no chão ----------
@@ -203,26 +204,63 @@ export class Drops {
     if (!this.mundo) return;
     const agora = Date.now();
     const seg = performance.now() / 1000;
+    const px = jog ? jog.pos.x : 0, pz = jog ? jog.pos.z : 0;
+    const desenhar = [];
     for (const e of [...this.vivos.values()]) {
       // sem internet o jogo some com os velhos; online a sala avisa (mas some daqui também, por garantia)
       if (agora - e.t > VIDA_CHAO + (this.sala ? 5000 : 0)) { if (!this.sala) this.chao.tirar(e.i); this.sumir(e.i); continue; }
-      // longe (mais de LONGE blocos): não desenha nem calcula (tablet fraco com 200 itens no chão)
-      if (jog && (e.x - jog.pos.x) ** 2 + (e.z - jog.pos.z) ** 2 > LONGE * LONGE) { e.grupo.visible = false; continue; }
+      // longe do jogador: nem cai nem aparece (fica parado onde estava até alguém chegar perto)
+      const dx = e.x - px, dz = e.z - pz;
+      if (jog && dx * dx + dz * dz > LONGE * LONGE) continue;
       this.fisica(e, dt);
-      e.grupo.position.set(e.x, e.y, e.z);
-      e.malha.rotation.y += dt * 1.8;
-      e.malha.position.y = 0.06 + Math.sin(seg * 2.6 + e.fase) * 0.05;
-      e.grupo.visible = agora - e.t < VIDA_CHAO - PISCA || Math.floor(seg * 6) % 2 === 0;
+      e.giro += dt * 1.8;
+      e.bob = 0.06 + Math.sin(seg * 2.6 + e.fase) * 0.05;
+      if (agora - e.t < VIDA_CHAO - PISCA || Math.floor(seg * 6) % 2 === 0) desenhar.push([e, e.x, e.y + e.bob, e.z, 1]);
       if (podePegarAgora && jog) this.talvezPegar(e, jog, agora);
     }
+    const alvoV = new THREE.Vector3();
     for (let k = this.voando.length - 1; k >= 0; k--) {
       const f = this.voando[k];
       f.t += dt / 0.22;
       const alvo = typeof f.para === 'function' ? f.para() : f.para;
-      f.grupo.position.lerpVectors(f.de, alvo, Math.min(1, f.t));
-      f.grupo.scale.setScalar(Math.max(0.2, 1 - f.t * 0.6));
-      if (f.t >= 1) { this.cena.remove(f.grupo); this.voando.splice(k, 1); }
+      alvoV.lerpVectors(f.de, alvo, Math.min(1, f.t));
+      if (f.t >= 1) { this.voando.splice(k, 1); continue; }
+      desenhar.push([f.e, alvoV.x, alvoV.y + f.e.bob, alvoV.z, Math.max(0.2, 1 - f.t * 0.6)]);
     }
+    this.montar(desenhar);
+  }
+
+  // escreve todos os itens visíveis na malha única (girando, com a pilha de cópias)
+  montar(lista) {
+    let nv = 0, ni = 0;
+    for (const [e] of lista) { nv += e.g.n * e.copias; ni += e.g.I.length * e.copias; }
+    this.desenhados = lista.length;
+    if (!nv) { this.malha.visible = false; return; }
+    this.espaco(nv, ni);
+    const g = this.malha.geometry;
+    const P = g.attributes.position.array, U = g.attributes.uv.array, N = g.attributes.normal.array, B = g.attributes.brilho.array, I = g.index.array;
+    let v = 0, k = 0;
+    for (const [e, x, y, z, esc] of lista) {
+      const s = Math.sin(e.giro), c = Math.cos(e.giro), q = e.g;
+      for (let cp = 0; cp < e.copias; cp++) {
+        const ox = cp * 0.07, oy = cp * 0.05, oz = -cp * 0.06;
+        const base = v;
+        for (let j = 0; j < q.n; j++) {
+          const lx = (q.P[j * 3] + ox) * esc, ly = (q.P[j * 3 + 1] + oy) * esc, lz = (q.P[j * 3 + 2] + oz) * esc;
+          P[v * 3] = x + lx * c + lz * s; P[v * 3 + 1] = y + ly; P[v * 3 + 2] = z - lx * s + lz * c;
+          const nx = q.N[j * 3], nz = q.N[j * 3 + 2];
+          N[v * 3] = nx * c + nz * s; N[v * 3 + 1] = q.N[j * 3 + 1]; N[v * 3 + 2] = -nx * s + nz * c;
+          U[v * 2] = q.U[j * 2]; U[v * 2 + 1] = q.U[j * 2 + 1];
+          B[v] = q.brilho;
+          v++;
+        }
+        for (let j = 0; j < q.I.length; j++) I[k++] = base + q.I[j];
+      }
+    }
+    for (const a of ['position', 'uv', 'normal', 'brilho']) { g.attributes[a].needsUpdate = true; g.attributes[a].addUpdateRange ? (g.attributes[a].clearUpdateRanges(), g.attributes[a].addUpdateRange(0, v * g.attributes[a].itemSize)) : null; }
+    g.index.needsUpdate = true;
+    g.setDrawRange(0, k);
+    this.malha.visible = true;
   }
 
   // cair, escorregar, quicar e boiar (só desenho; cada aparelho faz a sua)
@@ -278,4 +316,6 @@ export class Drops {
 
   // para testes e para o mapa: o que está no chão agora
   lista() { return [...this.vivos.values()].map(({ i, id, n, x, y, z, parado }) => ({ i, id, n, x, y, z, parado })); }
+  // quantos desenhos a cena tem por causa dos itens no chão (sempre 0 ou 1) e quantos itens entraram nele
+  custo() { return { desenhos: this.malha.visible ? 1 : 0, itens: this.desenhados }; }
 }

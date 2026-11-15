@@ -325,7 +325,7 @@ export async function onRequest({ request, env, params }) {
   try {
     if (rota === 'cadastrar' && metodo === 'POST') return await cadastrar(request, env);
     if (rota === 'entrar' && metodo === 'POST') return await entrar(request, env);
-    if (rota === 'saude') return json({ ok: true, banco: !!env.DB, sala: !!env.SALA });
+    if (rota === 'saude') return json({ ok: true, banco: !!env.DB, sala: !!env.SALA, controle: !!env.CONTROLE });
     const u = await usuarioDa(request, env);
     if (!u) return erro('Sessão expirada, entre de novo.', 401);
     // a conta pode ter sido apagada: o token assinado continua válido, então confere no banco
