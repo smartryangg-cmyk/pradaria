@@ -41,6 +41,7 @@ import { FOGO, ISQUEIRO, DANO_FOGO, inflamavel } from './fogo-regras.js';
 import { FORMA_NOVA } from './formas.js';
 import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, ESTILOS, MODOS_JOGO, DIFICULDADES, modoJogoDe, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto, raioExtraMundo, precisa16 } from './opcoes-mundo.js';
 import { vida } from './vida.js';
+import { ehComida, TEMPO_COMER } from './fome-regras.js';
 import { Mapa } from './mapa.js';
 import { Mercado } from './mercado.js';
 import { Negocios } from './negocios.js';
@@ -531,6 +532,7 @@ const toqueInv = matchMedia('(pointer: coarse)').matches;
 const chaveInv = () => 'pradaria.inv.' + (modo === 'online' && mundoAtual ? mundoAtual.codigo + '.' + (conta.usuario ? conta.usuario.nome : '') : 'local');
 // a mochila já tem a contagem certa deste mundo: carrega a arrumação guardada e acerta
 function prepararInventario() {
+  carregarCorpo(); morto = false; pararComer(); $('#morte').hidden = true;
   inv = new Inventario(); invChave = chaveInv(); invPronto = sobrev();
   barraVista = new Array(9).fill(0); // a barra guardada (na sala ou no mundo) diz o que fica em cada espaço
   if (!invPronto) return;
@@ -1101,6 +1103,7 @@ $('#bt-sair-mundo').addEventListener('click', sairDoMundo);
 vida.aoDesmaiar = () => {
   if (!jogando) return;
   if (guerra.ativo && guerra.desmaiou()) return; // Guerra: preso (procurado) ou resgatado para a Base Aliada
+  if (vida.classico()) { morrer(); return; }
   if (bichos) bichos.acalmar();
   const el = $('#desmaio');
   el.hidden = false; el.classList.remove('vai'); void el.offsetWidth; el.classList.add('vai');
@@ -1121,6 +1124,94 @@ vida.aoDesmaiar = () => {
   }, 900);
   setTimeout(() => { el.hidden = true; }, 2200);
 };
+// ---------- jogo clássico: fome, comer, morrer e renascer na cama ----------
+// (regras em fome-regras.js e vida.js; a mochila que cai no chão é a economia 'morrer', conferida pela sala)
+let morto = false, comendo = null, timerCorpo = 0;
+const chaveCorpo = () => chaveInv().replace('pradaria.inv.', 'pradaria.corpo.');
+let corpoCama = null; // [x, y, z] da última cama em que deitou (ponto de renascer)
+function carregarCorpo() {
+  let g = null;
+  try { g = JSON.parse(localStorage.getItem(chaveCorpo()) || 'null'); } catch {}
+  corpoCama = g && Array.isArray(g.cama) && g.cama.length === 3 && g.cama.every(Number.isInteger) ? g.cama : null;
+  vida.reiniciar(g);
+}
+function salvarCorpo() {
+  if (!jogando || !vida.classico() || morto) return;
+  try { localStorage.setItem(chaveCorpo(), JSON.stringify({ ...vida.salvar(), cama: corpoCama })); } catch {}
+}
+// tocar na cama marca onde renasce (como no clássico)
+function marcarCama(h) {
+  if (!vida.classico()) return false;
+  const c = [h.x, h.y, h.z];
+  if (corpoCama && corpoCama.every((v, i) => v === c[i])) return false;
+  corpoCama = c; salvarCorpo();
+  return true;
+}
+// segurar a comida (botão direito; no toque, um toque): come em 1,6 s
+function tentarComer() {
+  const id = naMao();
+  if (!vida.classico() || !ehComida(id) || qtd(id) < 1) return false;
+  if (comendo) return true;
+  if (!vida.comFome()) { aviso('Você está sem fome', 1400, 'coxa'); return true; }
+  comendo = { id, t: 0, som: 0 };
+  $('#comer').hidden = false;
+  return true;
+}
+function pararComer() { if (!comendo) return; comendo = null; $('#comer').hidden = true; }
+function quadroComer(dt) {
+  if (!comendo) return;
+  if (pausado || morto || naMao() !== comendo.id || qtd(comendo.id) < 1) { pararComer(); return; }
+  comendo.t += dt; comendo.som -= dt;
+  if (comendo.som <= 0) { comendo.som = 0.27; som.tom(180 + Math.random() * 60, 0.06, { tipo: 'square', vol: 0.12, ate: 90 }); visao.bater(); }
+  $('#comer').firstElementChild.style.width = Math.round(Math.min(1, comendo.t / TEMPO_COMER) * 100) + '%';
+  if (comendo.t < TEMPO_COMER) return;
+  const id = comendo.id, a = { t: 'comer', id };
+  pararComer();
+  const r = mercado.mexer(a, false);
+  if (!r) return;
+  if (mercado.sala) mercado.sala.enviar(a);
+  vida.comer(id);
+  som.tom(520, 0.08, { tipo: 'sine', vol: 0.2, ate: 760 });
+  salvarCorpo();
+  desenharBarra();
+}
+const MORREU = { fome: 'Morreu de fome', queda: 'Caiu de muito alto', lava: 'Tentou nadar na lava', fogo: 'Queimou no fogo', agua: 'Ficou sem ar debaixo da água', bicho: 'Um bicho bravo te pegou' };
+function morrer() {
+  if (morto) return;
+  morto = true; pararComer();
+  if (bichos) bichos.acalmar();
+  if (document.pointerLockElement) document.exitPointerLock();
+  // tudo o que estava na mochila cai no chão (some em 5 minutos, como no clássico)
+  const p = jog.pos, r = mercado.mexer({ t: 'morrer' }, true);
+  if (r) {
+    if (mercado.sala) mercado.sala.enviar({ t: 'morrer' });
+    else for (const [id, n, c] of r.cai || []) drops.novoLocal(id, n, p.x, p.y + 0.6, p.z, [(Math.random() - 0.5) * 4, 3 + Math.random() * 2, (Math.random() - 0.5) * 4], '', c);
+    desenharBarra();
+  }
+  $('#morte-txt').textContent = MORREU[vida.motivo] || '';
+  vida.motivo = null;
+  $('#morte').hidden = false;
+  try { localStorage.removeItem(chaveCorpo()); } catch {} // renasce com tudo cheio
+  if (corpoCama) try { localStorage.setItem(chaveCorpo(), JSON.stringify({ cama: corpoCama })); } catch {}
+  som.tom(220, 0.5, { tipo: 'sawtooth', vol: 0.18, ate: 70 });
+}
+function renascer() {
+  if (!morto || !jogando) return;
+  morto = false;
+  $('#morte').hidden = true;
+  const b = corpoCama && mundo.bloco(corpoCama[0], corpoCama[1], corpoCama[2]);
+  if (corpoCama && ehCama(b)) cmd.teleportar(corpoCama[0] + 0.5, corpoCama[1] + 1.02, corpoCama[2] + 0.5, jog.yaw, 'Você renasceu na sua cama');
+  else {
+    const tinha = !!corpoCama;
+    corpoCama = null;
+    const p = acharInicio(); cmd.teleportar(p.x, p.y, p.z, 0, tinha ? 'Sua cama sumiu: você renasceu no começo do mundo' : 'Você renasceu no começo do mundo');
+  }
+  vida.reiniciar(); vida.protegido = 1;
+  salvarCorpo();
+  if (!ehToque) canvas.requestPointerLock && canvas.requestPointerLock();
+}
+$('#bt-renascer').addEventListener('click', renascer);
+
 const cmd = criarComandos({
   aviso, som, outros, acharInicio: () => acharInicio(),
   jog: () => (jogando ? jog : null), mundo: () => mundo, sala: () => sala, modo: () => modo, mundoAtual: () => mundoAtual,
@@ -1221,7 +1312,7 @@ function mirar(ponto, alcance = 6) {
 }
 
 function usar(ponto) {
-  if (!jogando || pausado) return;
+  if (!jogando || pausado || morto) return;
   som.iniciar();
   if (garagem.dentro) return;
   visao.bater();
@@ -1232,11 +1323,18 @@ function usar(ponto) {
   if (m.aldeao) { conversarCom(m.aldeao); return; }
   if (m.trabalhador) { negocios.tocar(m.trabalhador); return; }
   const h = m.bloco;
-  if (!h) return;
+  if (!h) { tentarComer(); return; }
   // tocar na bancada abre a grade de criar 3x3
   if (h.b === B.BANCADA && sobrev()) { som.clique(); if (invPronto) { inv.mudarGrade(3); abrirInventario('mochila'); } else abrirInventario('criar'); return; }
   // tocar na cama: deita (de noite, dorme até amanhecer)
-  if (ehCama(h.b) && !armas.empunhando) { som.clique(); cama.deitar(h); return; }
+  if (ehCama(h.b) && !armas.empunhando) {
+    som.clique();
+    const marcou = marcarCama(h);
+    cama.deitar(h);
+    // de dia a cama explica que só dorme de noite; junta o aviso do ponto de renascer
+    if (marcou) { const t = $('#aviso').textContent; aviso((cama.deitado || !t ? '' : t + '. ') + 'Ponto de renascer marcado nesta cama', 2600, 'casa'); }
+    return;
+  }
   // tocar na alavanca liga/desliga; no botão, aperta
   if (BASE[h.b] === E.ALAVANCA) {
     mundo.definir(h.x, h.y, h.z, h.b === E.ALAVANCA ? E.ALAVANCA_LIGADA : E.ALAVANCA);
@@ -1246,6 +1344,7 @@ function usar(ponto) {
   if (BASE[h.b] === E.BOTAO) { apertarBotao(h.x, h.y, h.z); return; }
   // portas, forno, pedra de moinho e manivela do poço (com Porta/Forno... na mão, coloca em vez de mexer)
   if (naMao() !== h.b && mecanismos.tocar(h)) return; // (não conta como colocar bloco nas missões)
+  if (tentarComer()) return; // comida na mão (clássico): come em vez de colocar
   if (armas.empunhando || !podeConstruir()) return; // com arma na mão (ou sem construção) não coloca bloco
   const x = h.x + h.n[0], y = h.y + h.n[1], z = h.z + h.n[2];
   let novo = naMao();
@@ -1392,6 +1491,7 @@ function baterNoBicho(b) {
   const [dano] = golpeDe(naMao());
   const critico = carga > 0.9 && !jog.noChao && !jog.naAgua && !jog.voando && jog.vel.y < 0;
   const r = bichos.bater(b, dano * (0.2 + 0.8 * carga * carga), { critico, empurrao: carga > 0.9 ? 1 : 0.6 });
+  vida.cansar(0.1); // fome (clássico): bater cansa
   golpeEm = agora;
   mostrarRecarga();
   if (r && !b.vidaMax) aviso('O cachorro é seu amigo! Faça carinho com um toque rápido', 2200, 'coracao');
@@ -1427,7 +1527,7 @@ function conversarCom(a) {
 }
 
 function quebrar(ponto) {
-  if (!jogando || pausado) return;
+  if (!jogando || pausado || morto) return;
   som.iniciar();
   if (garagem.dentro) return;
   visao.bater();
@@ -1448,7 +1548,7 @@ function quebrar(ponto) {
   const p = raio.ray.at(h.t + 0.001, new THREE.Vector3());
   const total = toquesCom(toquesPara(h.b), h.b, mao);
   maoQuebrando = mao;
-  if (comoJogador(() => escav.bater(h, p, total))) { som.em(meioDe(h.x, h.y, h.z), () => som.quebrar(h.b)); mostrarQueCaiu(h.b, h.x, h.y, h.z); } else som.em(meioDe(h.x, h.y, h.z), () => som.bater(h.b));
+  if (comoJogador(() => escav.bater(h, p, total))) { vida.cansar(0.005); som.em(meioDe(h.x, h.y, h.z), () => som.quebrar(h.b)); mostrarQueCaiu(h.b, h.x, h.y, h.z); } else som.em(meioDe(h.x, h.y, h.z), () => som.bater(h.b));
 }
 
 // dentro da lava queima (com os corações ligados): DANO_LAVA por segundo
@@ -1475,14 +1575,14 @@ function queimarNoFogo(dt) {
   if (!noFogo()) { tempoFogo = 0; return; }
   if (tempoTotal - avisouFogo > 4) { avisouFogo = tempoTotal; aviso('Fogo queima! Saia de perto ou apague com água', 2000, 'explosao'); }
   tempoFogo += dt;
-  if (tempoFogo >= 1 / DANO_FOGO) { tempoFogo = 0; if (vida.dano(1)) som.tom(160, 0.15, { tipo: 'square', vol: 0.25, ate: 90 }); }
+  if (tempoFogo >= 1 / DANO_FOGO) { tempoFogo = 0; vida.motivo = 'fogo'; if (vida.dano(vida.escala())) som.tom(160, 0.15, { tipo: 'square', vol: 0.25, ate: 90 }); }
 }
 
 function queimarNaLava(dt) {
   if (!jog.naLava) { tempoLava = 0; return; }
   if (tempoTotal - avisouLava > 4) { avisouLava = tempoTotal; aviso('A lava queima! Saia rápido (pule)', 2000, 'explosao'); }
   tempoLava += dt;
-  if (tempoLava >= 1 / DANO_LAVA) { tempoLava = 0; if (vida.dano(1)) som.tom(160, 0.15, { tipo: 'square', vol: 0.25, ate: 90 }); }
+  if (tempoLava >= 1 / DANO_LAVA) { tempoLava = 0; vida.motivo = 'lava'; if (vida.dano(vida.escala() * (vida.classico() ? 2 : 1))) som.tom(160, 0.15, { tipo: 'square', vol: 0.25, ate: 90 }); }
 }
 
 // recolhe a fonte de água mirada; a água corrente que dependia dela seca sozinha
@@ -1687,7 +1787,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
       },
       armado: () => jogando && !pausado && !garagem.dentro && armas.empunhando,
       gatilho: (sim) => { if (!sim || (jogando && !pausado)) armas.gatilho(sim); },
-      mirar: (sim) => armas.mirar(sim),
+      mirar: (sim) => { if (!sim && comendo && !ehToque) pararComer(); armas.mirar(sim); }, // soltou o botão direito: para de comer
       recarregar: () => { if (jogando && !pausado) armas.recarregar(); },
       trocar: () => { if (jogando && !pausado) armas.trocar(); },
       rolar: (d) => { slotSel = (slotSel + d + barra.length) % barra.length; desenharBarra(); },
@@ -1724,6 +1824,8 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   };
   bichos.aoMorder = (b, dano) => {
     const quem = b.I.nome || 'o bicho';
+    // no clássico os danos dobram (10 corações) e mudam com a dificuldade (Fácil metade, Difícil uma vez e meia)
+    if (dano && vida.classico()) { const d = opcoesMundo.dificuldade; dano = Math.max(1, Math.round(dano * 2 * (d === 'facil' ? 0.5 : d === 'dificil' ? 1.5 : 1))); vida.motivo = 'bicho'; }
     if (dano && vida.dano(dano)) { som.tom(200, 0.15, { tipo: 'sine', vol: 0.3, ate: 120 }); aviso('Ai! ' + quem[0].toUpperCase() + quem.slice(1) + ' te mordeu. Acenda uma luz ou toque para espantar', 2000, 'coracao'); }
     else aviso(quem[0].toUpperCase() + quem.slice(1) + ' te deu um empurrão. Deixe ' + (quem.startsWith('a ') ? 'ela' : 'ele') + ' em paz', 1800, 'pata');
   };
@@ -1792,7 +1894,7 @@ function jogarLocal(novo = null, idadeOk = false) {
   if (novo) salvarLocal();
   cmd.entrouLocal();
   mercado.iniciar({ opcoes: opcoesMundo, novo: !!novo });
-  if (novo) try { localStorage.removeItem('pradaria.inv.local'); } catch {}
+  if (novo) try { localStorage.removeItem('pradaria.inv.local'); localStorage.removeItem('pradaria.corpo.local'); } catch {}
   prepararInventario();
   desenharBarra();
   $('#status').innerHTML = comIcone('casa', 'Sem internet');
@@ -2181,7 +2283,7 @@ function laco(agora) {
   if (!jogando) { renderer.render(cena, camera); return; }
   tempoTotal += dt;
 
-  if (!pausado) {
+  if (!pausado && !morto) {
     const ent = ctrl.atualizar();
     if (!garagem.quadro(dt, ent, false) && !cama.quadro(dt, ent)) {
       jog.atualizar(dt, ent);
@@ -2210,11 +2312,14 @@ function laco(agora) {
   // os trabalhadores contam o tempo a cada 3 s (online quem mede é a sala)
   turnoAcum += dt;
   if (turnoAcum >= 3) { mercado.turno(turnoAcum, horaDe(tempoDia)); turnoAcum = 0; }
-  if (!pausado) vida.atualizar(dt);
+  if (!pausado && !morto) { vida.atualizar(dt); quadroComer(dt); }
+  if ((timerCorpo += dt) > 3) { timerCorpo = 0; salvarCorpo(); }
   armas.quadro(dt, pausado || garagem.dentro);
   if (garagem.dentro || visao.terceira) armas.mao.visible = false;
   mapa.atualizar(dt, jog, outros, bichos);
   mercado.passo(jog.pos.x - passoAntes.x, jog.pos.z - passoAntes.z, jog, mundo.alturaEm(Math.floor(jog.pos.x), Math.floor(jog.pos.z)));
+  // fome (clássico): correr e nadar cansam pela distância (pulos grandes, como teleporte, não contam)
+  if (!pausado && (jog.correndo || jog.naAgua) && !jog.voando) { const d = Math.hypot(jog.pos.x - passoAntes.x, jog.pos.z - passoAntes.z); if (d < 2) vida.cansar(d * (jog.correndo ? 0.1 : 0.01)); }
   passoAntes.x = jog.pos.x; passoAntes.z = jog.pos.z;
 
   // contorno do bloco mirado
@@ -2228,7 +2333,7 @@ function laco(agora) {
   escav.atualizar(dt, jog.pos.x, jog.pos.z);
   fisica.atualizar(dt);
   plantacoes.atualizar(jog.pos.x, jog.pos.z);
-  drops.quadro(dt, jog, !pausado && !garagem.dentro);
+  drops.quadro(dt, jog, !pausado && !garagem.dentro && !morto);
   if (mundo.aventura) verLugar();
   guerra.quadro(dt, pausado);
   // partículas de quebra

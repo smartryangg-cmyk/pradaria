@@ -56,7 +56,7 @@ async function preparar(p) {
     window.__olhar = (bb) => { const c = { x: j.pos.x, y: j.pos.y + 1.6, z: j.pos.z }; j.yaw = Math.atan2(-(bb.x - c.x), -(bb.z - c.z)); j.pitch = Math.atan2(bb.y + bb.e.alt * bb.esc * 0.8 - c.y, Math.hypot(bb.x - c.x, bb.z - c.z)); };
     window.__carinhos = 0; const oc = g.bichos.carinho.bind(g.bichos); g.bichos.carinho = (bb) => { window.__carinhos++; return oc(bb); };
     window.__golpes = []; const orig = g.bichos.bater.bind(g.bichos); g.bichos.bater = (bb, ...a) => { const r = orig(bb, ...a); window.__golpes.push(bb.especie + ':' + r); return r; };
-    window.__vidaMin = 10; window.__vigia = setInterval(() => { window.__vidaMin = Math.min(window.__vidaMin, g.vida.atual); }, 100);
+    window.__vidaMin = 20; window.__vigia = setInterval(() => { window.__vidaMin = Math.min(window.__vidaMin, g.vida.atual); }, 100);
   });
   await p.waitForTimeout(1500);
   await p.evaluate(() => window.__palco()); // de novo, por cima de algum pedaço que terminou de gerar depois
@@ -150,14 +150,14 @@ if (!process.env.SO_ONLINE) {
   await p.screenshot({ path: SAIDA + '/caca-tablet-coleta.png' });
 
   // 4. urso apanha e enfrenta: vem para cima e morde (some um coração)
-  await p.evaluate(() => { window.__limpar(); window.__vidaMin = 10; const u = window.__criar('urso', 0, -3.5); u.calmo = 99; u.estado = 'parar'; u.timer = 99; window.__trilha = []; clearInterval(window.__vt); window.__vt = setInterval(() => { const t = u.estado + ':' + window.__dist(u).toFixed(1) + ':' + (u.y - window.__jogo.jog.pos.y).toFixed(1) + ':v' + window.__jogo.vida.atual; if (window.__trilha.at(-1) !== t) window.__trilha.push(t); }, 100); });
+  await p.evaluate(() => { window.__limpar(); window.__vidaMin = 20; const u = window.__criar('urso', 0, -3.5); u.calmo = 99; u.estado = 'parar'; u.timer = 99; window.__trilha = []; clearInterval(window.__vt); window.__vt = setInterval(() => { const t = u.estado + ':' + window.__dist(u).toFixed(1) + ':' + (u.y - window.__jogo.jog.pos.y).toFixed(1) + ':v' + window.__jogo.vida.atual; if (window.__trilha.at(-1) !== t) window.__trilha.push(t); }, 100); });
   await segurarNoBicho(p, cdp, () => window.__jogo.bichos.lista[0], 4000, () => window.__jogo.bichos.lista[0].vida < window.__jogo.bichos.lista[0].vidaMax);
   const ue = await p.evaluate(() => window.__jogo.bichos.lista[0].estado);
-  await p.waitForFunction(() => window.__vidaMin < 10, null, { timeout: 8000 }).catch(() => {});
+  await p.waitForFunction(() => window.__vidaMin < 20, null, { timeout: 8000 }).catch(() => {});
   const vmin = await p.evaluate(() => window.__vidaMin);
   const av = await p.evaluate(() => window.__avisos.join(' | '));
-  if (vmin >= 10) console.log('trilha do urso:', (await p.evaluate(() => window.__trilha)).join(' '));
-  conferir(['atacar', 'recuar'].includes(ue) && vmin < 10, `tablet: o urso apanha, vem para cima e morde (${ue}, vida ${vmin / 2} de 5)`);
+  if (vmin >= 20) console.log('trilha do urso:', (await p.evaluate(() => window.__trilha)).join(' '));
+  conferir(['atacar', 'recuar'].includes(ue) && vmin < 20, `tablet: o urso apanha, vem para cima e morde (${ue}, vida ${vmin / 2} de 10)`);
   conferir(/ficou bravo/.test(av), 'tablet: aviso "' + (av.match(/[^|]*ficou bravo[^|]*/) || [av])[0].trim() + '"');
   await p.screenshot({ path: SAIDA + '/caca-tablet-urso-bravo.png' });
 

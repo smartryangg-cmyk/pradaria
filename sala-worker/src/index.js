@@ -791,7 +791,7 @@ export class Sala extends DurableObject {
       this.verSono(null, eu.nome);
     } else if (m.t === 'acordar') {
       if (eu.dorme) { eu.dorme = false; ws.serializeAttachment(eu); this.verSono(); }
-    } else if (m.t === 'ev' || m.t === 'vender' || m.t === 'comprar' || m.t === 'criar' || m.t === 'moer' || m.t === 'assar' || m.t === 'alimentar' || m.t === 'comprarV' || m.t === 'montarV' || m.t === 'chave') {
+    } else if (m.t === 'ev' || m.t === 'vender' || m.t === 'comprar' || m.t === 'criar' || m.t === 'moer' || m.t === 'assar' || m.t === 'alimentar' || m.t === 'comer' || m.t === 'comprarV' || m.t === 'montarV' || m.t === 'chave') {
       const op = this.op();
       const deVeiculo = m.t === 'comprarV' || m.t === 'montarV' || m.t === 'chave';
       if (!econLigada(op) && !deVeiculo) return; // chave de veículo vale mesmo sem mercado
@@ -882,6 +882,18 @@ export class Sala extends DurableObject {
       await this.ctx.storage.put('e:' + eu.uid, econ);
       ws.send(JSON.stringify({ t: 'econ', s: econ }));
       this.enviarTodos({ t: 'chao-pegou', i: d.i, j: eu.id, id: d.id, n: d.n });
+    } else if (m.t === 'morrer') {
+      // morreu (jogo clássico, com fome): o que estava na mochila cai no chão onde a pessoa estava.
+      // Só perde as próprias coisas; no máximo uma vez a cada 3 s.
+      const op = this.op();
+      if (!op.fome || !this.balde(ws, eu, 'mo', 1, 3000)) return;
+      const econ = await this.econDe(eu.uid);
+      const r = aplicar(econ, op, { t: 'morrer' });
+      if (!r.ok) return;
+      await this.ctx.storage.put('e:' + eu.uid, econ);
+      ws.send(JSON.stringify({ t: 'econ', s: econ }));
+      const [x, y, z] = eu.p;
+      await this.soltarNoChao(r.cai.map(([id, n, c]) => [id, n, x, y + 0.6, z, [(Math.random() - 0.5) * 4, 3 + Math.random() * 2, (Math.random() - 0.5) * 4], c]), '', eu.uid);
     } else if (m.t === 'chao-largar') {
       // largou da mochila no chão (para guardar depois ou passar para um amigo)
       const op = this.op();

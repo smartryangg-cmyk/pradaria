@@ -111,8 +111,8 @@ export class Jogador {
     let vel = this.voando ? 9 : this.naAgua ? 2.6 : 4.4;
     if (this.naLava) vel *= 0.4;
     if (this.agachado) vel *= 0.35;
-    else if (ent.correr && !this.naAgua) vel *= 1.45;
-    this.correndo = !!ent.correr && !this.agachado && !this.naAgua && !this.voando && this.noChao && len > 0.1;
+    else if (ent.correr && !this.naAgua && vida.podeCorrer()) vel *= 1.45; // com fome (6 ou menos) não corre
+    this.correndo = !!ent.correr && vida.podeCorrer() && !this.agachado && !this.naAgua && !this.voando && this.noChao && len > 0.1;
     // aceleração: no chão pega velocidade rápido e para mais rápido ainda; no ar tem pouco controle
     const parado = len < 0.1;
     const acel = this.voando ? 14 : this.naAgua ? (this.noChao ? 14 : 5) : this.noChao ? (parado ? 22 : 14) : (parado ? 3 : 5);
@@ -142,6 +142,7 @@ export class Jogador {
       // pulo: no chão, um tiquinho depois de sair da beirada (coyote) ou apertado logo antes de pousar (buffer)
       if ((ent.pular || this.bufPulo > 0) && this.tempoNoAr < COYOTE && !this.pulou) {
         v.y = PULO; this.noChao = false; this.pulou = true; this.bufPulo = 0; this.tempoNoAr = COYOTE;
+        vida.cansar(ent.correr ? 0.2 : 0.05); // fome (clássico): pular cansa, correndo cansa mais
       }
       v.y = Math.max(v.y, -40);
       // escada de mão: andando para a frente ou pulando, sobe; agachado, fica parado; solto, escorrega devagar
@@ -339,7 +340,9 @@ export class Jogador {
       || this.pisaEm(B.FENO) || this.pisaEm(E.TRAMPOLIM);
     if (macio) return;
     this.baqueY = Math.min(this.baqueY, -Math.min(0.4, (queda - 1.5) * 0.05));
-    const n = Math.floor((queda - QUEDA_SEGURA) / 2 + 1e-6);
+    // clássico (10 corações): meio coração por bloco acima de 3; com mods (5 corações), metade disso
+    const n = vida.classico() ? Math.ceil(queda - QUEDA_SEGURA - 1e-6) : Math.floor((queda - QUEDA_SEGURA) / 2 + 1e-6);
+    if (n > 0) vida.motivo = 'queda';
     const machucou = n > 0 && vida.dano(n);
     if (this.aoQueda && (machucou || queda > 3)) this.aoQueda(queda, machucou ? n : 0, machucou);
   }
