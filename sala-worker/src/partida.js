@@ -11,7 +11,8 @@ import { redeDoPedido } from './pontos.js';
 // cada jogo: novo, validar(estado, mensagem), avancar, fim, publico (as regras ficam em public/js)
 const JOGOS = { xadrez: X, dama: D };
 const LUGARES = ['w', 'b'];
-const MIN_LANCES_DESISTIR = 20; // desistir (ou sair) antes de 10 lances de cada lado: a partida não vale pontos
+const MIN_LANCES_DESISTIR = 20; // desistir, sair ou perder no tempo antes de 10 lances de cada lado: a partida não vale pontos
+const FIM_SEM_JOGO = ['desistiu', 'saiu', 'tempo', 'tempo-empate'];
 const PRAZO_FORA = 60000; // o adversário saiu: depois disso dá para pedir a vitória
 const PRAZO_PRIMEIRO = 30000; // tempo para fazer o primeiro lance (partida com relógio)
 
@@ -67,7 +68,7 @@ export class Partida extends DurableObject {
     if (!p.ranqueada || !p.fim || p.registrado || !cat || !this.env.PONTOS || !p.lugares.w || !p.lugares.b) return;
     const n = (p.e.hist || []).length;
     if (n < 2) { p.registrado = { anulada: true }; return; }
-    if ((p.fim.tipo === 'desistiu' || p.fim.tipo === 'saiu') && n < MIN_LANCES_DESISTIR) { p.registrado = { anulada: true, motivo: 'cedo' }; return; }
+    if (FIM_SEM_JOGO.includes(p.fim.tipo) && n < MIN_LANCES_DESISTIR) { p.registrado = { anulada: true, motivo: 'cedo' }; return; }
     if (p.lugares.w.rede && p.lugares.w.rede === p.lugares.b.rede) { p.registrado = { anulada: true, motivo: 'rede' }; return; }
     const s = p.fim.vencedor === 'w' ? 1 : p.fim.vencedor === 'b' ? 0 : 0.5;
     // marca antes de perguntar ao Pontos: outra mensagem que chegue enquanto isso não manda de novo
