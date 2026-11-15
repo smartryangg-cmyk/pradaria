@@ -9,6 +9,9 @@
 #      PARTE=2/6 bash testes/rodar-todos.sh   (só a 2ª de 6 partes: o 2º, o 8º, o 14º... teste; o CI roda as 6 juntas)
 cd "$(dirname "$0")/.."
 export PORTA="${PORTA:-8788}" BASE="${BASE:-http://localhost:8788}" SAIDA="${SAIDA:-$(mktemp -d)}"
+# ONLINE: os testes de blocos (fogo, lava, balde, cama...) também jogam a parte online (2 jogadores, sala conferindo) contra o site local.
+# Sem isso a parte online, que confere as regras da sala contra aparelho modificado, nunca rodava. ONLINE= (vazio) desliga.
+export ONLINE="${ONLINE-$BASE}"
 mkdir -p "$SAIDA"
 falhas=()
 idx=0

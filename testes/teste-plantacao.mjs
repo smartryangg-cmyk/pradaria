@@ -147,12 +147,18 @@ if (ONLINE) {
   const vista = await bb.evaluate(([x, y, z]) => window.__jogo.mundo.bloco(x, y, z), pos);
   ok(vista === BROTO, `online (coletar ${sob}): Beto vê o broto que a Ana plantou (${vista})`);
   // Beto chega perto; os dois aparelhos fazem os mesmos tiques (mesma hora): o resultado é igual nos dois
+  // a Terra de plantar foi posta "sem mão" no aparelho da Ana (a sala não repassa): no do Beto também, como se fosse do mundo
+  await bb.evaluate(([x, y, z]) => window.__jogo.mundo.definir(x, y - 1, z, 31), pos);
   await bb.evaluate(([x, y, z]) => { const j = window.__jogo.jog; j.pos.x = x + 3.5; j.pos.z = z + 0.5; j.pos.y = y + 4; j.voando = true; }, pos);
-  const tq = Math.floor(Date.now() / 5000) + 1e5;
-  for (let i = 0; i < 300; i++) {
-    const [ea, eb] = await Promise.all([a, bb].map((q) => q.evaluate(([x, y, z, t]) => { const J = window.__jogo; J.plantacoes.tique(J.jog.pos.x, J.jog.pos.z, t); return J.mundo.bloco(x, y, z); }, [...pos, tq + i])));
+  // a sala só aceita crescer no tique de agora e depois de 20 s em cada estágio (tique adiantado não vale):
+  // então espera o tempo de verdade; os dois aparelhos fazem os tiques sozinhos (média ~30 s por estágio)
+  const ini = Date.now();
+  while (Date.now() - ini < 240000) {
+    const [ea, eb] = await Promise.all([a, bb].map((q) => q.evaluate(([x, y, z]) => window.__jogo.mundo.bloco(x, y, z), pos)));
     if (ea === TRIGO && eb === TRIGO) break;
+    await a.waitForTimeout(1000);
   }
+  console.log('trigo cresceu em', Math.round((Date.now() - ini) / 1000), 's');
   await a.waitForTimeout(1500);
   const fim = await Promise.all([a, bb].map((q) => q.evaluate(([x, y, z]) => window.__jogo.mundo.bloco(x, y, z), pos)));
   ok(fim[0] === TRIGO && fim[1] === TRIGO, `online: cresceu e ficou maduro nos dois aparelhos (${fim})`);

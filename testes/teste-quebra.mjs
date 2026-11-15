@@ -128,9 +128,14 @@ if (ONLINE) {
     await new Promise((r) => setTimeout(r, 2500)); // a sala aceita 25 blocos por segundo: deixa a limpeza passar
     m.definir(x0, y0 + 1, z0 - 2, 6); // tronco (5 toques com a mão)
     j.pos.x = x0 + 0.5; j.pos.z = z0 + 0.5; j.pos.y = y0; j.yaw = 0; j.pitch = 0; J.barra[0] = 0; J.slot = 0;
+    return [x0, y0 + 1, z0 - 2];
+  });
+  // o tronco foi posto "sem mão" no aparelho da Ana (a sala não repassa isso): no do Beto também, como se fosse do mundo
+  await bb.evaluate(([x, y, z]) => window.__jogo.mundo.definir(x, y, z, 6), pos);
+  await a.evaluate(async () => {
+    const J = window.__jogo;
     await new Promise((r) => setTimeout(r, 1500));
     for (let i = 0; i < 2; i++) { J.quebrar(null); await new Promise((r) => setTimeout(r, 300)); }
-    return [x0, y0 + 1, z0 - 2];
   });
   await bb.waitForTimeout(700);
   const vista = await bb.evaluate(([x, y, z]) => { const e = window.__jogo.escav.blocos.get(x + ',' + y + ',' + z); return e ? e.toques : 0; }, pos);

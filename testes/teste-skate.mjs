@@ -55,8 +55,8 @@ const medir = () => ev(() => {
   const T = bon.grupo.parent.constructor; // THREE.Group
   const box = { min: [1e9, 1e9, 1e9], max: [-1e9, -1e9, -1e9] };
   bon.grupo.updateMatrixWorld(true);
-  bon.grupo.traverse((o) => { if (!o.geometry) return; o.geometry.computeBoundingBox(); const bb = o.geometry.boundingBox; for (const cx of [bb.min.x, bb.max.x]) for (const cy of [bb.min.y, bb.max.y]) for (const cz of [bb.min.z, bb.max.z]) { const pt = o.localToWorld(bb.min.clone().set(cx, cy, cz)); const a = [pt.x, pt.y, pt.z]; for (let i = 0; i < 3; i++) { box.min[i] = Math.min(box.min[i], a[i]); box.max[i] = Math.max(box.max[i], a[i]); } } });
-  return { pes: box.min[1], cabeca: box.max[1], chao: v.y, yVis: v.yVis, prancha: v.yVis + 0.2, x: v.x, rot: [v.corpo.rotation.x, v.corpo.rotation.z, v.grupo.position.y] };
+  bon.grupo.traverse((o) => { if (!o.geometry) return; o.geometry.computeBoundingBox(); const bb = o.geometry.boundingBox; for (const cx of [bb.min.x, bb.max.x]) for (const cy of [bb.min.y, bb.max.y]) for (const cz of [bb.min.z, bb.max.z]) { const pt = o.localToWorld(bb.min.clone().set(cx, cy, cz)); box.pesL = Math.min(box.pesL ?? 1e9, v.corpo.worldToLocal(pt.clone()).y); const a = [pt.x, pt.y, pt.z]; for (let i = 0; i < 3; i++) { box.min[i] = Math.min(box.min[i], a[i]); box.max[i] = Math.max(box.max[i], a[i]); } } });
+  return { pes: box.min[1], pesL: box.pesL, cabeca: box.max[1], chao: v.y, yVis: v.yVis, prancha: v.yVis + 0.2, x: v.x, rot: [v.corpo.rotation.x, v.corpo.rotation.z, v.grupo.position.y] };
 });
 let m = await medir();
 console.log('      ', JSON.stringify(m));
@@ -79,7 +79,8 @@ await andar(1200);
 await p.screenshot({ path: `${SAIDA}/skate-${nome}-andando.png` });
 m = await medir();
 console.log('      ', JSON.stringify(m));
-ok(m && m.pes > m.prancha - 0.08 && m.pes < m.prancha + 0.12, `andando, os pés continuam na prancha (${m && (m.pes - m.prancha).toFixed(2)})`);
+// andando a prancha inclina nos degraus e o boneco inclina junto: mede na prancha (pés 0.2 acima do meio dela)
+ok(m && m.pesL > 0.12 && m.pesL < 0.32, `andando, os pés continuam na prancha (${m && (m.pesL - 0.2).toFixed(2)})`);
 await andar(1800);
 let q = await pos();
 ok(q.x > X0 + 13, `o skate andou e passou pelo meio bloco (x ${(q.x - X0).toFixed(1)})`);
