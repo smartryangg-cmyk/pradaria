@@ -7,7 +7,7 @@ for (const [nome, ap] of Object.entries(AP)) {
   const ctx = await b.newContext(ap); const p = await ctx.newPage(); const erros = []; p.on('pageerror', (e) => erros.push(e.message));
   await p.goto((process.env.URL || 'http://localhost:8788') + '/#teste'); await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForTimeout(1000);
   await p.tap('#bt-sozinho'); await p.waitForTimeout(500);
-  await p.locator('#n-tipos button', { hasText: 'Guerra' }).tap(); await p.waitForTimeout(400);
+  await p.locator('#m-novo [data-tipo=guerra]').tap(); await p.waitForTimeout(400);
   if (await p.isVisible('#idade-sim')) { await p.tap('#idade-sim'); await p.waitForTimeout(300); }
   await p.evaluate(() => document.querySelector('#m-novo button[type=submit]').scrollIntoView()); await p.tap('#m-novo button[type=submit]');
   await p.waitForTimeout(500); if (await p.isVisible('#idade-sim')) { await p.tap('#idade-sim'); }

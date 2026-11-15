@@ -19,6 +19,7 @@ const est = (p) => p.evaluate(() => JSON.parse(JSON.stringify(window.__jogo.merc
 const a = await jogador('Ana' + sfx);
 await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Feirinha');
 await a.click('[data-modo=criativo]'); // este teste é do mercado com blocos à vontade (o "Coletar e criar" tem o teste dele)
+await a.click('#m-novo [data-opcao=mercado]'); // mod (desligado nos mundos novos)
 await a.click('#m-novo button[type=submit]');
 await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 20000 });
 await a.waitForTimeout(2500);

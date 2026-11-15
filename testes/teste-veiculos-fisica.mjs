@@ -21,8 +21,8 @@ await p.goto((process.env.URL || 'http://localhost:8788') + '/#teste');
 await p.waitForTimeout(400);
 await tocar('#bt-sozinho');
 await p.waitForSelector('#m-novo:not([hidden])');
-await tocar('[data-opcao=mercado]'); // sem mercado: as chaves saem de graça
 await tocar('#m-novo summary'); await p.fill('#n-semente', 'estrada');
+await tocar('#m-novo [data-opcao=veiculos]'); // mod (desligado nos mundos novos)
 await tocar('#m-novo button[type=submit]');
 await p.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.garagem.veic, null, { timeout: 20000 });
 await p.waitForTimeout(2500);

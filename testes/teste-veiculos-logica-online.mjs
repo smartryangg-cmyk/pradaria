@@ -29,6 +29,7 @@ const sfx = Date.now() % 10000;
 const a = await jogador('Ana' + sfx, false);
 await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Posto');
 await a.click('#m-novo summary'); await a.fill('#n-semente', 'estrada');
+await a.click('#m-novo [data-opcao=veiculos]'); // mod (desligado nos mundos novos)
 await a.click('#m-novo button[type=submit]');
 await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala && window.__jogo.garagem.veic, null, { timeout: 20000 });
 await a.waitForTimeout(2000);

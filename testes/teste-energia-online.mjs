@@ -20,6 +20,7 @@ const a = await jogador('Ana' + sfx);
 await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Oficina');
 // blocos à vontade (sem Coletar e criar): Ana monta com as mãos sem precisar juntar antes
 if (await a.getAttribute('[data-modo=sobrevivencia]', 'aria-pressed') === 'true') await a.click('[data-modo=criativo]');
+await a.click('#m-novo [data-opcao=maquinas]'); // mod (desligado nos mundos novos)
 await a.click('#m-novo button[type=submit]');
 await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 20000 });
 await a.waitForTimeout(2000);
