@@ -516,6 +516,15 @@ export class Garagem {
       J.som.motor(v.ocup[0] ? Math.min(1, Math.abs(v.vel) / v.d.vmax) : null, v.d.grave || 1, v.d.som);
     }
     this.veic.atualizar(dt, meu, jog.pos);
+    // motores dos veículos que outros estão dirigindo: ouve de onde vêm (só os 3 mais perto, para poupar o tablet)
+    const longe = [];
+    for (const v of this.veic.mapa.values()) {
+      if (!v.ocup[0] || (this.dentro && this.dentro.v === v)) continue;
+      const d = (v.x - jog.pos.x) ** 2 + (v.z - jog.pos.z) ** 2;
+      if (d < 45 * 45) longe.push([d, v]);
+    }
+    longe.sort((a, b) => a[0] - b[0]);
+    for (let i = 0; i < Math.min(3, longe.length); i++) { const v = longe[i][1]; J.som.motorEm(v.id, Math.min(1, Math.abs(v.vel || 0) / v.d.vmax), v.d.grave || 1, v.d.som, v); }
     // postos e veículos das vilas/portos em volta (a cada segundo e meio)
     this.tempoLugares -= dt;
     if (this.tempoLugares <= 0) { this.tempoLugares = 1.5; this.olharLugares(jog.pos); }
@@ -802,7 +811,7 @@ export class Garagem {
         if (!v) return true;
         const p = this.J.jog().pos;
         const dist = Math.hypot(v.x - p.x, v.y - p.y, v.z - p.z);
-        if (dist < 70) V.buzinar(v, 1 - dist / 70);
+        if (dist < 70) this.J.som.em(v, () => V.buzinar(v, 1), 70); // de onde vem a buzina
         return true;
       }
     }

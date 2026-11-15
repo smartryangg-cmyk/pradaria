@@ -258,7 +258,7 @@ export class Aldeoes {
     a.falando = 4.5; a.aceno = 1.4; a.espera = Math.max(a.espera, 5);
     a.dir = Math.atan2(jog.pos.x - a.x, jog.pos.z - a.z);
     // voz: "blá-blá" curtinho
-    for (let k = 0; k < 3; k++) this.som.tom((300 + Math.random() * 180) * a.tom, 0.07, { tipo: 'triangle', vol: 0.22, atraso: k * 0.11, ate: (360 + Math.random() * 160) * a.tom });
+    this.som.em({ x: a.x, y: a.y + 1.5, z: a.z }, () => { for (let k = 0; k < 3; k++) this.som.tom((300 + Math.random() * 180) * a.tom, 0.07, { tipo: 'triangle', vol: 0.22, atraso: k * 0.11, ate: (360 + Math.random() * 160) * a.tom, filtro: { tipo: 'lowpass', f: 1800 } }); });
     if (!noite && Math.random() < 0.35) {
       const p = PRESENTES[Math.floor(Math.random() * PRESENTES.length)];
       this.emoji(p, a.x + Math.sin(a.dir) * 0.6, a.y + 1.1, a.z + Math.cos(a.dir) * 0.6, 2, 0.55);
