@@ -8,7 +8,7 @@
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="estilo.css?v=23">
-<link rel="stylesheet" href="tabuleiro.css?v=4">
+<link rel="stylesheet" href="tabuleiro.css?v=5">
 </head>
 <body class="pag-tabuleiro">
 <div id="fundo" aria-hidden="true"></div>
@@ -20,9 +20,9 @@
     <p class="sub centro">Como você quer jogar?</p>
     <h3>Contra o computador</h3>
     <div class="niveis" role="radiogroup" aria-label="Nível do computador">
-      <button class="bt nivel" data-nivel="1" type="button" role="radio">Fácil</button>
-      <button class="bt nivel" data-nivel="2" type="button" role="radio">Médio</button>
-      <button class="bt nivel" data-nivel="3" type="button" role="radio">Difícil</button>
+      <button class="bt nivel" data-nivel="1" type="button" role="radio">Fácil<small>uns 400 pontos</small></button>
+      <button class="bt nivel" data-nivel="2" type="button" role="radio">Médio<small>uns 800 pontos</small></button>
+      <button class="bt nivel" data-nivel="3" type="button" role="radio">Difícil<small>uns 1200 pontos</small></button>
     </div>
     <div class="niveis" role="radiogroup" aria-label="Sua cor">
       <button class="bt cor-peca" data-cor="w" type="button" role="radio">Brancas</button>
@@ -30,6 +30,9 @@
     </div>
     <button class="bt verde grande" id="bt-computador" type="button"><span data-icone="engrenagem"></span>Jogar contra o computador</button>
     <button class="bt amarelo" id="bt-continuar" type="button" hidden><span data-icone="relogio"></span>Continuar a partida</button>
+    <h3>Treinar</h3>
+    <button class="bt amarelo grande" id="bt-problemas" type="button"><span data-icone="alvo"></span>Problemas de xadrez</button>
+    <p class="sub centro" id="x-prob-pontos"></p>
     <h3>Online</h3>
     <div class="niveis ritmos" role="radiogroup" aria-label="Ritmo da partida">
       <button class="bt ritmo" data-ritmo="1+0" type="button" role="radio">Bullet<small>1 min</small></button>
@@ -109,6 +112,8 @@
     <button class="bt" id="bt-empate" type="button" hidden>Propor empate</button>
     <button class="bt" id="bt-desistir" type="button">Desistir</button>
     <button class="bt verde" id="bt-vitoria" type="button" hidden>Pedir a vitória</button>
+    <button class="bt" id="bt-prob-resposta" type="button" hidden>Ver a resposta</button>
+    <button class="bt verde" id="bt-prob-prox" type="button" hidden>Próximo problema</button>
     <button class="bt verde" id="bt-chamar" type="button" hidden><span data-icone="acenar"></span>Chamar amigo</button>
   </div>
 </main>
@@ -136,7 +141,7 @@
 </div>
 
 <div id="aviso"></div>
-<script type="module" src="js/xadrez.js?v=8"></script>
+<script type="module" src="js/xadrez.js?v=9"></script>
 <div class="marca-dagua" aria-hidden="true">Ryan Krano</div>
 </body>
 </html>
