@@ -42,7 +42,13 @@ async function virarParaOAberto(j) {
 
 export default async function fisica(j) {
   if (!(await j.jogarSozinho())) return;
-  if (!(await j.criarMundo({ nome: 'Física' }))) return;
+  // semente 6: nasce num lugar plano, com 16 blocos livres (medida igual em toda rodada)
+  if (!(await j.criarMundo({ nome: 'Física', semente: process.env.SEMENTE_MUNDO || '6' }))) return;
+  // nasceu na água ou numa encosta? sai para a grama, como uma pessoa faria antes de medir
+  for (let t = 0; t < 3 && (await j.p.evaluate(() => window.__jogo.jog.naAgua || !window.__jogo.jog.noChao)); t++) {
+    const g = await acharBloco(j, [1], 20);
+    if (g) await irAte(j, g.x, g.z, { perto: 0.8, ms: 20000 });
+  }
   // anda num lugar aberto (14 blocos planos na frente)
   for (let t = 0; t < 4 && (await virarParaOAberto(j)) < 10; t++) await j.andar(['frente', 'direita', 'tras', 'esquerda'][t], 2500, { pular: true });
   const anda = await velocidade(j, () => j.andar('frente', 1800));
@@ -97,11 +103,14 @@ export default async function fisica(j) {
   const subiu = Math.round(topo.y - base.y);
   if (!(await j.espera(subiu >= 4, 'pular e colocar bloco embaixo sobe um pilar (técnica do clássico)', { tipo: 'clássico', esperado: 'subir 5', visto: 'subiu ' + subiu }))) return;
   const vida0 = (await j.estado).vida;
+  // mede a queda de verdade: do último instante no chão até tocar o chão de novo (descer uma ladeira não conta)
+  const medida = j.p.evaluate(() => new Promise((r) => { const jg = window.__jogo.jog; let alto = null, t0 = performance.now(); const f = () => { if (!jg.noChao && !jg.naAgua) alto = Math.max(alto ?? jg.pos.y, jg.pos.y); else if (alto != null) return r({ queda: alto - jg.pos.y, agua: jg.naAgua }); if (performance.now() - t0 < 6000) requestAnimationFrame(f); else r({ queda: 0 }); }; requestAnimationFrame(f); }));
   await j.olhar(0, -2000);
   await j.andar('frente', 1200);
-  await j.p.waitForTimeout(1800);
-  const fim = await pos(j), vida1 = (await j.estado).vida;
-  const queda = Math.round(topo.y - fim.y);
+  const m = await medida;
+  await j.p.waitForTimeout(1200);
+  const vida1 = (await j.estado).vida;
+  const queda = m.agua ? 0 : Math.round(m.queda);
   const esperado = Math.max(0, queda - 3);
   await j.espera(queda < 3 || Math.abs((vida0 - vida1) - esperado) <= 1, `cair ${queda} blocos tira ${esperado} de vida (meio coração por bloco acima de 3)`, { tipo: 'clássico', esperado: String(esperado), visto: `perdeu ${vida0 - vida1} (de ${vida0} para ${vida1})` });
 

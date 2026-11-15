@@ -159,13 +159,18 @@ export class Jogador {
   }
   async jogarSozinho() { await this.aperta('#bt-sozinho', 'Jogar sem conta'); return this.ve('#m-novo:not([hidden])'); }
   // tela Novo mundo: modo (sobrevivencia|criativo), dificuldade, mods a ligar
-  async criarMundo({ nome = 'Mundo ' + this.nome, modo = 'sobrevivencia', dificuldade, mods = [] } = {}) {
+  async criarMundo({ nome = 'Mundo ' + this.nome, modo = 'sobrevivencia', dificuldade, mods = [], semente } = {}) {
     if (await this.p.isVisible('#bt-novo-mundo')) await this.aperta('#bt-novo-mundo', 'Novo mundo');
     await this.ve('#m-novo:not([hidden])');
     if (await this.p.isVisible('#n-nome')) await this.escreve('#n-nome', nome, 'nome do mundo');
     if (await this.p.locator(`[data-modo=${modo}]`).count()) await this.aperta(`[data-modo=${modo}]`, 'modo ' + modo);
     if (dificuldade && await this.p.locator(`[data-dificuldade=${dificuldade}]`).count()) await this.aperta(`[data-dificuldade=${dificuldade}]`, 'dificuldade ' + dificuldade);
     for (const m of mods) if (await this.p.locator(`#n-mods [data-opcao=${m}]`).count()) await this.aperta(`#n-mods [data-opcao=${m}]`, 'mod ' + m);
+    if (semente != null) {
+      this.passo('escreveu a semente ' + semente);
+      if (!(await this.p.isVisible('#n-semente'))) await this.p.locator('#n-semente').evaluate((e) => { const d = e.closest('details'); if (d) d.open = true; });
+      await this.p.locator('#n-semente').fill(String(semente));
+    }
     await this.aperta('#m-novo button[type=submit]', 'Criar mundo');
     return this.esperarMundo();
   }
@@ -240,7 +245,7 @@ export class Jogador {
       return;
     }
     const { width: w, height: h } = this.p.viewportSize();
-    const x0 = w * 0.18, y0 = h * 0.72, d = 50;
+    const x0 = w * 0.18, y0 = h * 0.72, d = correr ? 54 : 50; // correndo, a pessoa empurra o joystick até o fim
     const [dx, dy] = { frente: [0, -d], tras: [0, d], esquerda: [-d, 0], direita: [d, 0] }[dir];
     if (correr) { await this.dedos('touchStart', [[x0, y0, 1]]); await this.p.waitForTimeout(50); await this.dedos('touchEnd', []); await this.p.waitForTimeout(80); }
     await this.dedos('touchStart', [[x0, y0, 1]]);

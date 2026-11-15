@@ -41,7 +41,8 @@ export async function irAte(j, x, z, { perto = 2.2, ms = 40000 } = {}) {
     const d = Math.hypot(x + 0.5 - p.x, z + 0.5 - p.z);
     if (d <= perto) return true;
     await virarPara(j, x + 0.5, z + 0.5);
-    await j.andar('frente', Math.min(900, 150 + d * 120), { pular: presos > 0 });
+    const naAgua = await j.p.evaluate(() => window.__jogo.jog.naAgua);
+    await j.andar('frente', Math.min(900, 150 + d * 120), { pular: presos > 0 || naAgua }); // na água nada segurando o pulo
     const q = await pos(j);
     if (Math.hypot(q.x - ultimo.x, q.z - ultimo.z) < 0.25) { presos++; if (presos > 6) { await j.andar(presos % 2 ? 'esquerda' : 'direita', 500, { pular: true }); } }
     else presos = 0;
