@@ -995,3 +995,4 @@ body.modo-tv .marca-dagua { font-size: 14px; }
 .data-nasc { display: grid; grid-template-columns: 1fr 1.6fr 1.2fr; gap: 6px; }
 .data-nasc select { font: inherit; font-size: 17px; font-weight: 700; padding: 10px 6px; border-radius: 14px; border: 3px solid var(--borda); background: #fff; color: var(--txt); min-width: 0; }
 #idade-data { margin: 4px 0 2px; }
+body.morto #aviso, body.morto #dica-toque { display: none !important; }

@@ -539,7 +539,7 @@ const chaveInv = () => 'pradaria.inv.' + (modo === 'online' && mundoAtual ? mund
 // a mochila já tem a contagem certa deste mundo: carrega a arrumação guardada e acerta
 function prepararInventario() {
   carregarFornos(); fecharFornalha(); carregarBaus(); fecharBau();
-  carregarCorpo(); morto = false; pararComer(); $('#morte').hidden = true;
+  carregarCorpo(); morto = false; pararComer(); $('#morte').hidden = true; document.body.classList.remove('morto');
   inv = new Inventario(); invChave = chaveInv(); invPronto = sobrev();
   barraVista = new Array(9).fill(0); // a barra guardada (na sala ou no mundo) diz o que fica em cada espaço
   if (!invPronto) return;
@@ -1162,7 +1162,7 @@ function desenharXp() {
   }
   xpVisto = xp; nivelVisto = nivel;
 }
-$('#bt-morte-sair').addEventListener('click', () => { som.clique(); morto = false; $('#morte').hidden = true; sairDoMundo(); });
+$('#bt-morte-sair').addEventListener('click', () => { som.clique(); morto = false; $('#morte').hidden = true; document.body.classList.remove('morto'); sairDoMundo(); });
 
 // jogo clássico: quebrou pedra/minério sem a picareta certa (não caiu nada): diz qual precisa
 let avisouPicareta = 0;
@@ -1469,7 +1469,7 @@ function morrer() {
   // como no clássico: a pontuação é a experiência que tinha (e que se perde)
   $('#morte-pontos').textContent = r && r.xpPerdido ? `Pontuação: ${r.xpPerdido} (nível ${nivelAntes})` : 'Pontuação: 0';
   vida.motivo = null;
-  $('#morte').hidden = false;
+  $('#morte').hidden = false; document.body.classList.add('morto');
   try { localStorage.removeItem(chaveCorpo()); } catch {} // renasce com tudo cheio
   if (corpoCama) try { localStorage.setItem(chaveCorpo(), JSON.stringify({ cama: corpoCama })); } catch {}
   som.tom(220, 0.5, { tipo: 'sawtooth', vol: 0.18, ate: 70 });
@@ -1477,7 +1477,7 @@ function morrer() {
 function renascer() {
   if (!morto || !jogando) return;
   morto = false;
-  $('#morte').hidden = true;
+  $('#morte').hidden = true; document.body.classList.remove('morto');
   const b = corpoCama && mundo.bloco(corpoCama[0], corpoCama[1], corpoCama[2]);
   if (corpoCama && ehCama(b)) cmd.teleportar(corpoCama[0] + 0.5, corpoCama[1] + 1.02, corpoCama[2] + 0.5, jog.yaw, 'Você renasceu na sua cama');
   else {
