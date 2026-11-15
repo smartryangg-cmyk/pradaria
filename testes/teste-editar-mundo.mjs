@@ -22,7 +22,7 @@ async function criarConta(p, nome, aperta) {
   await aperta(p, '#bt-criar-conta');
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
   await aperta(p, '#c-ok');
-  await p.waitForSelector('#m-mundos:not([hidden])');
+  await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])'); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])'); } })();
 }
 const op = (p) => p.evaluate(() => ({ ...window.__jogo.opcoesMundo }));
 const naSala = (p) => p.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala && !document.querySelector('#hud').hidden, null, { timeout: 60000 });
@@ -129,7 +129,7 @@ conferir(trava.tamanho === 'medio' && trava.tipo === 'normal' && trava.gerador =
 // ---------- dono edita pela lista de mundos ----------
 await A.click('#bt-menu');
 await A.click('#bt-sair-mundo');
-await A.waitForSelector('#m-mundos:not([hidden])');
+await (async () => { await A.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])'); if (await A.isVisible('#m-jogos')) { await A.click('.jogo[data-jogo=pradaria]'); await A.waitForSelector('#m-mundos:not([hidden])'); } })();
 conferir(await A.locator('#lista-mundos .bt-editar').count() === 1, 'lista: lápis no mundo do dono');
 await A.screenshot({ path: SAIDA + '/editar-pc-lista.png' });
 await A.click('#lista-mundos .bt-editar');
@@ -157,7 +157,7 @@ conferir(/Fazenda do Sol/.test(await A.textContent('#lista-mundos')), 'lista mos
 // o amigo no tablet: lista sem lápis (o mundo não é dele)
 await toque(B, '#bt-menu');
 await toque(B, '#bt-sair-mundo');
-await B.waitForSelector('#m-mundos:not([hidden])');
+await (async () => { await B.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])'); if (await B.isVisible('#m-jogos')) { await B.click('.jogo[data-jogo=pradaria]'); await B.waitForSelector('#m-mundos:not([hidden])'); } })();
 conferir(await B.locator('#lista-mundos .bt-editar').count() === 0, 'tablet: amigo não tem lápis no mundo dos outros');
 
 // ---------- tablet: dono do próprio mundo edita pela lista e dentro do jogo (toque) ----------
@@ -175,7 +175,7 @@ await B.waitForFunction(() => window.__jogo.opcoesMundo.selvagensMachucam === tr
 conferir(true, 'tablet: dono liga "animais podem machucar" pela pausa e o mundo recarrega');
 await toque(B, '#bt-menu');
 await toque(B, '#bt-sair-mundo');
-await B.waitForSelector('#m-mundos:not([hidden])');
+await (async () => { await B.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])'); if (await B.isVisible('#m-jogos')) { await B.click('.jogo[data-jogo=pradaria]'); await B.waitForSelector('#m-mundos:not([hidden])'); } })();
 await toque(B, '#lista-mundos .bt-editar');
 await B.waitForSelector('#editar-mundo:not([hidden])');
 await B.screenshot({ path: SAIDA + '/editar-tablet-lista.png' });

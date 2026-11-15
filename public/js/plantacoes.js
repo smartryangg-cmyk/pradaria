@@ -8,18 +8,10 @@
 import { B, AGUA } from './blocos.js';
 import { CX, CZ } from './mundo.js';
 
-export const TIQUE_MS = 5000;      // um "tique" de crescimento a cada 5 s
-export const CHANCE = 0.08;        // por tique e por estágio (~1 min por estágio; ~2 min até colher)
-export const CHANCE_MOLHADA = 0.16; // terra com água perto
+export { TIQUE_MS, CHANCE, CHANCE_MOLHADA, sorteio } from './plantacoes-regras.js';
+import { TIQUE_MS, CHANCE, CHANCE_MOLHADA, sorteio } from './plantacoes-regras.js';
 const RAIO = 64;                   // só cresce perto de quem está jogando (o resto espera alguém chegar)
 const PROXIMO = { [B.TRIGO_BROTO]: B.TRIGO_VERDE, [B.TRIGO_VERDE]: B.TRIGO };
-
-// número entre 0 e 1 fixo para (posição, tique)
-export function sorteio(x, y, z, tique) {
-  let h = Math.imul(x | 0, 73856093) ^ Math.imul(y | 0, 19349663) ^ Math.imul(z | 0, 83492791) ^ Math.imul(tique | 0, 2654435761);
-  h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909);
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-}
 
 // terra de plantar com água a até 4 blocos (mesmo nível ou um acima)
 export function molhada(mundo, x, y, z) {

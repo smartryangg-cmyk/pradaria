@@ -82,7 +82,7 @@ ok((await imp(arq)).status === 429, 'importar sem parar: limite por hora (429)')
 const sujo = {
   ...arq, nome: '<img src=x onerror=alert(1)>',
   opcoes: { tamanho: 'enorme', tipo: '__proto__', gerador: 'constructor', selvagens: 'sim', animais: false, __proto__: { veiculos: false }, extra: 1 },
-  edicoes: [[1, 30, 1, 3], [200000, 30, 0, 3], [0, 0, 0, 3], [0, 64, 0, 3], [0, 30, 0, 256], [0, 30, 0, -1], ['1', 30, 0, 3], [1.5, 30, 0, 3], [0, 30], null, { x: 1 }, [0, 30, 0, 3, 9]],
+  edicoes: [[1, 30, 1, 3], [200000, 30, 0, 3], [0, 0, 0, 3], [0, 96, 0, 3], [0, 30, 0, 256], [0, 30, 0, -1], ['1', 30, 0, 3], [1.5, 30, 0, 3], [0, 30], null, { x: 1 }, [0, 30, 0, 3, 9]],
 };
 // (conta nova: cada um só importa 10 por hora, e os pedidos ruins acima também contam)
 const limpo = await api('cadastrar', { nome: 'Limpo' + sfx, senha: 'senha123' });

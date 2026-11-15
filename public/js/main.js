@@ -106,6 +106,14 @@ function palpiteGrafico() {
   palpiteFeito = n;
   return n;
 }
+// a placa de vídeo desistiu (memória cheia, comum em tablet fraco): volta para o nível leve e lembra disso
+canvas.addEventListener('webglcontextlost', (e) => {
+  e.preventDefault(); // deixa o navegador devolver a tela
+  if (ajustes.graf === 'auto') { ajustes.grafAuto = 'baixa'; ajustes.grafTeto = 'baixa'; }
+  else if (ajustes.graf !== 'baixa') { ajustes.graf = 'baixa'; ajustes.grafManual = false; }
+  salvarAjustes();
+});
+canvas.addEventListener('webglcontextrestored', () => { try { aplicarGraficos(); preencherGraficos(); } catch {} });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 const cena = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 400);
@@ -740,7 +748,7 @@ addEventListener('keydown', (e) => {
   else if (e.target.tagName === 'INPUT') return; // escrevendo no chat (ou num campo): as letras não são atalhos
   else if (e.code === 'KeyP') abrirPausa();
   else if (e.code === 'KeyC' && !pausado && e.target.tagName !== 'INPUT') cmd.abrir();
-  else if (((e.code === 'KeyR' && !opcoesMundo.armas) || e.code === 'F5') && !pausado && e.target.tagName !== 'INPUT') { e.preventDefault(); if (!e.repeat) alternarVisao(); }
+  else if (((e.code === 'KeyR' && !opcoesMundo.armas) || e.code === 'F5') && !e.ctrlKey && !e.metaKey && !pausado && e.target.tagName !== 'INPUT') { e.preventDefault(); if (!e.repeat) alternarVisao(); }
   else if (e.code === 'KeyQ' && !pausado && !e.repeat) largarDaMao(e.ctrlKey || e.shiftKey);
   else if (e.code === 'KeyM') { if (!$('#mapa').hidden) fecharJanelas(); else if (!pausado) mapa.abrir(); }
 });
@@ -1238,7 +1246,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   mundo.carregarEdicoes(edicoes);
   mundo.aoMudarBloco = (x, y, z, b, de, natural) => {
     edicoesPendentes = true;
-    if (sala) sala.enviar(porJogador ? { t: 'bloco', x, y, z, b, de, j: 1, mao: b ? 0 : maoQuebrando } : { t: 'bloco', x, y, z, b });
+    if (sala) sala.enviar(porJogador ? { t: 'bloco', x, y, z, b, de, j: 1, mao: b ? 0 : maoQuebrando } : { t: 'bloco', x, y, z, b, de });
     if (fisica) fisica.mudou(x, y, z, b);
     if (porJogador) mercado.bloco(b, y, de, natural, x, z, b ? 0 : maoQuebrando);
   };
@@ -1358,6 +1366,10 @@ function jogarLocal(novo = null, idadeOk = false) {
     confirmarIdade16(normalizarOpcoes(salvo ? salvo.opcoes : novo.opcoes).tipo === 'guerra' ? 'O mundo de Guerra' : 'Este mundo').then((ok) => { if (ok) jogarLocal(novo, true); else if (!jogando) mostrarMenu('m-inicio'); });
     return;
   }
+  // mundo novo não herda os lugares marcados nem a marca do mapa do mundo antigo
+  if (novo) {
+    try { localStorage.removeItem('pradaria.lugares.local'); localStorage.removeItem('pradaria.mapa.local'); } catch {}
+  }
   modo = 'local'; mundoAtual = null;
   if (salvo && salvo.barra) barra = salvo.barra;
   tempoDia = salvo ? salvo.dia ?? 0.3 : 0.3;
@@ -1408,6 +1420,7 @@ async function jogarOnline(m, volta = null) {
         mundo.carregarEdicoes(msg.edicoes);
         chat.reconectou(msg);
         armas.entrouOnline(sala);
+        if (msg.econ) { mercado.recebeu(msg.econ); desenharBarra(); } // reconectou: a mochila certa é a do servidor
         drops.ligarSala(sala, msg.eu, msg.chao);
       }
       for (const id of [...outros.keys()]) removerOutro(id);
@@ -1814,7 +1827,7 @@ function laco(agora) {
     o.vAnim.lerp(o.vTmp, Math.min(1, dt * 8));
     // 1 = batendo, 2 = voando, 4 = na água, 8 = no ar, 16 = correndo, 32 = agachado (versões antigas só mandam até 8)
     const acao = o.acao | 0;
-    if (acao & 1 && (o.golpe ?? 1) >= 1) o.golpe = 0;
+    if (acao & 1 && (o.golpe ?? 1) >= 1) { o.golpe = 0; o.acao = acao & ~1; } // uma batida por aviso (senão repete ou fica batendo para sempre)
     if ((o.golpe ?? 1) < 1) o.golpe = Math.min(1, o.golpe + dt / 0.3);
     const v = o.vAnim, noChao = !(acao & 14);
     animarBoneco(o, {
@@ -1874,7 +1887,10 @@ const calib = {
     if (this.aguardar > 0) { this.aguardar--; return; }
     const alvo = ajustes.fpsMax || 60; // tela de 60 Hz não passa de ~60
     const atual = NIVEIS.indexOf(nivelAuto());
-    const teto = NIVEIS.includes(ajustes.grafTeto) ? NIVEIS.indexOf(ajustes.grafTeto) : NIVEIS.length - 1;
+    // sem teto marcado: no máximo um nível acima do palpite, e tablet/celular ou pouca memória nunca vão sozinhos ao Ultra
+    const fraco = ehToque || (navigator.deviceMemory || 8) <= 4;
+    const tetoPadrao = Math.min(NIVEIS.indexOf(palpiteGrafico()) + 1, NIVEIS.length - (fraco ? 2 : 1));
+    const teto = NIVEIS.includes(ajustes.grafTeto) ? NIVEIS.indexOf(ajustes.grafTeto) : tetoPadrao;
     this.bons = fps >= alvo * 0.9 ? this.bons + 1 : 0;
     this.ruins = fps < alvo * 0.62 ? this.ruins + 1 : 0;
     let novo = atual;
@@ -1886,6 +1902,8 @@ const calib = {
     }
     ajustes.grafAuto = NIVEIS[novo];
     salvarAjustes(); aplicarGraficos(); preencherGraficos();
+    if (mundo) mundo.raio = raioVisao();
+    ajustarNevoa();
     this.reiniciar();
     if (novo < atual) aviso('Ajustei os gráficos para rodar liso', 2200, 'brilho');
   },

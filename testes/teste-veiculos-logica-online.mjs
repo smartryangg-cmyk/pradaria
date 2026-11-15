@@ -51,7 +51,10 @@ const daVilaB = await bb.evaluate(() => window.__jogo.garagem.lista().filter((v)
 ok(daVilaA.length >= 2 && daVilaA.join() === daVilaB.join(), 'os dois veem os mesmos veículos da vila, sem repetir (' + daVilaA.join(' ') + ')');
 
 // A entra num carro da vila, gasta e B vê o tanque
-const carro = await a.evaluate(() => { const g = window.__jogo.garagem; const v = [...g.veic.mapa.values()].find((v) => v.parado && v.d.energia && v.d.meio === 'terra'); g.pedirEntrar(v); return v.id; });
+// vai até o veículo antes de entrar (a sala só deixa entrar de perto; os da vila ficam espalhados pela vila)
+const carro = await a.evaluate(() => { const g = window.__jogo.garagem, j = window.__jogo.jog; const v = [...g.veic.mapa.values()].find((v) => v.parado && v.d.energia && v.d.meio === 'terra'); j.pos.x = v.x + 2; j.pos.z = v.z; j.pos.y = v.y + 1; return v.id; });
+await a.waitForTimeout(1200);
+await a.evaluate((id) => { const g = window.__jogo.garagem; g.pedirEntrar(g.veic.mapa.get(id)); }, carro);
 await a.waitForFunction(() => window.__jogo.garagem.dentro && window.__jogo.garagem.dentro.a === 0, null, { timeout: 5000 });
 await a.evaluate(() => { const v = window.__jogo.garagem.dentro.v; v.comb = 0.4; v.dano = 0.3; });
 await a.keyboard.down('KeyW'); await a.waitForTimeout(1500); await a.keyboard.up('KeyW');
@@ -95,7 +98,9 @@ await a.waitForTimeout(600);
 await bb.evaluate((id) => { const g = window.__jogo.garagem; g.pedirEntrar(g.veic.mapa.get(id)); }, bic);
 await bb.waitForTimeout(1200);
 ok(!(await bb.evaluate(() => !!window.__jogo.garagem.dentro)), 'B não pega a bicicleta da A (a chave é dela)');
-// B entra de passageiro num carro da vila em que A dirige
+// B entra de passageiro num carro da vila em que A dirige (os dois vão até o carro: a sala só deixa entrar de perto)
+for (const p of [a, bb]) await p.evaluate((id) => { const v = window.__jogo.garagem.veic.mapa.get(id), j = window.__jogo.jog; if (window.__jogo.garagem.dentro) return; j.pos.x = v.x + 2; j.pos.z = v.z; j.pos.y = v.y + 1; }, carro);
+await bb.waitForTimeout(1200);
 await a.evaluate((id) => { const g = window.__jogo.garagem; g.pedirEntrar(g.veic.mapa.get(id)); }, carro);
 await a.waitForTimeout(800);
 await bb.evaluate((id) => { const g = window.__jogo.garagem; g.pedirEntrar(g.veic.mapa.get(id)); }, carro);

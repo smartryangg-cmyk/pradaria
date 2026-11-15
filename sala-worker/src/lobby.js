@@ -2,6 +2,7 @@
 // Uma instância só ("geral"). Cada aba logada abre um WebSocket aqui (public/js/lobby.js).
 // A lista de amigos vem do banco (D1) na entrada (x-amigos) e a API avisa quando muda (x-admin: amizade).
 import { DurableObject } from 'cloudflare:workers';
+import { filtrarChat } from '../../public/js/chat-filtro.js';
 
 export const JOGOS_LOBBY = ['hub', 'pradaria', 'xadrez', 'dama', 'truco', 'arena', 'ilha'];
 const jogoOk = (j) => (JOGOS_LOBBY.includes(j) ? j : 'hub');
@@ -85,7 +86,13 @@ export class Lobby extends DurableObject {
       const jogo = jogoOk(m.jogo);
       if (jogo === 'hub') return;
       if (!this.estado(para)) { ws.send(JSON.stringify({ t: 'convite-falhou', para, msg: 'Seu amigo saiu.' })); return; }
-      this.enviar(para, { t: 'convite', de: eu.uid, nome: eu.nome, jogo, sala: String(m.sala || '').slice(0, 24), titulo: String(m.titulo || '').slice(0, 40) });
+      // o título (nome do mundo) passa pelo filtro do chat: o convite não pode virar um chat sem filtro
+      // (telefone, rede social, palavrão), nem em mundo com o chat desligado. O código do mundo é só letras e números.
+      const sala = String(m.sala || '').slice(0, 24);
+      if (sala && !/^[A-Za-z0-9-]+$/.test(sala)) return;
+      const f = m.titulo ? filtrarChat(String(m.titulo).slice(0, 40)) : null;
+      const titulo = f && !f.erro && typeof f.texto === 'string' && !f.texto.includes('*') ? f.texto : '';
+      this.enviar(para, { t: 'convite', de: eu.uid, nome: eu.nome, jogo, sala, titulo });
     } else if (m.t === 'resposta') {
       this.enviar(para, { t: 'convite-resp', de: eu.uid, nome: eu.nome, aceitou: !!m.aceitou, jogo: jogoOk(m.jogo) });
     }

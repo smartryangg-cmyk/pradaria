@@ -121,12 +121,13 @@ const disparar = async (p, vezes = 1, espera = 360) => { for (let i = 0; i < vez
   await p.screenshot({ path: SAIDA + '/armas-pc-fuzil.png' });
 
   // queda alta machuca
-  await p.evaluate(() => { const { jog, vida } = window.__jogo; vida.reiniciar(); Object.assign(jog.pos, { x: 4.5, y: 86, z: 0.5 }); jog.vel.y = 0; jog.noChao = false; });
+  // 8 blocos acima do chão (a física do #53 tira meio coração por bloco acima de 4; 15 blocos já desmaia)
+  const chaoY = await p.evaluate(() => { const { jog, vida, mundo } = window.__jogo; vida.reiniciar(); const y = mundo.chao(4, 0); Object.assign(jog.pos, { x: 4.5, y: y + 9, z: 0.5 }); jog.vel.y = 0; jog.noChao = false; return y; });
   await esperar(p, 500);
-  await p.waitForFunction(() => window.__jogo.jog.noChao && window.__jogo.jog.pos.y < 75, null, { timeout: 15000 });
+  await p.waitForFunction((y) => window.__jogo.jog.noChao && window.__jogo.jog.pos.y < y + 3, chaoY, { timeout: 15000 });
   await esperar(p, 300);
   const vq = await p.evaluate(() => window.__jogo.vida.atual);
-  conferir(vq < 10 && vq > 0, 'cair de 15 blocos tira corações (' + vq + '/10)');
+  conferir(vq < 10 && vq > 0, 'cair de 8 blocos tira corações sem desmaiar (' + vq + '/10)');
   // ficar sem corações: cai e volta com a pistola
   await p.evaluate(() => { window.__jogo.vida.protegido = 0; window.__jogo.vida.dano(10); });
   await esperar(p, 2000);
@@ -183,7 +184,7 @@ const disparar = async (p, vezes = 1, espera = 360) => { for (let i = 0; i < vez
 async function jogador(nome) {
   const p = await pagina(nome);
   await p.click('#bt-criar-conta'); await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123'); if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok'); await p.click('#c-ok');
-  await p.waitForSelector('#m-mundos:not([hidden])');
+  await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])'); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])'); } })();
   return p;
 }
 {
@@ -250,7 +251,7 @@ async function jogador(nome) {
   } else conferir(false, 'achou item no mapa online');
   // quem entra depois sabe o que já foi pego
   await bb.evaluate(() => window.__jogo.sala.fechar());
-  await bb.reload(); await bb.waitForSelector('#m-mundos:not([hidden])');
+  await bb.reload(); await (async () => { await bb.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])'); if (await bb.isVisible('#m-jogos')) { await bb.click('.jogo[data-jogo=pradaria]'); await bb.waitForSelector('#m-mundos:not([hidden])'); } })();
   await bb.click('#lista-mundos .mundo');
   await bb.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 20000 });
   await esperar(bb, 1500);

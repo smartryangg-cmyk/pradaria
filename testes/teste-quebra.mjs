@@ -88,7 +88,7 @@ const pedacosAntes = await p.evaluate(() => window.__escav.parts.length);
 const v1 = await bater(BL.vidro, 1);
 const cacos = await p.evaluate((a) => window.__escav.parts.length - a, pedacosAntes);
 await p.screenshot({ path: SAIDA + '/quebra-vidro.png' });
-const caiuMao = await p.evaluate(async () => { const { oQueCai } = await import('/js/receitas.js'); return [oQueCai(9, 1, 2, 3, 0), oQueCai(9, 1, 2, 3, 1001), oQueCai(9, 1, 2, 3, 1003)]; });
+const caiuMao = await p.evaluate(async () => { const { oQueCai } = await import('/js/receitas.js'); return [oQueCai(9, 1, 2, 3, true, 0), oQueCai(9, 1, 2, 3, true, 1001), oQueCai(9, 1, 2, 3, true, 1003)]; });
 ok(v1 === 0 && cacos >= 10, `vidro: estilhaçou no 1º toque em ${cacos} cacos`);
 ok(JSON.stringify(caiuMao) === '[[],[[9,1]],[]]', `vidro: mão vazia/machado não devolve, picareta devolve ${JSON.stringify(caiuMao)} (chão: ${temChao})`);
 await ctx.close();

@@ -23,7 +23,7 @@ export async function onRequest({ request, env, params }) {
   for (const k of ['upgrade', 'connection', 'sec-websocket-key', 'sec-websocket-version', 'sec-websocket-protocol', 'sec-websocket-extensions'])
     if (request.headers.has(k)) cab.set(k, request.headers.get(k));
   const req = new Request(url.toString(), { method: 'GET', headers: cab });
-  req.headers.set('x-usuario', JSON.stringify({ id: u.id, nome: u.nome, cor: u.cor, dono: m.dono_id === u.id, skin: normalizarSkin(m.skin, u.cor) }));
+  req.headers.set('x-usuario', JSON.stringify({ id: u.id, nome: u.nome, cor: u.cor, dono: m.dono_id === u.id, skin: normalizarSkin(m.skin, u.cor), mais16: m.idade16 === 1 }));
   req.headers.set('x-mundo', JSON.stringify({ codigo, semente: m.semente, opcoes: normalizarOpcoes(m.opcoes) }));
   // a sala tem nome fixo: quando o dono troca o código, os blocos construídos continuam lá
   const sala = env.SALA.get(env.SALA.idFromName(m.sala || codigo));
