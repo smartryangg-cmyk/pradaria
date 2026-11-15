@@ -213,7 +213,8 @@ await p.evaluate(() => { const A = window.__jogo.armas; A.receber({ tipo: 'arma'
 const sold = await p.evaluate(() => { const J = window.__jogo, jp = J.jog.pos; const n = J.guerra.pessoas.lista.filter((n) => n.papel === 'soldado' && n.estado !== 'zonzo').sort((a, b) => Math.hypot(a.x - jp.x, a.z - jp.z) - Math.hypot(b.x - jp.x, b.z - jp.z))[0]; return n && n.id; });
 let derrubou = false;
 for (let i = 0; i < 25 && sold && !derrubou; i++) {
-  const sp = await p.evaluate((id) => { const J = window.__jogo, n = J.guerra.pessoas.lista.find((x) => x.id === id); if (!n) return null; if (Math.hypot(n.x - J.jog.pos.x, n.z - J.jog.pos.z) > 25) J.cmd.teleportar(n.x + 6, n.y + 0.1, n.z, 0, ''); return [n.x, n.y + 1.1, n.z]; }, sold);
+  // longe, ou 4 tiros sem acertar (parede do forte no meio): chega por outro lado
+  const sp = await p.evaluate(([id, i]) => { const J = window.__jogo, n = J.guerra.pessoas.lista.find((x) => x.id === id); if (!n) return null; if (Math.hypot(n.x - J.jog.pos.x, n.z - J.jog.pos.z) > 25 || i % 4 === 3) { const [dx, dz] = [[6, 0], [0, 6], [-6, 0], [0, -6]][(i >> 2) % 4]; J.cmd.teleportar(n.x + dx, n.y + 0.1, n.z + dz, 0, ''); } return [n.x, n.y + 1.1, n.z]; }, [sold, i]);
   if (!sp) break;
   await mirarEm(p, sp);
   await clicar(p);
