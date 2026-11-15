@@ -43,7 +43,7 @@ ok(true, 'nome que não existe: "Não achei ninguém"');
 await ana.p.fill('#amigos-nome', beto.nome.toUpperCase());
 await ana.clica('#amigos-add button[type=submit]');
 await ana.p.waitForFunction(() => /Pedido enviado/.test(document.querySelector('#amigos-msg').textContent));
-ok(await ana.p.locator('#amigos-enviados .amigo', { hasText: beto.nome }).count() === 1, 'Ana vê o pedido em "Esperando aceitar" (nome com letras maiúsculas também acha)');
+ok(await ana.p.locator('#amigos-enviados .amigo', { hasText: beto.nome }).waitFor({ timeout: 5000 }).then(() => true, () => false), 'Ana vê o pedido em "Esperando aceitar" (nome com letras maiúsculas também acha)');
 await ana.foto('1-ana-pediu');
 // Beto vê na hora, sem recarregar
 await beto.p.waitForFunction(() => /1 pedido/.test(document.querySelector('#amigos-contador').textContent), null, { timeout: 10000 });
