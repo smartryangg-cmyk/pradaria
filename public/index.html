@@ -12,7 +12,7 @@
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icone-apple.png">
 <meta name="apple-mobile-web-app-title" content="Pradaria">
-<link rel="stylesheet" href="estilo.css?v=19">
+<link rel="stylesheet" href="estilo.css?v=22">
 </head>
 <body>
 <canvas id="tela"></canvas>
@@ -31,10 +31,14 @@
     <button id="bt-missoes" class="redondo" aria-label="Missões (tecla N)" hidden><span data-icone="medalha"></span></button>
     <div id="status-linha"><div id="status"></div></div>
     <div id="emotes">
-      <button data-emote="acenar" aria-label="Acenar"><span data-icone="acenar"></span></button>
-      <button data-emote="coracao" aria-label="Coração"><span data-icone="coracao"></span></button>
-      <button data-emote="sorriso" aria-label="Sorriso"><span data-icone="sorriso"></span></button>
-      <button data-emote="estrela" aria-label="Estrela"><span data-icone="estrela"></span></button>
+      <!-- no celular os 4 emotes ficam guardados atrás deste botão (não cabem na linha de cima) -->
+      <button id="bt-emotes" aria-label="Emotes: acenar, coração, sorriso e estrela" aria-expanded="false"><span data-icone="sorriso"></span></button>
+      <div id="emotes-lista">
+        <button data-emote="acenar" aria-label="Acenar"><span data-icone="acenar"></span></button>
+        <button data-emote="coracao" aria-label="Coração"><span data-icone="coracao"></span></button>
+        <button data-emote="sorriso" aria-label="Sorriso"><span data-icone="sorriso"></span></button>
+        <button data-emote="estrela" aria-label="Estrela"><span data-icone="estrela"></span></button>
+      </div>
     </div>
   </div>
   <div id="conversa" hidden>
@@ -77,6 +81,7 @@
   </div>
   <div id="barra"></div>
   <div id="botoes-toque">
+    <button id="bt-largar" class="redondo" aria-label="Largar o que está na mão (segure para largar tudo)" hidden><span data-icone="largar"></span></button>
     <button id="bt-voar" class="redondo" aria-label="Voar"><span data-icone="voar"></span></button>
     <button id="bt-descer" class="redondo" aria-label="Descer" hidden><span data-icone="descer"></span></button>
     <button id="bt-agachar" class="redondo" aria-label="Agachar (liga e desliga)"><span data-icone="agachar"></span></button>
@@ -400,6 +405,6 @@
 
 <div id="desmaio" hidden></div>
 <div id="fps" hidden></div>
-<script type="module" src="js/main.js?v=22"></script>
+<script type="module" src="js/main.js?v=24"></script>
 </body>
 </html>

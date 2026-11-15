@@ -22,6 +22,7 @@ const ICONES = {
   menu: [{ d: 'M5 7h14M5 12h14M5 17h14', s: 'c', w: 2.8 }],
   mais: [{ d: 'M12 5v14M5 12h14', s: 'c', w: 3.2 }],
   pular: [{ d: 'M12 4.5l7 7.5h-4.2v7.5H9.2V12H5z', f: 'c', s: 'c', w: 2 }],
+  largar: [{ d: 'M8.2 3.5h7.6v6.2H8.2z', f: '#d9a35e', s: T, w: 1.6 }, { d: 'M12 12v7M8.6 15.8l3.4 3.4 3.4-3.4', s: 'c', w: 2.6 }, { d: 'M4.5 21.2h15', s: 'c', w: 2.2 }],
   descer: [{ d: 'M12 19.5l7-7.5h-4.2V4.5H9.2V12H5z', f: 'c', s: 'c', w: 2 }],
   // bonequinho agachado (cabeça, costas inclinadas, joelho dobrado) em cima do chão
   agachar: [{ d: circ(13.6, 5.4, 2.7), f: 'c' }, { d: 'M12.4 9.6L9.4 14.6h5.6l-1.2 5M11.6 11.4l4.6 1.4', s: 'c', w: 2.8 }, { d: 'M4.5 21.2h15', s: 'c', w: 1.8 }],
