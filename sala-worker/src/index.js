@@ -514,7 +514,10 @@ export class Sala extends DurableObject {
       const ed = await this.carregarEdicoes();
       const k = x + ',' + y + ',' + z;
       // sem "j" (não foi a mão do jogador): só toques (porta, forno, alavanca...) e a física (areia caindo, folhas...)
-      if (!m.j && !mudancaSemMao(ed.has(k) ? ed.get(k) : m.de, b, this.regras().construcao)) return;
+      // no mundo de Guerra o forte inimigo (radar, canhões) é destruído pelos tiros: some bloco do mundo original
+      // sem a mão do jogador. O que alguém construiu (já está nas edições) continua protegido.
+      const destruiu = eu.guerra && b === 0 && !ed.has(k);
+      if (!m.j && !destruiu && !mudancaSemMao(ed.has(k) ? ed.get(k) : m.de, b, this.regras().construcao)) return;
       // coletar e criar: só coloca o que tem na mochila
       if (econ && op.sobrevivencia && m.j && b > 0 && lugarVazio(ed.has(k) ? ed.get(k) | 0 : m.de | 0) && !((econ.itens[gastoDe(b)] || 0) > 0)) {
         ws.send(JSON.stringify({ t: 'econ', s: econ })); // devolve a mochila certa para o aparelho
