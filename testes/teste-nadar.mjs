@@ -1,9 +1,9 @@
 // Testa o nado de verdade (teclado e tablet com toque): boiar, mergulhar, nadar olhando para baixo,
 // subir, sair da piscina pela beirada, fôlego (com e sem vida) e a visão embaixo d'água (Linda e Leve).
-// Uso: (cd public && python3 -m http.server 8772) e depois: node testes/teste-nadar.mjs
-// PORTA=8772 SAIDA=/pasta/dos/prints SO=linda|leve|tablet (só uma parte)
+// Uso: (cd public && python3 -m http.server 8765) e depois: node testes/teste-nadar.mjs
+// PORTA=8765 SAIDA=/pasta/dos/prints SO=linda|leve|tablet (só uma parte)
 import { createRequire } from 'module'; const { chromium, devices } = createRequire(import.meta.url)('playwright');
-const URL = `http://localhost:${process.env.PORTA || 8772}/#teste`;
+const URL = `http://localhost:${process.env.PORTA || 8765}/#teste`;
 const SAIDA = process.env.SAIDA || '/tmp';
 const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const falhas = [], erros = [];

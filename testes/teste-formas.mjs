@@ -358,7 +358,11 @@ await sp.waitForTimeout(200);
 const onde = await sp.evaluate(({ X, Y, Z }) => { const m = window.__jogo.mundo; for (let dz = -4; dz <= 2; dz++) { const b = m.bloco(X, Y + 1, Z + dz); if (b) return { b, z: Z + dz }; } return null; }, rp);
 ok(onde && onde.b >= 91 && onde.b <= 94 && await qtd(91) === 1, 'colocou a rampa e gastou 1 da mochila (' + JSON.stringify(onde) + ')');
 if (onde) {
-  for (let k = 0; k < 6 && await sp.evaluate(({ X, Y, z }) => window.__jogo.mundo.bloco(X, Y + 1, z), { ...rp, z: onde.z }); k++) { await sp.evaluate(() => window.__jogo.quebrar(null)); await sp.waitForTimeout(150); }
+  // rampa é pedra: no jogo clássico só volta com picareta na mão
+  await sp.evaluate(() => { const j = window.__jogo, m = j.mercado; m.e.itens[1001] = 1; m.recebeu(m.e); });
+  await sp.waitForTimeout(200);
+  await sp.evaluate(() => { const j = window.__jogo; j.slot = j.barra.indexOf(1001); });
+  for (let k = 0; k < 12 && await sp.evaluate(({ X, Y, z }) => window.__jogo.mundo.bloco(X, Y + 1, z), { ...rp, z: onde.z }); k++) { await sp.evaluate(() => window.__jogo.quebrar(null)); await sp.waitForTimeout(150); }
   await pegarDoChao(sp);
   ok(await qtd(91) === 2, 'quebrou a rampa virada e voltou "Rampa" para a mochila');
 }

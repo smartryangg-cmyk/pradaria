@@ -28,7 +28,7 @@ async function criar(p, nomeNovo, foto) {
   await p.click('#m-novo button[type=submit]');
   await p.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 20000 });
   await p.waitForTimeout(1500);
-  const nomeNoJogo = await p.evaluate(() => window.__jogo.mundoAtual?.()?.nome ?? null);
+  const nomeNoJogo = await p.evaluate(() => window.__jogo.mundoAtual?.nome ?? null);
   // sai do mundo pelo menu (botão de menu na tela) e volta para a lista
   await p.click('#bt-menu');
   await p.click('#bt-sair-mundo');

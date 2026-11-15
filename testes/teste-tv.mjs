@@ -210,7 +210,7 @@ await cel.waitForFunction(() => !document.body.classList.contains('menu'));
 // controle remoto: esquerda vira, OK coloca bloco, Voltar pausa
 await voarAlto(); await espera(200);
 const yawA = await tv.evaluate(() => window.__jogo.jog.yaw);
-await tv.keyboard.down('ArrowLeft'); await espera(600); await tv.keyboard.up('ArrowLeft');
+await tv.keyboard.down('ArrowLeft'); await espera(1200); // (o CI roda a ~13 quadros por segundo) await tv.keyboard.up('ArrowLeft');
 const yawB = await tv.evaluate(() => window.__jogo.jog.yaw);
 ok(yawB - yawA > 0.4, 'seta esquerda do controle remoto vira o personagem (' + (yawB - yawA).toFixed(2) + ' rad)');
 const zA = await tv.evaluate(() => ({ ...window.__jogo.jog.pos }));
