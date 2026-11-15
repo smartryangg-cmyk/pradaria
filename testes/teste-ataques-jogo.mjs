@@ -32,8 +32,8 @@ function conectar(codigo, token) {
 }
 const mandar = (w, m) => w.send(JSON.stringify(m));
 const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join('');
-const conta = async (n) => api('cadastrar', { nome: n + sfx, senha: 'senha123', nascimento: '2000-01-01' });
-const dono = await conta('Dono'), chato = await conta('Chato'), crianca = await conta('Kid');
+const conta = async (n, nascimento = '2000-01-01') => api('cadastrar', { nome: n + sfx, senha: 'senha123', nascimento });
+const dono = await conta('Dono'), chato = await conta('Chato'), crianca = await conta('Kid', (new Date().getFullYear() - 10) + '-01-01');
 ok(dono.token && chato.token && crianca.token, 'contas criadas');
 const blocos = async (codigo) => ((await api('mundos/exportar', { codigo }, dono.token)).edicoes || []);
 const tem = (eds, x, y, z) => { const e = eds.find((q) => q[0] === x && q[1] === y && q[2] === z); return e ? e[3] : null; };
@@ -82,8 +82,6 @@ const tem = (eds, x, y, z) => { const e = eds.find((q) => q[0] === x && q[1] ===
 
 // ---------- 3) Armas e 4) idade ----------
 {
-  await api('eu/nascimento', { nascimento: '2000-01-01' }, dono.token);
-  await api('eu/nascimento', { nascimento: '2000-01-01' }, chato.token);
   const { mundo } = await api('mundos', { nome: 'Paintball', opcoes: { armas: false } }, dono.token);
   await api('mundos/entrar', { codigo: mundo.codigo }, chato.token);
   await api('mundos/entrar', { codigo: mundo.codigo }, crianca.token); // entra antes de ligarem Armas
@@ -93,7 +91,7 @@ const tem = (eds, x, y, z) => { const e = eds.find((q) => q[0] === x && q[1] ===
   ok(ed.mundo && ed.mundo.opcoes.armas === true, 'dono (16+) liga Armas');
   for (let i = 0; i < 30 && !wk.msgs.some((m) => m.t === 'erro'); i++) await espera(100);
   // a sala manda sair (o jogo volta ao menu com o aviso) e para de ouvir essa conexão
-  ok(wk.msgs.some((m) => m.t === 'erro' && m.fim && /16 anos/.test(m.msg)), 'quem não respondeu "16 ou mais" sai na hora');
+  ok(wk.msgs.some((m) => m.t === 'erro' && m.fim && /16 anos/.test(m.msg)), 'quem tem menos de 16 sai na hora');
   const wk2 = await conectar(mundo.codigo, crianca.token);
   ok(!wk2.msgs.some((m) => m.t === 'ola'), 'e não volta a entrar');
   const wd = await conectar(mundo.codigo, dono.token);

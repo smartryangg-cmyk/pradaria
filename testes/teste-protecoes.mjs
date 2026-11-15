@@ -111,9 +111,9 @@ const ataque = {
   opcoes: JSON.parse('{"__proto__": {"admin": true}, "armas": true, "mercado": "sim", "moedas": 99999, "tamanho": "infinito"}'),
   edicoes: [[1, 30, 1, 3], [2, 500, 2, 3], [3, 30, 3, 999], [4, 30, 4, -1], [5, 30.5, 5, 3], ['x', 1, 1, 1], [6, 30, 6], { a: 1 }, [7, 90, 7, 1]],
 };
-// o arquivo liga Armas: sem ter respondido "16 anos ou mais" não importa
-ok((await api('mundos/importar', { arquivo: ataque }, dono.token)).status === 403, 'arquivo com Armas: sem a resposta "16 ou mais" não importa (403)');
-await api('eu/nascimento', { nascimento: '2000-01-01' }, dono.token);
+// o arquivo liga Armas: conta com menos de 16 não importa
+const kid = await api('cadastrar', { nome: 'Kid' + sfx, senha: 'senha123', nascimento: (new Date().getFullYear() - 10) + '-01-01' }, null, null, ipx());
+ok((await api('mundos/importar', { arquivo: ataque }, kid.token)).status === 403, 'arquivo com Armas: conta com menos de 16 não importa (403)');
 const imp = await api('mundos/importar', { arquivo: ataque }, dono.token);
 ok(imp.mundo && imp.mundo.codigo, 'arquivo com lixo importa só o que vale (' + imp.status + ')');
 if (imp.mundo) {
