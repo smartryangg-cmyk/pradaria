@@ -78,13 +78,13 @@ if (ONLINE) {
     await q.goto(ONLINE + '/#teste'); await q.evaluate(() => localStorage.clear()); await q.reload();
     await q.click('#bt-criar-conta'); await q.fill('#c-nome', nome); await q.fill('#c-senha', 'senha123');
     if (await q.isVisible('#c-adulto-ok')) await q.check('#c-adulto-ok');
-    await q.click('#c-ok');
+    if (await q.isVisible('#c-nasc .d-ano')) { await q.selectOption('#c-nasc .d-dia', '1'); await q.selectOption('#c-nasc .d-mes', '1'); await q.selectOption('#c-nasc .d-ano', '1990'); } await q.click('#c-ok');
     await q.waitForSelector('#m-jogos:not([hidden]), #m-mundos:not([hidden])', { timeout: 20000 });
     if (await q.isVisible('#m-jogos')) await q.click('.jogo[data-jogo=pradaria]');
     await q.waitForSelector('#m-mundos:not([hidden])', { timeout: 20000 });
     return q;
   }
-  const sfx = Date.now() % 10000;
+  const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join(''); // letras: com 4 algarismos do relógio o nome repetia entre testes e a conta não era criada
   const a = await jogador('Ana' + sfx);
   await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Lago');
   if (await a.getAttribute('[data-modo=sobrevivencia]', 'aria-pressed') !== 'true') await a.click('[data-modo=sobrevivencia]');

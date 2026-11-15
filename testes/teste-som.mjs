@@ -86,7 +86,8 @@ for (const d of DISP) {
   await p.waitForTimeout(600);
   await p.click('#bt-sozinho');
   // mundo criativo (blocos na mão) e sem mercado (garagem livre)
-  if (await p.isVisible('#m-novo')) { await p.click('[data-modo=criativo]'); await p.click('#m-novo [data-opcao=veiculos]'); await p.click('#m-novo button[type=submit]'); }
+  // semente fixa: com o mundo sorteado, às vezes não tinha bicho perto ou o buraco cavado não deixava colocar o bloco
+  if (await p.isVisible('#m-novo')) { await p.click('#m-novo summary'); await p.fill('#n-semente', 'som1'); await p.click('[data-modo=criativo]'); await p.click('#m-novo [data-opcao=veiculos]'); await p.click('#m-novo button[type=submit]'); }
   await p.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.som.ctx, null, { timeout: 20000 });
   await p.waitForTimeout(4000);
   await p.evaluate(registrar);
@@ -172,7 +173,9 @@ for (const d of DISP) {
   ok((await conta(p, 'abrir')).length >= 1 && (await conta(p, 'fechar')).length >= 1, 'mochila: som de abrir e fechar');
 
   // bichos: esperam um pouco e "falam" de onde estão (som 3D)
-  await p.evaluate(() => { const j = window.__jogo.jog; j.pitch = 0; });
+  // uns bichos mansos por perto (em mundo sorteado, às vezes não tinha nenhum ao alcance do ouvido)
+  await p.evaluate(() => { const { jog, bichos, mundo } = window.__jogo; jog.pitch = 0;
+    ['ovelha', 'galinha', 'vaca', 'porquinho'].forEach((e, i) => { const x = Math.floor(jog.pos.x) + (i % 2 ? 4 : -4), z = Math.floor(jog.pos.z) + (i < 2 ? 4 : -4); bichos.criar(e, x + 0.5, mundo.chao(x, z) + 1, z + 0.5); }); });
   await p.waitForFunction(() => window.__log.some((x) => x.k === 'bicho'), null, { timeout: 30000 }).catch(() => {});
   const bi = await conta(p, 'bicho');
   ok(bi.length >= 1, `bichos falando: ${bi.map((x) => `${x.t} (lado ${x.pan}, vol ${x.vol})`).slice(0, 4).join('; ')}`);

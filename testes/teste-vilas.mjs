@@ -10,7 +10,8 @@ await p.goto(URL);
 await p.evaluate((sem) => { localStorage.clear(); if (sem) localStorage.setItem('pradaria.local', JSON.stringify({ semente: +sem, edicoes: [] })); }, process.env.SEMENTE || '');
 await p.click('#bt-sozinho');
 // sem mundo salvo, "Jogar sem conta" abre primeiro a tela de criar mundo
-if (await p.isVisible('#m-novo')) await p.click('#m-novo button[type=submit]');
+// semente fixa com vila na região do começo (com semente sorteada a vila de 0,0 às vezes não cabe no terreno)
+if (await p.isVisible('#m-novo')) { await p.click('#m-novo summary'); await p.fill('#n-semente', 'estrada'); await p.click('#m-novo button[type=submit]'); }
 await p.waitForTimeout(4000);
 const info = await p.evaluate(() => {
   const { mundo, jog } = window.__jogo;

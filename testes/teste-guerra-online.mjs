@@ -26,7 +26,7 @@ async function jogador(nome, op, ano = 1990) {
   await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])', { timeout: 15000 }); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 }); } })();
   return p;
 }
-const sfx = Date.now() % 10000;
+const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join(''); // letras: com 4 algarismos do relógio o nome repetia entre testes e a conta não era criada
 // A (computador) cria o mundo de Guerra
 const a = await jogador('Ana' + sfx, { viewport: { width: 1024, height: 640 } });
 await a.click('#bt-novo-mundo');

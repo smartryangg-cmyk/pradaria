@@ -185,8 +185,13 @@ if (ONLINE) {
   await a.waitForTimeout(1500);
   const noChao = await bb.evaluate(() => { const l = [...window.__jogo.drops.vivos.values()].filter((e) => e.id === 1001); return l.length ? [l[0].x, l[0].y, l[0].z] : null; });
   ok(!!noChao && (await desg(a, PIC))[0] === 0, 'online: Ana largou a picareta e Beto vê no chão');
-  if (noChao) { await bb.waitForTimeout(1600); await bb.evaluate(([x, y, z]) => { const j = window.__jogo.jog; j.voando = false; j.pos.x = x; j.pos.y = y; j.pos.z = z; }, noChao); }
-  await bb.waitForTimeout(2500);
+  // vai até onde a picareta está agora (no aparelho lento ela ainda pode estar caindo/escorregando quando ele chega)
+  if (noChao) await bb.waitForTimeout(1600);
+  for (let k = 0; noChao && k < 6 && (await desg(bb, PIC))[0] !== 1; k++) {
+    await bb.evaluate(() => { const l = [...window.__jogo.drops.vivos.values()].filter((e) => e.id === 1001); if (!l.length) return; const j = window.__jogo.jog; j.voando = false; j.pos.x = l[0].x; j.pos.y = l[0].y; j.pos.z = l[0].z; });
+    await bb.waitForTimeout(1200);
+  }
+  await bb.waitForTimeout(1000);
   const dB = await desg(bb, PIC);
   ok(dB.join() === '1,[2]', `online: Beto pegou e a picareta continua gasta (${dB})`);
 }

@@ -22,7 +22,7 @@ const clicar = (p, sel) => p.click(sel), toque = (p, sel) => p.tap(sel);
 async function criarConta(p, nome, aperta) {
   await aperta(p, '#bt-criar-conta');
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
-  await aperta(p, '#c-ok');
+  if (await p.isVisible('#c-nasc .d-ano')) { await p.selectOption('#c-nasc .d-dia', '1'); await p.selectOption('#c-nasc .d-mes', '1'); await p.selectOption('#c-nasc .d-ano', '1990'); } await aperta(p, '#c-ok');
   await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])'); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])'); } })();
 }
 const naSala = (p) => p.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala && !document.querySelector('#hud').hidden, null, { timeout: 60000 });
@@ -140,7 +140,8 @@ const C = await pagina(true);
 await toque(C, '#bt-sozinho'); await C.waitForSelector('#m-novo:not([hidden])');
 await toque(C, '#m-novo button[type=submit]');
 await noJogo(C);
-await C.evaluate(() => window.__jogo.comoJogador(() => window.__jogo.mundo.definir(-6, 61, -6, 3)));
+// mundo novo vem com "Coletar e criar": colocar gasta da mochila, então põe uma pedra nela antes
+await C.evaluate(() => { const e = window.__jogo.mercado.e; e.itens[3] = (e.itens[3] | 0) + 1; window.__jogo.comoJogador(() => window.__jogo.mundo.definir(-6, 61, -6, 3)); });
 await toque(C, '#bt-menu'); await toque(C, '#bt-editar-mundo'); await toque(C, '#e-mais summary');
 conferir(await C.isVisible('#e-importar'), 'sem internet: tem "trocar por um mundo de arquivo"');
 const expC = await baixar(C, toque);

@@ -14,7 +14,7 @@ async function jogador(nome, toque) {
   await p.click('#bt-criar-conta');
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
   if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
-  await p.click('#c-ok');
+  if (await p.isVisible('#c-nasc .d-ano')) { await p.selectOption('#c-nasc .d-dia', '1'); await p.selectOption('#c-nasc .d-mes', '1'); await p.selectOption('#c-nasc .d-ano', '1990'); } await p.click('#c-ok');
   await p.waitForSelector('#m-jogos:not([hidden]), #m-mundos:not([hidden])', { timeout: 15000 });
   if (await p.isVisible('#m-jogos')) await p.click('.jogo[data-jogo=pradaria]');
   await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
@@ -44,7 +44,7 @@ const irParaChaoFirme = (p) => p.evaluate(() => {
   return !!melhor;
 });
 const ouviu = (p, k) => p.evaluate((k) => window.__ouviu.filter((x) => x.k.includes(k)), k);
-const sfx = Date.now() % 10000;
+const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join(''); // letras: com 4 algarismos do relógio o nome repetia entre testes e a conta não era criada
 const a = await jogador('Ana' + sfx, false);
 await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Barulhinho');
 await a.click('[data-modo=criativo]'); await a.click('#m-novo [data-opcao=veiculos]'); // sem mercado (mod desligado) e blocos à vontade
@@ -90,7 +90,7 @@ await bb.evaluate(() => { window.__ouviu.length = 0; });
 await bb.evaluate(() => { window.__jogo.jog.pos.x += 7; });
 await a.evaluate(() => { window.__jogo.jog.pitch = 0; window.__jogo.jog.yaw = -Math.PI / 2; });
 const ini = await a.evaluate(() => ({ ...window.__jogo.jog.pos }));
-await a.keyboard.down('KeyW'); await a.waitForTimeout(2200); await a.keyboard.up('KeyW');
+await a.keyboard.down('KeyW'); await a.waitForTimeout(3500); await a.keyboard.up('KeyW');
 console.log('     Ana andou de', ini.x.toFixed(1), 'até', await a.evaluate(() => window.__jogo.jog.pos.x.toFixed(1)), 'Beto vê acao', await bb.evaluate(() => window.__jogo.outrosLista[0].acao));
 await bb.waitForTimeout(800);
 const ps = await ouviu(bb, 'passo');

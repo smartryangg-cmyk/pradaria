@@ -75,7 +75,8 @@ const r = await p.evaluate(async () => {
   mundo.definir(X + 10, Y + 1, Z + 2, 112); mundo.definir(X + 11, Y + 1, Z + 2, 103);
   await espera(300);
   const vent = mundo.bloco(X + 10, Y + 1, Z + 2);
-  jog.pos.x = X + 10.5; jog.pos.z = Z + 2.5; jog.pos.y = Y + 2.05; jog.vel.y = 0;
+  // zera a velocidade da esteira: no ar quase não freia (física do #53) e escorregava para fora do ventilador
+  jog.pos.x = X + 10.5; jog.pos.z = Z + 2.5; jog.pos.y = Y + 2.05; jog.vel.x = jog.vel.y = jog.vel.z = 0;
   await espera(2500);
   const subiu = jog.pos.y - (Y + 2);
   // sino e confete

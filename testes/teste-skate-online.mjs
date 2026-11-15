@@ -14,7 +14,7 @@ async function jogador(nome, toque) {
   await p.click('#bt-criar-conta');
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
   if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
-  await p.click('#c-ok');
+  if (await p.isVisible('#c-nasc .d-ano')) { await p.selectOption('#c-nasc .d-dia', '1'); await p.selectOption('#c-nasc .d-mes', '1'); await p.selectOption('#c-nasc .d-ano', '1990'); } await p.click('#c-ok');
   // depois de entrar aparece "Escolha um jogo": abre o Pradaria
   await p.waitForSelector('#m-jogos:not([hidden]), #m-mundos:not([hidden])', { timeout: 15000 });
   if (await p.isVisible('#m-jogos')) await p.click('.jogo[data-jogo=pradaria]');
@@ -22,7 +22,7 @@ async function jogador(nome, toque) {
   return p;
 }
 const ok = (c, msg) => { console.log((c ? 'OK   ' : 'FALHA') + ' ' + msg); if (!c) process.exitCode = 1; };
-const sfx = Date.now() % 10000;
+const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join(''); // letras: com 4 algarismos do relógio o nome repetia entre testes e a conta não era criada
 const a = await jogador('Ana' + sfx, false);
 await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Estrada');
 await a.click('[data-opcao=veiculos]'); // mod Veículos; sem mercado (desligado) a garagem é livre (com mercado, veja teste-veiculos-logica.mjs)
@@ -48,8 +48,9 @@ const medir = (id) => bb.evaluate((id) => {
   const v = window.__jogo.garagem.veic.mapa.get(id), bon = v && v.bonecos[0];
   if (!bon) return null;
   let min = 1e9, max = -1e9; bon.grupo.updateMatrixWorld(true);
-  bon.grupo.traverse((o) => { if (!o.geometry) return; o.geometry.computeBoundingBox(); const bb = o.geometry.boundingBox; for (const cx of [bb.min.x, bb.max.x]) for (const cy of [bb.min.y, bb.max.y]) for (const cz of [bb.min.z, bb.max.z]) { const y = o.localToWorld(bb.min.clone().set(cx, cy, cz)).y; min = Math.min(min, y); max = Math.max(max, y); } });
-  return { pes: min - v.yVis, cabeca: max - v.yVis };
+  bon.grupo.traverse((o) => { if (!o.geometry) return; o.geometry.computeBoundingBox(); const bb = o.geometry.boundingBox; for (const cx of [bb.min.x, bb.max.x]) for (const cy of [bb.min.y, bb.max.y]) for (const cz of [bb.min.z, bb.max.z]) { const y = v.corpo.worldToLocal(o.localToWorld(bb.min.clone().set(cx, cy, cz))).y; min = Math.min(min, y); max = Math.max(max, y); } });
+  // medido na prancha (corpo do skate): parado na beira de um degrau a prancha fica inclinada e o boneco inclina junto
+  return { pes: min, cabeca: max };
 }, id);
 let m = await medir(vid);
 ok(m && m.pes > 0.12 && m.pes < 0.32, `B vê a A com os pés na prancha (${m && m.pes.toFixed(2)} acima do chão)`);

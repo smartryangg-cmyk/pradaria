@@ -1,4 +1,4 @@
-# Publica o jogo no Cloudflare a cada push no main.
+# Publica o jogo no Cloudflare a cada push no main, só se a bateria de testes (testes.yml) passar.
 # Precisa dos segredos do repositório: CLOUDFLARE_API_TOKEN e CLOUDFLARE_ACCOUNT_ID.
 name: publicar
 on:
@@ -11,7 +11,10 @@ concurrency:
   group: publicar
   cancel-in-progress: false
 jobs:
+  testes:
+    uses: ./.github/workflows/testes.yml
   publicar:
+    needs: testes
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:

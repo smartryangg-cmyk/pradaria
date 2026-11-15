@@ -161,9 +161,12 @@ const cerca = await p.evaluate(async ({ X, Y, Z }) => {
   jog.yaw = 0;
   return { cz };
 }, { X, Y, Z });
-await p.keyboard.down('KeyW');
-for (let i = 0; i < 12; i++) { await p.keyboard.press('Space'); await p.waitForTimeout(90); }
-await p.keyboard.up('KeyW');
+// segura o pulo (pula de novo a cada pouso). Apertar Espaço duas vezes rápido liga o voo no criativo,
+// e voando passa por cima de qualquer cerca: o teste é de quem anda
+await p.keyboard.down('KeyW'); await p.keyboard.down('Space');
+await p.waitForTimeout(1100);
+await p.keyboard.up('Space'); await p.keyboard.up('KeyW');
+ok(!(await p.evaluate(() => window.__jogo.jog.voando)), 'pulando contra a cerca não ligou o voo');
 const zDepois = await p.evaluate(() => window.__jogo.jog.pos.z);
 ok(zDepois > cerca.cz + 0.9, `a cerca segurou o jogador, mesmo pulando (z=${(zDepois - cerca.cz).toFixed(2)} da cerca)`);
 
@@ -288,6 +291,14 @@ ok(t.erros.length === 0, 'sem erros no console (tablet)' + (t.erros.length ? ': 
 const s = await abrir({ viewport: { width: 1280, height: 760 } }, false);
 const sp = s.p;
 const qtd = (id) => sp.evaluate((id) => window.__jogo.mercado.e.itens[id] || 0, id);
+// o que quebra cai no chão (#47) e só vai para a mochila quando o jogador passa por cima: vai até cada item
+const pegarDoChao = async (p) => {
+  await p.waitForTimeout(1200);
+  for (const d of await p.evaluate(() => window.__jogo.drops.lista())) {
+    await p.evaluate((d) => { const j = window.__jogo.jog; j.pos.x = d.x; j.pos.z = d.z; j.pos.y = d.y + 0.1; j.vel.x = j.vel.y = j.vel.z = 0; }, d);
+    await p.waitForTimeout(400);
+  }
+};
 ok(await sp.evaluate(() => window.__jogo.opcoesMundo.sobrevivencia === true), 'mundo novo no modo Coletar e criar');
 // quebra um tronco redondo de árvore com a mão: cai um Tronco comum na mochila
 const arv = await sp.evaluate(() => {
@@ -302,7 +313,8 @@ const arv = await sp.evaluate(() => {
   }
   if (!melhor) return null;
   const { x, y, z, tb } = melhor;
-  for (let dz = 1; dz <= 3; dz++) for (let dy = 0; dy <= 2; dy++) mundo.definir(x, y + dy, z + dz, 0);
+  // abre espaço na frente do tronco para o corpo todo (os pés ficam 1 abaixo da base): preso no chão, o jogo empurrava o jogador e a mira saía do tronco
+  for (let dz = 1; dz <= 3; dz++) for (let dy = -2; dy <= 2; dy++) mundo.definir(x, y + dy, z + dz, 0);
   jog.voando = true; jog.vel.x = jog.vel.y = jog.vel.z = 0; jog.pos.x = x + 0.5; jog.pos.z = z + 2.6; jog.pos.y = y - 1.05; jog.yaw = 0; jog.pitch = 0;
   return { x, y, z, tb };
 });
@@ -312,6 +324,7 @@ if (arv) {
   let n = 0;
   for (; n < 10 && await sp.evaluate((a) => window.__jogo.mundo.bloco(a.x, a.y, a.z), arv) === arv.tb; n++) { await sp.evaluate(() => window.__jogo.quebrar(null)); await sp.waitForTimeout(150); }
   ok(n === 5, `tronco redondo aguenta 5 toques com a mão (${n})`);
+  await pegarDoChao(sp);
   const comum = { 80: 6, 81: 71, 82: 73 }[arv.tb];
   ok(await qtd(comum) === 1, `quebrar o tronco redondo (${arv.tb}) dá 1 tronco comum (${comum}) na mochila`);
 }
@@ -336,7 +349,8 @@ const rp = await sp.evaluate(() => {
 });
 await sp.waitForTimeout(300);
 await sp.evaluate(() => { const j = window.__jogo; const c = j.camera.position; j.jog.pitch = Math.atan2(70.02 - c.y, 2.2); j.slot = j.barra.indexOf(91); });
-await sp.waitForTimeout(300);
+// no CI (13 fps) a câmera demora alguns quadros para virar: espera a mira encostar no chão de pedra
+await sp.waitForFunction(() => { const { mundo, camera } = window.__jogo; const h = mundo.raycast(camera.position, camera.getWorldDirection(camera.position.clone()), 6); return h && h.y === 70; }, null, { timeout: 6000 }).catch(() => {});
 ok(await sp.evaluate(() => window.__jogo.barra.includes(91)), 'rampa criada apareceu na barra');
 console.log('mira rampa:', await sp.evaluate(() => { const { mundo, camera, barra } = window.__jogo; const d = camera.getWorldDirection(camera.position.clone()); const h = mundo.raycast(camera.position, d, 6); return JSON.stringify([h, camera.position, barra]); }));
 await sp.evaluate(() => window.__jogo.usar(null));
@@ -344,7 +358,12 @@ await sp.waitForTimeout(200);
 const onde = await sp.evaluate(({ X, Y, Z }) => { const m = window.__jogo.mundo; for (let dz = -4; dz <= 2; dz++) { const b = m.bloco(X, Y + 1, Z + dz); if (b) return { b, z: Z + dz }; } return null; }, rp);
 ok(onde && onde.b >= 91 && onde.b <= 94 && await qtd(91) === 1, 'colocou a rampa e gastou 1 da mochila (' + JSON.stringify(onde) + ')');
 if (onde) {
-  for (let k = 0; k < 6 && await sp.evaluate(({ X, Y, z }) => window.__jogo.mundo.bloco(X, Y + 1, z), { ...rp, z: onde.z }); k++) { await sp.evaluate(() => window.__jogo.quebrar(null)); await sp.waitForTimeout(150); }
+  // rampa é pedra: no jogo clássico só volta com picareta na mão
+  await sp.evaluate(() => { const j = window.__jogo, m = j.mercado; m.e.itens[1001] = 1; m.recebeu(m.e); });
+  await sp.waitForTimeout(200);
+  await sp.evaluate(() => { const j = window.__jogo; j.slot = j.barra.indexOf(1001); });
+  for (let k = 0; k < 12 && await sp.evaluate(({ X, Y, z }) => window.__jogo.mundo.bloco(X, Y + 1, z), { ...rp, z: onde.z }); k++) { await sp.evaluate(() => window.__jogo.quebrar(null)); await sp.waitForTimeout(150); }
+  await pegarDoChao(sp);
   ok(await qtd(91) === 2, 'quebrou a rampa virada e voltou "Rampa" para a mochila');
 }
 ok(s.erros.length === 0, 'sem erros no console (Coletar e criar)' + (s.erros.length ? ': ' + s.erros.slice(0, 5).join(' | ') : ''));

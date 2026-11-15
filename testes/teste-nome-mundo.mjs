@@ -15,7 +15,7 @@ async function jogador(nome, tablet) {
   await p.click('#bt-criar-conta');
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
   if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
-  await p.click('#c-ok');
+  if (await p.isVisible('#c-nasc .d-ano')) { await p.selectOption('#c-nasc .d-dia', '1'); await p.selectOption('#c-nasc .d-mes', '1'); await p.selectOption('#c-nasc .d-ano', '1990'); } await p.click('#c-ok');
   await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])', { timeout: 15000 }); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 }); } })();
   return p;
 }
@@ -28,14 +28,14 @@ async function criar(p, nomeNovo, foto) {
   await p.click('#m-novo button[type=submit]');
   await p.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 20000 });
   await p.waitForTimeout(1500);
-  const nomeNoJogo = await p.evaluate(() => window.__jogo.mundoAtual?.()?.nome ?? null);
+  const nomeNoJogo = await p.evaluate(() => window.__jogo.mundoAtual?.nome ?? null);
   // sai do mundo pelo menu (botão de menu na tela) e volta para a lista
   await p.click('#bt-menu');
   await p.click('#bt-sair-mundo');
   await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])', { timeout: 15000 }); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 }); } })();
   return { sugerido, nomeNoJogo };
 }
-const sfx = Date.now() % 10000;
+const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join(''); // letras: com 4 algarismos do relógio o nome repetia entre testes e a conta não era criada
 for (const [rot, tablet] of [['pc', false], ['tablet', true]]) {
   const p = await jogador((tablet ? 'Tab' : 'Pc') + sfx, tablet);
   const r1 = await criar(p, null, `${SAIDA}/${rot}-1-sugere-mundo01.png`);

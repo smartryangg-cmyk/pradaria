@@ -27,7 +27,7 @@ for (const nome of so) {
   const nomeJ = ('hub' + nome.replace(/[^a-z]/g, '') + Math.floor(Math.random() * 1e4)).slice(0, 16);
   await p.fill('#c-nome', nomeJ); await p.fill('#c-senha', 'senha123');
   if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
-  await clica('#c-ok');
+  if (await p.isVisible('#c-nasc .d-ano')) { await p.selectOption('#c-nasc .d-dia', '1'); await p.selectOption('#c-nasc .d-mes', '1'); await p.selectOption('#c-nasc .d-ano', '1990'); } await clica('#c-ok');
   await p.waitForSelector('#m-jogos:not([hidden])', { timeout: 15000 });
   ok(true, `${nome}: depois de criar a conta abre "Escolha um jogo"`);
   ok((await p.textContent('#j-nome')) === nomeJ, `${nome}: mostra o nome do jogador`);

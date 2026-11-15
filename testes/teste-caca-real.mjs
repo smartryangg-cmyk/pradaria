@@ -53,6 +53,8 @@ async function preparar(p) {
     window.__tela = (bb) => { const v = bb.grupo.position.clone(); v.y += bb.e.alt * bb.esc * 0.75; // mira no alto do bicho: no buraco, a beirada tampa a parte de baixo
     v.project(g.camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight }; };
     window.__limpar = () => { [j.pos.x, j.pos.y, j.pos.z] = window.__centro; j.vel.x = j.vel.z = 0; g.bichos.tempoSpawn = 1e9; g.bichos.limpar(); g.vida.protegido = 0; g.vida.reiniciar(); window.__avisos = []; for (const q of window.__buracos.splice(0)) g.mundo.definir(...q, 1); const [cx, , cz] = window.__centro; for (let dx = -7; dx <= 7; dx++) for (let dz = -7; dz <= 7; dz++) for (let h = 0; h >= -1; h--) if (!g.mundo.bloco(Math.floor(cx) + dx, y + h, Math.floor(cz) + dz)) g.mundo.definir(Math.floor(cx) + dx, y + h, Math.floor(cz) + dz, 1); }; // tapa o que um golpe errado quebrou
+    // tapa o que o dedo segurado quebrou sem querer (no aparelho lento a câmera atrasa e o dedo pega a beirada do buraco: o bicho sairia por ali)
+    window.__tapar = () => { const fora = new Set(window.__buracos.map((q) => q.join())); const [cx, , cz] = window.__centro; for (let dx = -7; dx <= 7; dx++) for (let dz = -7; dz <= 7; dz++) for (let h = 0; h >= -1; h--) { const q = [Math.floor(cx) + dx, y + h, Math.floor(cz) + dz]; if (!fora.has(q.join()) && !g.mundo.bloco(...q)) g.mundo.definir(...q, 1); } };
     window.__olhar = (bb) => { const c = { x: j.pos.x, y: j.pos.y + 1.6, z: j.pos.z }; j.yaw = Math.atan2(-(bb.x - c.x), -(bb.z - c.z)); j.pitch = Math.atan2(bb.y + bb.e.alt * bb.esc * 0.8 - c.y, Math.hypot(bb.x - c.x, bb.z - c.z)); };
     window.__carinhos = 0; const oc = g.bichos.carinho.bind(g.bichos); g.bichos.carinho = (bb) => { window.__carinhos++; return oc(bb); };
     window.__golpes = []; const orig = g.bichos.bater.bind(g.bichos); g.bichos.bater = (bb, ...a) => { const r = orig(bb, ...a); window.__golpes.push(bb.especie + ':' + r); return r; };
@@ -82,7 +84,10 @@ async function juntarChao(p) {
 async function segurarNoBicho(p, cdp, achar, ms, ate) {
   const fim = Date.now() + ms;
   while (Date.now() < fim) {
-    const pt = await p.evaluate((f) => { const bb = eval(f)(); if (!bb) return null; window.__olhar(bb); return true; }, achar.toString());
+    // o bicho que apanha foge: a pessoa vai atrás dele (fica a 1,8 bloco) antes de segurar o dedo de novo
+    const pt = await p.evaluate((f) => { const bb = eval(f)(); if (!bb) return null; const g = window.__jogo, j = g.jog, d = Math.hypot(bb.x - j.pos.x, bb.z - j.pos.z);
+      if (d > 2.6) { const k = 1.8 / d; const x = bb.x + (j.pos.x - bb.x) * k, z = bb.z + (j.pos.z - bb.z) * k; g.cmd.teleportar(x, g.mundo.chao(Math.floor(x), Math.floor(z)) + 1.02, z, j.yaw, ''); }
+      window.__olhar(bb); return true; }, achar.toString());
     if (!pt) return;
     await p.waitForTimeout(450); // a câmera acompanha no próximo quadro
     const t = await p.evaluate((f) => { const bb = eval(f)(); return bb ? window.__tela(bb) : null; }, achar.toString());
@@ -91,6 +96,7 @@ async function segurarNoBicho(p, cdp, achar, ms, ate) {
     await p.waitForTimeout(1300);
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     if (ate && await p.evaluate(ate)) return;
+    await p.evaluate(() => window.__tapar());
   }
   console.log('segurou e não deu:', await p.evaluate((f) => { const bb = eval(f)(); const g = window.__jogo; return JSON.stringify({ golpes: window.__golpes.slice(-6), b: bb && [bb.especie, bb.x.toFixed(1), bb.y.toFixed(1), bb.z.toFixed(1), bb.vida, bb.estado], j: [g.jog.pos.x.toFixed(1), g.jog.pos.y.toFixed(1), g.jog.pos.z.toFixed(1), g.jog.yaw.toFixed(2), g.jog.pitch.toFixed(2)], telas: [...document.querySelectorAll('.janela:not([hidden]), [role=dialog]:not([hidden])')].map((e) => e.id) }); }, achar.toString()));
   await p.screenshot({ path: SAIDA + '/caca-falha-segurar.png' });
@@ -192,7 +198,7 @@ if (!process.env.SEM_ONLINE) {
     await aperta('#bt-criar-conta');
     await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
     if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
-    await aperta('#c-ok');
+    if (await p.isVisible('#c-nasc .d-ano')) { await p.selectOption('#c-nasc .d-dia', '1'); await p.selectOption('#c-nasc .d-mes', '1'); await p.selectOption('#c-nasc .d-ano', '1990'); } await aperta('#c-ok');
     await p.waitForSelector('#m-jogos:not([hidden]), #m-mundos:not([hidden])', { timeout: 20000 });
     if (await p.isVisible('#m-jogos')) await aperta('.jogo[data-jogo=pradaria]');
     await p.waitForSelector('#m-mundos:not([hidden])');
@@ -260,7 +266,7 @@ if (!process.env.SEM_ONLINE) {
   const b0 = { c: await qtd(B, CARNE), k: await qtd(B, COURO) };
   await B.evaluate(() => { window.__jogo.barra[0] = 1004; window.__jogo.slot = 0; });
   await B.evaluate(() => { window.__limpar(); window.__buraco(0, -3); const v = window.__criar('veado', 0, -3); v.calmo = 99; v.estado = 'parar'; v.timer = 99; window.__vd = v; });
-  await segurarNoBicho(B, cdpB, () => (window.__vd.caindo || !window.__jogo.bichos.lista.includes(window.__vd) ? null : window.__vd), 25000, () => !!window.__vd.caindo);
+  await segurarNoBicho(B, cdpB, () => (window.__vd.caindo || !window.__jogo.bichos.lista.includes(window.__vd) ? null : window.__vd), 40000, () => !!window.__vd.caindo);
   conferir(await B.evaluate(() => !!window.__vd.caindo || !window.__jogo.bichos.lista.includes(window.__vd)), 'tablet online: segurando o dedo o veado cai');
   await juntarChao(B);
   await B.waitForFunction((k0) => window.__jogo.mercado.qtd(1008) >= k0 + 1, b0.k, { timeout: 8000 }).catch(() => {});
