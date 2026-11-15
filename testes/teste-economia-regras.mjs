@@ -2,7 +2,7 @@
 // Uso: node testes/teste-economia-regras.mjs
 import { LOJA, LOTE_LOJA, precoVenda, vendivel, estadoNovo, aplicar, normalizar } from '../public/js/economia.js';
 import { oQueCai, IDS, RECEITAS } from '../public/js/receitas.js';
-import { Chao, MAX_CHAO, MAX_POR_JOGADOR } from '../public/js/regras-chao.js';
+import { Chao, MAX_CHAO, MAX_POR_JOGADOR, podePegar, publico, ESPERA_MORTE } from '../public/js/regras-chao.js';
 let falhas = 0;
 const conferir = (ok, msg) => { console.log((ok ? 'ok   ' : 'FALHA') + ' ' + msg); if (!ok) falhas++; };
 for (const { b, preco } of LOJA) conferir(preco >= LOTE_LOJA * precoVenda(b), `bloco ${b}: lote de ${LOTE_LOJA} custa ${preco} e vende por ${LOTE_LOJA * precoVenda(b)}`);
@@ -60,6 +60,15 @@ for (let x = 0; x < 200; x++) {
   if (oQueCai(IDS.FOLHAS, x, 40, 7, true).length > 1) extraNatural++;
 }
 conferir(extraEditado === 0 && extraNatural > 0, `extra só em bloco natural (editado ${extraEditado}, natural ${extraNatural})`);
+// a mochila de quem morreu: só ele pega nos primeiros 30 s, depois qualquer um
+{
+  const c = new Chao(), t0 = Date.now();
+  const d = c.novo(6, 1, 0, 40, 0, [0, 0, 0], '', t0, null, 0, 'uid-ana', null, 'ana');
+  conferir(!podePegar(d, 'beto', t0 + 5000) && podePegar(d, 'ana', t0 + 5000) && podePegar(d, 'beto', t0 + ESPERA_MORTE + 1) && publico(d, t0).res === 'ana',
+    'chão: a mochila de quem morreu é só dele por 30 s');
+  const l = c.novo(6, 1, 0, 40, 0, [0, 0, 0], '', t0);
+  conferir(podePegar(l, 'beto', t0 + 1000) && publico(l, t0).res === undefined, 'chão: item comum qualquer um pega');
+}
 // itens no chão: quem enche o chão perde os próprios itens mais antigos, não os dos outros
 {
   const c = new Chao();

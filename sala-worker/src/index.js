@@ -142,8 +142,8 @@ export class Sala extends DurableObject {
   async soltarNoChao(itens, dono = '', q = '') {
     const c = await this.carregarChao();
     const novos = [];
-    for (const [id, n, x, y, z, v, comp, dg] of itens) {
-      const d = c.novo(id, n, x, y, z, v || [(Math.random() - 0.5) * 2.4, 3.2, (Math.random() - 0.5) * 2.4], dono, Date.now(), null, comp || 0, q, dg);
+    for (const [id, n, x, y, z, v, comp, dg, res] of itens) {
+      const d = c.novo(id, n, x, y, z, v || [(Math.random() - 0.5) * 2.4, 3.2, (Math.random() - 0.5) * 2.4], dono, Date.now(), null, comp || 0, q, dg, res);
       if (d) novos.push(d);
     }
     if (!novos.length) return;
@@ -901,7 +901,7 @@ export class Sala extends DurableObject {
       await this.ctx.storage.put('e:' + eu.uid, econ);
       ws.send(JSON.stringify({ t: 'econ', s: econ }));
       const [x, y, z] = eu.p;
-      await this.soltarNoChao(r.cai.map(([id, n, c, dg]) => [id, n, x, y + 0.6, z, [(Math.random() - 0.5) * 4, 3 + Math.random() * 2, (Math.random() - 0.5) * 4], c, dg]), '', eu.uid);
+      await this.soltarNoChao(r.cai.map(([id, n, c, dg]) => [id, n, x, y + 0.6, z, [(Math.random() - 0.5) * 4, 3 + Math.random() * 2, (Math.random() - 0.5) * 4], c, dg, eu.id]), '', eu.uid);
     } else if (m.t === 'chao-largar') {
       // largou da mochila no chão (para guardar depois ou passar para um amigo)
       const op = this.op();
