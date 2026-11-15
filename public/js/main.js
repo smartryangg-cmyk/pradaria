@@ -984,7 +984,7 @@ function usar(ponto) {
   const m = mirar(ponto);
   if (m.pessoa) { guerra.socar(m.pessoa); return; }
   if (m.veiculo) { garagem.pedirEntrar(m.veiculo); return; }
-  if (m.bicho) { fazerCarinho(m.bicho); return; }
+  if (m.bicho) { if (!darTrigo(m.bicho)) fazerCarinho(m.bicho); return; }
   if (m.aldeao) { conversarCom(m.aldeao); return; }
   if (m.trabalhador) { negocios.tocar(m.trabalhador); return; }
   const h = m.bloco;
@@ -1148,6 +1148,14 @@ function mostrarRecarga() {
     recargaRaf = requestAnimationFrame(passo);
   };
   recargaRaf = requestAnimationFrame(passo);
+}
+// trigo na mão: o bicho de fazenda come (adulto fica apaixonado e cruza; filhote cresce mais rápido)
+function darTrigo(b) {
+  if (naMao() !== B.TRIGO || b.I.selvagem) return false;
+  if (sobrev() && qtd(B.TRIGO) < 1) { aviso('Acabou o trigo! Colha mais na plantação', 1600, 'milho'); return true; }
+  if (!bichos.alimentar(b)) { aviso(b.filhote ? 'Esse filhote não come trigo' : b.amor > 0 ? 'Já está procurando um par' : 'Já comeu: descansando um pouco antes de outra cria', 1800, 'coracao'); return true; }
+  if (sobrev()) mercado.enviar({ t: 'alimentar' });
+  return true;
 }
 function fazerCarinho(b) { if (!bichos.carinho(b)) return; mercado.evento('carinho'); laDaOvelha(b); } // bicho selvagem: o toque espanta (não conta como carinho)
 function conversarCom(a) {
@@ -1903,6 +1911,7 @@ function laco(agora) {
   mundo.atualizar(jog.pos.x, jog.pos.z, ehToque ? 5 : 8, jog.pos.y);
   if (!pausado) vigiarPlaca();
   if (jog.quicou) { jog.quicou = false; som.boing(); }
+  bichos.trigoNaMao = naMao() === B.TRIGO && (!sobrev() || qtd(B.TRIGO) > 0);
   bichos.atualizar(pausado ? 0 : dt, jog, tempoTotal, tempoDia);
   aldeoes.atualizar(dt, jog, Math.sin(tempoDia * Math.PI * 2));
   mecanismos.atualizar(pausado ? 0 : dt, jog, graf.U.uVento.value === 0);

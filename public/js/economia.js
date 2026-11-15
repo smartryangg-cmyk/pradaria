@@ -368,6 +368,11 @@ export function aplicar(e, op, a, ctx = {}) {
       if (!tirar(e.itens, id, n)) return falha('Você não tem isso.');
     }
     r.mudou = true;
+  } else if (a.t === 'alimentar') {
+    // deu trigo na mão para um bicho de fazenda (animais.js: cruzar)
+    if (!op.sobrevivencia) return falha('?');
+    if (!tirar(e.itens, TRI, 1)) return falha('Você não tem trigo.');
+    r.mudou = true;
   } else if (a.t === 'moer' || a.t === 'assar') {
     if (!op.mercado && !op.sobrevivencia) return falha('Este mundo não tem mochila.');
     const [de, para] = a.t === 'moer' ? [TRI, FAR] : [FAR, PAO];

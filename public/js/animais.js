@@ -20,6 +20,14 @@ const MAX = 18; // bichos ao mesmo tempo perto do jogador
 const MAX_PREDADORES = 3; // na natureza há bem menos caçadores que presas
 const PENSAR = 0.3; // segundos entre uma decisão e outra
 const TAU = Math.PI * 2;
+// cruzar (como no clássico): bicho de fazenda adulto comendo trigo da mão fica "apaixonado" um tempo; dois
+// da mesma espécie apaixonados se encontram e nasce um filhote. Depois os pais descansam 5 min. O filhote
+// cresce sozinho. Quem segura trigo é seguido pelos bichos que comem trigo.
+export const COMEM_TRIGO = new Set(['vaca', 'ovelha', 'porquinho', 'galinha', 'capivara', 'coelho']);
+export const AMOR = 30;          // segundos apaixonado
+export const ESPERA_CRIA = 300;  // pais descansam 5 min antes de ter outro filhote
+export const CRESCER = 600;      // filhote vira adulto em 10 min
+const MAX_COM_CRIAS = MAX + 6;   // filhotes nascidos podem passar um pouco do limite de bichos perto
 
 // bioma do mundo clássico (gerador.js BIOMA) -> habitat dos instintos
 const HABITAT_BIOMA = [null, null, 'praia', 'beira', 'prado', 'floresta', 'taiga', 'neve', 'deserto', 'savana', 'selva', 'montanha', 'beira'];
@@ -101,6 +109,7 @@ export class Bichos {
       calmo: 0, olhaLuz: 0, luz: null, avisou: 0, mordeu: 0, distJog: 99,
       vidaMax: I.vida ? Math.max(1, Math.round(I.vida * (filhote ? 0.5 : 1))) : 0, golpeEm: 0, golpe: 0,
       empX: 0, empZ: 0, semGolpe: 99, cura: 0, provocado: 0, caindo: 0,
+      amor: 0, cria: 0, crescer: filhote ? CRESCER * (0.4 + Math.random() * 0.6) : 0,
     };
     b.vida = b.vidaMax;
     b.grupo.position.set(x, y, z);
@@ -284,6 +293,23 @@ export class Bichos {
         return;
       }
     }
+    // ---- 3b. apaixonado: procura um par da mesma espécie e chega perto ----
+    if (b.amor > 0 && !pred) {
+      let par = null, dp = 10;
+      for (const o of this.lista) {
+        if (o === b || o.especie !== b.especie || o.filhote || o.caindo || !(o.amor > 0)) continue;
+        const d = Math.hypot(o.x - b.x, o.z - b.z);
+        if (d < dp) { dp = d; par = o; }
+      }
+      if (par) {
+        if (dp < 1.2 + b.e.raio * 2) { this.cruzar(b, par); return; }
+        b.estado = 'irPar'; b.dir = angulo(par.x - b.x, par.z - b.z); return;
+      }
+    }
+    // ---- 3c. jogador segurando trigo: os que comem trigo vão atrás (e não fogem dele) ----
+    if (this.trigoNaMao && COMEM_TRIGO.has(b.especie) && dist < 10 && !pred && !voando && b.estado !== 'fugir') {
+      this.mudar(b, 'seguir', 1); return;
+    }
     // ---- 4. presa com predador por perto: foge e avisa o bando ----
     if (pred) { this.fugir(b, pred, 4, true); return; }
 
@@ -392,6 +418,9 @@ export class Bichos {
     if (b.calmo > 0) b.calmo -= dt;
     if (b.segue > 0) b.segue -= dt;
     if (b.provocado > 0) b.provocado -= dt;
+    if (b.amor > 0) { b.amor -= dt; if (Math.random() < dt * 1.5) this.icone('coracao', b.x, b.y + b.e.alt * b.esc + 0.3, b.z, 1, 0.3); }
+    if (b.cria > 0) b.cria -= dt;
+    if (b.filhote && b.crescer > 0) { b.crescer -= dt; if (b.crescer <= 0) this.virarAdulto(b); }
     // ferido: sem apanhar por um tempo, vai sarando sozinho
     b.semGolpe += dt;
     if (b.vida < b.vidaMax && b.semGolpe > 15) { b.cura += dt; if (b.cura >= 5) { b.cura = 0; b.vida = Math.min(b.vidaMax, b.vida + 1); } }
@@ -404,6 +433,7 @@ export class Bichos {
         if (b.medo <= 0) { b.estado = 'vagar'; b.timer = 1; b.paraAgua = false; }
         break;
       case 'seguirMae': vel = b.mae ? Math.max(b.e.vel * 1.5, b.mae.vel) : b.e.vel; break;
+      case 'irPar': vel = b.e.vel * 1.2; break;
       case 'seguir': {
         const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz);
         b.dir = angulo(dx, dz);
@@ -640,6 +670,51 @@ export class Bichos {
     if (b.e.segue) b.segue = 90;
     for (let k = 0; k < 4; k++) this.icone('coracao', b.x + (Math.random() - 0.5) * 0.8, b.y + b.e.alt * b.esc + 0.2 + k * 0.25, b.z + (Math.random() - 0.5) * 0.8, 1.2 + k * 0.2);
     return true;
+  }
+
+  // trigo da mão: o adulto descansado fica apaixonado; o filhote cresce um pouco mais rápido (10%).
+  // Devolve true quando comeu (aí gasta 1 trigo).
+  alimentar(b) {
+    if (!COMEM_TRIGO.has(b.especie) || b.caindo) return false;
+    if (b.filhote) {
+      b.crescer -= CRESCER * 0.1;
+    } else {
+      if (b.amor > 0 || b.cria > 0) return false; // já apaixonado, ou descansando da última cria
+      b.amor = AMOR;
+    }
+    b.calmo = 30; b.medo = 0; b.timer = 2;
+    if (b.estado === 'fugir' || b.estado === 'dormir') b.estado = 'parar';
+    this.som.bicho(b.e.som, false, b);
+    for (let k = 0; k < 5; k++) this.icone('coracao', b.x + (Math.random() - 0.5) * 0.8, b.y + b.e.alt * b.esc + 0.2 + k * 0.22, b.z + (Math.random() - 0.5) * 0.8, 1.3 + k * 0.2, 0.4);
+    if (b.filhote && b.crescer <= 0) this.virarAdulto(b);
+    return true;
+  }
+
+  // dois apaixonados juntos: nasce um filhote entre eles (puxa a cor da mãe) e os pais descansam
+  cruzar(a, b) {
+    a.amor = 0; b.amor = 0; a.cria = ESPERA_CRIA; b.cria = ESPERA_CRIA;
+    a.estado = 'parar'; b.estado = 'parar'; a.timer = 3; b.timer = 3;
+    if (this.lista.length >= MAX_COM_CRIAS) return null;
+    const x = (a.x + b.x) / 2, z = (a.z + b.z) / 2;
+    const f = this.criar(a.especie, x, Math.max(a.y, b.y), z, { filhote: true, grupo: a.grupoId, mae: a });
+    f.crescer = CRESCER;
+    this.som.bicho(a.e.som, false, a);
+    for (let k = 0; k < 7; k++) this.icone('coracao', x + (Math.random() - 0.5) * 1.2, f.y + 0.8 + k * 0.2, z + (Math.random() - 0.5) * 1.2, 1.5 + k * 0.15, 0.45);
+    if (this.aoNascer) this.aoNascer(f);
+    return f;
+  }
+
+  // o filhote cresceu: troca o modelo pelo de adulto (mesma cor)
+  virarAdulto(b) {
+    if (!b.filhote) return;
+    const mod = montarBicho(b.especie, b.r, false);
+    this.cena.remove(b.grupo);
+    b.grupo.traverse((o) => o.geometry && o.geometry.dispose());
+    Object.assign(b, mod);
+    b.filhote = false; b.esc = 1; b.mae = null; b.crescer = 0;
+    b.vidaMax = b.I.vida ? Math.max(1, Math.round(b.I.vida)) : 0; b.vida = b.vidaMax;
+    b.grupo.position.set(b.x, b.y, b.z);
+    this.cena.add(b.grupo);
   }
 
   // "xô!": o selvagem foge do jogador (como na vida real: fazer barulho e parecer grande afasta)
