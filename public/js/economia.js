@@ -260,8 +260,9 @@ export function aplicar(e, op, a, ctx = {}) {
         if (comprado) { e.compra[g] = Math.max(0, (e.compra[g] || 0) - 1); r.marca = 1; }
       } else if (!a.b) {
         // quebrou: o que cai vai para o chão (regras-chao.js); quem chamou põe no chão. A mochila só recebe quando
-        // alguém pega. O que cai de um bloco que era comprado continua marcado (c = quantos são comprados)
-        r.cai = oQueCai(a.de, a.x, a.y, a.z, !!a.natural, a.mao | 0).map(([id, n]) => [id, n, a.comprado ? n : 0]);
+        // alguém pega. O que cai de um bloco que era comprado continua marcado (c = quantos são comprados).
+        // A ferramenta só vale se estiver na mochila (senão o aparelho dizia ter picareta e tirava vidro inteiro)
+        r.cai = oQueCai(a.de, a.x, a.y, a.z, !!a.natural, (e.itens[a.mao | 0] | 0) > 0 ? a.mao | 0 : 0).map(([id, n]) => [id, n, a.comprado ? n : 0]);
       }
     }
     if (a.b > 0) {
