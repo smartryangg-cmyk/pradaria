@@ -782,7 +782,7 @@ export class Sala extends DurableObject {
       if (!econLigada(op) && !deVeiculo) return; // chave de veículo vale mesmo sem mercado
       if (deVeiculo && (eu.semVeiculos || typeof m.tipo !== 'string')) return;
       // a bancada quem confere é a sala: alguma bancada colocada perto de onde o jogador está
-      if (m.t === 'criar') m = { t: 'criar', r: String(m.r), bancada: await this.bancadaPerto(eu.p) };
+      if (m.t === 'criar') m = { t: 'criar', r: String(m.r), n: Math.max(1, Math.min(64, m.n | 0 || 1)), bancada: await this.bancadaPerto(eu.p) };
       // no máximo 10 por segundo
       const agora = Date.now();
       if (!eu.jeco || agora - eu.jeco > 1000) { eu.jeco = agora; eu.neco = 0; }

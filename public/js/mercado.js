@@ -94,8 +94,8 @@ export class Mercado {
     if (!this.sala) this.enviar(a, true);
     else if (this.op.sobrevivencia) this.otimista(a);
   }
-  criar(r, bancada) {
-    const a = { t: 'criar', r, bancada };
+  criar(r, bancada, n = 1) {
+    const a = { t: 'criar', r, bancada, n };
     if (!this.sala) { this.enviar(a); return; }
     if (this.otimista(a)) this.sala.enviar(a);
   }

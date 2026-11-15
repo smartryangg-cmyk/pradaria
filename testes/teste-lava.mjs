@@ -69,7 +69,7 @@ const linha = await Promise.all([1, 2, 3, 4].map((d) => bl(p, [L[0] + d, y0, L[2
 ok(linha[0] === 216 && linha[1] === 217 && linha[2] === 218 && linha[3] === 0, `a lava escorre devagar até 3 blocos (${linha})`);
 await p.screenshot({ path: SAIDA + '/lava-1-escorre.png' });
 // pega de volta com o balde (mão com balde, "segurar" = quebrar)
-await p.evaluate(() => { window.__jogo.slot = 2; });
+await p.evaluate(() => { window.__jogo.slot = window.__jogo.barra.indexOf(1009); }); // o balde vazio voltou para o espaço da mão
 await mirar(p, [L[0] + 0.5, y0 + 0.5, L[2] + 0.5]);
 await p.evaluate(() => window.__jogo.quebrar(null)); await p.waitForTimeout(400);
 it = await itens(p);

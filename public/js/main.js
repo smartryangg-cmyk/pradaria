@@ -4,7 +4,8 @@ import * as THREE from '../vendor/three.module.min.js';
 import { F } from './formas.js';
 import { FOLHAGEM } from './blocos.js';
 import { criarAtlas, iconeBloco, INVENTARIO, INVENTARIO_MAQUINAS, INVENTARIO_FORMAS, B, E, AR, BLOCOS, SOLIDO, AGUA, PRECISA_CHAO, ITEM, ehItem, nomeDe } from './blocos.js';
-import { toquesCom, receitasDoMundo, GRUPOS, podeCriar, faltaBancada, gastoDe } from './receitas.js';
+import { toquesCom, receitasDoMundo, GRUPOS, podeCriar, faltaBancada, gastoDe, receitaDaGrade, arrumar, cabeNaGrade, pilhaDe, cabe } from './receitas.js';
+import { Inventario, MAO2 } from './inventario.js';
 import { BASE, PRECISA_ENERGIA, ELETRICO } from './energia.js';
 import { Mundo, ALT, NIVEL_AGUA } from './mundo.js';
 import { vento as forcaVento } from './energia.js';
@@ -383,7 +384,7 @@ const qtd = (id) => mercado.qtd(id);
 const drops = new Drops(cena, matBlocos, {
   mochila: mercado, som,
   pegou: (id, n) => { som.pegar(); colocarNaBarra(id); mostrarColeta(id, n); },
-  cheio: (id) => aviso(`A mochila está cheia de ${nomeDe(id)}`, 1800, 'mochila'),
+  cheio: (id) => aviso(`A mochila está cheia: ${nomeDe(id)} ficou no chão`, 1800, 'mochila'),
 });
 // larga o que está na mão (Q no computador, botão no tablet); tudo = a pilha inteira
 function largarDaMao(tudo) {
@@ -430,9 +431,10 @@ function desenharBarra() {
   if (el.hidden) return;
   const semArma = !armas.empunhando;
   const sv = sobrev();
+  if (sv) arrumarMochila();
   barra.forEach((id, i) => {
     const b = document.createElement('button');
-    const n = sv && id ? qtd(id) : 0;
+    const n = sv && id ? (inv.s[i] ? inv.s[i].n : 0) : 0;
     b.className = 'slot' + (i === slotSel && semArma ? ' sel' : '') + (sv && id && !n ? ' acabou' : '');
     b.setAttribute('aria-label', id ? nomeDe(id) + (sv ? ` (${n})` : '') : 'Mão vazia');
     b.appendChild(iconeBloco(atlasCanvas, id, 48));
@@ -452,7 +454,7 @@ const maquinasLigadas = () => opcoesMundo.maquinas !== false;
 // ferramentas também no modo criativo (quebram mais rápido)
 const FERRAMENTAS_CRIATIVO = [ITEM.PICARETA_PEDRA, ITEM.MACHADO_PEDRA, ITEM.PA_PEDRA, ITEM.BALDE, ISQUEIRO];
 function abasDoMundo() {
-  if (sobrev()) return [['mochila', 'mochila', 'Mochila'], ['criar', 'martelo', 'Criar']];
+  if (sobrev()) return [['mochila', 'mochila', inv.w === 3 ? 'Bancada' : 'Mochila'], ['criar', 'livro', 'Receitas']];
   const abas = [['blocos', 'tijolos', 'Blocos']];
   if (opcoesMundo.formas !== false) abas.push(['formas', 'bloco', 'Formas']); // mod Formas redondas
   if (maquinasLigadas()) abas.push(['maquinas', 'engrenagem', 'Engenharia']);
@@ -491,12 +493,13 @@ function abrirInventario(aba) {
   }
   $('#dica-maquinas').hidden = abaInv !== 'maquinas';
   $('#bancada-status').hidden = abaInv !== 'criar';
-  $('#inv-titulo').textContent = { maquinas: 'Engenharia', mochila: 'Mochila', criar: 'Criar', formas: 'Formas' }[abaInv] || 'Blocos';
-  $('#inv-sub').textContent = abaInv === 'criar' ? 'Toque numa receita para criar' : abaInv === 'mochila' ? 'Toque para pôr na mão' : 'Escolha um bloco para a mão';
+  $('#inv-titulo').textContent = { maquinas: 'Engenharia', mochila: inv.w === 3 ? 'Bancada' : 'Mochila', criar: 'Receitas', formas: 'Formas' }[abaInv] || 'Blocos';
+  $('#inv-sub').textContent = abaInv === 'criar' ? 'Toque numa receita: ela vai para a grade de criar' : abaInv === 'mochila' ? (toqueInv ? 'Toque para pegar e soltar. Segure o dedo para dividir. Arraste para mover' : 'Clique para pegar e soltar, botão direito divide, Shift move rápido, 1 a 9 troca com a barra') : 'Escolha um bloco para a mão';
   const g = $('#grade');
   const rolagem = g.dataset.aba === abaInv ? g.scrollTop : 0;
   g.innerHTML = ''; g.dataset.aba = abaInv;
   g.classList.toggle('receitas', abaInv === 'criar');
+  g.classList.toggle('inv-classico', abaInv === 'mochila');
   if (abaInv === 'criar') desenharReceitas(g);
   else if (abaInv === 'mochila') desenharMochila(g);
   else {
@@ -520,21 +523,231 @@ function abrirInventario(aba) {
   pausado = true;
 }
 
+// ---------- mochila de espaços (como no clássico; regras em inventario.js) ----------
+// 9 da barra + 27 da mochila + segunda mão, grade de criar 2x2 (3x3 na bancada) e o que está preso no cursor
+let inv = new Inventario(), invPronto = false, invChave = '', barraVista = new Array(9).fill(0), timerInv = 0;
+let moverRapido = false;
+const toqueInv = matchMedia('(pointer: coarse)').matches;
+const chaveInv = () => 'pradaria.inv.' + (modo === 'online' && mundoAtual ? mundoAtual.codigo + '.' + (conta.usuario ? conta.usuario.nome : '') : 'local');
+// a mochila já tem a contagem certa deste mundo: carrega a arrumação guardada e acerta
+function prepararInventario() {
+  inv = new Inventario(); invChave = chaveInv(); invPronto = sobrev();
+  barraVista = new Array(9).fill(0); // a barra guardada (na sala ou no mundo) diz o que fica em cada espaço
+  if (!invPronto) return;
+  try { inv.carregar(JSON.parse(localStorage.getItem(invChave))); } catch {}
+  arrumarMochila();
+}
+function salvarInvDepois() {
+  clearTimeout(timerInv);
+  timerInv = setTimeout(() => { if (invPronto && invChave === chaveInv()) try { localStorage.setItem(invChave, JSON.stringify(inv.salvar())); } catch {} }, 800);
+}
+// a contagem mudou (pegou, colocou, criou, a sala corrigiu): a arrumação acompanha
+function arrumarMochila() {
+  if (!invPronto || !sobrev()) return;
+  inv.ajustar(mercado.e.itens, slotSel);
+  sincronizarBarra();
+  salvarInvDepois();
+}
+// barra (ids) <-> espaços 0..8. Se outra parte do jogo trocou o que está num espaço da barra
+// (pôr na mão, balde que encheu...), a pilha daquilo vem para esse espaço
+function sincronizarBarra() {
+  let mudou = false;
+  for (let i = 0; i < 9; i++) {
+    const id = inv.s[i] ? inv.s[i].id : 0;
+    // esvaziaram o espaço da barra: a pilha vai para a mochila
+    if (!barra[i] && barraVista[i] && inv.s[i]) inv.moverRapido('s', i);
+    if (barra[i] && barra[i] !== id && barra[i] !== barraVista[i]) {
+      const j = inv.s.findIndex((p, k) => k !== i && k < MAO2 && p && p.id === barra[i]);
+      if (j >= 0) { const t = inv.s[i]; inv.s[i] = inv.s[j]; inv.s[j] = t; }
+    }
+    const novo = inv.s[i] ? inv.s[i].id : 0;
+    if (barra[i] !== novo) { barra[i] = novo; mudou = true; }
+  }
+  barraVista = [...barra];
+  if (mudou) guardarBarraDepois();
+}
+const grandeDe = (l, i) => (l === 's' && i === MAO2 ? 'mao2' : l);
+function slotInv(l, i, p, cls = '') {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'slot-inv ' + cls; b.dataset.l = l; b.dataset.i = i;
+  if (p) {
+    b.appendChild(imgIcone(p.id)); b.title = nomeDe(p.id);
+    if (p.n > 1) { const q = document.createElement('b'); q.className = 'qtd'; q.textContent = p.n; b.appendChild(q); }
+    b.setAttribute('aria-label', `${nomeDe(p.id)} (${p.n})`);
+  } else b.setAttribute('aria-label', grandeDe(l, i) === 'mao2' ? 'Segunda mão vazia' : 'Vazio');
+  return b;
+}
+function receitaNaGrade() { return receitaDaGrade(inv.gradeIds(), inv.w, receitasDoMundo(opcoesMundo)); }
 function desenharMochila(g) {
-  const itens = Object.entries(mercado.e.itens).map(([k, n]) => [+k, n]).filter(([, n]) => n > 0)
-    .sort((a, b) => (a[0] >= 1000) - (b[0] >= 1000) || a[0] - b[0]);
-  if (!itens.length) {
-    g.innerHTML = `<div class="vazio">${icone('mochila')}<span>A mochila está vazia. Segure o dedo num bloco para quebrar e pegar! Comece pelas árvores.</span></div>`;
-    return;
+  arrumarMochila();
+  g.innerHTML = '';
+  const cima = document.createElement('div'); cima.className = 'inv-cima';
+  // grade de criar e o resultado
+  const criar = document.createElement('div'); criar.className = 'inv-criar';
+  const gr = document.createElement('div'); gr.className = 'grade-criar w' + inv.w;
+  for (let i = 0; i < inv.w * inv.w; i++) gr.appendChild(slotInv('g', i, inv.g[i]));
+  const r = receitaNaGrade();
+  const seta = document.createElement('span'); seta.className = 'seta-criar'; seta.innerHTML = icone('seta');
+  const saida = slotInv('o', 0, r ? { id: r.faz[0], n: r.faz[1] } : null, 'saida' + (r ? ' pronta' : ''));
+  saida.id = 'inv-saida';
+  if (r) saida.setAttribute('aria-label', `Criar ${nomeDe(r.faz[0])}`);
+  criar.append(gr, seta, saida);
+  const lado = document.createElement('div'); lado.className = 'inv-lado';
+  const m2 = document.createElement('label'); m2.className = 'inv-mao2';
+  m2.append(slotInv('s', MAO2, inv.s[MAO2], 'mao2'), Object.assign(document.createElement('small'), { textContent: 'Segunda mão' }));
+  const rap = document.createElement('button'); rap.type = 'button'; rap.id = 'inv-rapido'; rap.className = 'bt-mini' + (moverRapido ? ' ligado' : '');
+  rap.setAttribute('aria-pressed', moverRapido); rap.innerHTML = icone('raio'); rap.append(' Mover rápido');
+  rap.addEventListener('click', () => { moverRapido = !moverRapido; som.clique(); desenharMochila(g); });
+  lado.append(m2, rap);
+  cima.append(criar, lado);
+  const moch = document.createElement('div'); moch.className = 'inv-mochila';
+  for (let i = 9; i < 36; i++) moch.appendChild(slotInv('s', i, inv.s[i]));
+  const bar = document.createElement('div'); bar.className = 'inv-barra';
+  for (let i = 0; i < 9; i++) bar.appendChild(slotInv('s', i, inv.s[i], i === slotSel ? 'sel' : ''));
+  g.append(cima, moch, bar);
+  if (inv.extra.length) {
+    const ex = document.createElement('div'); ex.className = 'inv-extra';
+    const t = document.createElement('p'); t.className = 'sub'; t.textContent = 'Sobrando (a mochila passou do limite): use ou largue para caber';
+    ex.appendChild(t);
+    inv.extra.forEach((p, i) => ex.appendChild(slotInv('x', i, p)));
+    g.appendChild(ex);
   }
-  for (const [id, n] of itens) {
-    const b = document.createElement('button');
-    b.title = nomeDe(id);
-    b.appendChild(imgIcone(id));
-    const q = document.createElement('b'); q.className = 'qtd'; q.textContent = n; b.appendChild(q);
-    b.addEventListener('click', () => { porNaMao(id); som.clique(); fecharJanelas(); aviso(nomeDe(id), 900); });
-    g.appendChild(b);
+  desenharCursor();
+}
+// o que está preso no cursor anda junto com o dedo/mouse
+let cursorXY = [0, 0];
+function desenharCursor() {
+  let el = $('#inv-cursor');
+  if (!el) { el = document.createElement('div'); el.id = 'inv-cursor'; document.body.appendChild(el); }
+  el.innerHTML = '';
+  const c = inv.cursor;
+  el.hidden = !c || $('#inventario').hidden;
+  if (!c) return;
+  el.appendChild(imgIcone(c.id));
+  if (c.n > 1) { const q = document.createElement('b'); q.className = 'qtd'; q.textContent = c.n; el.appendChild(q); }
+  el.style.transform = `translate(${cursorXY[0] - 24}px, ${cursorXY[1] - 24}px)`;
+}
+function invMudou() { sincronizarBarra(); salvarInvDepois(); desenharMochila($('#grade')); desenharBarra(); }
+// clicou no resultado: cria uma vez (vai para o cursor); com shift (ou mover rápido), o máximo, direto na mochila
+function pegarResultado(tudo) {
+  const r = receitaNaGrade();
+  if (!r) return;
+  const temBancada = inv.w === 3 && bancadaPerto();
+  if (r.bancada && !temBancada) { aviso('Precisa estar perto de uma Bancada', 2000, 'martelo'); return; }
+  const itens = mercado.e.itens;
+  if (!podeCriar(itens, r, temBancada, true)) { aviso('A mochila está cheia! Largue ou use alguma coisa', 2200, 'mochila'); return; }
+  const [id, n] = r.faz;
+  if (tudo) {
+    // quantas vezes: o que a grade tem (o menor espaço) e o que cabe
+    let vezes = Math.min(...inv.gradeIds().map((x, i) => (x ? inv.g[i].n : Infinity)));
+    const c = { ...itens }; let k = 0;
+    while (k < vezes && podeCriar(c, r, temBancada, true)) { for (const [u, q] of r.usa) { c[u] -= q; if (!c[u]) delete c[u]; } c[id] = (c[id] || 0) + n; k++; }
+    if (!k) return;
+    for (let j = 0; j < k; j++) inv.gastarGrade();
+    mercado.criar(r.id, temBancada, k);
+    aviso(`Criou ${k * n} ${nomeDe(id)}!`, 1400, 'martelo');
+  } else {
+    const c = inv.cursor;
+    if (c && (c.id !== id || c.n + n > pilhaDe(id))) return; // a mão do cursor está ocupada
+    inv.gastarGrade();
+    inv.cursor = c ? { id, n: c.n + n } : { id, n };
+    mercado.criar(r.id, temBancada, 1);
   }
+  som.criar();
+  invMudou();
+}
+// ações de um espaço (clique, clique direito, shift, arrastar)
+function acaoSlot(l, i, direito, shift) {
+  som.iniciar();
+  if (l === 'o') { pegarResultado(shift || moverRapido); return; }
+  if (direito) inv.clicarDireito(l, i);
+  else if ((shift || moverRapido) && !inv.cursor) inv.moverRapido(l, i);
+  else inv.clicar(l, i);
+  som.clique();
+  invMudou();
+}
+// largou fora da janela: cai no chão na frente do jogador (todo ou 1)
+function largarCursor(um) {
+  const c = inv.cursor;
+  if (!c) return;
+  if (!drops.ativo) { aviso('Neste mundo não dá para largar coisas no chão', 1800, 'mochila'); return; }
+  const n = um ? 1 : Math.min(c.n, MAX_LARGAR);
+  // tira do cursor antes: a mochila vai contar a menos e a arrumação já bate
+  c.n -= n; if (!c.n) inv.cursor = null;
+  if (drops.largar(c.id, n, jog)) som.largar();
+  invMudou();
+}
+// toque e mouse juntos (pointer events): toque = clique, segurar = clique direito, arrastar move
+(() => {
+  const g = $('#grade');
+  let ap = null; // { l, i, direito, x, y, t, tinha, arrastando, passou: [[l,i]], segurou }
+  const alvo = (x, y) => { const el = document.elementFromPoint(x, y); const b = el && el.closest && el.closest('.slot-inv'); return b && g.contains(b) ? [b.dataset.l, +b.dataset.i] : null; };
+  g.addEventListener('contextmenu', (e) => { if (g.classList.contains('inv-classico')) e.preventDefault(); });
+  g.addEventListener('pointerdown', (e) => {
+    if (!g.classList.contains('inv-classico')) return;
+    const b = e.target.closest('.slot-inv');
+    if (!b) return;
+    e.preventDefault();
+    cursorXY = [e.clientX, e.clientY];
+    const l = b.dataset.l, i = +b.dataset.i;
+    ap = { l, i, direito: e.button === 2, x: e.clientX, y: e.clientY, tinha: !!inv.cursor, arrastando: false, passou: [[l, i]], segurou: false, shift: e.shiftKey };
+    if (e.pointerType !== 'mouse' && l !== 'o') {
+      const este = ap;
+      este.timer = setTimeout(() => { if (ap === este && !este.arrastando) { este.segurou = true; acaoSlot(l, i, true, false); } }, 450);
+    }
+  });
+  addEventListener('pointermove', (e) => {
+    if ($('#inventario').hidden) return;
+    cursorXY = [e.clientX, e.clientY];
+    const el = $('#inv-cursor');
+    if (el && !el.hidden) el.style.transform = `translate(${e.clientX - 24}px, ${e.clientY - 24}px)`;
+    if (!ap || ap.segurou) return;
+    if (!ap.arrastando && Math.hypot(e.clientX - ap.x, e.clientY - ap.y) > 10) {
+      ap.arrastando = true; clearTimeout(ap.timer);
+      // começou a arrastar uma pilha (sem nada preso): pega ela para soltar onde largar o dedo
+      if (!ap.tinha && ap.l !== 'o') { if (ap.direito) inv.clicarDireito(ap.l, ap.i); else inv.clicar(ap.l, ap.i); invMudou(); }
+    }
+    if (ap.arrastando && ap.tinha) { const t = alvo(e.clientX, e.clientY); if (t && t[0] !== 'o' && !ap.passou.some(([a, b]) => a === t[0] && b === t[1])) ap.passou.push(t); }
+  });
+  addEventListener('pointerup', (e) => {
+    if (!ap) return;
+    const a = ap; ap = null; clearTimeout(a.timer);
+    if (a.segurou) return;
+    if (!a.arrastando) { acaoSlot(a.l, a.i, a.direito, a.shift || e.shiftKey); return; }
+    const t = alvo(e.clientX, e.clientY);
+    if (a.tinha) {
+      // arrastou com algo preso por vários espaços: reparte (botão direito: 1 em cada)
+      if (a.passou.length > 1) { inv.espalhar(a.passou, a.direito); som.clique(); invMudou(); }
+      else if (t) acaoSlot(t[0], t[1], a.direito, false);
+      return;
+    }
+    // arrastar e soltar uma pilha
+    if (t && t[0] !== 'o') { if (!(t[0] === a.l && t[1] === a.i) || inv.cursor) { inv.clicar(t[0], t[1]); som.clique(); invMudou(); } }
+    else if (!t && !e.target.closest('#inventario .caixa')) largarCursor(false);
+    else if (inv.cursor) { inv.clicar(a.l, a.i); invMudou(); } // soltou em lugar nenhum dentro da janela: volta
+  });
+  // clique fora da janela com algo preso: larga no chão (botão direito: 1)
+  $('#inventario').addEventListener('pointerdown', (e) => {
+    if (!g.classList.contains('inv-classico') || e.target.closest('.caixa') || !inv.cursor) return;
+    e.preventDefault(); e.stopPropagation();
+    largarCursor(e.button === 2);
+  });
+  $('#inventario').addEventListener('contextmenu', (e) => { if (g.classList.contains('inv-classico')) e.preventDefault(); });
+  // teclas 1..9 em cima de um espaço: troca com a barra
+  addEventListener('keydown', (e) => {
+    if ($('#inventario').hidden || !g.classList.contains('inv-classico') || !/^Digit[1-9]$/.test(e.code)) return;
+    const t = alvo(cursorXY[0], cursorXY[1]);
+    if (!t || t[0] === 'o') return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    inv.trocarComBarra(t[0], t[1], +e.code.slice(5) - 1); som.clique(); invMudou();
+  }, true);
+})();
+// fechou o inventário: grade e cursor voltam para a mochila
+function guardarGrade() {
+  if (!invPronto) return;
+  if (inv.cursor || inv.g.some(Boolean)) { inv.devolver(); sincronizarBarra(); salvarInvDepois(); }
+  inv.mudarGrade(2);
+  desenharCursor();
 }
 
 // bancada perto do jogador (até 4 blocos)
@@ -594,12 +807,29 @@ function cartaoReceita(r, temBancada) {
   }
   info.append(nome, ings);
   b.append(res, info);
-  b.addEventListener('click', () => tocarReceita(r));
+  b.addEventListener('click', (e) => tocarReceita(r, e.shiftKey));
   return b;
 }
-function tocarReceita(r) {
+function tocarReceita(r, tudo) {
   som.iniciar();
   const temBancada = bancadaPerto();
+  // livro de receitas (como no clássico): põe os ingredientes na grade de criar; o resultado sai pela grade
+  if (invPronto) {
+    if (faltaBancada(r, temBancada)) { som.clique(); aviso('Precisa de uma Bancada perto! Crie uma com 4 Tábuas e coloque no chão.', 3200, 'martelo'); abrirInventario('criar'); return; }
+    const w = r.bancada || !cabeNaGrade(r, 2) ? 3 : inv.w;
+    inv.devolver(); // o que estava preso no cursor volta para a mochila
+    inv.mudarGrade(w);
+    if (!inv.encher(arrumar(r, w), tudo ? 64 : 1)) {
+      som.clique();
+      const falta = r.usa.filter(([id, n]) => qtd(id) < n).map(([id, n]) => `${n - qtd(id)} ${nomeDe(id)}`);
+      aviso(falta.length ? 'Falta: ' + falta.join(', ') : 'Não deu para arrumar a grade', 2400, 'mochila');
+      abrirInventario('criar');
+      return;
+    }
+    som.clique(); sincronizarBarra(); salvarInvDepois(); desenharBarra();
+    abrirInventario('mochila');
+    return;
+  }
   if (podeCriar(mercado.e.itens, r, temBancada)) {
     mercado.criar(r.id, temBancada);
     som.criar();
@@ -692,6 +922,7 @@ function abrirPausa() {
 }
 function fecharJanelas() {
   if (jogando && (!$('#inventario').hidden || !$('#pausa').hidden || !$('#mapa').hidden || !$('#garagem').hidden)) som.fechar();
+  if (!$('#inventario').hidden) { $('#inventario').hidden = true; guardarGrade(); }
   $('#editar-mundo').hidden = true;
   $('#inventario').hidden = true; $('#pausa').hidden = true; $('#mapa').hidden = true; $('#mapa-ilha').hidden = true; $('#garagem').hidden = true; $('#missoes').hidden = true;
   if (cmd) cmd.fechar();
@@ -1002,8 +1233,8 @@ function usar(ponto) {
   if (m.trabalhador) { negocios.tocar(m.trabalhador); return; }
   const h = m.bloco;
   if (!h) return;
-  // tocar na bancada abre o livro de receitas
-  if (h.b === B.BANCADA && sobrev()) { som.clique(); abrirInventario('criar'); return; }
+  // tocar na bancada abre a grade de criar 3x3
+  if (h.b === B.BANCADA && sobrev()) { som.clique(); if (invPronto) { inv.mudarGrade(3); abrirInventario('mochila'); } else abrirInventario('criar'); return; }
   // tocar na cama: deita (de noite, dorme até amanhecer)
   if (ehCama(h.b) && !armas.empunhando) { som.clique(); cama.deitar(h); return; }
   // tocar na alavanca liga/desliga; no botão, aperta
@@ -1019,6 +1250,9 @@ function usar(ponto) {
   const x = h.x + h.n[0], y = h.y + h.n[1], z = h.z + h.n[2];
   let novo = naMao();
   if (novo === ISQUEIRO) { acenderFogo(x, y, z); return; }
+  // segunda mão (como no clássico): com a mão vazia ou com ferramenta, coloca o bloco da segunda mão
+  let daMao2 = false;
+  if ((!novo || ehItem(novo)) && invPronto && inv.s[MAO2] && !ehItem(inv.s[MAO2].id)) { novo = inv.s[MAO2].id; daMao2 = true; }
   if (!novo || ehItem(novo)) return; // mão vazia ou ferramenta: não coloca nada
   if (sobrev() && qtd(gastoDe(novo)) < 1) { aviso(`Acabou ${nomeDe(novo)}! Quebre mais ou crie`, 1500, 'mochila'); return; }
   if (y < 1 || y >= ALT) return;
@@ -1063,6 +1297,7 @@ function usar(ponto) {
     const d = Math.abs(fx) > Math.abs(fz) ? (fx > 0 ? 0 : 2) : (fz > 0 ? 1 : 3);
     novo += novo === MV.CAMA ? d : (d + 2) & 3;
   }
+  if (daMao2) inv.preferir = MAO2; // a mochila vai contar 1 a menos: sai da segunda mão
   comoJogador(() => mundo.definir(x, y, z, novo));
   som.em(meioDe(x, y, z), () => som.colocar(novo));
   // coletando: despejou a última água, o balde vazio volta para a mão
@@ -1386,6 +1621,7 @@ function limparMundo() {
 }
 
 function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = null, veiculos = [], veiculosP = [], guardado = null }) {
+  invPronto = false; // a arrumação da mochila espera a contagem deste mundo (prepararInventario)
   vestirMeusBonecos(meuSkin()); // pode ter trocado de conta desde o último mundo
   segundosJogando = 0; calib.reiniciar();
   limparMundo();
@@ -1555,6 +1791,8 @@ function jogarLocal(novo = null, idadeOk = false) {
   if (novo) salvarLocal();
   cmd.entrouLocal();
   mercado.iniciar({ opcoes: opcoesMundo, novo: !!novo });
+  if (novo) try { localStorage.removeItem('pradaria.inv.local'); } catch {}
+  prepararInventario();
   desenharBarra();
   $('#status').innerHTML = comIcone('casa', 'Sem internet');
   aviso('Bem-vindo à Pradaria!', 2500, 'flor');
@@ -1580,6 +1818,7 @@ async function jogarOnline(m, volta = null) {
         cmd.entrouOnline(msg);
         armas.entrouOnline(s);
         mercado.iniciar({ opcoes: msg.opcoes, estado: msg.econ, sala: s });
+        prepararInventario();
         drops.ligarSala(s, msg.eu, msg.chao);
         desenharBarra();
         $('#status').innerHTML = comIcone('globo', m.nome);
@@ -2150,4 +2389,4 @@ if (conta.token) abrirJogos().then(() => { if (mundoPedido && conta.usuario) ent
 else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; }, get escav() { return escav; }, som }; }
+if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, get inv() { return inv; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; }, get escav() { return escav; }, som }; }

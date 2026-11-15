@@ -316,14 +316,14 @@ if (arv) {
   ok(await qtd(comum) === 1, `quebrar o tronco redondo (${arv.tb}) dá 1 tronco comum (${comum}) na mochila`);
 }
 // livro de receitas: grupo Formas redondas
-await sp.evaluate(() => { const m = window.__jogo.mercado; m.e.itens[6] = (m.e.itens[6] || 0) + 1; m.e.itens[20] = 3; m.recebeu(m.e); });
+await sp.evaluate(() => { const m = window.__jogo.mercado; m.e.itens[6] = (m.e.itens[6] || 0) + 2; m.e.itens[20] = 3; m.recebeu(m.e); });
 await sp.evaluate(() => window.__jogo.abrirInventario('criar'));
 await sp.waitForSelector('#inventario:not([hidden]) [data-receita=rampa]');
 await sp.locator('[data-receita=rampa]').scrollIntoViewIfNeeded();
 await sp.screenshot({ path: SAIDA + '/formas-receitas.png' });
-await sp.click('[data-receita=tronco-redondo]');
-await sp.click('[data-receita=rampa]');
-ok(await qtd(80) === 1 && await qtd(91) === 2 && await qtd(20) === 0, 'criou tronco redondo (1 tronco) e 2 rampas (3 pedriscos)');
+for (const r of ['tronco-redondo', 'rampa']) { await sp.click('#abas-inv [data-aba=criar]'); await sp.click(`[data-receita=${r}]`); await sp.click('#inv-saida'); await sp.waitForTimeout(150); }
+await sp.click('#abas-inv [data-aba=criar]');
+ok(await qtd(80) === 2 && await qtd(91) === 2 && await qtd(20) === 0, 'grade de criar: 2 troncos em pé = 2 troncos redondos, 3 pedriscos = 2 rampas');
 ok(await sp.getAttribute('[data-receita=bola]', 'class') === 'receita falta', 'bola precisa de bancada e pedra (fica apagada)');
 await sp.click('#inventario [data-fechar]');
 // coloca a rampa (gasta 1) e quebra de volta (volta 1 para a mochila)

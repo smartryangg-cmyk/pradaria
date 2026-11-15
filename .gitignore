@@ -2,3 +2,4 @@ node_modules/
 .wrangler/
 .estado*/
 *.log
+node_modules

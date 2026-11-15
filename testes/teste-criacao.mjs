@@ -4,6 +4,14 @@
 import { createRequire } from 'module'; const { chromium } = createRequire(import.meta.url)('playwright');
 const BASE = process.env.BASE || 'http://localhost:8788';
 const SAIDA = process.env.SAIDA || '/tmp';
+// livro de receitas (como no clássico): toca na receita, ela vai para a grade de criar; tocar no resultado cria
+async function criarReceita(q, r) {
+  if (!(await q.isVisible('#inventario:not([hidden]) [data-receita]'))) await q.evaluate(() => window.__jogo.abrirInventario('criar'));
+  await q.click(`[data-receita=${r}]`);
+  if (await q.isVisible('#inv-saida.pronta')) await q.click('#inv-saida');
+  await q.waitForTimeout(150);
+  if (await q.isVisible('#abas-inv [data-aba=criar]')) await q.click('#abas-inv [data-aba=criar]');
+}
 const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const erros = [];
 const falhas = [];
@@ -82,13 +90,13 @@ await p.evaluate(() => { const m = window.__jogo.mercado; m.e.itens[6] = (m.e.it
 await p.evaluate(() => window.__jogo.abrirInventario('criar'));
 await p.waitForSelector('#inventario:not([hidden]) [data-receita=tabuas]');
 conferir(await p.isVisible('.bancada-status.longe'), 'avisa que não tem bancada por perto');
-for (let i = 0; i < 3; i++) await p.click('[data-receita=tabuas]');
+for (let i = 0; i < 3; i++) await criarReceita(p, 'tabuas');
 conferir(await qtd(p, B.TABUAS) === 12 && await qtd(p, B.TRONCO) === 0, '3 troncos viram 12 tábuas');
 conferir(await p.getAttribute('[data-receita=tabuas]', 'class') === 'receita falta', 'sem tronco a receita fica apagada');
-await p.click('[data-receita=picareta-madeira]');
+await criarReceita(p, 'picareta-madeira');
 conferir(await qtd(p, I.PICARETA_MADEIRA) === 0, 'picareta precisa de bancada');
-await p.click('[data-receita=graveto]');
-await p.click('[data-receita=bancada]');
+await criarReceita(p, 'graveto');
+await criarReceita(p, 'bancada');
 conferir(await qtd(p, B.BANCADA) === 1 && await qtd(p, I.GRAVETO) === 4 && await qtd(p, B.TABUAS) === 6, 'criou gravetos e bancada');
 await p.screenshot({ path: SAIDA + '/criar-sem-bancada.png' });
 await p.click('#inventario [data-fechar]');
@@ -100,9 +108,9 @@ await p.evaluate(() => { const j = window.__jogo.jog; j.pitch = 0; window.__jogo
 const posBancada = [pos[0], pos[1], pos[2] + 1];
 conferir(await blocoEm(p, posBancada) === B.BANCADA && await qtd(p, B.BANCADA) === 0, 'colocou a bancada e ela saiu da mochila');
 await p.evaluate(() => window.__jogo.usar(null));
-await p.waitForSelector('#inventario:not([hidden]) .bancada-status.ok');
-conferir(true, 'tocar na bancada abre o livro de receitas, com bancada perto');
-await p.click('[data-receita=picareta-madeira]');
+await p.waitForSelector('#inventario:not([hidden]) .grade-criar.w3');
+conferir(true, 'tocar na bancada abre a grade de criar 3x3');
+await criarReceita(p, 'picareta-madeira');
 conferir(await qtd(p, I.PICARETA_MADEIRA) === 1, 'criou picareta de madeira na bancada');
 await p.screenshot({ path: SAIDA + '/criar-com-bancada.png' });
 await p.evaluate(() => window.__jogo.abrirInventario('mochila'));
@@ -189,7 +197,7 @@ await o.evaluate(() => { const m = window.__jogo.mercado; m.e.itens[14] = 5; win
 await o.waitForTimeout(2200); // envio atrasado da mochila
 await o.screenshot({ path: SAIDA + '/online-toque.png' });
 await o.evaluate(() => window.__jogo.abrirInventario('criar'));
-await o.click('[data-receita=tabuas]');
+await criarReceita(o, 'tabuas');
 conferir(await qtd(o, B.TABUAS) === 4 && await qtd(o, B.TRONCO) === 0, 'online: criou tábuas');
 await o.waitForTimeout(800);
 conferir(await qtd(o, B.TABUAS) === 4, 'online: a sala confirmou as tábuas');
@@ -200,7 +208,7 @@ await o.waitForSelector('#m-mundos:not([hidden])');
 await o.click('#lista-mundos .mundo');
 await o.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala);
 await o.waitForTimeout(1000);
-conferir(await qtd(o, B.TABUAS) === 4 && await qtd(o, B.TRONCO) === 0 && await qtd(o, B.LA_BRANCA) === 1, 'online: mochila volta igual depois de sair e entrar');
+conferir(await qtd(o, B.TABUAS) === 4 && await qtd(o, B.TRONCO) === 0 && await qtd(o, B.LA_BRANCA) === 1, 'online: mochila volta igual depois de sair e entrar ' + JSON.stringify(await o.evaluate(() => window.__jogo.mercado.e.itens)));
 conferir(await o.evaluate(() => window.__jogo.barra.includes(8)), 'online: a barra também volta');
 
 console.log(erros.length ? 'ERROS:\n' + erros.join('\n') : 'sem erros no console');

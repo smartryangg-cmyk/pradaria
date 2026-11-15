@@ -3,7 +3,7 @@
 // Não importe nada daqui que dependa do navegador (o servidor também usa este arquivo).
 
 import { aplicarTrabalho, normalizarTrabalho, negocioNovo, livreDe, marcarCompra, ajustarCompra, converter } from './trabalho.js';
-import { RECEITAS, guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm } from './receitas.js';
+import { RECEITAS, guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm, cabe } from './receitas.js';
 
 // ids dos blocos (iguais aos de blocos.js)
 const BALDE = 1009; // receitas.js I.BALDE
@@ -305,6 +305,7 @@ export function aplicar(e, op, a, ctx = {}) {
     if (e.moedas < preco) return falha(`Faltam ${preco - e.moedas} moedas.`);
     if (op.sobrevivencia) {
       if (qtdEm(e.itens, a.b) + LOTE_LOJA > MAX_ITEM) return falha('Sua mochila já está cheia disso!');
+      if (!cabe(e.itens, a.b, LOTE_LOJA)) return falha('A mochila está cheia! Largue ou use alguma coisa.');
       e.moedas -= preco; por(e.itens, a.b, LOTE_LOJA); marcarCompra(e, a.b, LOTE_LOJA);
       if (!e.comprados.includes(a.b)) e.comprados.push(a.b);
     } else {
@@ -357,7 +358,12 @@ export function aplicar(e, op, a, ctx = {}) {
     if (!rc) return falha('?');
     if (faltaBancada(rc, a.bancada)) return falha('Precisa de uma Bancada perto.');
     if (!temTudo(e.itens, rc)) return falha('Faltam coisas para essa receita.');
-    if (!converter(e, () => criarEm(e.itens, rc, a.bancada))) return falha('Sua mochila já está cheia disso!');
+    // n = quantas vezes (shift na grade de criar: o máximo de uma vez); cria enquanto der
+    const n = Math.max(1, Math.min(64, a.n | 0 || 1));
+    let feitas = 0;
+    for (let k = 0; k < n; k++) { if (!converter(e, () => criarEm(e.itens, rc, a.bancada, true))) break; feitas++; if (!temTudo(e.itens, rc)) break; }
+    if (!feitas) return falha('A mochila está cheia! Largue ou use alguma coisa.');
+    r.feitas = feitas;
     r.mudou = true;
   } else if (a.t === 'pegar' || a.t === 'largar') {
     // pegar do chão / largar no chão (quem confere se o item existe e está perto é a sala ou o jogo sem internet)
@@ -366,6 +372,8 @@ export function aplicar(e, op, a, ctx = {}) {
     if (!guardavel(id) || n < 1 || n > 64) return falha('?');
     // c = quantos são coisa comprada (a marca vai junto para o chão e volta para quem pegar)
     if (a.t === 'pegar') {
+      // coletando, a mochila tem espaços como no clássico (receitas.js ESPACOS): cheia, o item fica no chão
+      if (op.sobrevivencia && !cabe(e.itens, id, n)) return falha('A mochila está cheia!');
       if (qtdEm(e.itens, id) + n > MAX_ITEM || !por(e.itens, id, n)) return falha('Sua mochila já está cheia disso!');
       marcarCompra(e, id, Math.max(0, Math.min(n, a.c | 0)));
     } else {

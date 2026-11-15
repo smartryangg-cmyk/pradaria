@@ -49,7 +49,8 @@ await p.waitForTimeout(800);
 // isqueiro na bancada: pedrisco + minério de ferro
 await p.evaluate(() => window.__jogo.abrirInventario('criar'));
 await p.waitForSelector('#inventario:not([hidden]) [data-receita=isqueiro]');
-await p.click('[data-receita=isqueiro]');
+await p.click('[data-receita=isqueiro]'); // o livro arruma a grade 3x3 da bancada
+await p.click('#inv-saida', { modifiers: ['Shift'] }); // tira o resultado direto para a mochila
 const it = await p.evaluate(() => { const e = window.__jogo.mercado.e.itens; return [e[20] || 0, e[67] || 0, e[1010] || 0]; });
 ok(it[0] === 0 && it[1] === 0 && it[2] === 1, `criou o isqueiro na bancada com pedrisco e minério de ferro (${it})`);
 await p.click('#inventario [data-fechar]');
