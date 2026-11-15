@@ -39,6 +39,7 @@ export function baseDe(b) {
   if (b >= 91 && b <= 94) return 91;
   if (b >= 95 && b <= 98) return 95;
   if (b >= 176 && b <= 183) return b - ((b - 176) % 4); // cama e cadeira viradas (moveis.js)
+  if (b >= 211 && b <= 214) return 211; // escada de mão virada (escada-mao.js)
   if (b === 76 || b === 77) return I.TRIGO; // trigo plantado ainda crescendo: é o mesmo trigo
   return b;
 }
@@ -130,6 +131,7 @@ export const RECEITAS = [
   { id: 'terra-arada', faz: [I.TERRA_ARADA, 1], usa: [[I.TERRA, 1]], grupo: 'construir' },
   { id: 'tijolo', faz: [I.TIJOLO, 2], usa: [[I.TERRA, 1], [I.AREIA, 1]], bancada: true, grupo: 'construir' },
   { id: 'vidro', faz: [I.VIDRO, 1], usa: [[I.AREIA, 2]], bancada: true, grupo: 'construir' },
+  { id: 'escada-mao', faz: [211, 3], usa: [[I.GRAVETO, 7]], bancada: true, grupo: 'construir' },
   { id: 'lampiao', faz: [I.LAMPIAO, 1], usa: [[I.VIDRO, 1], [I.GRAVETO, 1]], bancada: true, grupo: 'construir' },
   { id: 'feno', faz: [I.FENO, 1], usa: [[I.TRIGO, 3]], grupo: 'construir' },
   { id: 'porta', faz: [I.PORTA, 2], usa: [[I.TABUAS, 4]], bancada: true, grupo: 'construir' },

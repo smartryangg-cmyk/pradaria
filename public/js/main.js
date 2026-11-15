@@ -34,6 +34,8 @@ import { Agua } from './agua.js';
 import { criarComandos } from './comandos.js';
 import { criarCama } from './cama.js';
 import { ehCama } from './dormir-regras.js';
+import { ESCADA_MAO, PAREDE } from './escada-mao.js';
+import { FORMA_NOVA } from './formas.js';
 import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, ESTILOS, MODOS_JOGO, DIFICULDADES, modoJogoDe, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto, raioExtraMundo, precisa16 } from './opcoes-mundo.js';
 import { vida } from './vida.js';
 import { Mapa } from './mapa.js';
@@ -1037,6 +1039,15 @@ function usar(ponto) {
   if (novo === E.ESTEIRA) {
     const fx = -Math.sin(jog.yaw), fz = -Math.cos(jog.yaw);
     novo = E.ESTEIRA + (Math.abs(fx) > Math.abs(fz) ? (fx > 0 ? 0 : 2) : (fz > 0 ? 1 : 3));
+  }
+  // escada de mão: fica presa na parede tocada (tocando no chão, na parede da frente); sem parede não fica
+  if (novo === ESCADA_MAO) {
+    let d;
+    if (h.n[1] === 0) d = PAREDE.findIndex(([px, pz]) => px === -h.n[0] && pz === -h.n[2]);
+    else { const fx = -Math.sin(jog.yaw), fz = -Math.cos(jog.yaw); d = Math.abs(fx) > Math.abs(fz) ? (fx > 0 ? 0 : 2) : (fz > 0 ? 1 : 3); }
+    const [px, pz] = PAREDE[d], parede = mundo.bloco(x + px, y, z + pz);
+    if (!SOLIDO[parede] || FORMA_NOVA[parede]) { aviso('A escada de mão precisa de uma parede atrás', 2200, 'subir'); return; }
+    novo = ESCADA_MAO + d;
   }
   // rampa e escada: sobem para onde o jogador está olhando (andando para a frente, sobe)
   if (novo === F.RAMPA || novo === F.ESCADA) {
