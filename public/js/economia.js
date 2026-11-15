@@ -3,7 +3,7 @@
 // Não importe nada daqui que dependa do navegador (o servidor também usa este arquivo).
 
 import { aplicarTrabalho, normalizarTrabalho, negocioNovo, livreDe, marcarCompra, ajustarCompra, converter } from './trabalho.js';
-import { RECEITAS, guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm, cabe } from './receitas.js';
+import { RECEITAS, guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm, cabe, cabeQuanto } from './receitas.js';
 
 // ids dos blocos (iguais aos de blocos.js)
 const BALDE = 1009; // receitas.js I.BALDE
@@ -372,10 +372,16 @@ export function aplicar(e, op, a, ctx = {}) {
     if (!guardavel(id) || n < 1 || n > 64) return falha('?');
     // c = quantos são coisa comprada (a marca vai junto para o chão e volta para quem pegar)
     if (a.t === 'pegar') {
-      // coletando, a mochila tem espaços como no clássico (receitas.js ESPACOS): cheia, o item fica no chão
-      if (op.sobrevivencia && !cabe(e.itens, id, n)) return falha('A mochila está cheia!');
-      if (qtdEm(e.itens, id) + n > MAX_ITEM || !por(e.itens, id, n)) return falha('Sua mochila já está cheia disso!');
-      marcarCompra(e, id, Math.max(0, Math.min(n, a.c | 0)));
+      // coletando, a mochila tem espaços como no clássico (receitas.js ESPACOS): pega o que cabe e o resto
+      // fica no chão (r.pegou = quantos entraram; r.restoC = quantos dos que ficaram são comprados)
+      let k = Math.min(n, MAX_ITEM - qtdEm(e.itens, id));
+      if (k < 1) return falha('Sua mochila já está cheia disso!');
+      if (op.sobrevivencia) k = Math.min(k, cabeQuanto(e.itens, id));
+      if (k < 1) return falha('A mochila está cheia!');
+      if (!por(e.itens, id, k)) return falha('Sua mochila já está cheia disso!');
+      const c = Math.max(0, Math.min(n, a.c | 0)), cK = Math.min(k, c);
+      marcarCompra(e, id, cK);
+      r.pegou = k; r.restoC = c - cK;
     } else {
       r.c = Math.max(0, n - livreDe(e, id)); // a parte comprada é a última a sair
       if (!tirar(e.itens, id, n)) return falha('Você não tem isso.');
