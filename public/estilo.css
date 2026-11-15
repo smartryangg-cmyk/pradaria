@@ -905,3 +905,8 @@ body.chat-aberto #botoes-toque, body.chat-aberto #dica-toque, body.chat-aberto #
   body:has(#hud:not([hidden])) .marca-dagua { left: max(2px, env(safe-area-inset-left)); bottom: auto; top: 50%; writing-mode: vertical-rl; transform: translateY(-50%) rotate(180deg); }
 }
 body.modo-tv .marca-dagua { font-size: 14px; }
+
+/* data de nascimento (idade.js): dia, mês e ano lado a lado */
+.data-nasc { display: grid; grid-template-columns: 1fr 1.6fr 1.2fr; gap: 6px; }
+.data-nasc select { font: inherit; font-size: 17px; font-weight: 700; padding: 10px 6px; border-radius: 14px; border: 3px solid var(--borda); background: #fff; color: var(--txt); min-width: 0; }
+#idade-data { margin: 4px 0 2px; }
