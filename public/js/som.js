@@ -460,6 +460,9 @@ export class Som {
       case 'urso': this.tom(88, 0.7, { tipo: 'sawtooth', vol: 0.3, ate: 70, vibrato: 20, vibAmp: 0.07, filtro: { tipo: 'lowpass', f: 380, q: 5 }, ataque: 0.06 }); this.ruido(0.5, { vol: 0.1, freq: 300, marrom: true }); break;
       case 'onca': for (let i = 0; i < 4; i++) this.tom(120, 0.15, { tipo: 'sawtooth', vol: 0.2, ate: 80, atraso: i * 0.22, filtro: { tipo: 'lowpass', f: 600, q: 4 } }); break; // esturro
       case 'cobra': this.ruido(0.4, { vol: 0.16, freq: 6000, tipo: 'highpass' }); break;
+      // monstros da noite: o barrento geme grave e borbulha; a aranha chia e estala
+      case 'barrento': this.tom(95, 0.9, { tipo: 'sawtooth', vol: 0.22, ate: 70, vibrato: 4, vibAmp: 0.08, filtro: { tipo: 'lowpass', f: 320, q: 6 }, ataque: 0.15 }); this.ruido(0.4, { vol: 0.1, freq: 220, marrom: true, atraso: 0.4 }); break;
+      case 'aranha': this.ruido(0.25, { vol: 0.14, freq: 3500, tipo: 'bandpass' }); for (let i = 0; i < 3; i++) this.tom(1900, 0.03, { tipo: 'square', vol: 0.08, atraso: 0.25 + i * 0.06 }); break;
       default: this.oi();
     }
   }

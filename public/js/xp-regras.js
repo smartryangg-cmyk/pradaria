@@ -19,6 +19,7 @@ export const XP_MINERIO = { 66: [0, 2], 69: [3, 7] };
 // o que sai pronto da fornalha: pontos por coisa
 export const XP_FORNO = { 1101: 0.7, 1102: 1, 9: 0.1, 3: 0.1, 1104: 0.35, 1100: 0.15, 58: 0.35 };
 export const XP_CACA = 2;
+export const XP_MONSTRO = { barrento: 5, aranha: 5 }; // monstros da noite dão mais
 
 const sorteio = (x, y, z) => (((Math.imul(x | 0, 2654435761) ^ Math.imul(y | 0, 40503) ^ Math.imul(z | 0, 2246822519)) >>> 0) % 1000) / 1000;
 export function xpDoMinerio(b, x, y, z) {

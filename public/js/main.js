@@ -1453,7 +1453,7 @@ function quadroComer(dt) {
   salvarCorpo();
   desenharBarra();
 }
-const MORREU = { fome: 'Morreu de fome', queda: 'Caiu de muito alto', lava: 'Tentou nadar na lava', fogo: 'Queimou no fogo', agua: 'Ficou sem ar debaixo da água', bicho: 'Um bicho bravo te pegou' };
+const MORREU = { fome: 'Morreu de fome', queda: 'Caiu de muito alto', lava: 'Tentou nadar na lava', fogo: 'Queimou no fogo', agua: 'Ficou sem ar debaixo da água', bicho: 'Um bicho bravo te pegou', monstro: 'Um monstro da noite te pegou' };
 function morrer() {
   if (morto) return;
   morto = true; pararComer();
@@ -1766,6 +1766,11 @@ const GOLPE = { // [dano, segundos de recarga]
   [ITEM.PICARETA_MADEIRA]: [1, 0.83], [ITEM.PICARETA_PEDRA]: [1.5, 0.83],
   [ITEM.MACHADO_MADEIRA]: [3.5, 1.25], [ITEM.MACHADO_PEDRA]: [4.5, 1.25],
   [ITEM.PA_MADEIRA]: [1.25, 1], [ITEM.PA_PEDRA]: [1.75, 1],
+  [ITEM.PICARETA_FERRO]: [2, 0.83], [ITEM.PICARETA_DIAMANTE]: [2.5, 0.83],
+  [ITEM.MACHADO_FERRO]: [4.5, 1.11], [ITEM.MACHADO_DIAMANTE]: [4.5, 1],
+  [ITEM.PA_FERRO]: [2.25, 1], [ITEM.PA_DIAMANTE]: [2.75, 1],
+  // espadas: o melhor para lutar (golpe rápido)
+  [ITEM.ESPADA_MADEIRA]: [2, 0.625], [ITEM.ESPADA_PEDRA]: [2.5, 0.625], [ITEM.ESPADA_FERRO]: [3, 0.625], [ITEM.ESPADA_DIAMANTE]: [3.5, 0.625],
 };
 const golpeDe = (id) => GOLPE[id] || GOLPE.mao;
 let golpeEm = -1e9, tentouEm = -1e9;
@@ -1779,6 +1784,7 @@ function baterNoBicho(b) {
   const critico = carga > 0.9 && !jog.noChao && !jog.naAgua && !jog.voando && jog.vel.y < 0;
   const r = bichos.bater(b, dano * (0.2 + 0.8 * carga * carga), { critico, empurrao: carga > 0.9 ? 1 : 0.6 });
   vida.cansar(0.1); // fome (clássico): bater cansa
+  if (r && b.vidaMax && sobrev()) mercado.golpe(naMao()); // a ferramenta da mão gasta (espada 1, as outras 2)
   golpeEm = agora;
   mostrarRecarga();
   if (r && !b.vidaMax) aviso('O cachorro é seu amigo! Faça carinho com um toque rápido', 2200, 'coracao');
@@ -2099,6 +2105,13 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   // bicho provocado (mãe com filhotes, urso surpreendido, cobra pisada...) avisa antes e morde se você insistir
   let ultimoAvisoBicho = -99;
   bichos.aoAvisar = (b, bravo) => {
+    if (b.I.monstro) { // monstro da noite vindo atrás
+      if (tempoTotal - ultimoAvisoBicho < 20) return;
+      ultimoAvisoBicho = tempoTotal;
+      const quem = b.I.nome;
+      aviso(quem[0].toUpperCase() + quem.slice(1) + ' vem atrás de você! Lute (a espada é a melhor) ou fuja para perto de uma tocha', 2600, 'pata');
+      return;
+    }
     if (bravo) { // apanhou e veio para cima
       if (tempoTotal - ultimoAvisoBicho < 4) return;
       ultimoAvisoBicho = tempoTotal;
@@ -2117,6 +2130,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
     const quem = b.I.nome || 'o bicho';
     // no clássico os danos dobram (10 corações) e mudam com a dificuldade (Fácil metade, Difícil uma vez e meia)
     if (dano && vida.classico()) { const d = opcoesMundo.dificuldade; dano = Math.max(1, Math.round(dano * 2 * (d === 'facil' ? 0.5 : d === 'dificil' ? 1.5 : 1))); vida.motivo = 'bicho'; }
+    if (dano && b.I.monstro) { vida.motivo = 'monstro'; if (vida.dano(dano)) som.tom(200, 0.15, { tipo: 'sine', vol: 0.3, ate: 120 }); return; }
     if (dano && vida.dano(dano)) { som.tom(200, 0.15, { tipo: 'sine', vol: 0.3, ate: 120 }); aviso('Ai! ' + quem[0].toUpperCase() + quem.slice(1) + ' te mordeu. Acenda uma luz ou toque para espantar', 2000, 'coracao'); }
     else aviso(quem[0].toUpperCase() + quem.slice(1) + ' te deu um empurrão. Deixe ' + (quem.startsWith('a ') ? 'ela' : 'ele') + ' em paz', 1800, 'pata');
   };

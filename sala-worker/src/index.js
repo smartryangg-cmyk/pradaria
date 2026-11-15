@@ -848,7 +848,7 @@ export class Sala extends DurableObject {
       this.verSono(null, eu.nome);
     } else if (m.t === 'acordar') {
       if (eu.dorme) { eu.dorme = false; ws.serializeAttachment(eu); this.verSono(); }
-    } else if (m.t === 'ev' || m.t === 'vender' || m.t === 'comprar' || m.t === 'criar' || m.t === 'moer' || m.t === 'assar' || m.t === 'alimentar' || m.t === 'acender' || m.t === 'comer' || m.t === 'comprarV' || m.t === 'montarV' || m.t === 'chave') {
+    } else if (m.t === 'ev' || m.t === 'vender' || m.t === 'comprar' || m.t === 'criar' || m.t === 'moer' || m.t === 'assar' || m.t === 'alimentar' || m.t === 'acender' || m.t === 'comer' || m.t === 'golpe' || m.t === 'comprarV' || m.t === 'montarV' || m.t === 'chave') {
       const op = this.op();
       const deVeiculo = m.t === 'comprarV' || m.t === 'montarV' || m.t === 'chave';
       if (!econLigada(op) && !deVeiculo) return; // chave de veículo vale mesmo sem mercado
