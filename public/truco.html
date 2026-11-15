@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#256b3c">
+<title>Truco - Pradaria</title>
+<link rel="icon" href="icone.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="estilo.css?v=22">
+<link rel="stylesheet" href="tabuleiro.css?v=1">
+<link rel="stylesheet" href="truco.css?v=1">
+</head>
+<body class="pag-tabuleiro pag-truco">
+<div id="fundo" aria-hidden="true"></div>
+
+<!-- escolher como jogar -->
+<div id="x-menu" class="janela">
+  <div class="caixa">
+    <div class="titulo-jogo"><span data-icone="carta"></span><span>Truco</span></div>
+    <p class="sub regras-dama">Truco paulista: vira e manilha, melhor de 3 rodadas, quem fizer 12 pontos ganha. Peça truco para a mão valer mais!</p>
+    <h3>Quantos na mesa?</h3>
+    <div class="niveis" role="radiogroup" aria-label="Jogadores">
+      <button class="bt qtd" data-n="2" type="button" role="radio">Um contra um</button>
+      <button class="bt qtd" data-n="4" type="button" role="radio">Em dupla (4)</button>
+    </div>
+    <button class="bt verde grande" id="bt-computador" type="button"><span data-icone="engrenagem"></span>Jogar contra o computador</button>
+    <button class="bt amarelo" id="bt-continuar" type="button" hidden><span data-icone="relogio"></span>Continuar a partida</button>
+    <button class="bt verde grande" id="bt-amigo" type="button"><span data-icone="amigos"></span>Chamar amigos</button>
+    <p class="sub" id="x-sem-conta" hidden>Para jogar com amigos, <a href="/">entre na sua conta</a>.</p>
+    <p id="x-erro" class="erro"></p>
+    <a class="bt fraco" href="/" id="bt-jogos"><span data-icone="voltar"></span>Todos os jogos</a>
+  </div>
+</div>
+
+<!-- a mesa -->
+<main id="t-jogo" hidden>
+  <div class="t-topo">
+    <button class="redondo" id="bt-sair" aria-label="Sair da mesa"><span data-icone="voltar"></span></button>
+    <div id="t-placar" aria-live="polite"></div>
+    <button class="redondo" id="bt-chamar" aria-label="Chamar amigos" hidden><span data-icone="acenar"></span></button>
+  </div>
+  <div id="t-mesa">
+    <div class="t-lugar" data-pos="cima"></div>
+    <div class="t-lugar" data-pos="esq"></div>
+    <div class="t-lugar" data-pos="dir"></div>
+    <div id="t-centro">
+      <div id="t-vira"></div>
+      <div id="t-jogadas"></div>
+      <div id="t-rodadas" aria-label="Rodadas"></div>
+    </div>
+    <div id="t-fala" aria-live="assertive"></div>
+  </div>
+  <div id="t-status" aria-live="polite"></div>
+  <div id="t-acoes" class="linha-bts"></div>
+  <div id="t-minhas" aria-label="Suas cartas"></div>
+  <div id="t-parceiro" hidden></div>
+</main>
+
+<!-- esperando os amigos -->
+<div id="t-espera" class="janela" hidden>
+  <div class="caixa">
+    <h2>Mesa de truco</h2>
+    <div id="espera-lista"></div>
+    <p class="sub centro" id="espera-txt"></p>
+    <button class="bt verde grande" id="bt-chamar2" type="button"><span data-icone="acenar"></span>Chamar amigos</button>
+    <button class="bt amarelo" id="bt-comecar" type="button" hidden>Começar (o computador joga nas vagas)</button>
+    <button class="bt fraco" id="bt-sair2" type="button"><span data-icone="voltar"></span>Sair</button>
+  </div>
+</div>
+
+<!-- fim do jogo -->
+<div id="x-fim" class="janela" hidden>
+  <div class="caixa">
+    <h2 id="fim-titulo"></h2>
+    <p class="sub centro" id="fim-txt"></p>
+    <button class="bt verde grande" id="bt-revanche" type="button">Jogar de novo</button>
+    <p class="sub centro" id="fim-espera" hidden></p>
+    <button class="bt" id="bt-menu-fim" type="button">Outro jeito de jogar</button>
+  </div>
+</div>
+
+<div id="aviso"></div>
+<script type="module" src="js/truco.js?v=1"></script>
+</body>
+</html>
