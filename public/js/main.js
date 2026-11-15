@@ -32,6 +32,8 @@ import { Fisica } from './fisica.js';
 import { Plantacoes } from './plantacoes.js';
 import { Agua } from './agua.js';
 import { criarComandos } from './comandos.js';
+import { criarCama } from './cama.js';
+import { ehCama } from './dormir-regras.js';
 import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, ESTILOS, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto, raioExtraMundo, precisa16 } from './opcoes-mundo.js';
 import { vida } from './vida.js';
 import { Mapa } from './mapa.js';
@@ -889,6 +891,11 @@ const cmd = criarComandos({
   definirDia: (v) => { tempoDia = v; },
   pausar: (sim) => { pausado = sim; },
 });
+// cama: deitar de noite pula para a manhã (online, quando todo mundo deita)
+const cama = criarCama({
+  jog: () => jog, mundo: () => mundo, sala: () => sala, aviso, som, comIcone,
+  dia: () => tempoDia, definirDia: (v) => { tempoDia = v; }, cicloDia: () => !!opcoesMundo.cicloDia,
+});
 // ---------- armas (opção do mundo) ----------
 const armas = new Armas({
   cena, camera, som, aviso,
@@ -991,6 +998,8 @@ function usar(ponto) {
   if (!h) return;
   // tocar na bancada abre o livro de receitas
   if (h.b === B.BANCADA && sobrev()) { som.clique(); abrirInventario('criar'); return; }
+  // tocar na cama: deita (de noite, dorme até amanhecer)
+  if (ehCama(h.b) && !armas.empunhando) { som.clique(); cama.deitar(h); return; }
   // tocar na alavanca liga/desliga; no botão, aperta
   if (BASE[h.b] === E.ALAVANCA) {
     mundo.definir(h.x, h.y, h.z, h.b === E.ALAVANCA ? E.ALAVANCA_LIGADA : E.ALAVANCA);
@@ -1579,6 +1588,8 @@ async function jogarOnline(m, volta = null) {
     },
     fim: (texto) => { sala = null; sairDoMundo(); $('#mundos-erro').textContent = texto || ''; },
     ...cmd.rede,
+    ...cama.rede,
+    dia: (msg) => { cmd.rede.dia(msg); if (msg.dormiu) cama.dormiram(); },
     ...armas.rede,
     ...guerra.rede,
   });
@@ -1604,7 +1615,7 @@ function sairDoMundo(op = {}) {
   if (jogando) enviarBarra();
   if (op.apagarLocal) { try { localStorage.removeItem('pradaria.local'); } catch {} } // apagado: não salva de novo
   else salvarLocal();
-  cmd.saiu();
+  cmd.saiu(); cama.sair();
   if (sala && jog) sala.enviar({ t: 'pos', p: [jog.pos.x, jog.pos.y, jog.pos.z], r: [jog.yaw, jog.pitch] });
   limparMundo();
   jogando = false; pausado = false; som.silenciarJogo();
@@ -1894,7 +1905,7 @@ function laco(agora) {
 
   if (!pausado) {
     const ent = ctrl.atualizar();
-    if (!garagem.quadro(dt, ent, false)) {
+    if (!garagem.quadro(dt, ent, false) && !cama.quadro(dt, ent)) {
       jog.atualizar(dt, ent);
       if ((jog.noChao || jog.naAgua) && Math.floor(jog.passo / 1.8) !== ultimoPasso) { ultimoPasso = Math.floor(jog.passo / 1.8); som.passo(jog.naAgua ? 'agua' : chaoDe(jog.pos.x, jog.pos.y, jog.pos.z), visao.agachado ? 0.18 : visao.correndo ? 0.45 : 0.35); }
     }

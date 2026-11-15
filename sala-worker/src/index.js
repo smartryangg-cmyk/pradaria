@@ -14,6 +14,7 @@ import { horaDe, MAX_TURNO } from '../../public/js/trabalho.js';
 import { blocosDaObra, PLANTAS, ESTILOS_OBRA } from '../../public/js/casas.js';
 import { mudancaSemMao } from '../../public/js/blocos-rede.js';
 import { podeCrescer } from '../../public/js/plantacoes-regras.js';
+import { ehCama, podeDormir, ACORDA, PERTO_DA_CAMA } from '../../public/js/dormir-regras.js';
 import { MUDAS, MUDA_MIN, TRONCO_DA_MUDA, BLOCOS_ARVORE, podeCrescerMuda, naCaixa } from '../../public/js/arvores-regras.js';
 export { Controle } from './controle.js';
 
@@ -757,6 +758,19 @@ export class Sala extends DurableObject {
       this.info.inicio = Date.now() - (v - 0.3) * 600000;
       await this.ctx.storage.put('info', this.info);
       this.enviarTodos({ t: 'dia', v, nome: eu.nome });
+    } else if (m.t === 'dormir' && Array.isArray(m.b) && m.b.length === 3 && m.b.every(Number.isFinite)) {
+      // deitar na cama: só de noite, perto de uma cama de verdade; quando todo mundo deita, amanhece
+      if (this.info.cicloDia === false) return;
+      const nao = (msg) => ws.send(JSON.stringify({ t: 'sono-erro', msg }));
+      if (!podeDormir(this.diaAgora())) return nao('Só dá para dormir de noite (depois do pôr do sol)');
+      const [bx, by, bz] = m.b.map(Math.floor);
+      const ed = await this.carregarEdicoes(), k = bx + ',' + by + ',' + bz;
+      if (ed.has(k) && !ehCama(ed.get(k))) return nao('Isso não é uma cama');
+      if (!eu.p || Math.hypot(eu.p[0] - bx - 0.5, eu.p[1] - by, eu.p[2] - bz - 0.5) > PERTO_DA_CAMA + 2) return nao('Chegue mais perto da cama');
+      if (!eu.dorme) { eu.dorme = true; ws.serializeAttachment(eu); }
+      this.verSono(null, eu.nome);
+    } else if (m.t === 'acordar') {
+      if (eu.dorme) { eu.dorme = false; ws.serializeAttachment(eu); this.verSono(); }
     } else if (m.t === 'ev' || m.t === 'vender' || m.t === 'comprar' || m.t === 'criar' || m.t === 'moer' || m.t === 'assar' || m.t === 'alimentar' || m.t === 'comprarV' || m.t === 'montarV' || m.t === 'chave') {
       const op = this.op();
       const deVeiculo = m.t === 'comprarV' || m.t === 'montarV' || m.t === 'chave';
@@ -1083,6 +1097,19 @@ export class Sala extends DurableObject {
     if (ok.length) this.enviarTodos({ t: 'blocos', l: ok });
   }
 
+  // cama: conta quem está dormindo; se todo mundo deitou, amanhece para todos
+  async verSono(exceto, nome) {
+    const ws = this.ctx.getWebSockets().filter((w) => w !== exceto && w.deserializeAttachment());
+    const n = ws.filter((w) => w.deserializeAttachment().dorme).length, total = ws.length;
+    if (!n) return;
+    if (n < total) { this.enviarTodos({ t: 'sono', n, total, nome, deitou: !!nome }); return; }
+    if (!podeDormir(this.diaAgora())) return;
+    for (const w of ws) { const j = w.deserializeAttachment(); j.dorme = false; w.serializeAttachment(j); }
+    this.info.inicio = Date.now() - (ACORDA - 0.3) * 600000;
+    await this.ctx.storage.put('info', this.info);
+    this.enviarTodos({ t: 'dia', v: ACORDA, dormiu: true });
+  }
+
   async webSocketClose(ws) { await this.sair(ws); }
   async webSocketError(ws) { await this.sair(ws); }
 
@@ -1095,6 +1122,7 @@ export class Sala extends DurableObject {
     if (eu.v) { const [id, a] = eu.v; this.enviarTodos({ t: 'vassento', id, a, j: null }, ws); }
     await this.ctx.storage.put('p:' + eu.uid, eu.p);
     this.enviarTodos({ t: 'saiu', id: eu.id }, ws);
+    await this.verSono(ws); // quem saiu não conta mais: se os outros já estão deitados, amanhece
   }
 }
 
