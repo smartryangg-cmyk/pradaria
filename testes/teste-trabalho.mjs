@@ -114,6 +114,34 @@ conferir(e.neg.trigo === 40, 'deixou 40 trigos na padaria');
 await p.evaluate(() => { for (let i = 0; i < 12; i++) window.__jogo.mercado.turno(5, 12); });
 e = await est();
 conferir(e.neg.pao >= 3 && e.neg.trigo <= 34, `padeiro assou ${e.neg.pao} pães (trigo ${e.neg.trigo})`);
+// loja: ferramenta gasta não vai para a vitrine (senão voltava nova: conserto de graça)
+await p.evaluate(() => { const m = window.__jogo.mercado; m.e.itens[32] = 40; m.e.moedas = 300; m.e.obrasT = []; window.__jogo.jog.pos.x += 14; }); // o pedreiro só começa 4 obras por hora
+await p.waitForTimeout(1500);
+// procura um chão plano o bastante para a loja (anda e tenta de novo)
+for (let tent = 0; tent < 8 && !(await est()).obras.some((o) => o.p === 'loja'); tent++) {
+  if (tent) await p.evaluate((t) => { const J = window.__jogo; J.jog.pos.x += (t % 2 ? 9 : 0); J.jog.pos.z += (t % 2 ? 0 : 9); J.jog.pos.y = J.mundo.alturaEm(Math.floor(J.jog.pos.x), Math.floor(J.jog.pos.z)) + 2; }, tent);
+  await p.waitForTimeout(800);
+  if (!(await p.isVisible('#negocios [data-planta="loja"]'))) { if (await p.isVisible('#negocios')) await tocar('#negocios .caixa > .bt'); await tocar('#bt-negocios'); await tocar('#negocios [data-aba="obras"]'); }
+  await tocar('#negocios [data-planta="loja"]');
+  await p.waitForTimeout(600); await tocar('#obra-escolha .bt.verde'); await p.waitForTimeout(300);
+  if (!(await est()).obras.some((o) => o.p === 'loja') && await p.isVisible('#obra-escolha')) await tocar('#obra-escolha .bt:last-child');
+}
+await p.evaluate(() => { for (let i = 0; i < 120; i++) window.__jogo.mercado.turno(5, 12); });
+e = await est();
+conferir(!!e.neg.loja, 'loja pronta e registrada');
+await p.evaluate(() => { const J = window.__jogo, L = J.mercado.e.neg.loja; Object.assign(J.jog.pos, { x: L.x + 0.5, z: L.z + 0.5, y: J.mundo.alturaEm(L.x, L.z) + 2 }); const m = J.mercado.e; m.itens[1002] = 2; m.desg = { 1002: [30] }; });
+await p.waitForTimeout(500);
+await p.evaluate(() => window.__jogo.mercado.enviar({ t: 'depositar', onde: 'loja', b: 1002, n: 2 }));
+e = await est();
+conferir(e.neg.vitrine[1002] === 1 && e.itens[1002] === 1 && e.desg[1002][0] === 30, `só a picareta nova foi para a vitrine; a gasta ficou na mochila (vitrine ${e.neg.vitrine[1002]}, mochila ${e.itens[1002]}, desgaste ${JSON.stringify(e.desg)})`);
+const aviso = await p.evaluate(() => { window.__avisos = []; const m = window.__jogo.mercado; const r = m.enviar({ t: 'depositar', onde: 'loja', b: 1002, n: 1 }); return r; });
+e = await est();
+conferir(e.neg.vitrine[1002] === 1 && e.itens[1002] === 1 && e.desg[1002][0] === 30, 'a picareta gasta não vai para a vitrine');
+const txt = await p.evaluate(() => document.body.innerText);
+conferir(/Ferramenta usada não vai para a vitrine/.test(txt), 'aviso: Ferramenta usada não vai para a vitrine');
+await p.evaluate(() => window.__jogo.mercado.enviar({ t: 'retirar', onde: 'loja', b: 1002, n: 1 }));
+e = await est();
+conferir(e.itens[1002] === 2 && e.desg[1002][0] === 30 && !(e.desg[1002][1] > 0), 'pegou de volta a nova; a gasta continua gasta');
 await tocar('#bt-negocios');
 await tocar('#negocios [data-aba="padaria"]');
 await p.waitForTimeout(300);

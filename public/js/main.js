@@ -2253,7 +2253,7 @@ function laco(agora) {
     o.base.lerp(o.alvo, Math.min(1, dt * 10));
     // Natural 3D: pés no chão desenhado (arredondado), como o nosso boneco (visao.js)
     let desce = 0;
-    if (mundo.suave && !((o.acao | 0) & 10)) { const h = mundo.alturaVisual(o.base.x, o.base.y, o.base.z); if (h !== null && h < o.base.y) desce = h - o.base.y; }
+    if (mundo.suave && !((o.acao | 0) & 14)) { const h = mundo.alturaVisual(o.base.x, o.base.y, o.base.z); if (h !== null && h < o.base.y) desce = h - o.base.y; }
     o.pesNoChao += (desce - o.pesNoChao) * Math.min(1, dt * 12);
     g.set(o.base.x, o.base.y + o.pesNoChao, o.base.z);
     // para onde o amigo olha (suave entre uma mensagem e outra); o corpo vira sozinho na animação
