@@ -26,8 +26,8 @@ async function mundoNovo({ mercado = true, veiculos = true } = {}) {
   await p.waitForTimeout(400);
   await tocar('#bt-sozinho');
   await p.waitForSelector('#m-novo:not([hidden])');
-  if (!mercado) await tocar('[data-opcao=mercado]');
-  if (!veiculos) await tocar('[data-opcao=veiculos]');
+  if (mercado) await tocar('[data-opcao=mercado]'); // mods: desligados nos mundos novos
+  if (veiculos) await tocar('[data-opcao=veiculos]');
   await tocar('#m-novo summary'); await p.fill('#n-semente', 'estrada');
   await tocar('#m-novo button[type=submit]');
   await p.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.garagem.veic, null, { timeout: 20000 });

@@ -101,7 +101,7 @@ if (!process.env.SO_ONLINE) {
   const { ctx, p } = await abrir({ ...devices['iPad (gen 7) landscape'], hasTouch: true, isMobile: true }, 'tablet');
   await p.tap('#bt-sozinho');
   await p.waitForSelector('#n-opcoes:not([hidden])');
-  await p.tap('[data-opcao=selvagensMachucam]');
+  await p.tap('[data-dificuldade=normal]');
   await p.tap('[data-tamanho=pequeno]');
   await p.tap('#m-novo button[type=submit]');
   await p.waitForFunction(() => window.__jogo && window.__jogo.jog);

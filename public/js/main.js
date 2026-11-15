@@ -34,7 +34,7 @@ import { Agua } from './agua.js';
 import { criarComandos } from './comandos.js';
 import { criarCama } from './cama.js';
 import { ehCama } from './dormir-regras.js';
-import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, ESTILOS, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto, raioExtraMundo, precisa16 } from './opcoes-mundo.js';
+import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, ESTILOS, MODOS_JOGO, DIFICULDADES, modoJogoDe, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto, raioExtraMundo, precisa16 } from './opcoes-mundo.js';
 import { vida } from './vida.js';
 import { Mapa } from './mapa.js';
 import { Mercado } from './mercado.js';
@@ -47,7 +47,7 @@ import { MAX_LARGAR } from './regras-chao.js';
 import { VERSAO } from './versao.js';
 import { preencherDono, contaModo, ligarApagarConta } from './dono.js';
 import { Armas } from './armas.js';
-import { abrirEditarMundo, desenharEstilos, desenharListaOpcoes, marcarLista, baixarArquivo, escolherArquivo, montarArquivo } from './editar-mundo.js';
+import { abrirEditarMundo, desenharRegrasMods, desenharAbas, atualizarAbas, baixarArquivo, escolherArquivo, montarArquivo } from './editar-mundo.js';
 import { Mecanismos } from './mecanismos.js';
 import { Guerra } from './guerra.js';
 import { confirmarIdade16 } from './idade.js';
@@ -449,8 +449,10 @@ const maquinasLigadas = () => opcoesMundo.maquinas !== false;
 const FERRAMENTAS_CRIATIVO = [ITEM.PICARETA_PEDRA, ITEM.MACHADO_PEDRA, ITEM.PA_PEDRA, ITEM.BALDE];
 function abasDoMundo() {
   if (sobrev()) return [['mochila', 'mochila', 'Mochila'], ['criar', 'martelo', 'Criar']];
-  const formas = ['formas', 'bloco', 'Formas'];
-  return maquinasLigadas() ? [['blocos', 'tijolos', 'Blocos'], formas, ['maquinas', 'engrenagem', 'Engenharia']] : [['blocos', 'tijolos', 'Blocos'], formas];
+  const abas = [['blocos', 'tijolos', 'Blocos']];
+  if (opcoesMundo.formas !== false) abas.push(['formas', 'bloco', 'Formas']); // mod Formas redondas
+  if (maquinasLigadas()) abas.push(['maquinas', 'engrenagem', 'Engenharia']);
+  return abas;
 }
 // ícone de bloco/item como <img> (guardado: a tela de receitas usa muitos)
 const cacheIcones = new Map();
@@ -1755,30 +1757,12 @@ const iconesOpcoes = (o) => { const n = normalizarOpcoes(o); return (n.tipo !== 
 function resumoOpcoes(o) {
   const n = normalizarOpcoes(o);
   const t = TAMANHOS[n.tamanho];
-  const com = OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => x.nome);
-  const sem = OPCOES_MUNDO.filter((x) => !n[x.id]).map((x) => x.nome.toLowerCase());
-  return (n.tipo !== 'normal' ? TIPOS[n.tipo].nome + ' · ' : '') + (n.estilo !== 'blocos' ? ESTILOS[n.estilo].nome + ' · ' : '') + (TIPOS[n.tipo].limite ? '' : `Mundo ${t.nome.toLowerCase()} · `) + (com.join(', ') || 'só blocos') + (sem.length ? ' · sem ' + sem.join(', ') : '');
+  const mods = [...(TIPOS[n.tipo].oculto || n.tipo === 'normal' ? [] : [TIPOS[n.tipo].nome]), ...OPCOES_MUNDO.filter((x) => x.aba === 'mods' && n[x.id]).map((x) => x.nome), ...(n.estilo === 'suave' ? [ESTILOS.suave.nome] : [])];
+  return [MODOS_JOGO[modoJogoDe(n)].nome, DIFICULDADES[n.dificuldade].nome, TIPOS[n.tipo].limite ? null : `mundo ${t.nome.toLowerCase()}`].filter(Boolean).join(' · ')
+    + ' · ' + (mods.length ? 'Mods: ' + mods.join(', ') : 'sem mods');
 }
 let escolhaNovo = { ...PADRAO_NOVO };
 function desenharOpcoesNovo() {
-  const tp = $('#n-tipos');
-  tp.innerHTML = '';
-  for (const [id, t] of Object.entries(TIPOS)) {
-    if (t.oculto && !location.hash.includes('teste')) continue;
-    const b = document.createElement('button');
-    b.type = 'button'; b.className = 'opcao-mundo'; b.dataset.tipo = id; b.setAttribute('role', 'radio');
-    b.innerHTML = '<span class="ic"></span><b></b><small></small>';
-    b.querySelector('.ic').innerHTML = icone(t.icone); b.querySelector('b').textContent = t.nome; b.querySelector('small').textContent = t.desc;
-    b.addEventListener('click', async () => {
-      som.iniciar(); som.clique();
-      if (t.mais16 && !(await confirmarIdade16(`O mundo de ${t.nome}`))) return; // Guerra: só 16 anos ou mais
-      escolhaNovo.tipo = id; marcarTamanho();
-    });
-    tp.appendChild(b);
-  }
-  $('#n-tipos').hidden = $('#n-tipos-titulo').hidden = tp.childElementCount < 2;
-  // jeito do mundo: blocos ou Natural 3D (suave.js)
-  desenharEstilos($('#n-estilos'), escolhaNovo, () => { som.iniciar(); som.clique(); });
   const lt = $('#n-tamanhos');
   lt.innerHTML = '';
   for (const [id, t] of Object.entries(TAMANHOS)) {
@@ -1789,17 +1773,17 @@ function desenharOpcoesNovo() {
     b.addEventListener('click', () => { escolhaNovo.tamanho = id; marcarTamanho(); som.iniciar(); som.clique(); });
     lt.appendChild(b);
   }
-  marcarTamanho();
-  desenharListaOpcoes($('#n-lista'), escolhaNovo, () => { som.iniciar(); som.clique(); });
+  // abas Regras e Mods (editar-mundo.js: as mesmas da edição)
+  desenharRegrasMods($('#n-regras'), $('#n-mods'), escolhaNovo, { criando: true, aoMudar: () => { som.iniciar(); som.clique(); marcarTamanho(); } });
+  desenharAbas($('#n-abas'), $('#m-novo'), escolhaNovo);
   marcarTamanho();
 }
 function marcarTamanho() {
-  // tipos com tamanho fixo (a Ilha de Aventura) escondem a escolha de tamanho
+  // mapas com tamanho fixo (Ilha de Aventura, Guerra) escondem a escolha de tamanho
   const fixo = !!TIPOS[escolhaNovo.tipo]?.limite;
   $('#n-tamanhos').hidden = fixo; $('#n-tamanhos-titulo').hidden = fixo;
   for (const b of $('#n-tamanhos').children) { const sel = b.dataset.tamanho === escolhaNovo.tamanho; b.setAttribute('aria-pressed', String(sel)); b.setAttribute('aria-checked', String(sel)); }
-  for (const b of $('#n-tipos').children) { const sel = b.dataset.tipo === escolhaNovo.tipo; b.setAttribute('aria-pressed', String(sel)); b.setAttribute('aria-checked', String(sel)); }
-  marcarLista($('#n-lista'), escolhaNovo); // alguns tipos têm os próprios bichos (ex.: Linha do Tempo)
+  atualizarAbas($('#n-abas'), escolhaNovo);
 }
 let modoNovo = 'criar';
 // nome sugerido ao criar: "Mundo 01", "Mundo 02"... o primeiro número que o jogador ainda não usou

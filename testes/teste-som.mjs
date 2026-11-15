@@ -86,7 +86,7 @@ for (const d of DISP) {
   await p.waitForTimeout(600);
   await p.click('#bt-sozinho');
   // mundo criativo (blocos na mão) e sem mercado (garagem livre)
-  if (await p.isVisible('#m-novo')) { await p.click('[data-opcao=sobrevivencia]'); await p.click('[data-opcao=mercado]'); await p.click('#m-novo button[type=submit]'); }
+  if (await p.isVisible('#m-novo')) { await p.click('[data-modo=criativo]'); await p.click('#m-novo [data-opcao=veiculos]'); await p.click('#m-novo button[type=submit]'); }
   await p.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.som.ctx, null, { timeout: 20000 });
   await p.waitForTimeout(4000);
   await p.evaluate(registrar);

@@ -113,7 +113,7 @@ if (ONLINE) {
   const sfx = Date.now() % 10000;
   const a = await jogador('Ana' + sfx);
   await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Quarto');
-  if (await a.getAttribute('[data-opcao=sobrevivencia]', 'aria-pressed') === 'true') await a.click('[data-opcao=sobrevivencia]');
+  if (await a.getAttribute('[data-modo=sobrevivencia]', 'aria-pressed') === 'true') await a.click('[data-modo=criativo]');
   if (await a.getAttribute('[data-opcao=mercado]', 'aria-pressed') === 'true') await a.click('[data-opcao=mercado]');
   await a.click('#m-novo button[type=submit]');
   await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 30000 });

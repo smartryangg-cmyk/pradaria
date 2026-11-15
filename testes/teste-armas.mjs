@@ -37,10 +37,10 @@ const disparar = async (p, vezes = 1, espera = 360) => { for (let i = 0; i < vez
   await p.click('#bt-sozinho');
   await p.waitForSelector('#m-novo:not([hidden]) #n-opcoes:not([hidden])');
   conferir(await p.getAttribute('[data-opcao=armas]', 'aria-pressed') === 'false', 'Armas vem desligada ao criar');
-  conferir(await p.getAttribute('[data-opcao=construcao]', 'aria-pressed') === 'true', 'Construção vem ligada ao criar');
+  conferir(await p.getAttribute('[data-modo=sobrevivencia]', 'aria-pressed') === 'true', 'Construção vem ligada ao criar (modo Sobrevivência)');
   await p.click('[data-opcao=armas]');
   await p.click('#idade-sim'); // "Você tem 16 anos ou mais?" (teste-idade-armas.mjs testa o "não")
-  await p.click('[data-opcao=construcao]');
+  await p.click('[data-modo=explorar]'); // Só explorar: sem construção
   await p.screenshot({ path: SAIDA + '/armas-opcoes.png' });
   await p.click('#m-novo button[type=submit]');
   await p.waitForFunction(() => window.__jogo && window.__jogo.jog && !window.__jogo.pausado);
@@ -144,7 +144,7 @@ const disparar = async (p, vezes = 1, espera = 360) => { for (let i = 0; i < vez
   await p.click('[data-opcao=armas]');
   await p.click('#idade-sim');
   // modo criativo (blocos à vontade) para testar colocar bloco de mãos livres
-  if (await p.getAttribute('[data-opcao=sobrevivencia]', 'aria-pressed') === 'true') await p.click('[data-opcao=sobrevivencia]');
+  if (await p.getAttribute('[data-modo=sobrevivencia]', 'aria-pressed') === 'true') await p.click('[data-modo=criativo]');
   await p.click('#m-novo button[type=submit]');
   await p.waitForFunction(() => window.__jogo && window.__jogo.jog && !window.__jogo.pausado);
   await esperar(p, 2500);
@@ -190,7 +190,7 @@ async function jogador(nome) {
 {
   const a = await jogador('Ana' + sfx);
   await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Batalha');
-  await a.click('[data-opcao=armas]'); await a.click('#idade-sim'); await a.click('[data-opcao=construcao]');
+  await a.click('[data-opcao=armas]'); await a.click('#idade-sim'); await a.click('[data-modo=explorar]');
   await a.click('#m-novo button[type=submit]');
   await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 20000 });
   const codigo = await a.evaluate(() => window.__jogo.sala.codigo);

@@ -62,7 +62,7 @@ await (async () => { await q.waitForSelector('#m-mundos:not([hidden]), #m-jogos:
 await q.click('#bt-novo-mundo');
 await q.fill('#n-nome', 'Ilha Monstro');
 await q.click('[data-tamanho=pequeno]');
-await q.click('[data-opcao=selvagensMachucam]');
+await q.click('[data-dificuldade=normal]');
 await q.click('[data-opcao=cicloDia]');
 await q.screenshot({ path: SAIDA + '/opcoes-mundo-celular.png', fullPage: true });
 await q.click('#m-novo button[type=submit]');

@@ -108,11 +108,11 @@ if (ONLINE) {
   await q.click('#bt-criar-conta'); await q.fill('#c-nome', 'Ana' + (Date.now() % 10000)); await q.fill('#c-senha', 'senha123');
   if (await q.isVisible('#c-adulto-ok')) await q.check('#c-adulto-ok');
   await q.click('#c-ok');
-  await q.waitForSelector('#m-jogos:not([hidden]), #m-mundos:not([hidden])', { timeout: 20000 });
+  await q.waitForFunction(() => ['#m-jogos', '#m-mundos'].some((k) => { const e = document.querySelector(k); return e && !e.hidden; }), null, { timeout: 30000 });
   if (await q.isVisible('#m-jogos')) await q.click('.jogo[data-jogo=pradaria]');
   await q.waitForSelector('#m-mundos:not([hidden])', { timeout: 20000 });
   await q.click('#bt-novo-mundo'); await q.fill('#n-nome', 'Fazenda');
-  if (await q.getAttribute('[data-opcao=sobrevivencia]', 'aria-pressed') !== 'true') await q.click('[data-opcao=sobrevivencia]');
+  if (await q.getAttribute('[data-modo=sobrevivencia]', 'aria-pressed') !== 'true') await q.click('[data-modo=sobrevivencia]');
   await q.click('#m-novo button[type=submit]');
   await q.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 30000 });
   await q.waitForTimeout(2500);

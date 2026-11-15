@@ -47,7 +47,7 @@ const ouviu = (p, k) => p.evaluate((k) => window.__ouviu.filter((x) => x.k.inclu
 const sfx = Date.now() % 10000;
 const a = await jogador('Ana' + sfx, false);
 await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Barulhinho');
-await a.click('[data-opcao=mercado]'); await a.click('[data-opcao=sobrevivencia]');
+await a.click('[data-modo=criativo]'); await a.click('#m-novo [data-opcao=veiculos]'); // sem mercado (mod desligado) e blocos à vontade
 await a.click('#m-novo button[type=submit]');
 await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 20000 });
 await a.waitForTimeout(2500);

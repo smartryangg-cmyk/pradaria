@@ -20,11 +20,11 @@ async function rodar(nome, ctxOpc, toque) {
   // tela de criar mundo (sem mundo salvo, "Jogar sem internet" abre ela)
   await clicar('#bt-sozinho');
   await p.waitForSelector('#m-novo:not([hidden])');
-  ok(await p.isVisible('#n-estilos [data-estilo=suave]'), 'criação mostra "Jeito do mundo" com Natural 3D');
-  await clicar('#n-estilos [data-estilo=suave]');
-  ok(await p.getAttribute('#n-estilos [data-estilo=suave]', 'aria-checked') === 'true', 'Natural 3D marcado');
+  ok(await p.isVisible('#m-novo [data-estilo=suave]'), 'criação mostra "Jeito do mundo" com Natural 3D');
+  await clicar('#m-novo [data-estilo=suave]');
+  ok(await p.getAttribute('#m-novo [data-estilo=suave]', 'aria-pressed') === 'true', 'Natural 3D marcado');
   await p.screenshot({ path: `${SAIDA}/${nome}-criar.png` });
-  if (!toque) await clicar('#n-lista [data-opcao=sobrevivencia]'); // no PC: modo criativo (quebra e coloca na hora)
+  if (!toque) await clicar('#m-novo [data-modo=criativo]'); // no PC: modo criativo (quebra e coloca na hora)
   await clicar('#n-opcoes details summary');
   await p.fill('#n-semente', 'pradaria'); // mesmo terreno sempre
   await clicar('#m-novo button[type=submit]');
@@ -179,8 +179,8 @@ async function rodar(nome, ctxOpc, toque) {
   await p.waitForTimeout(400);
   await clicar('#bt-editar-mundo');
   await p.waitForSelector('#editar-mundo:not([hidden])');
-  ok(await p.getAttribute('#e-estilos [data-estilo=suave]', 'aria-checked') === 'true', 'Editar o mundo mostra Natural 3D marcado');
-  await clicar('#e-estilos [data-estilo=blocos]');
+  ok(await p.getAttribute('#editar-mundo [data-estilo=suave]', 'aria-pressed') === 'true', 'Editar o mundo mostra Natural 3D marcado');
+  await clicar('#editar-mundo [data-estilo=suave]'); // desliga o Natural 3D (volta aos blocos)
   await p.screenshot({ path: `${SAIDA}/${nome}-editar.png` });
   await clicar('#e-salvar');
   await p.waitForTimeout(6000);

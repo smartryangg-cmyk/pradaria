@@ -8,23 +8,49 @@
 // `opcoesMundo` é preenchido antes do mundo começar (iniciarMundo em main.js) e também fica em `mundo.opcoes`.
 // Para criar uma opção nova: acrescente em OPCOES_MUNDO abaixo (o servidor e a tela já usam a lista).
 
+// aba: 'regras' (o jogo base, que segue o clássico) ou 'mods' (extras por cima, desligados nos mundos novos).
+// cat: em que grupo da aba Mods aparece (CATS_MODS). oculta: não vira botão (vem de outra escolha da tela).
 export const OPCOES_MUNDO = [
-  { id: 'sobrevivencia', icone: 'martelo', nome: 'Coletar e criar', desc: 'Quebre para juntar e crie ferramentas na bancada. Desligado: blocos à vontade', padrao: true, antigos: false },
-  { id: 'animais', icone: 'ovelha', nome: 'Bichinhos', desc: 'Ovelhas, porquinhos, coelhos e amigos', padrao: true },
-  { id: 'vilas', icone: 'vila', nome: 'Vilas', desc: 'Vilinhas com casas e moradores', padrao: true, terreno: true },
-  { id: 'veiculos', icone: 'carro', nome: 'Veículos', desc: 'Carrinhos e barcos para passear', padrao: true },
-  { id: 'maquinas', icone: 'engrenagem', nome: 'Máquinas', desc: 'Engenhocas, alavancas e esteiras', padrao: true },
-  { id: 'aguaCorre', icone: 'onda', nome: 'Água que corre', desc: 'A água escorre e faz cachoeiras', padrao: true },
-  { id: 'cicloDia', icone: 'lua', nome: 'Dia e noite', desc: 'Desligado: é sempre de dia', padrao: true },
-  { id: 'mercado', icone: 'moeda', nome: 'Mercado', desc: 'Moedas e lojinha com os moradores', padrao: true, antigos: false },
-  { id: 'objetivos', icone: 'alvo', nome: 'Missões', desc: 'Desafios com prêmios', padrao: true, antigos: false },
-  { id: 'chatTexto', icone: 'balao', nome: 'Chat de texto', desc: 'Mensagens escritas, com filtro de palavrões e contatos', padrao: true, antigos: false, semRecarregar: true },
-  { id: 'chatVoz', icone: 'microfone', nome: 'Chat de voz', desc: 'Falar segurando o botão do microfone (funciona entre aparelhos da mesma casa)', padrao: false, antigos: false, semRecarregar: true },
-  { id: 'selvagens', icone: 'pata', nome: 'Animais selvagens', desc: 'Lobos, raposas, ursos, onças, cobras e veados com instintos de verdade', padrao: true, antigos: false },
-  { id: 'selvagensMachucam', icone: 'coracao', nome: 'Animais podem machucar', desc: 'Corações de vida. Bicho provocado morde. Luz e um toque espantam', padrao: false },
-  { id: 'construcao', icone: 'tijolos', nome: 'Construção', desc: 'Colocar e quebrar blocos. Desligado: só explorar', padrao: true },
-  { id: 'armas', icone: 'arma', nome: 'Armas', desc: 'Armas de brinquedo, munição e batalha entre amigos. 16 anos ou mais', padrao: false, antigos: false, mais16: true },
+  { id: 'sobrevivencia', icone: 'martelo', nome: 'Coletar e criar', desc: 'Quebre para juntar e crie ferramentas na bancada. Desligado: blocos à vontade', padrao: true, antigos: false, aba: 'regras', oculta: true },
+  { id: 'construcao', icone: 'tijolos', nome: 'Construção', desc: 'Colocar e quebrar blocos. Desligado: só explorar', padrao: true, aba: 'regras', oculta: true },
+  { id: 'animais', icone: 'ovelha', nome: 'Bichinhos', desc: 'Ovelhas, porquinhos, coelhos e amigos', padrao: true, aba: 'regras' },
+  { id: 'vilas', icone: 'vila', nome: 'Vilas', desc: 'Vilinhas com casas e moradores', padrao: true, terreno: true, aba: 'regras' },
+  { id: 'cicloDia', icone: 'lua', nome: 'Dia e noite', desc: 'Desligado: é sempre de dia', padrao: true, aba: 'regras' },
+  { id: 'aguaCorre', icone: 'onda', nome: 'Água que corre', desc: 'A água escorre e faz cachoeiras', padrao: true, aba: 'regras' },
+  { id: 'chatTexto', icone: 'balao', nome: 'Chat de texto', desc: 'Mensagens escritas, com filtro de palavrões e contatos', padrao: true, antigos: false, semRecarregar: true, aba: 'regras' },
+  { id: 'chatVoz', icone: 'microfone', nome: 'Chat de voz', desc: 'Falar segurando o botão do microfone (funciona entre aparelhos da mesma casa)', padrao: false, antigos: false, semRecarregar: true, aba: 'regras' },
+  { id: 'selvagensMachucam', icone: 'coracao', nome: 'Animais podem machucar', desc: 'Corações de vida. Bicho provocado morde', padrao: true, antigos: false, aba: 'regras', oculta: true }, // vem da dificuldade
+  { id: 'veiculos', icone: 'carro', nome: 'Veículos', desc: 'Carros, barcos e submarinos com chave de verdade', padrao: false, antigos: true, aba: 'mods', cat: 'acao' },
+  { id: 'armas', icone: 'arma', nome: 'Armas', desc: 'Armas de brinquedo, munição e batalha entre amigos', padrao: false, antigos: false, mais16: true, aba: 'mods', cat: 'acao' },
+  { id: 'mercado', icone: 'moeda', nome: 'Mercado e trabalho', desc: 'Moedas, lojinha com os moradores e trabalhadores', padrao: false, antigos: false, aba: 'mods', cat: 'vila' },
+  { id: 'objetivos', icone: 'alvo', nome: 'Missões', desc: 'Desafios com prêmios', padrao: false, antigos: false, aba: 'mods', cat: 'vila' },
+  { id: 'maquinas', icone: 'engrenagem', nome: 'Máquinas', desc: 'Fios, alavancas, esteiras e engenhocas', padrao: false, antigos: true, aba: 'mods', cat: 'construir' },
+  { id: 'formas', icone: 'bloco', nome: 'Formas redondas', desc: 'Rampas, bolas, cúpulas, cercas e troncos redondos', padrao: false, antigos: true, aba: 'mods', cat: 'construir' },
+  { id: 'selvagens', icone: 'pata', nome: 'Bichos com instintos', desc: 'Lobos, raposas, ursos, onças, cobras e veados que caçam e fogem como na natureza', padrao: true, antigos: false, aba: 'mods', cat: 'natureza' },
 ];
+// grupos da aba Mods (os mapas especiais são os TIPOS; Natural 3D é o ESTILO suave)
+export const CATS_MODS = [
+  { id: 'mapa', nome: 'Mapas especiais', nota: 'No máximo um. Troca o mapa inteiro e não muda depois de criado.' },
+  { id: 'acao', nome: 'Ação e veículos' },
+  { id: 'vila', nome: 'Vida na vila' },
+  { id: 'construir', nome: 'Construir diferente' },
+  { id: 'natureza', nome: 'Natureza' },
+];
+// dificuldade (como no clássico). Pacífico: nada machuca. As outras ligam a vida e os bichos que mordem
+// (e, quando entrarem, a fome e os monstros da noite, mais fortes a cada nível).
+export const DIFICULDADES = {
+  pacifico: { icone: 'flor', nome: 'Pacífico', desc: 'Nada machuca. Bom para os pequenos' },
+  facil: { icone: 'coracao', nome: 'Fácil', desc: 'Bichos mordem pouco' },
+  normal: { icone: 'pata', nome: 'Normal', desc: 'Como no clássico' },
+  dificil: { icone: 'alvo', nome: 'Difícil', desc: 'Tudo machuca mais' },
+};
+// modo de jogo (como no clássico): vira as opções sobrevivencia e construcao
+export const MODOS_JOGO = {
+  sobrevivencia: { icone: 'martelo', nome: 'Sobrevivência', desc: 'Quebre para juntar e crie na bancada', o: { sobrevivencia: true, construcao: true } },
+  criativo: { icone: 'tijolos', nome: 'Criativo', desc: 'Todos os blocos à vontade', o: { sobrevivencia: false, construcao: true } },
+  explorar: { icone: 'mapa', nome: 'Só explorar', desc: 'Sem colocar nem quebrar blocos', o: { sobrevivencia: false, construcao: false } },
+};
+export const modoJogoDe = (o) => (o.construcao === false ? 'explorar' : o.sobrevivencia ? 'sobrevivencia' : 'criativo');
 // padrao = como vem marcado ao criar; antigos = valor nos mundos criados antes da opção existir (se faltar, usa padrao)
 // terreno = a opção muda o terreno gerado (ao editar um mundo já criado, o dono recebe um aviso)
 
@@ -54,18 +80,18 @@ export const ESTILOS = {
 // tipo do mundo: um campo só, compartilhado pelos modos especiais. Para um tipo novo, acrescente aqui.
 // historia = "Linha do Tempo": começa na era dos dinossauros e evolui com a experiência (eras-regras.js)
 export const TIPOS = {
-  normal: { icone: 'flor', nome: 'Pradaria', desc: 'O mundo de sempre, com vilas e bichinhos' },
+  normal: { icone: 'flor', nome: 'Clássico', desc: 'Biomas, cavernas, minérios e vilas' },
   historia: { icone: 'ampulheta', nome: 'Linha do Tempo', desc: 'Começa com os dinossauros e evolui pela história', semSelvagens: true, oculto: true }, // os bichos de cada era vêm de eras-regras.js; oculto até as eras ficarem prontas
   // Ilha de Aventura (ilha-aventura.js): mapa como os de jogos de ação, mas sem armas. Tamanho fixo (limite/raioExtra valem no lugar do tamanho).
   aventura: { icone: 'ilha', nome: 'Ilha de Aventura', desc: 'Cidades, estradas, porto, farol e lugares com nome', limite: 256, raioExtra: 1 },
   // Guerra (guerra.js, guerra-mapa.js): ilha com Base Aliada, Forte Vermelho, presídio, delegacia e polícia.
   // mais16 = pergunta a idade antes de entrar (idade.js); forca = opções que valem sempre neste tipo
-  guerra: { icone: 'tanque', nome: 'Guerra', desc: 'Base, forte inimigo, tanques, presídio e polícia. 16 anos ou mais', limite: 256, raioExtra: 1, mais16: true, forca: { armas: true } },
+  guerra: { icone: 'tanque', nome: 'Guerra', desc: 'Base, forte inimigo, tanques, presídio e polícia. 16 anos ou mais', limite: 256, raioExtra: 1, mais16: true, forca: { armas: true, veiculos: true, maquinas: true } }, // os tanques e os portões das celas precisam dos mods Veículos e Máquinas
 };
 
 // PADRAO_MUNDO: o que vale quando falta a opção (mundos antigos); PADRAO_NOVO: o que já vem marcado ao criar
-export const PADRAO_MUNDO = { ...Object.fromEntries(OPCOES_MUNDO.map((o) => [o.id, o.antigos ?? o.padrao])), tamanho: 'grande', tipo: 'normal', gerador: 'atual', estilo: 'blocos' };
-export const PADRAO_NOVO = { ...Object.fromEntries(OPCOES_MUNDO.map((o) => [o.id, o.padrao])), tamanho: TAMANHO_NOVO, tipo: 'normal', gerador: 'classico', estilo: 'blocos' };
+export const PADRAO_MUNDO = { ...Object.fromEntries(OPCOES_MUNDO.map((o) => [o.id, o.antigos ?? o.padrao])), tamanho: 'grande', tipo: 'normal', gerador: 'atual', estilo: 'blocos', dificuldade: null };
+export const PADRAO_NOVO = { ...Object.fromEntries(OPCOES_MUNDO.map((o) => [o.id, o.padrao])), tamanho: TAMANHO_NOVO, tipo: 'normal', gerador: 'classico', estilo: 'blocos', dificuldade: 'normal' };
 
 // aceita qualquer coisa (texto JSON, objeto, nada) e devolve só opções conhecidas, sempre true/false (+ tamanho)
 export function normalizarOpcoes(o) {
@@ -77,11 +103,15 @@ export function normalizarOpcoes(o) {
     if (typeof o.gerador === 'string' && Object.prototype.hasOwnProperty.call(GERADORES, o.gerador)) r.gerador = o.gerador;
     if (typeof o.tipo === 'string' && Object.prototype.hasOwnProperty.call(TIPOS, o.tipo)) r.tipo = o.tipo;
     if (typeof o.estilo === 'string' && Object.prototype.hasOwnProperty.call(ESTILOS, o.estilo)) r.estilo = o.estilo;
+    if (typeof o.dificuldade === 'string' && Object.prototype.hasOwnProperty.call(DIFICULDADES, o.dificuldade)) r.dificuldade = o.dificuldade;
   }
   // mundos que ligaram "Monstros machucam" antes dos monstros virarem bichos selvagens continuam com corações
   if (o && typeof o === 'object' && typeof o.selvagensMachucam !== 'boolean' && o.monstrosMachucam === true) r.selvagensMachucam = true;
   if (TIPOS[r.tipo].semSelvagens) r.selvagens = false;
   if (TIPOS[r.tipo].forca) Object.assign(r, TIPOS[r.tipo].forca);
+  // dificuldade: os mundos de antes viram Pacífico ou Normal pelo "Animais podem machucar" que tinham
+  if (!r.dificuldade) r.dificuldade = r.selvagensMachucam ? 'normal' : 'pacifico';
+  r.selvagensMachucam = r.dificuldade !== 'pacifico';
   if (!r.selvagens) r.selvagensMachucam = false;
   return r;
 }

@@ -83,7 +83,7 @@ await toque('[data-nav=ok]');
 await tv.waitForSelector('#m-novo:not([hidden])');
 await tv.screenshot({ path: SAIDA + '/tv-5-novo-mundo.png' });
 // desliga "Coletar e criar" pelo celular (blocos à vontade: o teste coloca bloco sem ter que juntar antes)
-const opSobrev = await tv.evaluate(() => { const b = document.querySelector('#m-novo [data-opcao=sobrevivencia]'); if (!b) return null; b.id = b.id || 'op-sobrev-teste'; return b.id; });
+const opSobrev = await tv.evaluate(() => { const b = document.querySelector('#m-novo [data-modo=criativo]'); if (!b) return null; b.id = b.id || 'op-sobrev-teste'; return b.id; });
 if (opSobrev) {
   ok(await irAte(opSobrev), 'setas do celular chegam na opção "Coletar e criar"');
   const antesOp = await tv.evaluate((id) => document.getElementById(id).outerHTML, opSobrev);

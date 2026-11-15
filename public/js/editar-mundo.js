@@ -1,7 +1,7 @@
 // Editar um mundo já criado (só o dono): nome e opções.
 // A lista de opções vem de OPCOES_MUNDO (opcoes-mundo.js): uma opção nova aparece aqui sozinha.
 // Tipo, tamanho e gerador fazem o terreno, então aparecem travados (FIXAS_AO_CRIAR).
-import { OPCOES_MUNDO, TAMANHOS, TIPOS, ESTILOS, normalizarOpcoes, editarOpcoes, opcoesMudadas, precisaRecarregar } from './opcoes-mundo.js';
+import { OPCOES_MUNDO, TAMANHOS, TIPOS, ESTILOS, CATS_MODS, DIFICULDADES, MODOS_JOGO, modoJogoDe, normalizarOpcoes, editarOpcoes, opcoesMudadas, precisaRecarregar } from './opcoes-mundo.js';
 import { icone } from './icones.js';
 import { confirmarIdade16 } from './idade.js';
 import { api } from './rede.js';
@@ -26,41 +26,143 @@ export function marcarEstilos(l, escolha) {
   for (const b of l.children) { const sel = b.dataset.estilo === escolha.estilo; b.setAttribute('aria-pressed', String(sel)); b.setAttribute('aria-checked', String(sel)); }
 }
 
-// botões liga/desliga das opções (mesmos da criação do mundo); `escolha` é alterado na hora
-export function desenharListaOpcoes(l, escolha, aoMudar) {
-  l.innerHTML = '';
-  for (const o of OPCOES_MUNDO) {
-    const b = document.createElement('button');
-    b.type = 'button'; b.className = 'opcao-mundo'; b.dataset.opcao = o.id;
-    b.innerHTML = '<span class="ic"></span><span><b></b><small></small></span>';
-    b.querySelector('.ic').innerHTML = icone(o.icone);
-    b.querySelector('b').textContent = o.nome;
-    b.querySelector('small').textContent = o.desc;
-    b.addEventListener('click', async () => {
-      // Armas: só para quem respondeu que tem 16 anos ou mais (idade.js; o servidor também confere)
-      if (o.mais16 && !escolha[o.id] && !(await confirmarIdade16('A opção Armas'))) return;
-      escolha[o.id] = !escolha[o.id];
-      // "Animais podem machucar" só faz sentido com bichos selvagens: um liga/desliga o outro
-      if (o.id === 'selvagensMachucam' && escolha.selvagensMachucam) escolha.selvagens = true;
-      if (o.id === 'selvagens' && !escolha.selvagens) escolha.selvagensMachucam = false;
-      marcarLista(l, escolha);
-      aoMudar && aoMudar(o.id);
-    });
-    l.appendChild(b);
-  }
-  marcarLista(l, escolha);
+// ---------- abas Regras e Mods (as mesmas na criação e na edição do mundo) ----------
+// regras / mods: as caixas onde desenhar; escolha é alterado na hora; criando = false trava o mapa especial
+// (o tipo faz o terreno). aoMudar(id) depois de cada toque. Os botões têm data-modo, data-dificuldade,
+// data-opcao, data-tipo e data-estilo (os testes e a edição usam).
+function botaoOpcao(ic, nome, desc, attrs, papel) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'opcao-mundo';
+  for (const [k, v] of Object.entries(attrs)) b.dataset[k] = v;
+  if (papel) b.setAttribute('role', papel);
+  b.innerHTML = '<span class="ic"></span><span class="tx"><b></b><small></small></span>';
+  b.querySelector('.ic').innerHTML = icone(ic);
+  b.querySelector('b').textContent = nome; b.querySelector('small').textContent = desc;
+  return b;
 }
-export function marcarLista(l, escolha) {
-  // alguns tipos têm os próprios bichos (ex.: Linha do Tempo)
-  const sem = !!(TIPOS[escolha.tipo] && TIPOS[escolha.tipo].semSelvagens);
-  for (const b of l.children) {
-    const id = b.dataset.opcao;
-    if (sem && (id === 'selvagens' || id === 'selvagensMachucam')) escolha[id] = false;
-    // o tipo pode obrigar uma opção (Guerra: armas sempre ligadas)
-    const forca = TIPOS[escolha.tipo] && TIPOS[escolha.tipo].forca;
-    if (forca && id in forca) escolha[id] = forca[id];
-    b.disabled = (sem && (id === 'selvagens' || id === 'selvagensMachucam')) || !!(forca && id in forca);
-    b.setAttribute('aria-pressed', String(!!escolha[id]));
+function titulo(t, nota) {
+  const f = document.createDocumentFragment();
+  const h = document.createElement('p'); h.className = 'sub titulo-grupo'; h.textContent = t; f.appendChild(h);
+  if (nota) { const n = document.createElement('p'); n.className = 'nota-grupo'; n.textContent = nota; f.appendChild(n); }
+  return f;
+}
+const tipoMod = (id) => id !== 'normal' && !TIPOS[id].oculto;
+export function desenharRegrasMods(regras, mods, escolha, { criando = true, aoMudar = null } = {}) {
+  const tudo = [regras, mods];
+  const marcar = () => marcarRegrasMods(tudo, escolha, criando);
+  const tocou = (id) => { marcar(); aoMudar && aoMudar(id); };
+  regras.innerHTML = ''; mods.innerHTML = '';
+  // modo de jogo
+  regras.appendChild(titulo('Modo de jogo'));
+  let g = document.createElement('div'); g.className = 'tamanhos-mundo'; g.setAttribute('role', 'radiogroup'); g.setAttribute('aria-label', 'Modo de jogo');
+  for (const [id, m] of Object.entries(MODOS_JOGO)) {
+    const b = botaoOpcao(m.icone, m.nome, m.desc, { modo: id }, 'radio');
+    b.addEventListener('click', () => { Object.assign(escolha, m.o); tocou(id === 'sobrevivencia' ? 'sobrevivencia' : 'construcao'); });
+    g.appendChild(b);
+  }
+  regras.appendChild(g);
+  // dificuldade
+  regras.appendChild(titulo('Dificuldade'));
+  g = document.createElement('div'); g.className = 'tamanhos-mundo quatro'; g.setAttribute('role', 'radiogroup'); g.setAttribute('aria-label', 'Dificuldade');
+  for (const [id, d] of Object.entries(DIFICULDADES)) {
+    const b = botaoOpcao(d.icone, d.nome, d.desc, { dificuldade: id }, 'radio');
+    b.addEventListener('click', () => { escolha.dificuldade = id; escolha.selvagensMachucam = id !== 'pacifico' && escolha.selvagens; tocou('dificuldade'); });
+    g.appendChild(b);
+  }
+  regras.appendChild(g);
+  // o resto das regras
+  regras.appendChild(titulo('No mundo'));
+  g = document.createElement('div'); g.className = 'opcoes-mundo';
+  for (const o of OPCOES_MUNDO.filter((x) => x.aba === 'regras' && !x.oculta)) g.appendChild(toggle(o));
+  regras.appendChild(g);
+  // mods, por grupo
+  for (const c of CATS_MODS) {
+    const caixa = document.createElement('div'); caixa.className = 'opcoes-mundo mods';
+    if (c.id === 'mapa') {
+      for (const [id, t] of Object.entries(TIPOS)) {
+        if (!tipoMod(id)) continue;
+        const b = botaoOpcao(t.icone, t.nome, t.desc.replace(/\.? *16 anos ou mais\.?$/, ''), { tipo: id });
+        const precisa = Object.keys(t.forca || {}).map((k) => OPCOES_MUNDO.find((o) => o.id === k)?.nome).filter(Boolean);
+        if (precisa.length || t.mais16) b.querySelector('.tx').insertAdjacentHTML('beforeend', `<i class="etiqueta">${[precisa.length ? 'Liga junto: ' + precisa.join(', ') : '', t.mais16 ? '16 anos' : ''].filter(Boolean).join(' · ')}</i>`);
+        b.addEventListener('click', async () => {
+          if (!criando) return;
+          const liga = escolha.tipo !== id;
+          if (liga && t.mais16 && !(await confirmarIdade16(`O mapa ${t.nome}`))) return;
+          escolha.tipo = liga ? id : 'normal';
+          tocou('tipo');
+        });
+        caixa.appendChild(b);
+      }
+    }
+    for (const o of OPCOES_MUNDO.filter((x) => x.aba === 'mods' && x.cat === c.id)) caixa.appendChild(toggle(o));
+    if (c.id === 'construir') {
+      const e = ESTILOS.suave;
+      const b = botaoOpcao(e.icone, e.nome, e.desc + ' (só muda o desenho)', { estilo: 'suave' });
+      b.addEventListener('click', () => { escolha.estilo = escolha.estilo === 'suave' ? 'blocos' : 'suave'; tocou('estilo'); });
+      caixa.appendChild(b);
+    }
+    if (!caixa.childElementCount) continue;
+    mods.appendChild(titulo(c.nome, c.nota));
+    mods.appendChild(caixa);
+  }
+  marcar();
+
+  function toggle(o) {
+    const b = botaoOpcao(o.icone, o.nome, o.desc, { opcao: o.id });
+    if (o.mais16) b.querySelector('.tx').insertAdjacentHTML('beforeend', '<i class="etiqueta">16 anos (da sua conta)</i>');
+    b.addEventListener('click', async () => {
+      // Armas: só para quem tem 16 anos ou mais (idade da conta; o servidor também confere)
+      if (o.mais16 && !escolha[o.id] && !(await confirmarIdade16('O mod Armas'))) return;
+      escolha[o.id] = !escolha[o.id];
+      if (o.id === 'selvagens') escolha.selvagensMachucam = escolha.selvagens && escolha.dificuldade !== 'pacifico';
+      tocou(o.id);
+    });
+    return b;
+  }
+}
+// quantos mods estão ligados (para o título da aba)
+export function contarMods(escolha) {
+  return OPCOES_MUNDO.filter((o) => o.aba === 'mods' && escolha[o.id]).length + (tipoMod(escolha.tipo) ? 1 : 0) + (escolha.estilo === 'suave' ? 1 : 0);
+}
+export function marcarRegrasMods(caixas, escolha, criando = true) {
+  const t = TIPOS[escolha.tipo] || TIPOS.normal;
+  if (t.semSelvagens) { escolha.selvagens = false; escolha.selvagensMachucam = false; }
+  if (t.forca) Object.assign(escolha, t.forca); // Guerra precisa de Armas: liga junto e trava
+  const modo = modoJogoDe(escolha);
+  for (const cx of caixas) for (const b of cx.querySelectorAll('button')) {
+    const d = b.dataset;
+    let sel, trava = false;
+    if (d.modo) sel = d.modo === modo;
+    else if (d.dificuldade) sel = d.dificuldade === escolha.dificuldade;
+    else if (d.tipo) { sel = escolha.tipo === d.tipo; trava = !criando; }
+    else if (d.estilo) sel = escolha.estilo === d.estilo;
+    else if (d.opcao) { sel = !!escolha[d.opcao]; trava = (t.semSelvagens && d.opcao === 'selvagens') || !!(t.forca && d.opcao in t.forca); }
+    b.setAttribute('aria-pressed', String(sel));
+    if (b.getAttribute('role') === 'radio') b.setAttribute('aria-checked', String(sel));
+    b.disabled = trava;
+  }
+}
+// barra de atalhos para as partes da tela (Mundo, Regras, Mods): rola até a parte e marca o botão
+export function desenharAbas(nav, form, escolha) {
+  nav.innerHTML = '';
+  for (const sec of form.querySelectorAll('.sec-mundo')) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.dataset.ir = sec.dataset.sec;
+    b.addEventListener('click', () => {
+      for (const x of nav.children) x.classList.toggle('sel', x === b);
+      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    nav.appendChild(b);
+  }
+  nav.firstElementChild && nav.firstElementChild.classList.add('sel');
+  atualizarAbas(nav, escolha);
+}
+export function atualizarAbas(nav, escolha) {
+  const nomes = { mundo: 'Mundo', regras: 'Regras', mods: 'Mods' };
+  for (const b of nav.children) {
+    const n = b.dataset.ir === 'mods' ? contarMods(escolha) : 0;
+    b.textContent = nomes[b.dataset.ir] + (b.dataset.ir === 'mods' ? ` (${n})` : '');
+    if (b.dataset.ir === 'mods') b.setAttribute('aria-label', `Mods: ${n} ${n === 1 ? 'ligado' : 'ligados'}`);
   }
 }
 
@@ -105,7 +207,7 @@ export function abrirEditarMundo({ mundo = null, opcoes, salvarLocal = null, aoS
     antes.tipo === 'normal' ? 'terreno ' + (antes.gerador === 'classico' ? 'clássico' : 'de antes') : null].filter(Boolean).join(', ');
   $('#e-fixas').innerHTML = icone('cadeado', 'ic-svg ic-mini') + '<span></span>';
   $('#e-fixas span').textContent = `Não dá para mudar depois de criado: ${fixo}. Para isso, crie um mundo novo.`;
-  const lista = $('#e-lista');
+  const caixas = [$('#e-regras'), $('#e-mods')];
   const atualizarAvisos = () => {
     const mudou = opcoesMudadas(antes, escolha);
     const terreno = OPCOES_MUNDO.filter((o) => o.terreno && mudou.includes(o.id)).map((o) => o.nome);
@@ -115,11 +217,15 @@ export function abrirEditarMundo({ mundo = null, opcoes, salvarLocal = null, aoS
     if (precisaRecarregar(mudou) && online) partes.push('Quem estiver jogando neste mundo vai recarregar por um instante.');
     av.textContent = partes.join(' ');
     av.hidden = !partes.length;
-    for (const b of lista.children) b.classList.toggle('mudou', mudou.includes(b.dataset.opcao));
-    for (const b of $('#e-estilos').children) b.classList.toggle('mudou', mudou.includes('estilo') && b.dataset.estilo === escolha.estilo);
+    const modo = modoJogoDe(antes) !== modoJogoDe(escolha);
+    for (const cx of caixas) for (const b of cx.querySelectorAll('button')) {
+      const d = b.dataset;
+      b.classList.toggle('mudou', (d.opcao && mudou.includes(d.opcao)) || (d.estilo && mudou.includes('estilo')) || (d.dificuldade && mudou.includes('dificuldade') && d.dificuldade === escolha.dificuldade) || (d.modo && modo && b.getAttribute('aria-pressed') === 'true'));
+    }
+    atualizarAbas($('#e-abas'), escolha);
   };
-  desenharEstilos($('#e-estilos'), escolha, () => { som && som(); atualizarAvisos(); });
-  desenharListaOpcoes(lista, escolha, () => { som && som(); atualizarAvisos(); });
+  desenharRegrasMods(caixas[0], caixas[1], escolha, { criando: false, aoMudar: () => { som && som(); atualizarAvisos(); } });
+  desenharAbas($('#e-abas'), $('#e-form'), escolha);
   atualizarAvisos();
   const salvar = $('#e-salvar');
   salvar.disabled = false;

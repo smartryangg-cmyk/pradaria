@@ -16,7 +16,8 @@ await p.click('#bt-sozinho');
 await p.waitForTimeout(400);
 if (await p.isVisible('#m-novo')) {
   // mundo novo: opções padrão, mas no modo criativo (com a aba Engenharia de blocos à vontade)
-  if (await p.getAttribute('[data-opcao=sobrevivencia]', 'aria-pressed') === 'true') await p.click('[data-opcao=sobrevivencia]');
+  if (await p.getAttribute('[data-modo=sobrevivencia]', 'aria-pressed') === 'true') await p.click('[data-modo=criativo]');
+  await p.click('#m-novo [data-opcao=maquinas]'); // mod (desligado nos mundos novos)
   await p.click('#m-novo button[type=submit]');
 }
 await p.waitForTimeout(3000);
