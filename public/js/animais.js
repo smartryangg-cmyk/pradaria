@@ -4,12 +4,12 @@
 // tocar neles é "fazer barulho" e eles fogem. Com "Animais podem machucar", quem for provocado morde.
 // Segurar o dedo (ou clicar, no computador) bate no bicho: cada um aguenta alguns golpes e reage pelo instinto
 // (foge e avisa o bando, ou enfrenta: urso, onça, mãe com filhotes, lobos e vacas em grupo). Quando a vida
-// acaba ele tomba de lado e some numa nuvenzinha de brilho (nada de sangue); o que cai vai para a mochila.
+// acaba ele fica vermelho, tomba de lado e some numa fumacinha (nada de sangue); o que ele deixa cai no chão.
 //
 // Desempenho (tablet fraco): o "pensar" (olhar em volta, decidir) roda só de 0,3 em 0,3 s por bicho,
 // espalhado entre os quadros; a cada quadro só anda e anima. Longe do jogador fica escondido e parado.
 import * as THREE from '../vendor/three.module.min.js';
-import { ESPECIES, montarBicho } from './modelos.js';
+import { ESPECIES, montarBicho, matModelo } from './modelos.js';
 import { texturaIcone, nomeEmote } from './icones.js';
 import { SOLIDO, AGUA, B, BRILHO } from './blocos.js';
 import { G } from './gerador.js';
@@ -27,6 +27,37 @@ const HABITAT_BIOMA = [null, null, 'praia', 'beira', 'prado', 'floresta', 'taiga
 const CHAO_BOM = new Set([B.GRAMA, B.AREIA, B.PEDRA, B.TERRA, G.NEVE, G.GRAMA_NEVE]);
 const sorteio = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const angulo = (dx, dz) => Math.atan2(dx, dz);
+
+// golpe como no clássico: o bicho fica vermelho por meio segundo (e não leva outro golpe nesse tempo),
+// é jogado para trás e um pouco para cima. Um material só para todos os bichos machucados (leve).
+const INVULNERAVEL = 500; // ms
+const VERMELHO = 0.5; // s
+const EMPURRAO = 6.5, EMPURRAO_CIMA = 6; // blocos/s
+const matFerido = matModelo.clone();
+matFerido.color.setRGB(1, 0.42, 0.42);
+matFerido.emissive.setRGB(0.42, 0, 0);
+matFerido.userData.compartilhado = true;
+function pintarFerido(b, ligar) {
+  if (!!b.vermelho === ligar) return;
+  b.vermelho = ligar;
+  b.grupo.traverse((o) => {
+    if (!o.isMesh) return;
+    if (ligar && o.material === matModelo) { o.material = matFerido; o.userData.feridoTroca = true; }
+    else if (!ligar && o.userData.feridoTroca) { o.material = matModelo; o.userData.feridoTroca = false; }
+  });
+}
+// fumacinha cinza da hora que o bicho some (um desenho só, feito uma vez)
+let texFumaca = null;
+function fumaca() {
+  if (texFumaca) return texFumaca;
+  const c = document.createElement('canvas'); c.width = c.height = 32;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(16, 16, 2, 16, 16, 15);
+  gr.addColorStop(0, 'rgba(245,245,245,1)'); gr.addColorStop(0.6, 'rgba(215,215,220,0.85)'); gr.addColorStop(1, 'rgba(200,200,205,0)');
+  g.fillStyle = gr; g.beginPath(); g.arc(16, 16, 15, 0, Math.PI * 2); g.fill();
+  texFumaca = new THREE.CanvasTexture(c);
+  return texFumaca;
+}
 
 export class Bichos {
   constructor(cena, mundo, som) {
@@ -180,7 +211,9 @@ export class Bichos {
     for (let i = this.particulas.length - 1; i >= 0; i--) {
       const q = this.particulas[i];
       q.vida -= dt;
-      q.s.position.y += dt * 0.9;
+      if (q.v) { q.s.position.x += q.v[0] * dt; q.s.position.y += q.v[1] * dt; q.s.position.z += q.v[2] * dt; q.v[1] -= q.g * dt; }
+      else q.s.position.y += dt * 0.9;
+      if (q.cresce) q.s.scale.multiplyScalar(1 + q.cresce * dt);
       q.s.material.opacity = Math.min(1, q.vida * 1.5);
       if (q.vida <= 0) { this.cena.remove(q.s); q.s.material.dispose(); this.particulas.splice(i, 1); }
     }
@@ -351,7 +384,7 @@ export class Bichos {
     if (b.provocado > 0) b.provocado -= dt;
     // ferido: sem apanhar por um tempo, vai sarando sozinho
     b.semGolpe += dt;
-    if (b.vida < b.vidaMax && b.semGolpe > 15) { b.cura += dt; if (b.cura >= 5) { b.cura = 0; b.vida++; } }
+    if (b.vida < b.vidaMax && b.semGolpe > 15) { b.cura += dt; if (b.cura >= 5) { b.cura = 0; b.vida = Math.min(b.vidaMax, b.vida + 1); } }
     let vel = 0;
     switch (b.estado) {
       case 'fugir':
@@ -466,7 +499,7 @@ export class Bichos {
       const s = this.chao(nx, nz, b.y);
       const altura = s ? s.y - b.y : -99;
       const podeAgua = b.e.nada || b.estado === 'seguir' || b.paraAgua || b.estado === 'fugir' && b.I.foge_agua;
-      if (this.cabe(b, nx, nz, s, podeAgua)) {
+      if (this.cabe(b, nx, nz, s, podeAgua, b.empT > 0 && b.vy !== 0 ? 0.05 : 1.05)) { // voando do empurrão não sobe degrau
         b.x = nx; b.z = nz;
         if (altura > 0.05 && b.vy <= 0 && b.y <= Math.floor(b.y) + 0.01) b.vy = 6;
       } else if (b.estado !== 'seguir' && b.estado !== 'atacar') {
@@ -477,9 +510,10 @@ export class Bichos {
       if (b.e.pula && b.vy === 0) b.vy = vel > 2 ? 5 : 4;
     }
     // empurrão do golpe (vai perdendo força)
+    if (b.empT > 0) b.empT -= dt;
     if (b.empX || b.empZ) {
       const nx = b.x + b.empX * dt, nz = b.z + b.empZ * dt;
-      if (this.cabe(b, nx, nz, this.chao(nx, nz, b.y), false)) { b.x = nx; b.z = nz; }
+      if (this.cabe(b, nx, nz, this.chao(nx, nz, b.y), false, 0.05)) { b.x = nx; b.z = nz; } // empurrão não sobe parede
       const f = Math.max(0, 1 - dt * 5);
       b.empX *= f; b.empZ *= f;
       if (Math.abs(b.empX) + Math.abs(b.empZ) < 0.05) b.empX = b.empZ = 0;
@@ -494,11 +528,11 @@ export class Bichos {
   }
 
   // dá para o bicho ficar em (nx, nz)? (degrau de até 1 bloco, sem parede, água só se puder)
-  cabe(b, nx, nz, s, podeAgua) {
+  cabe(b, nx, nz, s, podeAgua, degrau = 1.05) {
     if (!s) return false;
     const altura = s.y - b.y;
     const alto = b.e.alt * b.esc > 1;
-    return altura <= 1.05 && altura > -3 && (!s.agua || podeAgua) && !SOLIDO[this.mundo.bloco(Math.floor(nx), Math.floor(s.y), Math.floor(nz))]
+    return altura <= degrau && altura > -3 && (!s.agua || podeAgua) && !SOLIDO[this.mundo.bloco(Math.floor(nx), Math.floor(s.y), Math.floor(nz))]
       && !SOLIDO[this.mundo.bloco(Math.floor(nx), Math.floor(s.y) + (alto ? 1 : 0), Math.floor(nz))];
   }
 
@@ -529,13 +563,8 @@ export class Bichos {
     // avisando: tremidinha de raiva (rosnado, chocalho)
     const treme = b.estado === 'avisar' ? Math.sin(tempo * 40) * 0.03 : 0;
     b.grupo.position.set(b.x + treme, b.y - desce, b.z);
-    // golpe: amassa um pouquinho e volta (no lugar de sangue)
-    if (b.golpe > 0 || b.amassado) {
-      b.golpe = Math.max(0, b.golpe - dt);
-      const k = b.golpe * 1.6;
-      b.grupo.scale.set(b.esc * (1 + k * 0.5), b.esc * (1 - k), b.esc * (1 + k * 0.5));
-      b.amassado = b.golpe > 0;
-    }
+    // golpe: fica vermelho por meio segundo (como no clássico)
+    if (b.golpe > 0) { b.golpe = Math.max(0, b.golpe - dt); if (b.golpe <= 0) pintarFerido(b, false); }
     // zzz de quem dorme perto do jogador
     if (b.estado === 'dormir' && b.distJog < 14) {
       b.zzz = (b.zzz || Math.random() * 3) - dt;
@@ -612,24 +641,28 @@ export class Bichos {
     for (const o of this.lista) if (o.mae === b) { o.estado = 'fugir'; o.medo = 6; o.de = 'jog'; }
   }
 
-  // golpe do jogador (segurar o dedo, ou clicar no computador). forca: mão 1, ferramenta de madeira 2, de pedra 3.
-  // Devolve 'caiu' quando a vida acaba, true quando acertou, false quando ainda não dá (um golpe a cada 0,45 s).
-  bater(b, forca = 1) {
+  // golpe do jogador (segurar o dedo, ou clicar no computador). dano em meios corações (mão 0,5; espada de madeira 2...).
+  // Como no clássico: depois de um golpe o bicho fica meio segundo vermelho e não leva outro;
+  // é jogado para trás (para longe de quem bateu) e um pouco para cima, mesmo se já estava no ar.
+  // critico = golpe caindo de um pulo (vale 1,5x e solta estrelinhas).
+  // Devolve 'caiu' quando a vida acaba, true quando acertou, false quando ainda não dá.
+  bater(b, dano = 1, { critico = false, empurrao = 1 } = {}) {
     if (b.caindo || !this.lista.includes(b)) return false;
     const agora = performance.now();
-    if (agora - b.golpeEm < 450) return false;
+    if (agora - b.golpeEm < INVULNERAVEL) return false;
     b.golpeEm = agora; b.semGolpe = 0; b.cura = 0;
-    // pulinho para trás, longe de quem bateu
     const dx = b.x - this._px, dz = b.z - this._pz, n = Math.hypot(dx, dz) || 1;
-    b.empX = (dx / n) * 5; b.empZ = (dz / n) * 5;
-    if (b.vy === 0) b.vy = 3;
-    b.golpe = 0.22;
-    this.icone('estrela', b.x, b.y + b.e.alt * b.esc + 0.2, b.z, 0.6, 0.32);
+    b.empX = (dx / n) * EMPURRAO * empurrao; b.empZ = (dz / n) * EMPURRAO * empurrao;
+    b.vy = Math.max(b.vy, EMPURRAO_CIMA * Math.min(1, 0.5 + empurrao * 0.5)); b.empT = 0.8;
+    b.golpe = VERMELHO;
+    pintarFerido(b, true);
+    const topo = b.y + b.e.alt * b.esc;
+    if (critico) for (let k = 0; k < 6; k++) this.icone('estrela', b.x + (Math.random() - 0.5) * 0.9, topo - Math.random() * 0.5, b.z + (Math.random() - 0.5) * 0.9, 0.5, 0.22);
     // o cachorro é de estimação: não se machuca, só chora e sai correndo
     if (!b.vidaMax) { this.som.tom(900, 0.18, { tipo: 'sine', vol: 0.2, ate: 600 }); b.segue = 0; this.fugir(b, 'jog', 4); return true; }
-    b.vida -= forca;
+    b.vida -= dano * (critico ? 1.5 : 1);
     this.som.bicho(b.e.som, true);
-    if (b.vida <= 0) { this.cair(b); return 'caiu'; }
+    if (b.vida <= 0.001) { this.cair(b); return 'caiu'; }
     this.reagir(b);
     return true;
   }
@@ -669,17 +702,27 @@ export class Bichos {
       else if (o !== b && o.especie === b.especie && o.estado !== 'atacar' && Math.hypot(o.x - b.x, o.z - b.z) < 12) this.fugir(o, 'jog', 6);
       if (o.alvo === b) { o.alvo = null; o.estado = 'vagar'; o.timer = 1; }
     }
-    if (this.aoCair) this.aoCair(b);
+    b.golpe = 0; pintarFerido(b, true); // fica vermelho até sumir
   }
 
+  // como no clássico: vermelho, tomba de lado em 1 s e some numa fumacinha; o que ele deixa cai no chão nessa hora
   tombar(b, dt, i) {
     b.caindo -= dt;
-    b.grupo.rotation.z = Math.min(1, (1.1 - b.caindo) / 0.35) * (Math.PI / 2);
+    b.grupo.rotation.z = Math.min(1, (1.1 - b.caindo) / 0.5) * (Math.PI / 2);
     this.mover(b, dt);
     b.grupo.position.set(b.x, b.y, b.z);
     if (b.caindo > 0) return;
-    for (let k = 0; k < 4; k++) this.icone('brilho', b.x + (Math.random() - 0.5), b.y + 0.2 + Math.random() * 0.5, b.z + (Math.random() - 0.5), 0.8 + k * 0.15, 0.4);
+    const alt = b.e.alt * b.esc;
+    for (let k = 0; k < 7; k++) {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: fumaca(), transparent: true, depthWrite: false }));
+      const t = 0.25 + Math.random() * 0.2;
+      s.position.set(b.x + (Math.random() - 0.5) * 0.8, b.y + 0.15 + Math.random() * alt * 0.6, b.z + (Math.random() - 0.5) * 0.8);
+      s.scale.set(t, t, 1);
+      this.cena.add(s);
+      this.particulas.push({ s, vida: 0.55 + Math.random() * 0.25, v: [(Math.random() - 0.5) * 1.2, 0.8 + Math.random() * 0.8, (Math.random() - 0.5) * 1.2], g: 0, cresce: 0.9 });
+    }
     this.remover(i);
+    if (this.aoCair) this.aoCair(b);
   }
 
   // ícone flutuante (coração do carinho, emotes dos jogadores)

@@ -55,7 +55,7 @@ async function preparar(p) {
     window.__limpar = () => { [j.pos.x, j.pos.y, j.pos.z] = window.__centro; j.vel.x = j.vel.z = 0; g.bichos.tempoSpawn = 1e9; g.bichos.limpar(); g.vida.protegido = 0; g.vida.reiniciar(); window.__avisos = []; for (const q of window.__buracos.splice(0)) g.mundo.definir(...q, 1); const [cx, , cz] = window.__centro; for (let dx = -7; dx <= 7; dx++) for (let dz = -7; dz <= 7; dz++) for (let h = 0; h >= -1; h--) if (!g.mundo.bloco(Math.floor(cx) + dx, y + h, Math.floor(cz) + dz)) g.mundo.definir(Math.floor(cx) + dx, y + h, Math.floor(cz) + dz, 1); }; // tapa o que um golpe errado quebrou
     window.__olhar = (bb) => { const c = { x: j.pos.x, y: j.pos.y + 1.6, z: j.pos.z }; j.yaw = Math.atan2(-(bb.x - c.x), -(bb.z - c.z)); j.pitch = Math.atan2(bb.y + bb.e.alt * bb.esc * 0.8 - c.y, Math.hypot(bb.x - c.x, bb.z - c.z)); };
     window.__carinhos = 0; const oc = g.bichos.carinho.bind(g.bichos); g.bichos.carinho = (bb) => { window.__carinhos++; return oc(bb); };
-    window.__golpes = []; const orig = g.bichos.bater.bind(g.bichos); g.bichos.bater = (bb, f) => { const r = orig(bb, f); window.__golpes.push(bb.especie + ':' + r); return r; };
+    window.__golpes = []; const orig = g.bichos.bater.bind(g.bichos); g.bichos.bater = (bb, ...a) => { const r = orig(bb, ...a); window.__golpes.push(bb.especie + ':' + r); return r; };
     window.__vidaMin = 10; window.__vigia = setInterval(() => { window.__vidaMin = Math.min(window.__vidaMin, g.vida.atual); }, 100);
   });
   await p.waitForTimeout(1500);
@@ -126,13 +126,14 @@ if (!process.env.SO_ONLINE) {
   await segurarNoBicho(p, cdp, () => window.__jogo.bichos.lista[0], 4000, () => window.__jogo.bichos.lista[0].vida < window.__jogo.bichos.lista[0].vidaMax);
   await p.waitForTimeout(400);
   const ovs = await p.evaluate(() => window.__jogo.bichos.lista.map((o) => o.estado + ':' + o.vida + '/' + o.vidaMax));
-  conferir(ovs[0].startsWith('fugir') && /:\d\//.test(ovs[0]) && ovs.filter((s) => s.startsWith('fugir')).length === 3 && !ovs[0].endsWith(':4/4'),
+  conferir(ovs[0].startsWith('fugir') && /:[\d.]+\//.test(ovs[0]) && ovs.filter((s) => s.startsWith('fugir')).length === 3 && !ovs[0].endsWith(':4/4'),
     'tablet: segurar o dedo bate na ovelha, ela foge e o bando foge junto (' + ovs.join(', ') + ')');
   await p.screenshot({ path: SAIDA + '/caca-tablet-ovelha-foge.png' });
 
   // 3. ovelha no buraco: segurando até ela cair. Tomba de lado, some num brilho e cai carne e lã na mochila
   await juntarChao(p); // a lã do carinho lá de cima ficou no chão: junta antes de contar
   const antes = { c: await qtd(p, CARNE), l: await qtd(p, LA) };
+  await p.evaluate(() => { window.__coletaVista = ''; setInterval(() => { const t = document.querySelector('#coleta').textContent; if (t && !window.__coletaVista.includes(t)) window.__coletaVista += t; }, 100); }); // o "+1 Carne" some em 1,6 s
   await p.evaluate(() => { window.__limpar(); window.__buraco(0, -3); const o = window.__criar('ovelha', 0, -3); o.calmo = 99; o.estado = 'parar'; o.timer = 99; window.__ov = o; window.__tombou = false; window.__vig2 = setInterval(() => { if (window.__ov.caindo > 0 && Math.abs(window.__ov.grupo.rotation.z) > 1) window.__tombou = true; }, 50); });
   await segurarNoBicho(p, cdp, () => (window.__ov.caindo || !window.__jogo.bichos.lista.includes(window.__ov) ? null : window.__ov), 20000, () => !!window.__ov.caindo);
   await p.waitForFunction(() => window.__tombou, null, { timeout: 3000 }).catch(() => {});
@@ -143,7 +144,7 @@ if (!process.env.SO_ONLINE) {
   conferir(await p.evaluate(() => window.__tombou) && sumiu, 'tablet: a ovelha tomba de lado e some (sem sangue)');
   await juntarChao(p);
   const depois = { c: await qtd(p, CARNE), l: await qtd(p, LA) };
-  const coleta = await p.evaluate(() => document.querySelector('#coleta').textContent);
+  const coleta = await p.evaluate(() => window.__coletaVista);
   conferir(depois.c === antes.c + 1 && depois.l === antes.l + 2, `tablet: caiu 1 carne e 2 lãs no chão e foram para a mochila (carne ${antes.c}->${depois.c}, lã ${antes.l}->${depois.l})`);
   conferir(/Carne/.test(coleta) && /Lã branca/.test(coleta), 'tablet: aparece na tela "' + coleta.replace(/\s+/g, ' ').trim() + '"');
   await p.screenshot({ path: SAIDA + '/caca-tablet-coleta.png' });
@@ -190,7 +191,10 @@ if (!process.env.SEM_ONLINE) {
   async function conta(p, nome, aperta) {
     await aperta('#bt-criar-conta');
     await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
+    if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
     await aperta('#c-ok');
+    await p.waitForSelector('#m-jogos:not([hidden]), #m-mundos:not([hidden])', { timeout: 20000 });
+    if (await p.isVisible('#m-jogos')) await aperta('.jogo[data-jogo=pradaria]');
     await p.waitForSelector('#m-mundos:not([hidden])');
   }
   const naSala = (p) => p.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala && !document.querySelector('#hud').hidden, null, { timeout: 60000 });
@@ -236,6 +240,8 @@ if (!process.env.SEM_ONLINE) {
   if (pq0.p <= pA) console.log('carinhos chamados:', await A.evaluate(() => window.__carinhos), 'mousedown:', await A.evaluate(() => window.__md.join(' ')), 'mira:', await A.evaluate(() => { const g = window.__jogo; return JSON.stringify(g.jog.pos) + ' pq ' + [window.__pq.x, window.__pq.y, window.__pq.z].map((v) => v.toFixed(1)) + ' ' + window.__pq.estado; }), 'golpes:', await A.evaluate(() => window.__golpes.join(' ')));
   conferir(pq0.p > pA && pq0.v === pq0.m, `pc: clique direito faz carinho no porquinho (vida ${pq0.v}/${pq0.m})`);
   const carneA0 = await qtd(A, CARNE);
+  // como no clássico, com machado de pedra na mão o golpe é bem mais forte (4,5 contra 0,5 da mão)
+  await A.evaluate(() => { window.__jogo.barra[0] = 1004; window.__jogo.slot = 0; });
   for (let k = 0; k < 30 && !(await A.evaluate(() => !!window.__pq.caindo)); k++) {
     await A.evaluate(() => window.__olhar(window.__pq));
     await A.waitForTimeout(250);
@@ -252,6 +258,7 @@ if (!process.env.SEM_ONLINE) {
   // tablet online: segura o dedo até o veado (no buraco) cair: carne e couro
   const cdpB = await cB.newCDPSession(B);
   const b0 = { c: await qtd(B, CARNE), k: await qtd(B, COURO) };
+  await B.evaluate(() => { window.__jogo.barra[0] = 1004; window.__jogo.slot = 0; });
   await B.evaluate(() => { window.__limpar(); window.__buraco(0, -3); const v = window.__criar('veado', 0, -3); v.calmo = 99; v.estado = 'parar'; v.timer = 99; window.__vd = v; });
   await segurarNoBicho(B, cdpB, () => (window.__vd.caindo || !window.__jogo.bichos.lista.includes(window.__vd) ? null : window.__vd), 25000, () => !!window.__vd.caindo);
   conferir(await B.evaluate(() => !!window.__vd.caindo || !window.__jogo.bichos.lista.includes(window.__vd)), 'tablet online: segurando o dedo o veado cai');
