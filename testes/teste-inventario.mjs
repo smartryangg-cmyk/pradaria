@@ -115,6 +115,24 @@ const bate = (e) => JSON.stringify(Object.fromEntries(Object.entries(e.itens).fi
   await p.keyboard.press('KeyE'); await p.waitForTimeout(300);
   await p.screenshot({ path: SAIDA + '/inv-pc-cheia.png' });
   ok(!(await p.isVisible('.inv-extra')) && (await inv(p)).s.every(Boolean), 'mochila cheia: os 37 espaços ocupados e nada sobrando');
+  // só cabe parte da pilha do chão: pega o que cabe, o resto continua no chão (andando por cima, de verdade)
+  await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+  await p.evaluate(() => { const m = window.__jogo.mercado; m.mexer({ t: 'largar', id: 1, n: 4 }, true); });
+  await p.waitForTimeout(300);
+  await p.evaluate(() => { const J = window.__jogo, j = J.jog; J.drops.novoLocal(1, 10, j.pos.x + 2.2, j.pos.y + 0.2, j.pos.z, [0, 0, 0], ''); J.drops.lista(); });
+  const terraAntes = await p.evaluate(() => window.__jogo.mercado.qtd(1));
+  await p.evaluate(() => { const j = window.__jogo.jog; j.yaw = -Math.PI / 2; j.pitch = 0; });
+  // vai chegando perto (o jogo pega sozinho quando passa por cima)
+  let pegouParte = false;
+  for (let k = 0; k < 30 && !pegouParte; k++) {
+    await p.evaluate(() => { const j = window.__jogo.jog; j.pos.x += 0.15; j.vel.x = j.vel.z = 0; });
+    await p.waitForTimeout(100); pegouParte = await p.evaluate(() => window.__jogo.mercado.qtd(1) === 64);
+  }
+  await p.waitForTimeout(400);
+  const resto = await p.evaluate(() => window.__jogo.drops.lista().filter((d) => d.id === 1).map((d) => d.n));
+  ok(terraAntes === 60 && pegouParte && resto.includes(6), `mochila com espaço para 4 de 10 terras: pegou 4 e ficaram 6 no chão (${terraAntes} -> ${await p.evaluate(() => window.__jogo.mercado.qtd(1))}, ${JSON.stringify(await p.evaluate(() => [window.__jogo.jog.pos, window.__jogo.drops.lista()]))}, chão ${JSON.stringify(resto)})`);
+  e = await inv(p); ok(bate(e), 'depois de pegar parte, a arrumação continua batendo');
+  await p.screenshot({ path: SAIDA + '/inv-pc-pegou-parte.png' });
   await p.context().close();
 }
 

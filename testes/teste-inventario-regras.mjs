@@ -80,6 +80,13 @@ ok(ESPACOS === 37, '27 + 9 + segunda mão');
 const e = estadoNovo(); e.itens = { ...cheia }; e.itens[1] = 64;
 const pg = aplicar(e, { sobrevivencia: true }, { t: 'pegar', id: 1000, n: 1 });
 ok(!pg.ok, 'coletando: com a mochila cheia não pega do chão (' + pg.erro + ')');
+// só cabe parte da pilha do chão: pega o que cabe e o resto fica (como no clássico)
+const ep = estadoNovo(); ep.itens = { ...cheia }; ep.itens[1] = 60;
+const pp = aplicar(ep, { sobrevivencia: true }, { t: 'pegar', id: 1, n: 10, c: 6 });
+ok(pp.ok && pp.pegou === 4 && ep.itens[1] === 64 && pp.restoC === 2, 'só cabem 4 de 10: pega 4, ficam 6 no chão (' + pp.pegou + ', comprados no chão ' + pp.restoC + ')');
+const ec = estadoNovo(); ec.itens = { 1: 3 };
+const pc = aplicar(ec, { sobrevivencia: true }, { t: 'pegar', id: 1, n: 10 });
+ok(pc.ok && pc.pegou === 10 && ec.itens[1] === 13, 'com espaço pega a pilha inteira');
 const e2 = estadoNovo(); e2.itens = { [T]: 4 };
 ok(aplicar(e2, { sobrevivencia: true }, { t: 'criar', r: 'bancada', bancada: false }).ok && e2.itens[34] === 1, 'criar continua funcionando');
 // criar que não cabe: recusa sem gastar

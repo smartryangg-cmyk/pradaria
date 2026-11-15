@@ -868,6 +868,15 @@ export class Sala extends DurableObject {
       if (!podePegar(d, eu.id) || !pertoParaPegar(d, eu.pv || eu.p)) { ws.send(JSON.stringify({ t: 'econ', s: econ })); ws.send(JSON.stringify({ t: 'chao', d: [publico(d)] })); return; }
       const r = aplicar(econ, op, { t: 'pegar', id: d.id, n: d.n, c: d.c });
       if (!r.ok) { ws.send(JSON.stringify({ t: 'econ', s: econ, msg: r.erro })); ws.send(JSON.stringify({ t: 'chao', d: [publico(d)] })); return; }
+      // a mochila só tinha espaço para parte da pilha: pega o que cabe e o resto continua no chão
+      if (r.pegou < d.n) {
+        d.n -= r.pegou; d.c = r.restoC;
+        await this.ctx.storage.put('d:' + d.i, d);
+        await this.ctx.storage.put('e:' + eu.uid, econ);
+        ws.send(JSON.stringify({ t: 'econ', s: econ }));
+        this.enviarTodos({ t: 'chao-pegou', i: d.i, j: eu.id, id: d.id, n: r.pegou, resto: d.n, c: d.c });
+        return;
+      }
       c.tirar(d.i);
       await this.ctx.storage.delete('d:' + d.i);
       await this.ctx.storage.put('e:' + eu.uid, econ);

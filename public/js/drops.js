@@ -145,7 +145,7 @@ export class Drops {
   aparecer(p) {
     if (!podeNoChao(p.id, p.n)) return;
     const velho = this.vivos.get(p.i);
-    if (velho) return;
+    if (velho) { if (velho.n !== p.n) this.diminuir(velho, p.n, p.c, null); return; }
     const e = {
       i: p.i, id: p.id, n: p.n, x: p.x, y: p.y, z: p.z, v: [...(p.v || [0, 0, 0])],
       t: Date.now() - (p.idade || 0), dono: p.dono || '', c: p.c || 0, fase: Math.random() * 6, parado: false,
@@ -194,9 +194,17 @@ export class Drops {
   recebeuChao(lista) { for (const d of lista || []) this.aparecer(d); }
   // alguém pegou (ou sumiu): voa até a pessoa, se der para ver
   recebeuPegou(m, posDe) {
-    if (!this.vivos.has(m.i)) return;
+    const e = this.vivos.get(m.i);
+    if (!e) return;
     const p = m.j ? posDe(m.j) : null;
+    if (m.resto > 0) { this.diminuir(e, m.resto, m.c, p); return; }
     this.sumir(m.i, p);
+  }
+  // pegaram só parte da pilha: uma cópia voa até quem pegou e o resto fica
+  diminuir(e, resto, c, para) {
+    if (e.n !== resto && para) this.voando.push({ e: { ...e }, de: new THREE.Vector3(e.x, e.y, e.z), para, t: 0 });
+    e.n = resto; e.c = c | 0;
+    e.copias = resto >= 16 ? 3 : resto > 1 ? 2 : 1;
   }
 
   // ---------- a cada quadro ----------
@@ -303,14 +311,25 @@ export class Drops {
     if (dx * dx + dz * dz > PEGA_H * PEGA_H || dy < -0.9 || dy > 2) return;
     if (!podePegar(e, this.eu, agora)) return;
     // cabe na mochila? (senão avisa de vez em quando e deixa no chão)
-    if (!this.ui.mochila.mexer({ t: 'pegar', id: e.id, n: e.n, c: e.c }, true)) {
+    const r = this.ui.mochila.mexer({ t: 'pegar', id: e.id, n: e.n, c: e.c }, true);
+    if (!r) {
       e.esperar = agora + 1500;
       if (agora - this.cheioEm > 4000) { this.cheioEm = agora; this.ui.cheio && this.ui.cheio(e.id); }
       return;
     }
+    const k = r.pegou || e.n, perto = new THREE.Vector3(jog.pos.x, jog.pos.y + 0.9, jog.pos.z);
     if (this.sala) { this.sala.enviar({ t: 'chao-pegar', i: e.i }); this.recusados.set(e.i, agora + 1500); setTimeout(() => this.recusados.delete(e.i), 3000); }
-    else this.chao.tirar(e.i);
-    this.sumir(e.i, () => new THREE.Vector3(jog.pos.x, jog.pos.y + 0.9, jog.pos.z));
+    if (k < e.n) {
+      // só coube parte: o resto fica no chão (como no clássico)
+      if (!this.sala) { const d = this.chao.itens.get(e.i); if (d) { d.n -= k; d.c = r.restoC | 0; } }
+      this.diminuir(e, e.n - k, r.restoC, perto);
+      e.esperar = agora + 1500;
+      this.ui.pegou && this.ui.pegou(e.id, k);
+      if (agora - this.cheioEm > 4000) { this.cheioEm = agora; this.ui.cheio && this.ui.cheio(e.id); }
+      return;
+    }
+    if (!this.sala) this.chao.tirar(e.i);
+    this.sumir(e.i, perto);
     this.ui.pegou && this.ui.pegou(e.id, e.n);
   }
 
