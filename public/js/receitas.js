@@ -59,6 +59,8 @@ export function oQueCai(b, x = 0, y = 0, z = 0, natural = true, mao = 0) {
   if (!Number.isInteger(b) || b <= 0 || (b >= 23 && b <= 30) || b > MAX_BLOCO) return [];
   // vidro estilhaça: só sai inteiro com picareta na mão (com a mão vazia vira cacos)
   if (b === I.VIDRO && !(FERRAMENTAS[mao] && FERRAMENTAS[mao][0] === 'picareta')) return [];
+  if (b >= 215 && b <= 219) return []; // lava não se quebra: só sai com balde (lava-regras.js)
+  if (b === 220 && !(FERRAMENTAS[mao] && FERRAMENTAS[mao][0] === 'picareta')) return []; // obsidiana: só com picareta
   const r = [[VIRA[b] ?? baseDe(b), 1]];
   // o extra só vem de bloco do mundo (colocar e quebrar não multiplica nada), menos o trigo maduro e as folhas:
   // eles também nascem crescendo (trigo plantado, muda que virou árvore; a sala confere), e render é o motivo de plantar
@@ -69,7 +71,7 @@ export function oQueCai(b, x = 0, y = 0, z = 0, natural = true, mao = 0) {
 
 // colocar só gasta quando o lugar estava vazio (ar, água ou plantinha); ligar uma alavanca não gasta
 const PLANTAS = new Set([11, 12, 13, 22, 32, 75, 76, 77, 129, 130, 135]); // 75 = arbusto seco; 76, 77 = trigo crescendo
-export const lugarVazio = (de) => !de || de === 5 || (de >= 23 && de <= 30) || PLANTAS.has(de);
+export const lugarVazio = (de) => !de || de === 5 || (de >= 23 && de <= 30) || (de >= 216 && de <= 219) || PLANTAS.has(de); // 216..219 lava corrente
 export const gastoDe = (b) => baseDe(b);
 
 // ---------- ferramentas ----------
@@ -89,7 +91,7 @@ for (const b of [80, 81, 82, 84, 95, 96, 97, 98, 99]) TIPO_DO_BLOCO[b] = 'machad
 for (const b of [83, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94]) TIPO_DO_BLOCO[b] = 'picareta';
 // troncos das outras árvores, folhas, minérios e cascalho do mundo clássico
 for (const b of [71, 72, 73, 74, 131, 132]) TIPO_DO_BLOCO[b] = 'machado';
-for (const b of [66, 67, 68, 69]) TIPO_DO_BLOCO[b] = 'picareta';
+for (const b of [66, 67, 68, 69, 220]) TIPO_DO_BLOCO[b] = 'picareta'; // 220 obsidiana
 TIPO_DO_BLOCO[65] = 'pa';
 
 // quantos toques o bloco b precisa com `naMao` na mão (base = toques sem ferramenta)

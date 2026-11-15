@@ -15,6 +15,7 @@ EMITE[134] = 7;  // pedra de lava
 EMITE[169] = 6;  // neon
 EMITE[170] = 5;  // cristal
 EMITE[56] = 7;   // forno aceso (blocos-mecanismos.js)
+for (let b = 215; b <= 219; b++) EMITE[b] = 8; // lava (lava-regras.js)
 
 const R = RAIO_LUZ;
 // nível -> claridade (cai mais rápido longe da luz, como no clássico)

@@ -14,6 +14,7 @@ const ELET = new Uint8Array(256);
 for (let b = 1; b < 256; b++) ELET[b] = ELETRICO(b) ? 1 : 0;
 import { criarSuavizador } from './suave.js';
 import { calcularLuz, EMITE, RAIO_LUZ } from './luz-blocos.js';
+import { LAVA, LAVA_CORRENTE, LAVA_CAINDO, OBSIDIANA, ehLava, NIVEL_LAVA, TICK_LAVA } from './lava-regras.js';
 
 export const CX = 16, CZ = 16, ALT = 96;
 export const NIVEL_AGUA = 20; // mar do terreno de antes (o clássico usa mundo.nivelAgua = 40)
@@ -44,6 +45,10 @@ const ALTURA_AGUA = new Float32Array(256);
 ALTURA_AGUA[B.AGUA] = 0.88; ALTURA_AGUA[AGUA_CAINDO] = 0.88;
 for (let n = 1; n <= 7; n++) ALTURA_AGUA[AGUA_CORRENTE[n]] = (8 - n) / 9;
 const H4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+// a lava pode ocupar este bloco? (ar, plantinhas e lava que não é fonte)
+const LIVRE_L = new Uint8Array(256);
+for (const b of BLOCOS) if (b && (b.id === AR || b.planta || (ehLava(b.id) && b.id !== LAVA))) LIVRE_L[b.id] = 1;
+const V6 = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
 // chave numérica de uma posição (cabe com folga num número do JS)
 const pos2k = (x, y, z) => ((x + 32768) * 65536 + (z + 32768)) * 128 + y;
 
@@ -98,6 +103,7 @@ export class Mundo {
     this.filaAgua = new Set(); // células para reavaliar no próximo passo da água
     this.cacheDirAgua = new Map(); // direções da água no passo atual (aguaVaiPara)
     this.ultimoPassoAgua = 0;
+    this.filaLava = new Set(); this.ultimoPassoLava = 0; // a lava usa as mesmas células, num passo mais lento
     this.vilas = new Vilas(this);
     // Ilha de Aventura; o mundo de Guerra usa a mesma ilha com base, forte, presídio e delegacia
     this.aventura = opcoesMundo.tipo === 'aventura' ? new IlhaAventura(this) : opcoesMundo.tipo === 'guerra' ? new IlhaGuerra(this) : null;
@@ -332,9 +338,63 @@ export class Mundo {
   // e só depois aplica, então o resultado não depende da ordem (igual em todos os aparelhos).
   agendarAgua(x, y, z) {
     const f = this.filaAgua;
-    const add = (a, b, c) => { if (b >= 1 && b < ALT) f.add(pos2k(a, b, c)); };
+    const fl = this.filaLava;
+    const add = (a, b, c) => { if (b >= 1 && b < ALT) { const k = pos2k(a, b, c); f.add(k); fl.add(k); } };
     add(x, y, z); add(x, y + 1, z); add(x, y - 1, z);
     for (const [dx, dz] of H4) { add(x + dx, y, z + dz); add(x + dx, y + 1, z + dz); }
+  }
+
+  // ---------- lava ----------
+  // Como a água, mas devagar e só até 3 blocos para o lado; não procura buraco (escorre para todos os lados).
+  // Encontrando água: a fonte vira obsidiana e a lava corrente vira pedrisco; lava caindo na água vira pedra.
+  lavaDesejada(x, y, z) {
+    const b = this.bloco(x, y, z);
+    const cima = this.bloco(x, y + 1, z);
+    const temAgua = () => V6.some(([dx, dy, dz]) => dy !== 1 && AGUA[this.bloco(x + dx, y + dy, z + dz)]);
+    if (b === LAVA) return temAgua() || AGUA[cima] ? OBSIDIANA : LAVA;
+    if (AGUA[b]) return ehLava(cima) ? B.PEDRA : b;
+    if (!LIVRE_L[b]) return b;
+    let novo;
+    if (ehLava(cima)) novo = LAVA_CAINDO;
+    else {
+      let melhor = 99;
+      for (const [dx, dz] of H4) {
+        const n = this.bloco(x + dx, y, z + dz);
+        if (!ehLava(n)) continue;
+        if (LIVRE_L[this.bloco(x + dx, y - 1, z + dz)]) continue; // pode descer: não espalha para o lado
+        const nv = NIVEL_LAVA[n];
+        if (nv < melhor) melhor = nv;
+      }
+      novo = melhor < 3 ? LAVA_CORRENTE[melhor + 1] : (ehLava(b) ? AR : b);
+    }
+    if (ehLava(novo) && (temAgua() || AGUA[cima])) return B.PEDRISCO;
+    return novo;
+  }
+
+  passoLava() {
+    if (!this.filaLava.size) return 0;
+    const fila = this.filaLava;
+    this.filaLava = new Set();
+    const mudar = [];
+    let n = 0;
+    for (const k of fila) {
+      if (++n > MAX_POR_PASSO) { this.filaLava.add(k); continue; }
+      const y = k % 128, r = Math.floor(k / 128);
+      const z = (r % 65536) - 32768, x = Math.floor(r / 65536) - 32768;
+      if (!this.chunks.has(chave(Math.floor(x / CX), Math.floor(z / CZ)))) continue;
+      const atual = this.bloco(x, y, z);
+      if (!ehLava(atual) && !LIVRE_L[atual] && !AGUA[atual]) continue;
+      const novo = this.lavaDesejada(x, y, z);
+      if (novo !== atual) mudar.push(x, y, z, novo);
+    }
+    for (let i = 0; i < mudar.length; i += 4) {
+      const [x, y, z, b] = [mudar[i], mudar[i + 1], mudar[i + 2], mudar[i + 3]];
+      // virou pedra/obsidiana: fica salvo e vai para a rede (todos os aparelhos chegam no mesmo)
+      if (b === OBSIDIANA || b === B.PEDRA || b === B.PEDRISCO) { this.definir(x, y, z, b); continue; }
+      this.definirAgua(x, y, z, b);
+      this.sujarLuz(x, z, 0, b);
+    }
+    return mudar.length / 4;
   }
 
   // o que deveria existir nesta célula, de acordo com a água em volta
@@ -799,6 +859,7 @@ export class Mundo {
     const R = this.raio;
     const ini = performance.now();
     if (opcoesMundo.aguaCorre && ini - this.ultimoPassoAgua >= TICK_AGUA) { this.ultimoPassoAgua = ini; this.passoAgua(); }
+    if (opcoesMundo.aguaCorre && ini - this.ultimoPassoLava >= TICK_LAVA) { this.ultimoPassoLava = ini; this.passoLava(); }
     if (opcoesMundo.maquinas !== false) this.energia.atualizar(ini);
     // primeiro os pedaços editados (resposta imediata ao colocar/quebrar)
     for (const c of this.chunks.values()) {
@@ -856,7 +917,7 @@ export class Mundo {
     let n = [0, 0, 0], t = 0;
     while (t <= max) {
       const b = this.bloco(x, y, z);
-      if (b !== AR && (pegaAgua ? true : !AGUA[b])) {
+      if (b !== AR && (pegaAgua ? true : !AGUA[b] && !ehLava(b))) {
         // formas (cerca, bola, rampa...): só acerta se o raio passar pela peça de verdade
         if (!FORMA_NOVA[b]) return { x, y, z, b, n, t };
         const h = mirarForma(b, (a, c, e) => this.bloco(a, c, e), x, y, z, o, dir);

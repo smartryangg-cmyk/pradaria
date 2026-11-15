@@ -22,5 +22,8 @@ export function mudancaSemMao(atual, b, construcao = true) {
   if (atual === b) return true;
   if (b === 0) return CAI.has(atual) || FOLHA.has(atual) || PRECISA_CHAO.has(atual);
   if (CAI.has(b)) return vazio(atual); // areia caindo
+  // lava (lava-regras.js): com água a lava vira obsidiana ou pedrisco; lava caindo na água vira pedra
+  if (atual >= 215 && atual <= 219 && (b === 220 || b === 20)) return true;
+  if ((atual === 5 || (atual >= 23 && atual <= 30)) && b === 3) return true;
   return (atual === 1 && b === 2) || (atual === 2 && b === 1); // grama coberta vira terra e volta
 }
