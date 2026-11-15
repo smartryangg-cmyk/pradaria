@@ -1,4 +1,4 @@
-// Partida entre amigos: xadrez (com relógio quando tem ritmo) e dama (dois lugares, 'w' e 'b') e truco (mesa de 2 ou 4 lugares, com o computador nas vagas).
+// Partida entre amigos: xadrez e dama (dois lugares, 'w' e 'b'; com relógio quando tem ritmo) e truco (mesa de 2 ou 4 lugares, com o computador nas vagas).
 // Uma instância por código de partida. O servidor confere cada lance com as mesmas regras do navegador
 // (public/js/xadrez-regras.js) e guarda tudo, então dá para recarregar a página e continuar.
 import { DurableObject } from 'cloudflare:workers';
@@ -49,7 +49,7 @@ export class Partida extends DurableObject {
   }
 
   // ---------- pontos (partidas que valem pontos) ----------
-  categoria() { return this.p.relogio ? P.categoria(this.p.relogio.ritmo) : null; }
+  categoria() { return this.p.relogio ? P.categoria(this.p.relogio.ritmo, this.p.jogo) : null; }
   async lerPontos() {
     const p = this.p, cat = this.categoria();
     if (!p.ranqueada || !cat || !this.env.PONTOS || !p.lugares.w || !p.lugares.b) return;
@@ -161,7 +161,8 @@ export class Partida extends DurableObject {
       if (this.p) return new Response('já existe', { status: 409 });
       const d = await request.json();
       const pessoa = (x) => ({ uid: x.uid, nome: x.nome, rede: typeof x.rede === 'string' ? x.rede : '' });
-      this.p = { jogo: 'xadrez', lugares: { w: pessoa(d.w), b: pessoa(d.b) }, e: X.novo(), fim: null, criado: Date.now(), partidas: 1, ranqueada: true, idJogo: crypto.randomUUID() };
+      const jogo = d.jogo === 'dama' ? 'dama' : 'xadrez';
+      this.p = { jogo, lugares: { w: pessoa(d.w), b: pessoa(d.b) }, e: JOGOS[jogo].novo(), fim: null, criado: Date.now(), partidas: 1, ranqueada: true, idJogo: crypto.randomUUID() };
       this.p.relogio = this.relogioNovo(d.ritmo);
       if (!this.p.relogio) { this.p = null; return new Response('ritmo', { status: 400 }); }
       this.marcarPrazo();
@@ -186,7 +187,8 @@ export class Partida extends DurableObject {
       else {
       // quem abre a partida joga de brancas
       this.p = { jogo, lugares: { w: { uid: u.id, nome: u.nome, rede }, b: null }, e: JOGOS[jogo].novo(), fim: null, criado: Date.now(), partidas: 1, idJogo: crypto.randomUUID() };
-      this.p.relogio = jogo === 'xadrez' ? this.relogioNovo(new URL(request.url).searchParams.get('ritmo')) : null;
+      // xadrez e dama: com relógio quando escolheram um ritmo
+      this.p.relogio = this.relogioNovo(new URL(request.url).searchParams.get('ritmo'));
       // partida entre amigos valendo pontos (só com relógio)
       this.p.ranqueada = !!this.p.relogio && new URL(request.url).searchParams.get('ranqueada') === '1';
       await this.salvar();

@@ -1,7 +1,9 @@
-// Página da Dama: contra o computador (3 níveis) ou online com um amigo (convite pelo saguão).
+// Página da Dama: contra o computador (3 níveis) ou online: com um amigo (convite pelo saguão) ou procurando adversário,
+// com relógio (bullet, blitz, rápida) e partidas valendo pontos, como no xadrez.
 // Regras brasileiras em dama-regras.js (as mesmas do servidor, sala-worker/src/partida.js). Sem three.js: leve para tablet fraco.
 // Feita a partir da página do xadrez (xadrez.js): mesma tela, mesmos botões, outras regras e peças.
 import * as X from './dama-regras.js';
+import * as P from './pontos-regras.js';
 import { conta } from './rede.js';
 import { icone, preencherIcones, comIcone } from './icones.js';
 import { Lobby } from './lobby.js';
@@ -52,6 +54,12 @@ let fimAtual = null;
 let pensando = false;
 let online = null; // { ws, codigo, jogadores, empate, revanche }
 let fimVisto = null;
+const RITMOS = { '1+0': { nome: 'Bullet', base: 60000, inc: 0 }, '3+2': { nome: 'Blitz', base: 180000, inc: 2000 }, '10+0': { nome: 'Rápida', base: 600000, inc: 0 } };
+let ritmo = '3+2'; // ritmo para jogar online ('' = sem relógio)
+let relogio = null; // { w, b (ms que sobram), anda, base, inc, prazo } + recebido (hora local em que chegou)
+let tipoAmigo = 'amistosa'; // partida com amigo: 'amistosa' ou 'pontos'
+let meusPontos = null; // { 'dama-blitz': { mostrar, ... }, ... }
+let busca = null; // procurando adversário: { ws, desde, timer }
 
 function salvarPC() {
   if (modo !== 'pc') return;
@@ -94,7 +102,20 @@ function desenhar() {
     c.setAttribute('aria-label', nomeCasa(i) + (p ? ' ' + nomePeca(p) : ' vazia') + (pode ? ', pode ir' : ''));
   }
   desenharJogadores(baixo);
+  desenharLances();
   status();
+}
+
+// lista de lances: "1. c3-d4 f6-e5 2. …" (o último fica marcado)
+let lancesVistos = -1;
+function desenharLances() {
+  const h = e.hist || [];
+  const el = $('#x-lances');
+  el.hidden = modo !== 'online' && !h.length;
+  if (h.length === lancesVistos) return;
+  lancesVistos = h.length;
+  el.innerHTML = h.map((t, k) => (k % 2 === 0 ? `<span class="num">${k / 2 + 1}.</span>` : '') + `<span class="lance${k === h.length - 1 ? ' ult' : ''}">${t}</span>`).join('');
+  el.scrollLeft = el.scrollWidth; el.scrollTop = el.scrollHeight;
 }
 
 function comidas(corDeQuem) {
@@ -110,12 +131,45 @@ function desenharJogadores(baixo) {
     if (!j) return 'Esperando seu amigo…';
     return (l === voce ? 'Você' : j.nome);
   };
+  const pts = (l) => (modo === 'online' && online && online.pontos && online.pontos[l] ? ' ' + online.pontos[l].mostrar : '');
   const on = (l) => (modo === 'pc' ? true : !!(online && online.jogadores && online.jogadores[l] && online.jogadores[l].online));
   for (const [el, l] of [[$('#x-cima'), cima], [$('#x-baixo'), baixo]]) {
-    el.innerHTML = `<span class="bolinha${on(l) ? ' on' : ''}"></span><span class="n"></span><span class="pecas-comidas">${comidas(l === 'w' ? 'b' : 'w').map(svgPeca).join('')}</span>`;
+    el.innerHTML = `<span class="bolinha${on(l) ? ' on' : ''}"></span><span class="n"></span><span class="pts">${pts(l)}</span><span class="pecas-comidas">${comidas(l === 'w' ? 'b' : 'w').map(svgPeca).join('')}</span>` + (modo === 'online' && relogio ? `<span class="relogio" data-cor="${l}"></span>` : '');
     el.querySelector('.n').textContent = nome(l) + (l === 'w' ? ' (brancas)' : ' (vermelhas)');
   }
+  mostrarRelogios();
 }
+
+// ---------- relógio (o servidor é quem manda; a tela só conta entre uma mensagem e outra) ----------
+const fmt = (ms) => { const t = Math.max(0, ms); if (t < 20000) return (t / 1000).toFixed(1); const s = Math.ceil(t / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+function tempoDe(c) {
+  if (!relogio) return 0;
+  return relogio.anda === c ? relogio[c] - (performance.now() - relogio.recebido) : relogio[c];
+}
+let pediuTempo = 0;
+function mostrarRelogios() {
+  if (!relogio) return;
+  for (const el of document.querySelectorAll('.relogio')) {
+    const c = el.dataset.cor, t = tempoDe(c);
+    el.textContent = fmt(t);
+    el.classList.toggle('anda', relogio.anda === c && !fimAtual);
+    el.classList.toggle('pouco', t < 20000 && relogio.anda === c && !fimAtual);
+  }
+  // zerou: pede para o servidor conferir (ele também confere sozinho)
+  if (relogio.anda && !fimAtual && tempoDe(relogio.anda) <= 0 && performance.now() - pediuTempo > 1500 && online && online.ws && online.ws.readyState === 1) { pediuTempo = performance.now(); online.ws.send(JSON.stringify({ t: 'tempo' })); }
+}
+setInterval(() => { if (modo === 'online' && relogio && relogio.anda && !fimAtual) mostrarRelogios(); }, 100);
+function prazoFalta() { return modo === 'online' && relogio && relogio.prazo != null ? Math.max(0, relogio.prazo - (performance.now() - relogio.recebido)) : null; }
+setInterval(() => { if ((prazoFalta() != null || foraFaz() != null) && !fimAtual) status(); }, 500);
+// o adversário saiu da partida: há quanto tempo (ms), ou null
+function foraFaz() {
+  if (modo !== 'online' || !online || !online.fora || fimAtual) return null;
+  const outro = voce === 'w' ? 'b' : 'w';
+  return online.fora[outro] != null ? online.fora[outro] + (performance.now() - online.foraRecebido) : null;
+}
+// (servidor de teste: ?rede=x na página troca a "internet" da conta, para testar as regras de mesma internet)
+const redeTeste = new URLSearchParams(location.search).get('rede');
+const comRede = (u) => (redeTeste ? u + '&rede=' + encodeURIComponent(redeTeste) : u);
 
 function status() {
   const s = $('#x-status');
@@ -126,6 +180,13 @@ function status() {
   else if (e.vez === meuLado()) { t = X.lances(e)[0]?.comidas.length ? 'Tem que comer!' : 'Sua vez'; minha = true; }
   else t = modo === 'pc' ? 'Vez do computador' : 'Vez do seu amigo';
   if (modo === 'online' && online.empate && !fimAtual) t = online.empate === voce ? 'Você propôs empate' : 'Seu amigo propôs empate';
+  // partida com relógio: prazo para o primeiro lance (curto para caber no celular)
+  const prazo = prazoFalta();
+  if (prazo != null && !fimAtual && !(modo === 'online' && online.empate)) t = (e.vez === meuLado() ? 'Sua vez: ' : 'Adversário: ') + Math.ceil(prazo / 1000) + 's';
+  const fora = foraFaz();
+  const podeVitoria = fora != null && fora >= (online.prazoFora || 60000);
+  if (fora != null && !fimAtual) { const seg = Math.floor(fora / 1000); t = 'Adversário saiu ' + Math.floor(seg / 60) + ':' + String(seg % 60).padStart(2, '0'); minha = false; }
+  $('#bt-vitoria').hidden = !podeVitoria;
   s.textContent = t; s.classList.toggle('minha', minha);
   const esperando = modo === 'online' && online.jogadores && !online.jogadores[voce === 'w' ? 'b' : 'w'];
   $('#bt-chamar').hidden = !(modo === 'online' && esperando);
@@ -185,20 +246,95 @@ function mostrarFim() {
   const f = fimAtual;
   const venci = f.vencedor && f.vencedor === meuLado();
   som.fim(!f.vencedor ? 'empate' : venci ? 'ganhou' : 'perdeu');
-  $('#fim-titulo').textContent = !f.vencedor ? 'Empate!' : venci ? 'Você ganhou!' : 'Você perdeu';
+  $('#fim-titulo').textContent = f.tipo === 'cancelada' ? 'Partida cancelada' : !f.vencedor ? 'Empate!' : venci ? 'Você ganhou!' : 'Você perdeu';
   let txt = X.TEXTO_FIM[f.tipo] || '';
   if (f.tipo === 'desistiu') txt = f.quem === meuLado() ? 'Você desistiu.' : (modo === 'pc' ? 'O computador desistiu.' : 'Seu amigo desistiu.');
+  if (f.tipo === 'cancelada') txt = (f.quem === meuLado() ? 'Você não fez o primeiro lance a tempo.' : 'O adversário não fez o primeiro lance a tempo.') + ' Não vale pontos.';
+  if (f.tipo === 'saiu') txt = f.quem === meuLado() ? 'Você saiu da partida e perdeu.' : 'Seu adversário saiu da partida.';
+  if (f.tipo === 'tempo') txt = f.quem === meuLado() ? 'Seu tempo acabou.' : 'O tempo do seu adversário acabou.';
   $('#fim-txt').textContent = txt;
   $('#bt-revanche').textContent = modo === 'online' ? 'Jogar de novo (trocando de cor)' : 'Jogar de novo';
+  mostrarPontosFim();
   $('#fim-espera').hidden = true;
   $('#x-fim').hidden = false;
 }
+
+// linha dos pontos no fim: "Seus pontos (Blitz): 1200 → 1216 (+16)"
+function mostrarPontosFim() {
+  const el = $('#fim-pontos');
+  const r = modo === 'online' && online && online.resultado;
+  el.hidden = !(modo === 'online' && online && online.ranqueada);
+  if (el.hidden) return;
+  if (!r || r.pendente) { el.textContent = 'Contando os pontos…'; return; }
+  if (r.falhou) { el.textContent = 'Não deu para contar os pontos agora.'; return; }
+  if (r.anulada) {
+    el.textContent = r.motivo === 'cedo' ? 'Partida anulada (acabou antes de 10 lances de cada um): não valeu pontos.'
+      : r.motivo === 'rede' ? 'Partida anulada (as duas contas estão na mesma internet): não valeu pontos.'
+      : r.motivo === 'limite' ? 'Vocês dois já jogaram 3 partidas valendo pontos hoje: esta não valeu.'
+      : 'Partida anulada (menos de 2 lances): não valeu pontos.';
+    return;
+  }
+  const x = r[voce], dif = x.depois - x.antes;
+  el.innerHTML = `Seus pontos (${P.nomeCategoria(r.cat)}): ${x.antes} → <b class="${dif >= 0 ? 'sobe' : 'desce'}">${x.mostrar} (${dif >= 0 ? '+' : ''}${dif})</b>`;
+  meusPontos = null; // a próxima vez que abrir o menu lê de novo
+}
+
+// ---------- pontos e busca de adversário ----------
+async function lerMeusPontos() {
+  if (!conta.token) return;
+  try {
+    const r = await fetch('/api/xadrez/pontos?jogo=dama', { headers: { authorization: 'Bearer ' + conta.token } });
+    if (r.ok) meusPontos = (await r.json()).pontos;
+  } catch {}
+  mostrarMeusPontos();
+}
+function mostrarMeusPontos() {
+  const el = $('#x-meus-pontos');
+  const cat = P.categoria(ritmo, 'dama');
+  el.hidden = !conta.token;
+  $('#bt-procurar').disabled = !conta.token || !cat;
+  if (!conta.token) return;
+  if (!cat) el.textContent = 'Sem relógio: a partida não vale pontos.';
+  else el.textContent = `Seus pontos de dama no ${P.nomeCategoria(cat)}: ${meusPontos && meusPontos[cat] ? meusPontos[cat].mostrar : '…'}`;
+  document.querySelectorAll('.tipo-amigo').forEach((b) => { b.disabled = !cat && b.dataset.tipo === 'pontos'; });
+  if (!cat && tipoAmigo === 'pontos') { tipoAmigo = 'amistosa'; marcar('.tipo-amigo', 'tipo', tipoAmigo); }
+}
+function procurar() {
+  if (!conta.token || !P.categoria(ritmo, 'dama') || busca) return;
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const ws = new WebSocket(comRede(`${proto}//${location.host}/api/xadrez/busca?jogo=dama&ritmo=${encodeURIComponent(ritmo)}&t=${encodeURIComponent(conta.token)}`));
+  busca = { ws, desde: Date.now(), timer: 0 };
+  const r = RITMOS[ritmo] || { nome: 'Teste', base: 8000, inc: 1000 };
+  const cat = P.categoria(ritmo, 'dama');
+  $('#busca-txt').textContent = `Dama ${r.nome} ${r.base / 60000} min${r.inc ? ' +' + r.inc / 1000 + 's' : ''} · seus pontos ${meusPontos && meusPontos[cat] ? meusPontos[cat].mostrar : '…'}`;
+  $('#x-busca').hidden = false;
+  const tique = () => { const s = Math.floor((Date.now() - busca.desde) / 1000); $('#busca-tempo').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  tique(); busca.timer = setInterval(tique, 500);
+  ws.onmessage = (ev) => {
+    let m; try { m = JSON.parse(ev.data); } catch { return; }
+    if (m.t === 'achou') { pararBusca(); jogarOnline(m.codigo); }
+    else if (m.t === 'erro') { pararBusca(); $('#x-erro').textContent = m.msg; }
+  };
+  ws.onclose = () => { if (busca && busca.ws === ws) { pararBusca(); $('#x-erro').textContent = 'A busca caiu. Tente de novo.'; } };
+}
+function pararBusca() {
+  if (!busca) return;
+  const b = busca; busca = null;
+  clearInterval(b.timer);
+  try { b.ws.close(); } catch {}
+  $('#x-busca').hidden = true;
+}
+$('#bt-procurar').addEventListener('click', () => { $('#x-erro').textContent = ''; procurar(); });
+$('#bt-busca-cancelar').addEventListener('click', () => pararBusca());
 
 // ---------- menu ----------
 function marcar(sel, attr, v) { document.querySelectorAll(sel).forEach((b) => { const s = b.dataset[attr] === String(v); b.classList.toggle('sel', s); b.setAttribute('aria-checked', s); }); }
 document.querySelectorAll('.nivel').forEach((b) => b.addEventListener('click', () => { nivel = +b.dataset.nivel; marcar('.nivel', 'nivel', nivel); }));
 document.querySelectorAll('.cor-peca').forEach((b) => b.addEventListener('click', () => { voce = b.dataset.cor; marcar('.cor-peca', 'cor', voce); }));
-marcar('.nivel', 'nivel', nivel); marcar('.cor-peca', 'cor', voce);
+document.querySelectorAll('.ritmo').forEach((b) => b.addEventListener('click', () => { ritmo = b.dataset.ritmo; marcar('.ritmo', 'ritmo', ritmo); try { localStorage.setItem('pradaria.dama.ritmo', ritmo); } catch {} mostrarMeusPontos(); }));
+document.querySelectorAll('.tipo-amigo').forEach((b) => b.addEventListener('click', () => { tipoAmigo = b.dataset.tipo; marcar('.tipo-amigo', 'tipo', tipoAmigo); }));
+try { const r = localStorage.getItem('pradaria.dama.ritmo'); if (r === '' || (r && Object.hasOwn(RITMOS, r))) ritmo = r; } catch {}
+marcar('.nivel', 'nivel', nivel); marcar('.cor-peca', 'cor', voce); marcar('.ritmo', 'ritmo', ritmo); marcar('.tipo-amigo', 'tipo', tipoAmigo);
 
 function abrirMenu() {
   fecharOnline();
@@ -210,9 +346,11 @@ function abrirMenu() {
   $('#bt-amigo').disabled = !conta.token;
   history.replaceState(null, '', location.pathname);
   if (lobby) lobby.jogo('dama');
+  mostrarMeusPontos();
+  if (conta.token && !meusPontos) lerMeusPontos();
 }
 function comecarPC(guardado = null) {
-  modo = 'pc'; girado = false; sel = -1; alvos = [];
+  modo = 'pc'; girado = false; sel = -1; alvos = []; relogio = null; lancesVistos = -1;
   if (guardado) { e = X.deJson(guardado.e); voce = guardado.voce; nivel = guardado.nivel; fimAtual = null; }
   else { e = X.novo(); fimAtual = null; }
   $('#x-menu').hidden = true; $('#x-jogo').hidden = false;
@@ -233,6 +371,7 @@ $('#bt-desistir').addEventListener('click', () => {
   fimAtual = { tipo: 'desistiu', vencedor: voce === 'w' ? 'b' : 'w', quem: voce };
   salvarPC(); desenhar(); mostrarFim();
 });
+$('#bt-vitoria').addEventListener('click', () => { if (online && online.ws) online.ws.send(JSON.stringify({ t: 'vitoria' })); });
 $('#bt-empate').addEventListener('click', () => { if (online && online.ws) online.ws.send(JSON.stringify({ t: 'empate' })); });
 $('#bt-revanche').addEventListener('click', () => {
   if (modo === 'pc') { $('#x-fim').hidden = true; comecarPC(); return; }
@@ -245,11 +384,12 @@ $('#bt-menu-fim').addEventListener('click', () => abrirMenu());
 // ---------- online ----------
 function fecharOnline() { if (online && online.ws) { online.fechado = true; try { online.ws.close(); } catch {} } online = null; }
 function codigoNovo() { const L = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'; return [...crypto.getRandomValues(new Uint8Array(14))].map((x) => L[x % L.length]).join(''); }
-function jogarOnline(codigo, chamar = false) {
+function jogarOnline(codigo, chamar = false, criar = false) {
   if (!conta.token) { $('#x-erro').textContent = 'Entre na sua conta para jogar com amigos.'; return; }
   fecharOnline();
   modo = 'online'; e = X.novo(); voce = 'w'; fimAtual = null; fimVisto = null; sel = -1; alvos = []; girado = false;
-  online = { codigo, jogadores: null, tentativas: 0 };
+  online = { codigo, jogadores: null, tentativas: 0, ritmo: criar ? ritmo : '', ranqueada: criar && tipoAmigo === 'pontos' && !!P.categoria(ritmo, 'dama') };
+  relogio = null; lancesVistos = -1;
   history.replaceState(null, '', '?sala=' + codigo);
   $('#x-menu').hidden = true; $('#x-jogo').hidden = false; $('#x-fim').hidden = true;
   desenhar();
@@ -260,7 +400,7 @@ function conectar() {
   const o = online;
   if (!o) return;
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const ws = new WebSocket(`${proto}//${location.host}/api/partida/${o.codigo}?jogo=dama&t=${encodeURIComponent(conta.token)}`);
+  const ws = new WebSocket(comRede(`${proto}//${location.host}/api/partida/${o.codigo}?jogo=dama${o.ritmo ? '&ritmo=' + encodeURIComponent(o.ritmo) : ''}${o.ranqueada ? '&ranqueada=1' : ''}&t=${encodeURIComponent(conta.token)}`));
   o.ws = ws;
   ws.onopen = () => { o.tentativas = 0; };
   ws.onmessage = (ev) => {
@@ -274,6 +414,11 @@ function conectar() {
     voce = m.voce || 'w';
     e = X.deJson(m.estado);
     fimAtual = m.fim;
+    relogio = m.relogio ? { ...m.relogio, recebido: performance.now() } : null;
+    const tinhaResultado = !!o.resultado, antesRes = JSON.stringify(o.resultado || null);
+    o.ranqueada = !!m.ranqueada; o.pontos = m.pontos || null; o.resultado = m.resultado || null;
+    o.fora = m.fora || null; o.prazoFora = m.prazoFora || 60000; o.foraRecebido = performance.now();
+    if (fimAtual && o.resultado && !$('#x-fim').hidden && (!tinhaResultado || antesRes !== JSON.stringify(o.resultado))) mostrarPontosFim();
     if (sel >= 0 && (e.vez !== voce)) { sel = -1; alvos = []; }
     else if (sel >= 0) alvos = X.lances(e).filter((x) => x.caminho[0] === sel);
     if (antes && m.n !== o.n) { $('#x-fim').hidden = true; fimVisto = null; aviso('Partida nova! Agora você joga de ' + (voce === 'w' ? 'brancas' : 'vermelhas'), 2500, 'dama'); }
@@ -294,7 +439,7 @@ function chamarAmigo() {
   if (!amigos || !online) return;
   amigos.abrir({ jogo: 'dama', sala: online.codigo, titulo: 'Dama' });
 }
-$('#bt-amigo').addEventListener('click', () => jogarOnline(codigoNovo(), true));
+$('#bt-amigo').addEventListener('click', () => jogarOnline(codigoNovo(), true, true));
 $('#bt-chamar').addEventListener('click', () => chamarAmigo());
 
 // ---------- saguão e amigos ----------
@@ -319,5 +464,5 @@ if (pedida && /^[A-Za-z0-9]{10,24}$/.test(pedida) && conta.token) jogarOnline(pe
 else abrirMenu();
 
 // para os testes automáticos (testes/teste-dama.mjs)
-window.__dama = { get e() { return e; }, get voce() { return voce; }, get modo() { return modo; }, get fim() { return fimAtual; }, get online() { return online; }, X, set nivel(v) { nivel = v; }, fazer };
+window.__dama = { get e() { return e; }, get voce() { return voce; }, get modo() { return modo; }, get fim() { return fimAtual; }, get online() { return online; }, get relogio() { return relogio; }, get busca() { return busca; }, set ritmo(v) { ritmo = v; }, X, set nivel(v) { nivel = v; }, fazer };
 void icone;
