@@ -17,7 +17,7 @@ android {
         // o site mostra a versão do app: vai no endereço que o app abre
         // só no teste automático (emulador de Android TV): deixa o teste controlar o WebView
         resValue "bool", "depurar", System.getenv("DEPURAR_WEB") == "1" ? "true" : "false"
-        resValue "string", "endereco", "https://pradaria.pages.dev/tv?appv=" + (System.getenv("VERSAO_NOME") ?: "1.0")
+        resValue "string", "endereco", "https://pradaria.pages.dev/tv?appv=" + (System.getenv("VERSAO_NOME") ?: "1.0") + (System.getenv("DEPURAR_WEB") == "1" ? "#teste" : "")
     }
     signingConfigs {
         release {

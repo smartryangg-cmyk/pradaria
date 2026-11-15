@@ -29,7 +29,7 @@ try {
   const tv = await wv.page();
   tv.on('pageerror', (e) => erros.push('TV: ' + e.message));
   tv.on('console', (m) => { if (m.type() === 'error') erros.push('TV console: ' + m.text()); });
-  ok(/\/tv\?appv=/.test(tv.url()), 'o app abriu ' + tv.url());
+  ok(/\/tv\?appv=[^#]+#teste$/.test(tv.url()), 'o app abriu ' + tv.url());
   await tv.waitForSelector('#tv-painel.tv-cheia:not([hidden])', { timeout: 60000 });
   ok(await tv.evaluate(() => document.body.classList.contains('modo-tv')), 'Modo TV ligado');
   ok(await tv.evaluate(() => /Android TV PradariaTV\//.test(navigator.userAgent)), 'o site vê que é a TV pelo app');
