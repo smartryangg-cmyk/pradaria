@@ -1672,7 +1672,7 @@ function abrirConta(m) {
     cc.appendChild(b);
   });
   mostrarMenu('m-conta');
-  setTimeout(() => $('#c-nome').focus(), 50);
+  setTimeout(() => { if (!$('#m-conta').contains(document.activeElement)) $('#c-nome').focus(); }, 50); // não rouba o foco de quem já está digitando
 }
 $('#bt-entrar').addEventListener('click', () => conta.token ? abrirJogos() : abrirConta('entrar'));
 $('#bt-criar-conta').addEventListener('click', () => abrirConta('criar'));
