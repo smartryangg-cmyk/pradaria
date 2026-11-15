@@ -11,6 +11,8 @@ const { chromium } = pw;
 const SAIDA = process.env.SAIDA || '/tmp/xadrez-trapaca';
 const URL = process.env.URL || 'http://localhost:8788';
 const NO_AR = !/localhost|127\.0\.0\.1/.test(URL);
+// No site publicado não dá para fazer duas contas parecerem da mesma internet daqui: o proxy deste computador sai por
+// IPs diferentes a cada conexão. Lá o teste confere só o "pedir a vitória"; as regras de rede ficam no servidor de teste.
 const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 let falhas = 0;
 const ok = (c, msg) => { console.log((c ? 'OK   ' : 'FALHA ') + msg); if (!c) falhas++; };
@@ -60,26 +62,44 @@ async function comAmigo(ana, beto, tipo, comoAcaba) {
   return beto.p.textContent('#fim-pontos');
 }
 
-const ana = await abrir({ viewport: { width: 1280, height: 800 } }, 'tana' + letras(), 'casa');
-const beto = await abrir(CEL, 'tbeto' + letras(), 'casa');
+const ana = await abrir({ viewport: { width: 1280, height: 800 } }, 'tana' + letras(), process.env.REDE ?? 'casa');
+const beto = await abrir(CEL, 'tbeto' + letras(), process.env.REDE ?? 'casa');
 
+if (!NO_AR) {
 // 1. mesma internet: a busca não junta
 for (const j of [ana, beto]) { await j.clica('.ritmo[data-ritmo="1+0"]'); await j.clica('#bt-procurar'); }
 await ana.p.waitForTimeout(7000);
-ok(await ana.p.evaluate(() => !!window.__xadrez.busca && window.__xadrez.modo !== 'online') && await beto.p.evaluate(() => !!window.__xadrez.busca && window.__xadrez.modo !== 'online'), 'mesma internet: depois de 7 s a busca ainda não juntou os dois');
-for (const j of [ana, beto]) await j.clica('#bt-busca-cancelar');
+const estado = (j) => j.p.evaluate(() => (window.__xadrez.busca ? 'procurando' : 'parou') + '/' + window.__xadrez.modo + '/' + document.querySelector('#x-erro').textContent);
+const ea = await estado(ana), eb = await estado(beto);
+ok(/^procurando\/(null|undefined)?\//.test(ea) && /^procurando\/(null|undefined)?\//.test(eb), `mesma internet: depois de 7 s a busca ainda não juntou os dois (Ana ${ea}, Beto ${eb})`);
+for (const j of [ana, beto]) if (await j.p.isVisible('#bt-busca-cancelar')) await j.clica('#bt-busca-cancelar'); else await menu(j);
 
 // 2. mesma internet: "Valendo pontos" com amigo não vale
 const t2 = await comAmigo(ana, beto, 'pontos', 'mate');
 ok(/mesma internet/.test(t2) && (await pontos(beto)).rapida.jogos === 0, 'mesma internet: partida "Valendo pontos" anulada, pontos iguais (' + t2 + ')');
 await beto.foto('1-mesma-internet');
 
-if (!NO_AR) {
   // daqui em diante cada um na sua internet
   beto.rede = 'outra';
   // 3. desistir antes de 10 lances de cada lado
   const t3 = await comAmigo(ana, beto, 'pontos', 'desistir');
   ok(/antes de 10 lances/.test(t3) && (await pontos(beto)).rapida.jogos === 0, 'desistir no 2º lance: anulada, pontos iguais (' + t3 + ')');
+  // 3b. perder no tempo antes de 10 lances de cada lado também não vale (ritmo de teste: 8 s)
+  await menu(ana); await menu(beto);
+  await ana.p.evaluate(() => { window.__xadrez.ritmo = 'teste'; });
+  await ana.clica('.tipo-amigo[data-tipo=pontos]');
+  await ana.p.evaluate(() => { window.__xadrez.ritmo = 'teste'; });
+  await ana.clica('#bt-amigo');
+  await ana.p.waitForFunction(() => window.__xadrez.online && window.__xadrez.online.jogadores, null, { timeout: 10000 });
+  await ana.p.waitForSelector('#amigos:not([hidden])', { timeout: 5000 }).then(() => ana.clica('#amigos-fechar'), () => {});
+  const codT = await ana.p.evaluate(() => window.__xadrez.online.codigo);
+  await beto.p.goto(URL + '/xadrez?sala=' + codT + '&rede=' + beto.rede);
+  await beto.p.waitForFunction(() => window.__xadrez && window.__xadrez.voce === 'b' && window.__xadrez.online.jogadores && window.__xadrez.online.jogadores.w, null, { timeout: 15000 });
+  await vez(ana, 'w'); await ana.lance('e2', 'e4'); await vez(beto, 'b'); await beto.lance('e7', 'e5');
+  await beto.p.waitForSelector('#x-fim:not([hidden])', { timeout: 20000 });
+  await beto.p.waitForFunction(() => { const t = document.querySelector('#fim-pontos').textContent; return t && !/Contando/.test(t); }, null, { timeout: 10000 });
+  const t3b = await beto.p.textContent('#fim-pontos');
+  ok(await beto.p.evaluate(() => window.__xadrez.fim.tipo === 'tempo' && window.__xadrez.online.ranqueada) && /antes de 10 lances/.test(t3b) && (await pontos(beto)).bullet.jogos === 0, 'Ana deixou o tempo acabar no 2º lance: anulada, pontos iguais (' + t3b + ')');
   // 4. só 3 por dia entre os dois
   for (let k = 1; k <= 3; k++) {
     const t = await comAmigo(ana, beto, 'pontos', 'mate');

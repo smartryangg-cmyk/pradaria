@@ -329,7 +329,7 @@ function mostrarPontosFim() {
   if (r.pendente) { el.textContent = 'Contando os pontos…'; return; }
   if (r.falhou) { el.textContent = 'Não deu para contar os pontos agora.'; return; }
   if (r.anulada) {
-    el.textContent = r.motivo === 'cedo' ? 'Partida anulada (acabou antes de 10 lances de cada um): não valeu pontos.'
+    el.textContent = r.motivo === 'cedo' ? 'Partida anulada (acabou antes de 10 lances de cada um, sem xeque-mate): não valeu pontos.'
       : r.motivo === 'rede' ? 'Partida anulada (as duas contas estão na mesma internet): não valeu pontos.'
       : r.motivo === 'limite' ? 'Vocês dois já jogaram 3 partidas valendo pontos hoje: esta não valeu.'
       : 'Partida anulada (menos de 2 lances): não valeu pontos.';
