@@ -71,7 +71,18 @@ const CSS = `
 #bt-viajar.mostra { display: flex; }
 @keyframes era-pulsa { 50% { transform: scale(1.07); } }
 @media (max-width: 560px) { #era-hud .barra-xp { width: 60px; } #era-hud .nome { display: none; } }
-#era-painel .caixa { max-width: 560px; }
+/* celular: o botão Viajar no tempo vai para baixo, em cima da barra (no topo ele cobria as moedas e o minimapa) */
+@media (max-width: 560px) and (orientation: portrait), (max-height: 480px) {
+  #era-topo { left: 0; right: 0; transform: none; justify-content: center; max-width: none; }
+  #bt-viajar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 86px); font-size: 15px; padding: 8px 16px; animation-name: era-pulsa-meio; }
+  #era-hud { padding: 5px 10px 5px 6px; }
+}
+@media (max-width: 560px) and (orientation: portrait) { #bt-viajar { left: 12px; transform: none; animation-name: era-pulsa; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 132px); } }
+@media (max-width: 360px) { #era-hud .barra-xp { width: 44px; } }
+@media (max-height: 480px) { #era-hud .barra-xp { width: 70px; } #era-hud .nome { display: none; } #era-topo { top: calc(max(10px, env(safe-area-inset-top)) + 64px); } }
+@keyframes era-pulsa-meio { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.07); } }
+#era-painel { grid-template-columns: minmax(0, 1fr); }
+#era-painel .caixa { width: min(560px, 100%); min-width: 0; max-width: 560px; } /* a fila das eras rola sozinha: a janela não passa da tela do celular */
 #era-painel .linha-eras { display: flex; gap: 4px; overflow-x: auto; padding: 6px 2px 10px; }
 #era-painel .era-p { flex: 1 0 58px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border-radius: 12px; background: #fff; border: 3px solid #e2d6bf; font-size: 11px; text-align: center; line-height: 1.1; }
 #era-painel .era-p .ic-svg { width: 30px; height: 30px; }
@@ -91,7 +102,7 @@ const CSS = `
 #era-painel .xp-grande i { display: block; height: 100%; background: var(--cor-era, #5cbf4a); }
 #era-titulo { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 40; opacity: 0; transition: opacity .8s; background: radial-gradient(circle, rgba(255,255,255,.85), rgba(255,240,200,.6) 60%, rgba(255,230,160,0)); }
 #era-titulo.mostra { opacity: 1; }
-#era-titulo .dentro { text-align: center; color: #3b2f22; text-shadow: 0 2px 0 #fff; }
+#era-titulo .dentro { text-align: center; padding: 0 16px; color: #3b2f22; text-shadow: 0 2px 0 #fff; }
 #era-titulo .quando { font-size: clamp(16px, 3vw, 26px); font-weight: 700; letter-spacing: .5px; }
 #era-titulo .nome { font-size: clamp(30px, 7vw, 64px); font-weight: 900; line-height: 1.05; margin: 6px 0; }
 #era-titulo .ic-svg { width: clamp(64px, 12vw, 120px); height: clamp(64px, 12vw, 120px); margin: 0 auto; }
