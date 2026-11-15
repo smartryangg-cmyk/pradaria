@@ -26,6 +26,65 @@ export const ESTILOS = {
   serra: { nome: 'da serra', parede: B.PEDRISCO, canto: B.TRONCO, piso: B.TABUAS, rua: B.PEDRISCO, telhados: [B.TABUAS, B.LA_VERMELHA, B.TIJOLO] },
 };
 
+// estilos das vilas no mundo "Linha do Tempo" (um por era, da Idade da Pedra em diante).
+// Campos a mais (todos opcionais; sem eles a vila fica como as do mundo normal):
+//   janela (AR = buraco sem vidro), luz (dentro de casa), luzPorta (null = nenhuma), celeiro (parede do celeiro),
+//   poste/luzPoste/altPoste (postes das ruas e da praça), centro ('poco' | 'fogueira' | 'fonte' | 'obelisco'),
+//   praca (chão da praça), base/friso (fileira de baixo/de cima das paredes), faixa (meio da rua),
+//   planos (telhados retos), bordaTelhado, chamine, cerca, cama, travesseiro, ponte
+export const ESTILOS_ERA = {
+  povoado: {
+    nome: 'povoado de cabanas', parede: BE.BARRO, canto: B.TRONCO, piso: B.TERRA, rua: B.TERRA, telhados: [BE.PALHA],
+    janela: AR, luz: BE.FOGUEIRA, luzPorta: null, celeiro: B.TRONCO, poste: B.TRONCO, luzPoste: BE.FOGUEIRA, altPoste: 1,
+    centro: 'fogueira', praca: B.TERRA, cama: BE.PELE, travesseiro: BE.PALHA, ponte: B.TRONCO,
+  },
+  antiga: {
+    nome: 'antiga', parede: BE.ARENITO, canto: BE.COLUNA, piso: BE.ARENITO, rua: BE.ARENITO, telhados: [BE.TERRACOTA], base: BE.MARMORE,
+    janela: AR, luz: BE.FOGUEIRA, luzPorta: null, celeiro: BE.ARENITO, poste: BE.COLUNA, luzPoste: BE.FOGUEIRA,
+    centro: 'fonte', praca: BE.MOSAICO, fonteBorda: BE.MARMORE, fontePilar: BE.COLUNA, fonteTopo: BE.OURO,
+  },
+  medieval: {
+    nome: 'medieval', parede: BE.ENXAIMEL, canto: B.TRONCO, piso: B.TABUAS, rua: B.PEDRISCO, telhados: [B.TABUAS, B.LA_VERMELHA, B.LA_AZUL, B.TABUAS],
+    base: BE.PEDRA_CASTELO, pocoBorda: BE.PEDRA_CASTELO,
+  },
+  industrial: {
+    nome: 'industrial', parede: BE.TIJOLO_FABRICA, canto: B.PEDRISCO, piso: B.TABUAS, rua: B.PEDRISCO, telhados: [BE.FERRO, BE.TERRACOTA, B.TABUAS],
+    poste: BE.FERRO, pocoBorda: BE.TIJOLO_FABRICA, pocoPilar: BE.FERRO, pocoTeto: BE.FERRO, chamine: BE.TIJOLO_FABRICA, cerca: BE.FERRO,
+  },
+  moderna: {
+    nome: 'moderna', parede: BE.CONCRETO, canto: BE.CONCRETO, piso: BE.AZULEJO, rua: BE.ASFALTO, faixa: BE.ASFALTO_FAIXA,
+    telhados: [BE.CONCRETO, BE.TERRACOTA, BE.CONCRETO], planos: [BE.CONCRETO], base: BE.AZULEJO,
+    janela: BE.VIDRO_AZUL, luz: BE.LUZ_LED, luzPorta: BE.LUZ_LED, poste: BE.FERRO, luzPoste: BE.LUZ_LED, altPoste: 3,
+    centro: 'fonte', praca: BE.CONCRETO, fonteBorda: BE.AZULEJO, fontePilar: BE.CONCRETO, fonteTopo: BE.LUZ_LED, cerca: BE.FERRO, ponte: BE.CONCRETO,
+  },
+  futuro: {
+    nome: 'do futuro', parede: BE.METAL_BRANCO, canto: BE.CRISTAL, piso: BE.METAL_BRANCO, rua: BE.METAL_BRANCO, faixa: BE.NEON,
+    telhados: [BE.PAINEL_SOLAR], planos: [BE.PAINEL_SOLAR], bordaTelhado: BE.METAL_BRANCO, friso: BE.NEON,
+    janela: BE.VIDRO_AZUL, luz: BE.NEON, luzPorta: BE.NEON, celeiro: BE.METAL_BRANCO, poste: BE.METAL_BRANCO, luzPoste: BE.NEON, altPoste: 3,
+    centro: 'obelisco', praca: BE.METAL_BRANCO, cerca: BE.METAL_BRANCO, ponte: BE.METAL_BRANCO,
+  },
+};
+const ESTILO_DA_ERA = [null, null, 'povoado', 'antiga', 'medieval', 'industrial', 'moderna', 'futuro'];
+// a vila "cresce" com as eras: só as construções até esta distância da praça (ao longo da rua)
+const ALCANCE_ERA = [0, 0, 8, 17, 99, 99, 99, 99];
+// primeira palavra do nome em cada era (a segunda continua igual: a vila é a mesma, só o tempo passou)
+const NOMES_ERA = [null, null,
+  ['Povoado', 'Aldeia', 'Tribo', 'Povoado', 'Aldeia'],
+  ['Cidade', 'Vila', 'Cidade', 'Vila', 'Cidade'],
+  ['Vila', 'Aldeia', 'Burgo', 'Vilarejo', 'Vila'],
+  ['Vila', 'Cidade', 'Vila', 'Cidade', 'Vila'],
+  ['Cidade', 'Bairro', 'Cidade', 'Bairro', 'Cidade'],
+  ['Cidade', 'Colônia', 'Cidade', 'Base', 'Cidade'],
+];
+// o que vale quando o estilo não diz (= vilas do mundo normal)
+const PADRAO_ESTILO = {
+  janela: B.VIDRO, luz: B.LAMPIAO, luzPorta: B.LAMPIAO, celeiro: B.TABUAS, poste: B.TRONCO, luzPoste: B.LAMPIAO, altPoste: 2,
+  centro: 'poco', praca: B.PEDRISCO, pocoBorda: B.PEDRA, pocoPilar: B.TRONCO, pocoTeto: B.TABUAS, cerca: 84, // 84 = Cerca (formas-defs.js)
+  travesseiro: B.LA_BRANCA, ponte: B.TABUAS, base: null, friso: null, faixa: null, planos: null, bordaTelhado: null, chamine: null,
+};
+const ESTILOS_COMPLETOS = {};
+const estiloCompleto = (nome) => (ESTILOS_COMPLETOS[nome] ||= { ...PADRAO_ESTILO, ...(ESTILOS[nome] || ESTILOS_ERA[nome] || ESTILOS.campo) });
+
 // direções das ruas e a posição de cada uma no anel da praça
 const DIRS = [[1, 0, 0], [0, 1, 2], [-1, 0, 4], [0, -1, 6]];
 // caminho dos moradores em volta do poço (as quinas em 2,2 passam entre o poço e os lampiões da praça, que ficam em 3,3)
@@ -35,6 +94,15 @@ export class Vilas {
   constructor(mundo) {
     this.m = mundo;
     this.cache = new Map();
+    this.cacheEras = new Map(); // vilas de outras eras (Linha do Tempo), sem apagar ao trocar de era
+  }
+
+  // vila da região numa era qualquer (a posição é a mesma em todas as eras; o tamanho e o estilo mudam)
+  regiaoNaEra(rx, rz, era) {
+    if (era === this.m.era) return this.regiao(rx, rz);
+    const k = era + ':' + rx + ',' + rz;
+    if (!this.cacheEras.has(k)) this.cacheEras.set(k, this.planejar(rx, rz, era));
+    return this.cacheEras.get(k);
   }
 
   get nivel() { return this.m.nivelAgua; }
@@ -62,9 +130,10 @@ export class Vilas {
   }
 
   // ---------- planejamento (só números, nada de blocos ainda) ----------
-  planejar(rx, rz) {
+  planejar(rx, rz, era = this.m.era) {
     if (!opcoesMundo.vilas) return null; // mundo criado sem vilas
     if (this.m.aventura) return null; // a Ilha de Aventura tem as próprias cidades e vilas
+    if (era !== null && era < 2) return null; // Linha do Tempo: ainda não existem pessoas
     const s = this.m.semente;
     const origem = rx === 0 && rz === 0; // sempre tem uma vila perto de onde se começa
     if (!origem && hash3(rx, 501, rz, s) > 0.55) return null;
@@ -81,10 +150,12 @@ export class Vilas {
     }
     if (!C) return null;
 
-    const nome = NOMES_A[Math.floor(rng() * NOMES_A.length)] + ' ' + NOMES_B[Math.floor(rng() * NOMES_B.length)];
+    const iA = Math.floor(rng() * NOMES_A.length);
+    const nome = (era !== null ? NOMES_ERA[era][iA] : NOMES_A[iA]) + ' ' + NOMES_B[Math.floor(rng() * NOMES_B.length)];
     const N = this.nivel, bio = this.m.biomaEm ? this.m.biomaEm(C.x, C.z) : -1;
-    const estilo = C.h <= N + 2 ? 'praia' : C.h >= N + 14 ? 'serra' : bio === BIOMA.DESERTO ? 'deserto' : bio === BIOMA.NEVE || bio === BIOMA.TAIGA ? 'neve' : rng() < 0.5 ? 'campo' : 'tijolo';
-    const E = ESTILOS[estilo];
+    // mundo normal: estilo pelo lugar; Linha do Tempo: estilo pela era
+    const estilo = era !== null ? ESTILO_DA_ERA[era] : C.h <= N + 2 ? 'praia' : C.h >= N + 14 ? 'serra' : bio === BIOMA.DESERTO ? 'deserto' : bio === BIOMA.NEVE || bio === BIOMA.TAIGA ? 'neve' : rng() < 0.5 ? 'campo' : 'tijolo';
+    const E = era !== null ? ESTILOS_ERA[estilo] : ESTILOS[estilo];
     const v = { nome, estilo, x: C.x, z: C.z, y: C.h, ruas: [], estruturas: [], casas: [], fazendas: [], raio: 8 };
     const ocupado = [[C.x - 5, C.z - 5, C.x + 5, C.z + 5]];
     const livre = (r) => !ocupado.some((o) => r[0] <= o[2] && r[2] >= o[0] && r[1] <= o[3] && r[3] >= o[1]);
@@ -150,6 +221,7 @@ export class Vilas {
           telhado: E.telhados[Math.floor(rng() * E.telhados.length)],
           cama: [B.LA_VERMELHA, B.LA_AZUL, B.LA_AMARELA, B.LA_ROSA, B.LA_VERDE][Math.floor(rng() * 5)],
         };
+        if (E.cama) est.cama = E.cama;
         v.estruturas.push(est);
         if (tipo === 'fazenda') v.fazendas.push(est); else v.casas.push(est);
         if (tipo === 'padaria') v.padaria = est;
@@ -178,7 +250,33 @@ export class Vilas {
     v.estruturas.push(...postes); // por último, em cima do chão já nivelado
     v.estruturas.unshift({ tipo: 'praca', r: [C.x - 4, C.z - 4, C.x + 4, C.z + 4], y: C.h });
     for (const o of ocupado) v.raio = Math.max(v.raio, Math.hypot(o[0] - C.x, o[1] - C.z), Math.hypot(o[2] - C.x, o[3] - C.z));
+    if (era !== null) this.crescer(v, ALCANCE_ERA[era]);
     return v;
+  }
+
+  // Linha do Tempo: nas primeiras eras a vila é menor (ruas curtas, só as casas perto da praça).
+  // Tira o que fica longe depois de planejar a vila inteira, então a posição de tudo é igual em todas as eras.
+  crescer(v, alcance) {
+    if (alcance >= 99) return;
+    const C = { x: v.x, z: v.z };
+    const fica = (e) => e.t === undefined || e.t <= alcance;
+    let ri = 0;
+    for (const e of v.estruturas) {
+      if (e.tipo !== 'rua') continue;
+      const rua = v.ruas[ri++];
+      rua.L = Math.min(rua.L, alcance);
+      e.r = this.retRua(C, rua.dx, rua.dz, 5, 4 + rua.L, 1);
+      rua.lados = rua.lados.filter((l) => fica(l.est));
+    }
+    const longe = (e) => e.tipo === 'poste' && Math.max(Math.abs(e.x - v.x), Math.abs(e.z - v.z)) > 4 + alcance;
+    v.estruturas = v.estruturas.filter((e) => fica(e) && !longe(e));
+    v.casas = v.casas.filter(fica);
+    v.fazendas = v.fazendas.filter(fica);
+    v.raio = 8;
+    for (const e of v.estruturas) if (e.r) {
+      const f = e.tipo === 'rua' || e.tipo === 'praca' ? 0 : 1;
+      v.raio = Math.max(v.raio, Math.hypot(e.r[0] - f - v.x, e.r[1] - f - v.z), Math.hypot(e.r[2] + f - v.x, e.r[3] + f - v.z));
+    }
   }
 
   // ponto a `t` blocos do centro ao longo da rua e `p` para o lado (lado +1 = à direita de quem sai da praça)
@@ -212,7 +310,7 @@ export class Vilas {
     const put = (x, y, z, b) => { if (y > 0 && y < ALT && dentro(x, z)) d[idx(x - ox, y, z - oz)] = b; };
     const get = (x, y, z) => dentro(x, z) && y >= 0 && y < ALT ? d[idx(x - ox, y, z - oz)] : AR;
     const toca = (r) => r[0] - 1 < ox + CX && r[2] + 1 >= ox && r[1] - 1 < oz + CZ && r[3] + 1 >= oz;
-    const ctx = { put, get, dentro };
+    const ctx = { put, get, dentro, E: estiloCompleto(v.estilo) };
     for (const e of v.estruturas) {
       if (e.r ? !toca(e.r) : !dentro(e.x, e.z)) continue;
       if (e.tipo === 'rua') this.pintarRua(ctx, e);
@@ -236,23 +334,24 @@ export class Vilas {
     }
   }
 
-  pintarRua({ put, get, dentro }, e) {
+  pintarRua({ put, get, dentro, E }, e) {
     const [x0, z0, x1, z1] = e.r;
+    const aoLongoX = x1 - x0 > z1 - z0;
     for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
       if (!dentro(x, z)) continue;
       const h = this.alt(x, z);
-      if (h <= this.nivel) { put(x, this.nivel, z, B.TABUAS); continue; } // pontezinha
-      put(x, h, z, e.mat);
+      if (h <= this.nivel) { put(x, this.nivel, z, E.ponte); continue; } // pontezinha
+      put(x, h, z, E.faixa && (aoLongoX ? z === z0 + 1 : x === x0 + 1) ? E.faixa : e.mat);
       for (let yy = h + 1; yy <= h + 2; yy++) if (PLANTA[get(x, yy, z)]) put(x, yy, z, AR);
     }
   }
 
-  pintarPoste({ put, get }, e) {
+  pintarPoste({ put, get, E }, e) {
     let y = ALT - 2;
     while (y > 1 && (get(e.x, y, e.z) === AR || PLANTA[get(e.x, y, e.z)])) y--;
-    put(e.x, y + 1, e.z, B.TRONCO);
-    put(e.x, y + 2, e.z, B.TRONCO);
-    this.lampiao(put, e.x, y + 3, e.z);
+    for (let k = 1; k <= E.altPoste; k++) put(e.x, y + k, e.z, E.poste);
+    if (E.luzPoste === B.LAMPIAO) this.lampiao(put, e.x, y + E.altPoste + 1, e.z); // mundo normal: lâmpada com sensor de noite
+    else put(e.x, y + E.altPoste + 1, e.z, E.luzPoste);
   }
 
   // poste de luz: com as máquinas ligadas, a lâmpada tem um sensor de noite em cima
@@ -263,25 +362,51 @@ export class Vilas {
   }
 
   pintarPraca(ctx, e) {
-    const { put } = ctx;
+    const { put, E } = ctx;
     const [x0, z0, x1, z1] = e.r, y = e.y;
     const cx = x0 + 4, cz = z0 + 4;
-    this.aplainar(ctx, x0, z0, x1, z1, y, B.PEDRISCO);
+    this.aplainar(ctx, x0, z0, x1, z1, y, E.praca);
     // canteiros de flores nos cantos
     for (const [fx, fz] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]) { put(fx, y, fz, B.GRAMA); put(fx, y + 1, fz, B.FLOR_AMARELA); }
-    // poço
-    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
-      if (dx === 0 && dz === 0) { for (let yy = y - 3; yy <= y; yy++) put(cx, yy, cz, B.AGUA); continue; }
-      put(cx + dx, y + 1, cz + dz, B.PEDRA);
-      if (dx && dz) { put(cx + dx, y + 2, cz + dz, B.TRONCO); put(cx + dx, y + 3, cz + dz, B.TRONCO); }
-      put(cx + dx, y + 4, cz + dz, B.TABUAS);
+    if (E.centro === 'fogueira') {
+      // fogueira com pedras em volta e troncos para sentar
+      for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) put(cx + dx, y, cz + dz, B.PEDRA);
+      put(cx, y + 1, cz, BE.FOGUEIRA);
+      for (let k = -1; k <= 1; k++) { put(cx + k, y + 1, cz - 3, B.TRONCO); put(cx + k, y + 1, cz + 3, B.TRONCO); put(cx - 3, y + 1, cz + k, B.TRONCO); put(cx + 3, y + 1, cz + k, B.TRONCO); }
+    } else if (E.centro === 'fonte') {
+      // fonte: borda, água e uma coluna no meio
+      for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) {
+        const borda = Math.abs(dx) === 2 || Math.abs(dz) === 2;
+        if (borda) { if (Math.abs(dx) + Math.abs(dz) < 4) put(cx + dx, y + 1, cz + dz, E.fonteBorda); continue; }
+        put(cx + dx, y, cz + dz, E.fonteBorda);
+        put(cx + dx, y + 1, cz + dz, dx === 0 && dz === 0 ? E.fontePilar : B.AGUA);
+      }
+      for (const [dx, dz] of [[2, 2], [2, -2], [-2, 2], [-2, -2]]) put(cx + dx, y + 1, cz + dz, E.fonteBorda);
+      put(cx, y + 2, cz, E.fontePilar); put(cx, y + 3, cz, E.fontePilar); put(cx, y + 4, cz, E.fonteTopo);
+    } else if (E.centro === 'obelisco') {
+      // obelisco de cristal com neon
+      for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) put(cx + dx, y + 1, cz + dz, dx && dz ? BE.NEON : BE.METAL_BRANCO);
+      for (let yy = y + 2; yy <= y + 7; yy++) put(cx, yy, cz, BE.CRISTAL);
+      put(cx, y + 8, cz, BE.NEON);
+    } else {
+      // poço
+      for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+        if (dx === 0 && dz === 0) { for (let yy = y - 3; yy <= y; yy++) put(cx, yy, cz, B.AGUA); continue; }
+        put(cx + dx, y + 1, cz + dz, E.pocoBorda);
+        if (dx && dz) { put(cx + dx, y + 2, cz + dz, E.pocoPilar); put(cx + dx, y + 3, cz + dz, E.pocoPilar); }
+        put(cx + dx, y + 4, cz + dz, E.pocoTeto);
+      }
+      put(cx, y + 4, cz, E.pocoTeto);
+      put(cx, y + 5, cz, E.luzPoste);
+      // manivela com o balde: toque para tirar água
+      put(cx, y + 3, cz, M.SARILHO);
     }
-    put(cx, y + 4, cz, B.TABUAS);
-    put(cx, y + 5, cz, B.LAMPIAO);
-    // manivela com o balde: toque para tirar água
-    put(cx, y + 3, cz, M.SARILHO);
     // lampiões nos cantos da praça
-    for (const [lx, lz] of [[x0 + 1, z0 + 1], [x1 - 1, z0 + 1], [x0 + 1, z1 - 1], [x1 - 1, z1 - 1]]) { put(lx, y + 1, lz, B.TRONCO); this.lampiao(put, lx, y + 2, lz); }
+    for (const [lx, lz] of [[x0 + 1, z0 + 1], [x1 - 1, z0 + 1], [x0 + 1, z1 - 1], [x1 - 1, z1 - 1]]) {
+      const n = Math.max(1, E.altPoste - 1); // um pouco mais baixos que os das ruas
+      for (let k = 1; k <= n; k++) put(lx, y + k, lz, E.poste);
+      if (E.luzPoste === B.LAMPIAO) this.lampiao(put, lx, y + n + 1, lz); else put(lx, y + n + 1, lz, E.luzPoste);
+    }
   }
 
   // Moinho de vento que funciona: a hélice (catavento) gira com o vento e gera energia, que desce
@@ -326,7 +451,7 @@ export class Vilas {
   }
 
   pintarFazenda(ctx, e) {
-    const { put } = ctx;
+    const { put, E } = ctx;
     const [x0, z0, x1, z1] = e.r, y = e.y;
     this.aplainar(ctx, x0 - 1, z0 - 1, x1 + 1, z1 + 1, y, B.GRAMA, 4);
     const longoX = x1 - x0 >= z1 - z0;
@@ -336,7 +461,7 @@ export class Vilas {
       if (borda) {
         // cerca de verdade (1,5 de altura: os bichos não fogem), com uma passagem virada para a rua
         if (x === e.porta[0] && z === e.porta[1]) { put(x, y, z, B.PEDRISCO); continue; }
-        put(x, y, z, B.GRAMA); put(x, y + 1, z, 84); // 84 = Cerca (formas-defs.js)
+        put(x, y, z, B.GRAMA); put(x, y + 1, z, E.cerca);
         continue;
       }
       if ((longoX ? z : x) === meio) { put(x, y, z, B.AGUA); continue; }
@@ -366,7 +491,7 @@ export class Vilas {
   }
 
   pintarCasa(ctx, e) {
-    const { put } = ctx;
+    const { put, E } = ctx;
     const [x0, z0, x1, z1] = e.r, y = e.y;
     const celeiro = e.tipo === 'celeiro';
     const H = celeiro ? 4 : 3; // altura das paredes
@@ -374,15 +499,16 @@ export class Vilas {
     const [px, pz] = e.porta, [ix, iz] = e.dentro;
     // direção da porta para dentro
     const ddx = Math.sign(ix - px), ddz = Math.sign(iz - pz);
-    const parede = celeiro ? B.TABUAS : e.parede;
+    const parede = celeiro ? E.celeiro : e.parede;
+    const base = celeiro ? null : E.base, friso = celeiro ? null : E.friso;
     for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
       put(x, y, z, celeiro ? B.TERRA : e.piso);
       const bx = x === x0 || x === x1, bz = z === z0 || z === z1;
       if (!bx && !bz) continue;
-      for (let k = 1; k <= H; k++) put(x, y + k, z, bx && bz ? e.canto : parede);
+      for (let k = 1; k <= H; k++) put(x, y + k, z, bx && bz ? e.canto : k === 1 && base ? base : k === H && friso ? friso : parede);
       // janelas no meio das paredes
       const meioX = x === Math.floor((x0 + x1) / 2), meioZ = z === Math.floor((z0 + z1) / 2);
-      if (!(bx && bz) && ((bz && meioX) || (bx && meioZ))) put(x, y + 2, z, B.VIDRO);
+      if (!(bx && bz) && ((bz && meioX) || (bx && meioZ))) put(x, y + 2, z, E.janela);
     }
     // porta (2 de altura, larga no celeiro) + lampião ao lado + caminho até a rua
     const larg = celeiro ? 1 : 0;
@@ -392,7 +518,7 @@ export class Vilas {
       if (celeiro) put(qx, y + 3, qz, M.PORTA);
     }
     const [lx, lz] = [px + (ddz ? 1 + larg : 0), pz + (ddx ? 1 + larg : 0)];
-    put(lx, y + H, lz, B.LAMPIAO);
+    if (E.luzPorta) put(lx, y + H, lz, E.luzPorta);
     put(e.frente[0], y, e.frente[1], e.piso === B.TABUAS ? B.PEDRISCO : e.piso);
     // móveis (encostados na parede do fundo)
     if (celeiro) {
@@ -402,19 +528,29 @@ export class Vilas {
       }
     } else if (ddz) {
       const fz = ddz > 0 ? z1 - 1 : z0 + 1;
-      put(x0 + 1, y + 1, fz, e.cama); put(x0 + 2, y + 1, fz, B.LA_BRANCA);
-      put(x1 - 1, y + 1, fz, M.FORNO_ACESO); // fogão a lenha aceso (ilumina a casa)
+      put(x0 + 1, y + 1, fz, e.cama); put(x0 + 2, y + 1, fz, E.travesseiro);
+      put(x1 - 1, y + 1, fz, E.luz === B.LAMPIAO ? M.FORNO_ACESO : E.luz); // fogão a lenha aceso (ilumina a casa)
     } else {
       const fx = ddx > 0 ? x1 - 1 : x0 + 1;
-      put(fx, y + 1, z0 + 1, e.cama); put(fx, y + 1, z0 + 2, B.LA_BRANCA);
-      put(fx, y + 1, z1 - 1, M.FORNO_ACESO);
+      put(fx, y + 1, z0 + 1, e.cama); put(fx, y + 1, z0 + 2, E.travesseiro);
+      put(fx, y + 1, z1 - 1, E.luz === B.LAMPIAO ? M.FORNO_ACESO : E.luz); // fogão a lenha aceso (ilumina a casa)
+    }
+    const T = e.telhado;
+    if (E.planos && E.planos.includes(T)) {
+      // telhado reto (concreto, painel solar) com uma bordinha
+      for (let x = x0 - 1; x <= x1 + 1; x++) for (let z = z0 - 1; z <= z1 + 1; z++) {
+        const borda = x < x0 || x > x1 || z < z0 || z > z1;
+        put(x, y + H + 1, z, borda ? E.bordaTelhado || E.canto : T);
+      }
+      return;
     }
     // telhado em pirâmide com beiral
-    const T = e.telhado;
     for (let k = 0; ; k++) {
       const a0 = x0 - 1 + k, a1 = x1 + 1 - k, b0 = z0 - 1 + k, b1 = z1 + 1 - k;
       if (a0 > a1 || b0 > b1) break;
       for (let x = a0; x <= a1; x++) for (let z = b0; z <= b1; z++) put(x, y + H + 1 + k, z, T);
     }
+    // chaminé (Era Industrial)
+    if (E.chamine && !celeiro) for (let k = 1; k <= 4; k++) put(x0 + 1, y + H + k, z0 + 1, E.chamine);
   }
 }

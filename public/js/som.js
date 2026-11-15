@@ -460,6 +460,15 @@ export class Som {
       case 'urso': this.tom(88, 0.7, { tipo: 'sawtooth', vol: 0.3, ate: 70, vibrato: 20, vibAmp: 0.07, filtro: { tipo: 'lowpass', f: 380, q: 5 }, ataque: 0.06 }); this.ruido(0.5, { vol: 0.1, freq: 300, marrom: true }); break;
       case 'onca': for (let i = 0; i < 4; i++) this.tom(120, 0.15, { tipo: 'sawtooth', vol: 0.2, ate: 80, atraso: i * 0.22, filtro: { tipo: 'lowpass', f: 600, q: 4 } }); break; // esturro
       case 'cobra': this.ruido(0.4, { vol: 0.16, freq: 6000, tipo: 'highpass' }); break;
+      // bichos das eras (mundo Linha do Tempo)
+      case 'rawr': this.tom(360, 0.22, { tipo: 'sawtooth', vol: 0.1, ate: 640, vibrato: 24 }); this.tom(640, 0.14, { tipo: 'triangle', vol: 0.14, ate: 460, atraso: 0.2 }); break;
+      case 'uooo': this.tom(110, 1.0, { tipo: 'sine', vol: 0.45, ate: 165, vibrato: 4 }); this.tom(220, 0.8, { tipo: 'triangle', vol: 0.1, ate: 320 }); break;
+      case 'barrido': this.tom(400, 0.55, { tipo: 'sawtooth', vol: 0.11, ate: 720, vibrato: 12 }); break;
+      case 'relincho': this.tom(720, 0.5, { tipo: 'sawtooth', vol: 0.09, ate: 480, vibrato: 22 }); break;
+      case 'miau': this.tom(560, 0.15, { tipo: 'triangle', vol: 0.25, ate: 860 }); this.tom(860, 0.28, { tipo: 'triangle', vol: 0.25, ate: 520, atraso: 0.14 }); break;
+      case 'quack': this.tom(430, 0.09, { tipo: 'square', vol: 0.11, ate: 300 }); this.tom(430, 0.09, { tipo: 'square', vol: 0.11, ate: 300, atraso: 0.16 }); break;
+      case 'bip': this.tom(1000, 0.07, { tipo: 'sine', vol: 0.25 }); this.tom(1500, 0.07, { tipo: 'sine', vol: 0.25, atraso: 0.1 }); this.tom(1250, 0.12, { tipo: 'sine', vol: 0.25, atraso: 0.2 }); break;
+      case 'cuaa': this.tom(950, 0.32, { tipo: 'triangle', vol: 0.22, ate: 620 }); break;
       default: this.oi();
     }
   }

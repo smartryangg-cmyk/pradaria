@@ -887,3 +887,41 @@ body.chat-aberto #botoes-toque, body.chat-aberto #dica-toque, body.chat-aberto #
   body:has(#hud:not([hidden])) .marca-dagua { left: max(2px, env(safe-area-inset-left)); bottom: auto; top: 50%; writing-mode: vertical-rl; transform: translateY(-50%) rotate(180deg); }
 }
 body.modo-tv .marca-dagua { font-size: 14px; }
+/* cartão "Missão cumprida" abaixo da barra da era (Linha do Tempo), não por cima dela */
+#festa { top: max(12%, calc(var(--topo-fim) + 52px)); }
+
+/* ---------- celular: cartão "Missão cumprida" e aviso sem cobrir minimapa, moedas e a barra da era ---------- */
+@media (max-width: 640px) and (orientation: portrait) {
+  #aviso { top: max(20%, calc(var(--topo-fim) + var(--mm) + 18px)); } /* abaixo do minimapa */
+  /* um cartão por vez, à esquerda logo abaixo da mira (à direita ficam largar, voar e pular) */
+  #festa { top: calc(50% + 14px); left: max(20px, env(safe-area-inset-left)); /* 20: a marca d'água fica de lado na borda */ transform: none; align-items: flex-start; width: max-content; max-width: calc(100vw - 100px); gap: 6px; pointer-events: none; }
+  .festa-card { padding: 6px 12px; border-radius: 14px; box-shadow: 0 4px 0 rgba(0,0,0,.15); }
+  .festa-card b { font-size: 15px; } .festa-card > span { font-size: 12.5px; text-align: center; } .festa-card em { font-size: 14px; }
+  .festa-card b .ic-svg { width: 20px; height: 20px; }
+  .festa-card:nth-last-child(n+2) { display: none; }
+}
+@media (max-height: 480px) {
+  /* deitado: um cartão de uma linha só, embaixo da barra da era (a lista de missões mostra qual foi) */
+  #festa { top: calc(var(--topo-fim) + 54px); width: max-content; max-width: min(320px, calc(100vw - 2 * (var(--mm) + 120px))); gap: 5px; pointer-events: none; }
+  .festa-card { flex-direction: row; flex-wrap: wrap; justify-content: center; column-gap: 8px; row-gap: 0; padding: 5px 12px; border-radius: 14px; box-shadow: 0 4px 0 rgba(0,0,0,.15); }
+  .festa-card b { font-size: 14px; } .festa-card em { font-size: 14px; }
+  .festa-card b .ic-svg { width: 18px; height: 18px; }
+  .festa-card > span { display: none; }
+  .festa-card:nth-last-child(n+2) { display: none; }
+}
+/* deitado: agachar vai para a esquerda do pular (em cima do largar), assim a coluna de botões não sobe até o minimapa;
+   a barra de blocos chega um pouco mais para a esquerda para não encostar no largar */
+@media (max-height: 480px) {
+  body.toque:not(.com-armas) #bt-agachar { position: absolute; right: calc(100% + 14px); bottom: 62px; }
+  #barra { left: calc(50% - 54px); }
+}
+/* o botão Viajar no tempo aparece com a barra cheia: a dica de toque sai do caminho */
+body:has(#bt-viajar.mostra) #dica-toque { display: none; }
+/* celular: enquanto um aviso está na tela a dica de toque some (os dois disputavam o meio de baixo) */
+@media (max-width: 640px), (max-height: 480px) { body:has(#aviso.mostra) #dica-toque { opacity: 0; } }
+/* celular em pé: o aviso fica do lado esquerdo, sem passar por baixo da coluna de botões (largar, voar, pular) */
+@media (max-width: 640px) and (orientation: portrait) {
+  #aviso { left: max(12px, env(safe-area-inset-left)); transform: none; max-width: calc(100vw - 112px); }
+}
+@media (max-width: 640px) and (orientation: portrait) and (max-height: 600px) { #festa { top: calc(50% + 40px); } }
+@media (max-height: 480px) { #barra { left: calc(50% - 64px); } #dica-toque { max-width: calc(100vw - 380px); } }
