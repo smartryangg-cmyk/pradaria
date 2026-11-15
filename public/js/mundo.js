@@ -105,6 +105,7 @@ export class Mundo {
     this.cacheDirAgua = new Map(); // direções da água no passo atual (aguaVaiPara)
     this.ultimoPassoAgua = 0;
     this.fogos = new Map(); this.ultimoPassoFogo = 0; // fogo aceso: posição -> idade (fogo-regras.js)
+    this.fogoBom = new Set(); // fogo de verdade (isqueiro ou espalhado dele): só ele queima o que alguém construiu
     this.filaLava = new Set(); this.ultimoPassoLava = 0; // a lava usa as mesmas células, num passo mais lento
     this.vilas = new Vilas(this);
     // Ilha de Aventura; o mundo de Guerra usa a mesma ilha com base, forte, presídio e delegacia
@@ -389,8 +390,8 @@ export class Mundo {
       if (!ehLava(atual) && !LIVRE_L[atual] && !AGUA[atual]) continue;
       const novo = this.lavaDesejada(x, y, z);
       if (novo !== atual) mudar.push(x, y, z, novo);
-      // lava acende o que pega fogo encostado nela
-      if (ehLava(novo)) for (const [dx, dy, dz] of V6) if (inflamavel(this.bloco(x + dx, y + dy, z + dz))) mudar.push(x + dx, y + dy, z + dz, FOGO);
+      // lava acende o que pega fogo encostado nela (só o do mundo original: construção só pega fogo do isqueiro)
+      if (ehLava(novo)) for (const [dx, dy, dz] of V6) if (inflamavel(this.bloco(x + dx, y + dy, z + dz)) && !this.editado(x + dx, y + dy, z + dz)) mudar.push(x + dx, y + dy, z + dz, FOGO);
     }
     for (let i = 0; i < mudar.length; i += 4) {
       const [x, y, z, b] = [mudar[i], mudar[i + 1], mudar[i + 2], mudar[i + 3]];
@@ -410,12 +411,15 @@ export class Mundo {
 
   // cada fogo envelhece; queima os vizinhos que pegam fogo (eles viram fogo); apaga com água, sem chão
   // nem combustível, ou quando a vida acaba. Calcula tudo olhando o mundo antigo e depois aplica.
+  marcarFogo(x, y, z) { this.fogoBom.add(pos2k(x, y, z)); }
+
   passoFogo() {
     const acende = [], apaga = [];
     for (const [k, a0] of this.fogos) {
       const y = k % 128, r = Math.floor(k / 128);
       const z = (r % 65536) - 32768, x = Math.floor(r / 65536) - 32768;
-      if (this.bloco(x, y, z) !== FOGO) { this.fogos.delete(k); continue; }
+      if (this.bloco(x, y, z) !== FOGO) { this.fogos.delete(k); this.fogoBom.delete(k); continue; }
+      const bom = this.fogoBom.has(k);
       if (!this.chunks.has(chave(Math.floor(x / CX), Math.floor(z / CZ)))) continue; // longe: espera
       const a = a0 + 1;
       this.fogos.set(k, a);
@@ -425,14 +429,20 @@ export class Mundo {
         if (AGUA[n]) agua = true;
         if (!QUEIMA[n]) continue;
         comb++;
-        if (sorteioFogo(x + dx, y + dy, z + dz, a) < QUEIMA[n]) acende.push(x + dx, y + dy, z + dz);
+        if (!bom && this.editado(x + dx, y + dy, z + dz)) continue; // construção: só fogo de verdade (a sala confere igual)
+        if (sorteioFogo(x + dx, y + dy, z + dz, a) < QUEIMA[n]) acende.push(x + dx, y + dy, z + dz, bom);
       }
       if (agua || (!comb && !SOLIDO[this.bloco(x, y - 1, z)]) || a >= vidaFogo(x, y, z, comb > 0)) apaga.push(x, y, z);
     }
     // primeiro acende (a sala confere que tem fogo do lado), depois apaga
-    for (let i = 0; i < acende.length; i += 3) if (inflamavel(this.bloco(acende[i], acende[i + 1], acende[i + 2]))) this.definir(acende[i], acende[i + 1], acende[i + 2], FOGO);
-    for (let i = 0; i < apaga.length; i += 3) { if (this.bloco(apaga[i], apaga[i + 1], apaga[i + 2]) === FOGO) this.definir(apaga[i], apaga[i + 1], apaga[i + 2], AR); this.fogos.delete(pos2k(apaga[i], apaga[i + 1], apaga[i + 2])); }
-    return acende.length / 3;
+    for (let i = 0; i < acende.length; i += 4) {
+      const [x, y, z, bom] = [acende[i], acende[i + 1], acende[i + 2], acende[i + 3]];
+      if (!inflamavel(this.bloco(x, y, z))) continue;
+      if (bom) this.marcarFogo(x, y, z); // marca antes de mandar: herda a marca
+      this.definir(x, y, z, FOGO);
+    }
+    for (let i = 0; i < apaga.length; i += 3) { if (this.bloco(apaga[i], apaga[i + 1], apaga[i + 2]) === FOGO) this.definir(apaga[i], apaga[i + 1], apaga[i + 2], AR); const k = pos2k(apaga[i], apaga[i + 1], apaga[i + 2]); this.fogos.delete(k); this.fogoBom.delete(k); }
+    return acende.length / 4;
   }
 
   // o que deveria existir nesta célula, de acordo com a água em volta
