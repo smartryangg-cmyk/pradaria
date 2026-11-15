@@ -1638,6 +1638,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   mundo = new Mundo(cena, matBlocos, matAgua, semente);
   mundo.raio = raioVisao();
   mundo.suaveSimples = opcoesGraficas().sombra === 0; // gráfico Leve: arredondado simples (monta mais rápido)
+  mundo.matSuave = mundo.suave ? graf.matSuave : null; // Natural 3D: chão e árvores com cor lisa de desenho (graficos.js)
   escav = new Escavacao(cena, mundo, matBlocos, atlasCanvas);
   // rachadura: os amigos veem o bloco rachando (no máximo 1 aviso a cada 0,15 s)
   let ultimaRacha = 0;
