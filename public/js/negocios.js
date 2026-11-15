@@ -436,7 +436,7 @@ export class Negocios {
   }
 
   cancelarEscolha() {
-    if (this.fantasma) { this.ui.cena.remove(this.fantasma); this.fantasma.traverse((o) => { o.geometry && o.geometry.dispose(); o.material && o.material.dispose(); }); this.fantasma = null; }
+    if (this.fantasma) { this.ui.cena.remove(this.fantasma); this.fantasma.traverse((o) => { o.geometry && o.geometry.dispose(); o.material && !o.material.userData.compartilhado && o.material.dispose(); }); this.fantasma = null; }
     this.escolha = null;
     if (this.escBar) this.escBar.hidden = true;
     if (this.btComprar) this.btComprar.hidden = true;

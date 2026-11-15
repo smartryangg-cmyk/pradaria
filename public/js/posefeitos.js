@@ -3,7 +3,7 @@
 //  1) SSAO: sombrinha nos cantos entre blocos (oclusão de ambiente em tela) + desfoque que respeita bordas
 //  2) Bloom suave: o que é muito claro (sol, lampião, brilho na água) "vaza" luz, em cadeia de mips
 //  3) Raios de sol (god rays) saindo do sol na tela, cortados por morros e árvores; mais fortes no nascer/pôr
-//  4) Tone mapping ACES (igual ao do three, mesma exposição) + correção de cor leve + vinheta
+//  4) Tone mapping ACES (igual ao do three, mesma exposição) + cor viva + contorno de desenho + vinheta
 //  5) Profundidade de campo bem leve só bem longe + FXAA só nas bordas (não borra as texturas)
 // Desligado, não aloca nada e não custa nada.
 import * as THREE from '../vendor/three.module.min.js';
@@ -215,6 +215,9 @@ const FRAG_FINAL = `
     float zm = min(z, min(min(zd, ze), min(zc, zb)));
     float zM = max(z, max(max(zd, ze), max(zc, zb)));
     float borda = clamp((zM - zm) / max(zm, 0.1) * 6.0, 0.0, 1.0);
+    // contorno de desenho em tela: onde o vizinho está bem mais longe, este pixel é a silhueta
+    float cont = smoothstep(0.1, 0.3, (zM - z) / max(z, 0.1)) * (1.0 - nev) * (1.0 - uNoite * 0.4);
+    if (!ceu) c = mix(c, c * vec3(0.22, 0.18, 0.3), cont * 0.75);
     gl_FragColor = vec4(clamp(c, 0.0, 1.0), borda);
   }`;
 
@@ -284,7 +287,7 @@ export function criarPosEfeitos(renderer, cena, camera) {
     uProjInv: { value: camera.projectionMatrixInverse }, uTexel: v2(),
     uExpo: { value: 1 }, uBloom: { value: 0.35 }, uRaios: { value: 0 }, uAO: { value: 0.85 },
     uNevoaPerto: { value: 30 }, uNevoaLonge: { value: 60 }, uDof: { value: 0.35 },
-    uSat: { value: 1.1 }, uContraste: { value: 0.18 }, uVinheta: { value: 0.32 }, uNoite: { value: 0 },
+    uSat: { value: 1.24 }, uContraste: { value: 0.18 }, uVinheta: { value: 0.32 }, uNoite: { value: 0 },
     uSolCor: { value: new THREE.Color(1, 0.9, 0.7) },
   });
   const mFxaa = mat(FRAG_FXAA, { tCor: { value: null }, uTexel: v2() });

@@ -3,7 +3,7 @@
 // mudando conforme o "meio": terra, água, ar (avião) ou hélice (helicóptero). Ninguém se machuca: os veículos
 // atravessam as pessoas e freiam sozinhos na frente dos bichos.
 import * as THREE from '../vendor/three.module.min.js';
-import { caixa, juntar, matModelo } from './modelos.js';
+import { caixa, juntar, matModelo, contornar } from './modelos.js';
 import { SOLIDO, AGUA, B } from './blocos.js';
 import { FORMA_NOVA, colideForma } from './formas.js';
 import { BE } from './blocos-eras.js';
@@ -213,7 +213,7 @@ export const ORDEM = ['carro', 'jipe', 'esportivo', 'quadriciclo', 'moto', 'bici
 
 const cacheGeo = new Map();
 function geo(chave, fn) { if (!cacheGeo.has(chave)) cacheGeo.set(chave, juntar(fn())); return cacheGeo.get(chave); }
-function malha(g) { const m = new THREE.Mesh(g, matModelo); m.castShadow = true; return m; }
+function malha(g) { const m = new THREE.Mesh(g, matModelo); m.castShadow = true; return contornar(m); }
 // cilindro deitado (eixo x), com cor nos vértices como as caixinhas
 function cilindro(r, w, cor, lados = 20) {
   const g = new THREE.CylinderGeometry(r, r, w, lados, 1);

@@ -11,7 +11,7 @@ import { Bichos } from './animais.js';
 import { Aldeoes } from './aldeoes.js';
 import { Garagem } from './garagem.js';
 import { Som } from './som.js';
-import { montarBoneco, vestirBoneco, etiqueta, matModelo, caixa, juntar, animarBoneco, poseNeutra } from './modelos.js';
+import { montarBoneco, vestirBoneco, etiqueta, matModelo, matContorno, caixa, juntar, bola, animarBoneco, poseNeutra } from './modelos.js';
 import { normalizarSkin, skinDeCor, skinIgual, CORES_ROUPA } from './skin.js';
 import { Personagem } from './personagem.js';
 import { Visao } from './visao.js';
@@ -142,18 +142,25 @@ const mapa = new Mapa({
 });
 function aplicarMinimapa() { mapa.ligado = !!ajustes.minimapa; $('#minimapa').hidden = !ajustes.minimapa; }
 
-// nuvens
+// nuvens fofas (estilo desenho): cachos de bolas achatadas, brancas em cima e lilás-azuladas embaixo
 const nuvens = (() => {
   const g = [];
   const r = Math.random;
-  for (let i = 0; i < 26; i++) {
+  const baixo = new THREE.Color(0.74, 0.8, 0.96);
+  for (let i = 0; i < 24; i++) {
     const x = (r() - 0.5) * 360, z = (r() - 0.5) * 360;
-    const w = 12 + r() * 20, d = 8 + r() * 14;
-    g.push(caixa(w, 3, d, 0xffffff, x, 0, z));
-    if (r() < 0.6) g.push(caixa(w * 0.6, 3, d * 0.6, 0xffffff, x + w * 0.3, 1.5, z + d * 0.2));
+    const w = 10 + r() * 14, n = 3 + Math.floor(r() * 3);
+    for (let k = 0; k < n; k++) {
+      const t = n > 1 ? k / (n - 1) - 0.5 : 0, rb = w * (0.32 + (0.5 - Math.abs(t)) * 0.3) * (0.8 + r() * 0.4);
+      const bg = bola(1, 0xffffff, x + t * w * 1.3, rb * 0.25, z + (r() - 0.5) * w * 0.5, rb, rb * 0.62, rb * 0.8);
+      // sombreado de desenho embutido: faixa de baixo um tom mais escuro
+      const p = bg.attributes.position, c = bg.attributes.color, y0 = rb * 0.25;
+      for (let v = 0; v < p.count; v++) if (p.getY(v) < y0 - rb * 0.12) c.setXYZ(v, baixo.r, baixo.g, baixo.b);
+      g.push(bg);
+    }
   }
-  const m = new THREE.Mesh(juntar(g), new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.8, fog: false, depthWrite: false }));
-  m.position.y = ALT + 20;
+  const m = new THREE.Mesh(juntar(g), new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.94, fog: false, depthWrite: false }));
+  m.position.y = ALT + 22;
   cena.add(m);
   return m;
 })();
@@ -161,6 +168,7 @@ const nuvens = (() => {
 function aplicarGraficos() {
   const o = graf.aplicar(opcoesGraficas());
   nuvens.visible = o.nuvens;
+  matContorno.visible = !!o.contorno;
   $('#vinheta').hidden = !o.vinheta;
   pos.ligar(!!o.pos);
   redimensionar();
@@ -1133,7 +1141,7 @@ function removerOutro(id) {
   if (!o) return;
   garagem.esquecer(id);
   cena.remove(o.grupo);
-  o.grupo.traverse((x) => { if (x.geometry) x.geometry.dispose(); if (x.material && x.material !== matModelo) { x.material.map && x.material.map.dispose(); x.material.dispose(); } });
+  o.grupo.traverse((x) => { if (x.geometry) x.geometry.dispose(); if (x.material && x.material !== matModelo && !x.material.userData.compartilhado) { x.material.map && x.material.map.dispose(); x.material.dispose(); } });
   outros.delete(id);
 }
 
