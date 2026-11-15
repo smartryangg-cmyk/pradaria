@@ -58,7 +58,7 @@ const cabe = (j, sels) => j.p.evaluate((s) => [...document.querySelectorAll(s)].
   // pede truco: o computador responde (aceita, corre ou aumenta)
   const antes = await t.p.evaluate(() => window.__truco.e.seq);
   await t.clica('#t-acoes .grito');
-  await t.p.waitForFunction(() => /TRUCO/.test(document.querySelector('#t-fala').textContent), null, { timeout: 3000 }).then(() => ok(true, 'tablet: pediu truco e a fala aparece'), () => ok(false, 'tablet: pediu truco e a fala aparece'));
+  await t.p.waitForFunction(() => /TRUCO|Aceito|correu|SEIS/i.test(document.querySelector('#t-fala').textContent) && window.__truco.e.eventos.some((x) => x.t === 'pediu' && x.lugar === 0), null, { timeout: 3000 }).then(() => ok(true, 'tablet: pediu truco e a fala aparece'), () => ok(false, 'tablet: pediu truco e a fala aparece'));
   await t.p.waitForFunction((s) => { const e = window.__truco.e; return !e.mao.aposta && e.seq > s + 1; }, antes, { timeout: 10000 });
   const resp = await t.p.evaluate(() => window.__truco.e.eventos.slice(-4).map((x) => x.t));
   ok(resp.some((x) => ['aceitou', 'correu', 'pediu'].includes(x)), 'tablet: o computador respondeu o truco (' + resp + ')');
