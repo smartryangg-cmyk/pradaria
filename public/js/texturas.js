@@ -759,7 +759,7 @@ PINT[30] = (t) => {
   t.relevo(0.85, 1.2, 0.7); t.grao(0.05);
 };
 // minérios
-PINT[31] = (t) => minerio(t, 3101, [0x141414, 0x2e2d2c, 0x5a5856], { tam: 1.5 });
+PINT[31] = (t) => minerio(t, 3101, [0x2c2c34, 0x45444c, 0x6a6872], { tam: 1.5 });
 PINT[32] = (t) => minerio(t, 3201, [0xa0684a, 0xd4a07a, 0xf0ccaa]);
 PINT[33] = (t) => minerio(t, 3301, [0xb07e22, 0xe8bc44, 0xfff0b0], { tam: 1.2 });
 PINT[34] = (t) => minerio(t, 3401, [0x2a9aa8, 0x6ae0e4, 0xe0ffff], { tam: 1.1, grupos: 4 });
@@ -1797,7 +1797,7 @@ function tufo(t, u, v, alt, cor, w = 0.32) {
   t.traco(u, v, u, v - alt * 1.15, w, w * 0.4, (i) => t.set(i, cor, 1));
   t.traco(u, v, u + alt * 0.45, v - alt, w, w * 0.4, (i) => t.set(i, cor, 1));
 }
-const G_BASE = hex(0x58b03a), G_CLARO = hex(0x7cc84a), G_ESC = hex(0x44952e);
+const G_BASE = hex(0x54a83c), G_CLARO = hex(0x74bf4a), G_ESC = hex(0x438f30);
 function gramaD(t, sem) {
   const n = fbm(sem, 2, 2, 2), r = rngSemente(sem + 1);
   t.cada((u, v) => esc(G_BASE, 0.97 + (n(u, v) - 0.5) * 0.1));
@@ -1808,7 +1808,7 @@ function gramaD(t, sem) {
   }
   for (let k = 0; k < 8; k++) tufo(t, 1 + r() * 14, 2.5 + r() * 12.5, 1.6 + r() * 0.9, r() < 0.55 ? G_CLARO : G_ESC, 0.42);
 }
-const T_BASE = hex(0x9a6238), T_ESC = hex(0x7a4a2a), T_CLARO = hex(0xb57a4a);
+const T_BASE = hex(0x8f5f3c), T_ESC = hex(0x70472c), T_CLARO = hex(0xa9764c);
 function terraD(t, sem, umida = 0) {
   const n = fbm(sem, 2, 2, 2), r = rngSemente(sem + 1);
   const base = esc(T_BASE, 1 - umida * 0.3);

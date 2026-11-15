@@ -31,7 +31,7 @@ const CEU = {
 // O three aplica a névoa DEPOIS do tone mapping, então o chão longe sumia numa cor diferente do céu.
 // A cor da névoa agora é calculada no JS já "como aparece na tela" (mesmo tone mapping + gradação do céu),
 // sem nenhuma conta extra por pixel. Nos blocos (FOG_SOL) a névoa fica dourada na direção do sol.
-const SATURACAO = 1.24; // estilo desenho: cores vivas
+const SATURACAO = 1.2; // estilo desenho: cores vivas
 let chunksProntos = false;
 function prepararChunks() {
   if (chunksProntos) return;
