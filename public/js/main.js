@@ -34,7 +34,7 @@ import { Plantacoes } from './plantacoes.js';
 import { Agua } from './agua.js';
 import { criarComandos } from './comandos.js';
 import { criarCama } from './cama.js';
-import { ehCama } from './dormir-regras.js';
+import { ehCama, DURACAO_DIA } from './dormir-regras.js';
 import { ESCADA_MAO, PAREDE } from './escada-mao.js';
 import { LAVA, ehLava, DANO_LAVA } from './lava-regras.js';
 import { FOGO, ISQUEIRO, DANO_FOGO, inflamavel } from './fogo-regras.js';
@@ -244,7 +244,6 @@ let slotSel = 0;
 const sobrev = () => opcoesMundo.sobrevivencia === true;
 const naMao = () => barra[slotSel] || 0;
 let tempoDia = 0.3; // 0..1 (0.25 = meio-dia)
-const DURACAO_DIA = 600;
 const outros = new Map();
 let euId = null;
 // veículos: garagem, direção e câmera de trás (código em garagem.js e veiculos.js)
