@@ -1,6 +1,6 @@
 // Liga o jogador (WebSocket) a uma partida de tabuleiro entre amigos (sala-worker/src/partida.js).
 // O código é sorteado por quem cria a partida e chega ao amigo pelo convite.
-import { erro, banco, usuarioDa } from '../../../lib/base.js';
+import { erro, banco, usuarioDa, redeDe } from '../../../lib/base.js';
 
 export async function onRequest({ request, env, params }) {
   if (request.headers.get('upgrade') !== 'websocket') return erro('Use WebSocket', 426);
@@ -17,5 +17,6 @@ export async function onRequest({ request, env, params }) {
   for (const k of ['upgrade', 'connection', 'sec-websocket-key', 'sec-websocket-version', 'sec-websocket-protocol', 'sec-websocket-extensions'])
     if (request.headers.has(k)) cab.set(k, request.headers.get(k));
   cab.set('x-usuario', JSON.stringify({ id: atual.id, nome: atual.nome }));
+  cab.set('x-rede', await redeDe(request));
   return env.PARTIDA.get(env.PARTIDA.idFromName(codigo)).fetch(new Request(url.toString(), { method: 'GET', headers: cab }));
 }
