@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Jogo pacífico de construir, no navegador",
   "scripts": {
-    "dev:sala": "cd sala-worker && wrangler dev --port 8790 --persist-to ../.estado",
+    "dev:sala": "cd sala-worker && wrangler dev --port 8790 --var TESTE:1 --persist-to ../.estado",
     "dev": "wrangler pages dev --port 8788 --persist-to .estado",
     "deploy": "cd sala-worker && wrangler deploy && cd .. && wrangler pages deploy --branch main"
   },

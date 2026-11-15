@@ -24,7 +24,7 @@ a.bt { text-decoration: none; }
 .jogador-linha .pecas-comidas svg { width: 18px; height: 18px; margin-left: -4px; }
 
 /* o lado do tabuleiro cabe na tela em pé e deitado */
-:root { --lado: min(calc(100vw - 24px), calc(100dvh - 210px), 640px); }
+:root { --lado: min(calc(100vw - 24px), calc(100dvh - 250px), 640px); }
 #tabuleiro { width: var(--lado); height: var(--lado); display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); border: 4px solid var(--txt); border-radius: 10px; overflow: hidden; box-shadow: 0 6px 0 var(--txt), 0 14px 30px rgba(0,0,0,.3); flex: none; touch-action: manipulation; }
 .casa { position: relative; display: grid; place-items: center; border: 0; padding: 0; margin: 0; background: #f3e3c0; cursor: pointer; font: inherit; }
 .casa.escura { background: #b98a5e; }
@@ -53,6 +53,7 @@ a.bt { text-decoration: none; }
   #tabuleiro { grid-column: 1; grid-row: 1 / 6; }
   .barra-topo, .jogador-linha, #x-botoes { grid-column: 2; max-width: none; }
   #x-cima { grid-row: 2; } #x-baixo { grid-row: 4; } #x-botoes { grid-row: 5; flex-direction: column; }
+  #x-lances { grid-column: 2; grid-row: 3; max-width: none; height: 100%; min-height: 40px; flex-wrap: wrap; align-content: flex-start; overflow-x: hidden; overflow-y: auto; white-space: normal; }
 }
 .pag-tabuleiro .bt:disabled { opacity: .5; cursor: default; }
 /* dama: fundo vermelho e as peças que vão ser comidas marcadas */
@@ -60,3 +61,22 @@ body.pag-dama { background: linear-gradient(160deg, #e0525a, #a8303a); }
 .pag-dama .titulo-jogo { -webkit-text-stroke-color: #6b1a22; text-shadow: 0 4px 0 #6b1a22; }
 .casa.vai-comer::before { content: ""; position: absolute; inset: 8%; border-radius: 50%; border: 4px dashed #e64a3c; pointer-events: none; }
 .regras-dama { font-size: 14px; }
+
+/* ritmos no menu */
+.ritmos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ritmos .bt { display: flex; flex-direction: column; line-height: 1.1; }
+.ritmos .bt small { font-size: 12px; font-weight: 700; opacity: .8; }
+/* relógio de cada jogador */
+.jogador-linha .relogio { flex: none; min-width: 70px; text-align: center; padding: 3px 10px; border-radius: 10px; background: rgba(20, 16, 40, .45); color: #e8e2ff; font-size: 20px; font-variant-numeric: tabular-nums; }
+.jogador-linha .relogio.anda { background: #fff; color: var(--txt); box-shadow: 0 3px 0 var(--txt); }
+.jogador-linha .relogio.pouco { background: #e64a3c; color: #fff; }
+.jogador-linha .n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* lista de lances (uma linha que rola de lado no celular em pé) */
+.lances { display: flex; gap: 2px 6px; width: 100%; max-width: var(--lado); min-height: 34px; padding: 5px 10px; border-radius: 12px; background: rgba(20, 16, 40, .35); color: #fff; font-weight: 800; font-size: 15px; overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
+.lances:empty::before { content: "Os lances aparecem aqui"; opacity: .6; font-weight: 700; }
+.lances .num { opacity: .65; }
+.lances .lance { padding: 0 3px; border-radius: 6px; }
+.lances .lance.ult { background: var(--amarelo); color: var(--txt); }
+/* pré-lance marcado (vale quando chegar a sua vez) */
+.casa.pre { background: #e88d7c !important; }
+.casa.escura.pre { background: #c9614f !important; }

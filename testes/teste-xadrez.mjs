@@ -101,7 +101,13 @@ ok(true, 'Ana vê "Sua vez" quando o Beto chega');
 // Beto tenta jogar fora da vez
 await beto.lance('e7', 'e5');
 ok(await beto.p.evaluate(() => window.__xadrez.e.b[12] === 'p'), 'Beto não consegue mexer na vez da Ana');
-const jogo = [['ana', 'e2', 'e4'], ['beto', 'e7', 'e5'], ['ana', 'f1', 'c4'], ['beto', 'b8', 'c6'], ['ana', 'd1', 'h5'], ['beto', 'g8', 'f6']];
+// o toque fora da vez vira pré-lance: sai sozinho quando a Ana jogar
+ok(await beto.p.evaluate(() => JSON.stringify(window.__xadrez.pre)) === JSON.stringify({ de: casa('e7'), para: casa('e5') }) /* casa() roda aqui no node */ && await beto.p.locator('.casa.pre').count() === 2, 'Beto marcou o pré-lance e7-e5 (casas marcadas)');
+await ana.p.waitForFunction((c) => window.__xadrez.e.vez === c, 'w', { timeout: 10000 });
+await ana.lance('e2', 'e4');
+await ana.p.waitForFunction((i) => window.__xadrez.e.ultimo && window.__xadrez.e.ultimo.para === i && window.__xadrez.e.vez === 'w', casa('e5'), { timeout: 10000 });
+ok(true, 'pré-lance: o e5 do Beto saiu sozinho logo depois do e4 da Ana');
+const jogo = [['ana', 'f1', 'c4'], ['beto', 'b8', 'c6'], ['ana', 'd1', 'h5'], ['beto', 'g8', 'f6']];
 for (const [q, de, para] of jogo) {
   const j = q === 'ana' ? ana : beto, o = q === 'ana' ? beto : ana;
   await j.p.waitForFunction((c) => window.__xadrez.e.vez === c, q === 'ana' ? 'w' : 'b', { timeout: 10000 });
@@ -109,6 +115,7 @@ for (const [q, de, para] of jogo) {
   await o.p.waitForFunction((i) => window.__xadrez.e.ultimo && window.__xadrez.e.ultimo.para === i, casa(para), { timeout: 10000 });
 }
 ok(true, '6 lances jogados tocando nas casas, cada um aparece para o outro');
+ok(/1\.\s*e4\s*e5\s*2\.\s*Bc4\s*Cc6\s*3\.\s*Dh5\s*Cf6/.test(await ana.p.textContent('#x-lances')), 'lista de lances: ' + (await ana.p.textContent('#x-lances')));
 await beto.foto('8-beto-jogando');
 // servidor recusa lance que não vale (mandado direto pelo WebSocket)
 await ana.p.evaluate(() => window.__xadrez.online.ws.send(JSON.stringify({ t: 'lance', de: 56, para: 40 })));

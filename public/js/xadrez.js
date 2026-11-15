@@ -65,6 +65,10 @@ let fimAtual = null;
 let pensando = false;
 let online = null; // { ws, codigo, jogadores, empate, revanche }
 let fimVisto = null;
+let ritmo = '3+2'; // ritmo escolhido para jogar com amigo ('' = sem relógio)
+let relogio = null; // { w, b (ms que sobram), anda: 'w'|'b'|null, base, inc } + recebido (hora local em que chegou)
+let pre = null; // pré-lance { de, para } que vale quando chegar a minha vez
+let modoPre = false; // as casas marcadas são de pré-lance
 
 function salvarPC() {
   if (modo !== 'pc') return;
@@ -94,7 +98,7 @@ function desenhar() {
     const c = casas[k];
     c.dataset.i = i;
     const l = i >> 3, co = i & 7;
-    c.className = 'casa' + ((l + co) % 2 ? ' escura' : '') + (ult && (ult.de === i || ult.para === i) ? ' ultimo' : '') + (i === sel ? ' sel' : '') + (i === xeque ? ' xeque' : '');
+    c.className = 'casa' + ((l + co) % 2 ? ' escura' : '') + (ult && (ult.de === i || ult.para === i) ? ' ultimo' : '') + (i === sel ? ' sel' : '') + (i === xeque ? ' xeque' : '') + (pre && (pre.de === i || pre.para === i) ? ' pre' : '');
     const p = e.b[i];
     const pode = alvos.find((m) => m.para === i);
     if (pode) c.classList.add('pode'), (p || pode.ep) && c.classList.add('come');
@@ -105,7 +109,19 @@ function desenhar() {
     c.setAttribute('aria-label', X.nomeCasa(i) + (p ? ' ' + nomePeca(p) : ' vazia') + (pode ? ', pode ir' : ''));
   }
   desenharJogadores(baixo);
+  desenharLances();
   status();
+}
+
+// lista de lances: "1. e4 e5 2. Cf3 …" (o último fica marcado)
+let lancesVistos = -1;
+function desenharLances() {
+  const h = e.hist || [];
+  if (h.length === lancesVistos) return;
+  lancesVistos = h.length;
+  const el = $('#x-lances');
+  el.innerHTML = h.map((t, k) => (k % 2 === 0 ? `<span class="num">${k / 2 + 1}.</span>` : '') + `<span class="lance${k === h.length - 1 ? ' ult' : ''}">${t}</span>`).join('');
+  el.scrollLeft = el.scrollWidth; el.scrollTop = el.scrollHeight;
 }
 
 function comidas(corDeQuem) {
@@ -129,10 +145,31 @@ function desenharJogadores(baixo) {
   };
   const on = (l) => (modo === 'pc' ? true : !!(online && online.jogadores && online.jogadores[l] && online.jogadores[l].online));
   for (const [el, l] of [[$('#x-cima'), cima], [$('#x-baixo'), baixo]]) {
-    el.innerHTML = `<span class="bolinha${on(l) ? ' on' : ''}"></span><span class="n"></span><span class="pecas-comidas">${comidas(l === 'w' ? 'b' : 'w').map(svgPeca).join('')}</span>`;
+    el.innerHTML = `<span class="bolinha${on(l) ? ' on' : ''}"></span><span class="n"></span><span class="pecas-comidas">${comidas(l === 'w' ? 'b' : 'w').map(svgPeca).join('')}</span>` + (modo === 'online' && relogio ? `<span class="relogio" data-cor="${l}"></span>` : '');
     el.querySelector('.n').textContent = nome(l) + (l === 'w' ? ' (brancas)' : ' (pretas)');
   }
+  mostrarRelogios();
 }
+
+// ---------- relógio ----------
+const fmt = (ms) => { const t = Math.max(0, ms); if (t < 20000) return (t / 1000).toFixed(1); const s = Math.ceil(t / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+function tempoDe(c) {
+  if (!relogio) return 0;
+  return relogio.anda === c ? relogio[c] - (performance.now() - relogio.recebido) : relogio[c];
+}
+let pediuTempo = 0;
+function mostrarRelogios() {
+  if (!relogio) return;
+  for (const el of document.querySelectorAll('.relogio')) {
+    const c = el.dataset.cor, t = tempoDe(c);
+    el.textContent = fmt(t);
+    el.classList.toggle('anda', relogio.anda === c && !fimAtual);
+    el.classList.toggle('pouco', t < 20000 && relogio.anda === c && !fimAtual);
+  }
+  // zerou: pede para o servidor conferir (ele também confere sozinho)
+  if (relogio.anda && !fimAtual && tempoDe(relogio.anda) <= 0 && performance.now() - pediuTempo > 1500 && online && online.ws && online.ws.readyState === 1) { pediuTempo = performance.now(); online.ws.send(JSON.stringify({ t: 'tempo' })); }
+}
+setInterval(() => { if (modo === 'online' && relogio && relogio.anda && !fimAtual) mostrarRelogios(); }, 100);
 
 function status() {
   const s = $('#x-status');
@@ -157,11 +194,38 @@ function podeMexer() {
   if (modo === 'online' && (!online.jogadores || !online.jogadores.w || !online.jogadores.b)) return false;
   return e.vez === meuLado();
 }
+// pré-lance: na vez do outro dá para escolher o próximo lance; ele sai sozinho quando chegar a sua vez
+function podePre() {
+  if (fimAtual) return false;
+  if (modo === 'online') return !!(online.jogadores && online.jogadores.w && online.jogadores.b) && e.vez !== voce;
+  return modo === 'pc' && e.vez !== voce;
+}
+function tocarPre(i) {
+  const lado = meuLado();
+  const m = modoPre && sel >= 0 && alvos.find((x) => x.para === i);
+  if (m) { pre = { de: m.de, para: m.para }; sel = -1; alvos = []; modoPre = false; desenhar(); return; }
+  const p = e.b[i];
+  pre = null;
+  if (p && (p === p.toUpperCase() ? 'w' : 'b') === lado && i !== sel) { sel = i; alvos = X.preLances(e, lado, i); modoPre = true; }
+  else { sel = -1; alvos = []; modoPre = false; if (p && (p === p.toUpperCase() ? 'w' : 'b') !== lado && modo === 'online') aviso('Espere a vez do seu amigo', 1400, 'relogio'); }
+  desenhar();
+}
+// chegou a minha vez: faz o pré-lance se ainda valer (promoção vira dama)
+function tentarPre() {
+  if (!pre || fimAtual || e.vez !== meuLado()) return false;
+  const p = pre; pre = null;
+  if (sel >= 0 && modoPre) { sel = -1; alvos = []; modoPre = false; }
+  const m = X.achar(e, p.de, p.para, 'Q');
+  if (!m) { aviso('Pré-lance cancelado: não vale mais', 1600, 'relogio'); desenhar(); return false; }
+  fazer(m.de, m.para, 'Q');
+  return true;
+}
 function tocar(i) {
   if (!podeMexer()) {
-    if (modo === 'online' && !fimAtual && online.jogadores && online.jogadores.w && online.jogadores.b && e.b[i] && e.vez !== voce) aviso('Espere a vez do seu amigo', 1400, 'relogio');
+    if (podePre()) tocarPre(i);
     return;
   }
+  if (modoPre) { sel = -1; alvos = []; modoPre = false; }
   const m = alvos.find((x) => x.para === i);
   if (sel >= 0 && m) { escolherPromo(m).then((pr) => { if (pr) fazer(m.de, m.para, pr); }); return; }
   const p = e.b[i];
@@ -207,6 +271,7 @@ function vezDoComputador() {
     salvarPC();
     desenhar();
     if (fimAtual) mostrarFim();
+    else tentarPre();
   }, 450);
 }
 
@@ -217,6 +282,7 @@ function mostrarFim() {
   $('#fim-titulo').textContent = !f.vencedor ? 'Empate!' : venci ? 'Você ganhou!' : 'Você perdeu';
   let txt = X.TEXTO_FIM[f.tipo] || '';
   if (f.tipo === 'desistiu') txt = f.quem === meuLado() ? 'Você desistiu.' : (modo === 'pc' ? 'O computador desistiu.' : 'Seu amigo desistiu.');
+  if (f.tipo === 'tempo') txt = f.quem === meuLado() ? 'Seu tempo acabou.' : 'O tempo do seu amigo acabou.';
   $('#fim-txt').textContent = txt;
   $('#bt-revanche').textContent = modo === 'online' ? 'Jogar de novo (trocando de cor)' : 'Jogar de novo';
   $('#fim-espera').hidden = true;
@@ -227,7 +293,9 @@ function mostrarFim() {
 function marcar(sel, attr, v) { document.querySelectorAll(sel).forEach((b) => { const s = b.dataset[attr] === String(v); b.classList.toggle('sel', s); b.setAttribute('aria-checked', s); }); }
 document.querySelectorAll('.nivel').forEach((b) => b.addEventListener('click', () => { nivel = +b.dataset.nivel; marcar('.nivel', 'nivel', nivel); }));
 document.querySelectorAll('.cor-peca').forEach((b) => b.addEventListener('click', () => { voce = b.dataset.cor; marcar('.cor-peca', 'cor', voce); }));
-marcar('.nivel', 'nivel', nivel); marcar('.cor-peca', 'cor', voce);
+document.querySelectorAll('.ritmo').forEach((b) => b.addEventListener('click', () => { ritmo = b.dataset.ritmo; marcar('.ritmo', 'ritmo', ritmo); try { localStorage.setItem('pradaria.xadrez.ritmo', ritmo); } catch {} }));
+try { const r = localStorage.getItem('pradaria.xadrez.ritmo'); if (r !== null && (r === '' || X.RITMOS[r])) ritmo = r; } catch {}
+marcar('.nivel', 'nivel', nivel); marcar('.cor-peca', 'cor', voce); marcar('.ritmo', 'ritmo', ritmo);
 
 function abrirMenu() {
   fecharOnline();
@@ -241,7 +309,7 @@ function abrirMenu() {
   if (lobby) lobby.jogo('xadrez');
 }
 function comecarPC(guardado = null) {
-  modo = 'pc'; girado = false; sel = -1; alvos = [];
+  modo = 'pc'; girado = false; sel = -1; alvos = []; pre = null; modoPre = false; relogio = null; lancesVistos = -1;
   if (guardado) { e = X.deJson(guardado.e); voce = guardado.voce; nivel = guardado.nivel; fimAtual = null; }
   else { e = X.novo(); fimAtual = null; }
   $('#x-menu').hidden = true; $('#x-jogo').hidden = false;
@@ -274,11 +342,12 @@ $('#bt-menu-fim').addEventListener('click', () => abrirMenu());
 // ---------- online ----------
 function fecharOnline() { if (online && online.ws) { online.fechado = true; try { online.ws.close(); } catch {} } online = null; }
 function codigoNovo() { const L = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'; return [...crypto.getRandomValues(new Uint8Array(14))].map((x) => L[x % L.length]).join(''); }
-function jogarOnline(codigo, chamar = false) {
+function jogarOnline(codigo, chamar = false, criar = false) {
   if (!conta.token) { $('#x-erro').textContent = 'Entre na sua conta para jogar com amigos.'; return; }
   fecharOnline();
   modo = 'online'; e = X.novo(); voce = 'w'; fimAtual = null; fimVisto = null; sel = -1; alvos = []; girado = false;
-  online = { codigo, jogadores: null, tentativas: 0 };
+  online = { codigo, jogadores: null, tentativas: 0, ritmo: criar ? ritmo : '' };
+  relogio = null; pre = null; modoPre = false; lancesVistos = -1;
   history.replaceState(null, '', '?sala=' + codigo);
   $('#x-menu').hidden = true; $('#x-jogo').hidden = false; $('#x-fim').hidden = true;
   desenhar();
@@ -289,7 +358,7 @@ function conectar() {
   const o = online;
   if (!o) return;
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const ws = new WebSocket(`${proto}//${location.host}/api/partida/${o.codigo}?jogo=xadrez&t=${encodeURIComponent(conta.token)}`);
+  const ws = new WebSocket(`${proto}//${location.host}/api/partida/${o.codigo}?jogo=xadrez${o.ritmo ? '&ritmo=' + encodeURIComponent(o.ritmo) : ''}&t=${encodeURIComponent(conta.token)}`);
   o.ws = ws;
   ws.onopen = () => { o.tentativas = 0; };
   ws.onmessage = (ev) => {
@@ -303,13 +372,17 @@ function conectar() {
     voce = m.voce || 'w';
     e = X.deJson(m.estado);
     fimAtual = m.fim;
-    if (sel >= 0 && (e.vez !== voce)) { sel = -1; alvos = []; }
+    relogio = m.relogio ? { ...m.relogio, recebido: performance.now() } : null;
+    if (fimAtual) { pre = null; if (modoPre) { sel = -1; alvos = []; modoPre = false; } }
+    if (modoPre) { if (sel >= 0) alvos = X.preLances(e, voce, sel); }
+    else if (sel >= 0 && (e.vez !== voce)) { sel = -1; alvos = []; }
     else if (sel >= 0) alvos = X.lances(e).filter((x) => x.de === sel);
     if (antes && m.n !== o.n) { $('#x-fim').hidden = true; fimVisto = null; aviso('Partida nova! Agora você joga de ' + (voce === 'w' ? 'brancas' : 'pretas'), 2500, 'xadrez'); }
     o.n = m.n;
     const outro = voce === 'w' ? 'b' : 'w';
     if (antes && !antes[outro] && m.jogadores[outro]) aviso(`${m.jogadores[outro].nome} chegou!`, 2200, 'acenar');
     desenhar();
+    if (!fimAtual && e.vez === voce && pre) tentarPre();
     if (fimAtual && JSON.stringify(fimAtual) !== fimVisto) { fimVisto = JSON.stringify(fimAtual); mostrarFim(); }
     if (fimAtual && m.revanche && m.revanche.length === 1 && m.revanche[0] !== voce) { $('#fim-espera').hidden = false; $('#fim-espera').textContent = 'Seu amigo quer jogar de novo!'; }
   };
@@ -323,7 +396,7 @@ function chamarAmigo() {
   if (!amigos || !online) return;
   amigos.abrir({ jogo: 'xadrez', sala: online.codigo, titulo: 'Xadrez' });
 }
-$('#bt-amigo').addEventListener('click', () => jogarOnline(codigoNovo(), true));
+$('#bt-amigo').addEventListener('click', () => jogarOnline(codigoNovo(), true, true));
 $('#bt-chamar').addEventListener('click', () => chamarAmigo());
 
 // ---------- saguão e amigos ----------
@@ -348,5 +421,5 @@ if (pedida && /^[A-Za-z0-9]{10,24}$/.test(pedida) && conta.token) jogarOnline(pe
 else abrirMenu();
 
 // para os testes automáticos (testes/teste-xadrez.mjs)
-window.__xadrez = { get e() { return e; }, get voce() { return voce; }, get modo() { return modo; }, get fim() { return fimAtual; }, get online() { return online; }, X, set nivel(v) { nivel = v; }, fazer };
+window.__xadrez = { get e() { return e; }, get voce() { return voce; }, get modo() { return modo; }, get fim() { return fimAtual; }, get online() { return online; }, get relogio() { return relogio; }, get pre() { return pre; }, set ritmo(v) { ritmo = v; }, X, set nivel(v) { nivel = v; }, fazer };
 void icone;

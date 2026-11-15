@@ -4,6 +4,9 @@
 // Tabuleiro: 64 casas, índice = linha * 8 + coluna; linha 0 = a fileira 8 (lado das pretas), coluna 0 = a coluna "a".
 // Peças: 'P' peão, 'N' cavalo, 'B' bispo, 'R' torre, 'Q' dama, 'K' rei; maiúscula = brancas, minúscula = pretas, '' = vazia.
 
+// ritmos de jogo com relógio (minutos + segundos ganhos a cada lance)
+export const RITMOS = { '1+0': { nome: 'Bullet', base: 60000, inc: 0 }, '3+2': { nome: 'Blitz', base: 180000, inc: 2000 }, '10+0': { nome: 'Rápida', base: 600000, inc: 0 } };
+
 export const INICIO = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
 const cor = (p) => (p ? (p === p.toUpperCase() ? 'w' : 'b') : null);
 const outra = (c) => (c === 'w' ? 'b' : 'w');
@@ -140,7 +143,55 @@ export function avancar(e, m) {
   const k = chave(n);
   n.rep[k] = (n.rep[k] || 0) + 1;
   n.ultimo = { de: m.de, para: m.para };
+  n.hist = [...(e.hist || []), notacao(e, m)];
   return n;
+}
+
+// lance em notação (letras em português: R rei, D dama, T torre, B bispo, C cavalo; peão sem letra), com + e #
+const LETRA = { K: 'R', Q: 'D', R: 'T', B: 'B', N: 'C' };
+export function notacao(e, m) {
+  const p = e.b[m.de].toUpperCase();
+  let t;
+  if (m.roque) t = m.roque === 'k' ? 'O-O' : 'O-O-O';
+  else {
+    const come = !!e.b[m.para] || !!m.ep;
+    if (p === 'P') t = (come ? 'abcdefgh'[col(m.de)] + 'x' : '') + nomeCasa(m.para) + (m.promo ? '=' + LETRA[m.promo] : '');
+    else {
+      // se outra peça igual também chega na casa, diz a coluna (ou a fileira) de onde saiu
+      const outras = lances(e).filter((x) => x.para === m.para && x.de !== m.de && e.b[x.de] === e.b[m.de]);
+      let qual = '';
+      if (outras.length) {
+        if (!outras.some((x) => col(x.de) === col(m.de))) qual = 'abcdefgh'[col(m.de)];
+        else if (!outras.some((x) => lin(x.de) === lin(m.de))) qual = String(8 - lin(m.de));
+        else qual = nomeCasa(m.de);
+      }
+      t = LETRA[p] + qual + (come ? 'x' : '') + nomeCasa(m.para);
+    }
+  }
+  const n = jogar(e, m);
+  if (emXeque(n)) t += lances(n).length ? '+' : '#';
+  return t;
+}
+
+// pré-lance: as casas aonde a peça poderia ir na próxima vez (pelo jeito de andar, sem olhar xeque),
+// incluindo as diagonais do peão (para comer uma peça que pode chegar ali)
+export function preLances(e, cor, de) {
+  const p = e.b[de];
+  if (!p || (p === p.toUpperCase() ? 'w' : 'b') !== cor) return [];
+  const f = { ...e, vez: cor, ep: -1 };
+  const out = pseudo(f).filter((m) => m.de === de).map((m) => ({ de, para: m.para, promo: m.promo ? 'Q' : undefined }));
+  if (p.toUpperCase() === 'P') {
+    const d = cor === 'w' ? -1 : 1, l = lin(de) + d, ult = cor === 'w' ? 0 : 7;
+    for (const dc of [-1, 1]) { const c = col(de) + dc; if (dentro(l, c) && !out.some((m) => m.para === l * 8 + c) && (!e.b[l * 8 + c] || (e.b[l * 8 + c] === e.b[l * 8 + c].toUpperCase() ? 'w' : 'b') !== cor)) out.push({ de, para: l * 8 + c, promo: l === ult ? 'Q' : undefined }); }
+  }
+  const vistos = new Set();
+  return out.filter((m) => !vistos.has(m.para) && vistos.add(m.para));
+}
+
+// acabou o tempo de alguém: o outro ganha, a não ser que só tenha o rei (ou rei e um bispo/cavalo) para dar mate
+export function semMaterialParaMate(b, c) {
+  const ps = b.filter((p) => p && (p === p.toUpperCase() ? 'w' : 'b') === c && p.toUpperCase() !== 'K');
+  return !ps.length || (ps.length === 1 && 'BN'.includes(ps[0].toUpperCase()));
 }
 
 function materialInsuficiente(b) {
@@ -159,7 +210,7 @@ export function fim(e) {
   if ((e.rep[chave(e)] || 0) >= 3) return { tipo: 'repeticao' };
   return null;
 }
-export const TEXTO_FIM = { mate: 'Xeque-mate', afogado: 'Empate: rei afogado', material: 'Empate: poucas peças', 50: 'Empate: 50 lances sem captura', repeticao: 'Empate: a mesma posição 3 vezes', desistiu: 'Desistiu', saiu: 'O outro jogador saiu', empate: 'Empate combinado' };
+export const TEXTO_FIM = { mate: 'Xeque-mate', afogado: 'Empate: rei afogado', material: 'Empate: poucas peças', 50: 'Empate: 50 lances sem captura', repeticao: 'Empate: a mesma posição 3 vezes', desistiu: 'Desistiu', tempo: 'Acabou o tempo', 'tempo-empate': 'Empate: acabou o tempo, mas o outro não tinha peças para dar mate', saiu: 'O outro jogador saiu', empate: 'Empate combinado' };
 
 // ---------- computador ----------
 const VAL = { P: 100, N: 320, B: 330, R: 500, Q: 900, K: 0 };
@@ -228,5 +279,5 @@ export function melhorLance(e, nivel = 2, aleatorio = Math.random) {
 }
 
 // estado em JSON (servidor -> navegador)
-export const publico = (e) => ({ b: e.b, vez: e.vez, roque: e.roque, ep: e.ep, meio: e.meio, n: e.n, ultimo: e.ultimo || null });
-export function deJson(o) { return { b: o.b.slice(), vez: o.vez, roque: o.roque, ep: o.ep, meio: o.meio, n: o.n, rep: o.rep || {}, ultimo: o.ultimo || null }; }
+export const publico = (e) => ({ b: e.b, vez: e.vez, roque: e.roque, ep: e.ep, meio: e.meio, n: e.n, ultimo: e.ultimo || null, hist: e.hist || [] });
+export function deJson(o) { return { b: o.b.slice(), vez: o.vez, roque: o.roque, ep: o.ep, meio: o.meio, n: o.n, rep: o.rep || {}, ultimo: o.ultimo || null, hist: Array.isArray(o.hist) ? o.hist.slice() : [] }; }

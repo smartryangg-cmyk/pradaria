@@ -8,7 +8,7 @@
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="estilo.css?v=23">
-<link rel="stylesheet" href="tabuleiro.css?v=1">
+<link rel="stylesheet" href="tabuleiro.css?v=2">
 </head>
 <body class="pag-tabuleiro">
 <div id="fundo" aria-hidden="true"></div>
@@ -31,6 +31,12 @@
     <button class="bt verde grande" id="bt-computador" type="button"><span data-icone="engrenagem"></span>Jogar contra o computador</button>
     <button class="bt amarelo" id="bt-continuar" type="button" hidden><span data-icone="relogio"></span>Continuar a partida</button>
     <h3>Com um amigo</h3>
+    <div class="niveis ritmos" role="radiogroup" aria-label="Ritmo da partida">
+      <button class="bt ritmo" data-ritmo="1+0" type="button" role="radio">Bullet<small>1 min</small></button>
+      <button class="bt ritmo" data-ritmo="3+2" type="button" role="radio">Blitz<small>3 min +2s</small></button>
+      <button class="bt ritmo" data-ritmo="10+0" type="button" role="radio">Rápida<small>10 min</small></button>
+      <button class="bt ritmo" data-ritmo="" type="button" role="radio">Sem relógio<small>com calma</small></button>
+    </div>
     <button class="bt verde grande" id="bt-amigo" type="button"><span data-icone="amigos"></span>Chamar um amigo</button>
     <p class="sub" id="x-sem-conta" hidden>Para jogar com amigos, <a href="/">entre na sua conta</a>.</p>
     <p id="x-erro" class="erro"></p>
@@ -48,6 +54,7 @@
   <div class="jogador-linha" id="x-cima"></div>
   <div id="tabuleiro" role="grid" aria-label="Tabuleiro de xadrez"></div>
   <div class="jogador-linha" id="x-baixo"></div>
+  <div id="x-lances" class="lances" aria-label="Lances da partida"></div>
   <div class="linha-bts" id="x-botoes">
     <button class="bt" id="bt-empate" type="button" hidden>Propor empate</button>
     <button class="bt" id="bt-desistir" type="button">Desistir</button>
@@ -76,7 +83,7 @@
 </div>
 
 <div id="aviso"></div>
-<script type="module" src="js/xadrez.js?v=1"></script>
+<script type="module" src="js/xadrez.js?v=2"></script>
 <div class="marca-dagua" aria-hidden="true">Ryan Krano</div>
 </body>
 </html>

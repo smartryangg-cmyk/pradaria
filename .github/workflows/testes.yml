@@ -27,7 +27,7 @@ jobs:
         run: for f in public/js/*.js sala-worker/src/*.js functions/api/*.js "functions/api/sala/[codigo].js" lib/*.js; do node --experimental-default-type=module --check "$f" || exit 1; done
       - name: Ligar servidores locais
         run: |
-          (cd sala-worker && nohup npx wrangler dev --port 8790 --persist-to ../.estado > ../sala.log 2>&1 &)
+          (cd sala-worker && nohup npx wrangler dev --port 8790 --var TESTE:1 --persist-to ../.estado > ../sala.log 2>&1 &)
           for i in $(seq 1 60); do curl -s localhost:8790 >/dev/null && break; sleep 1; done
           nohup npx wrangler pages dev --port 8788 --persist-to .estado > pages.log 2>&1 &
           (cd public && nohup python3 -m http.server 8765 > ../estatico.log 2>&1 &)
