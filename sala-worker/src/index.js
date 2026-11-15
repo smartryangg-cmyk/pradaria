@@ -472,7 +472,9 @@ export class Sala extends DurableObject {
       const op = this.op();
       const econ = econLigada(op) ? await this.econDe(eu.uid) : null;
       // com o mercado, só dá para colocar os blocos que a pessoa já tem
-      if (econ && b > 0 && !liberado(econ, b, op)) return;
+      if (econ && b > 0 && (!liberado(econ, b, op) || !liberado(econ, gastoDe(b), op))) return;
+      // coletar e criar: trigo se planta na Terra de plantar e nasce broto (76); maduro só cresce sozinho
+      if (econ && op.sobrevivencia && m.j && b === 32) return;
       // coletar e criar: só coloca o que tem na mochila
       if (econ && op.sobrevivencia && m.j && b > 0 && lugarVazio(m.de | 0) && !((econ.itens[gastoDe(b)] || 0) > 0)) {
         ws.send(JSON.stringify({ t: 'econ', s: econ })); // devolve a mochila certa para o aparelho

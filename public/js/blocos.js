@@ -21,6 +21,8 @@ export const B = {
   CACTO: 63, CASCALHO: 65,
   CARVAO: 66, FERRO: 67, OURO: 68, DIAMANTE: 69, ROCHA_MAE: 70,
   TRONCO_PINHEIRO: 71, FOLHAS_PINHEIRO: 72, TRONCO_BETULA: 73, FOLHAS_SELVA: 74, ARBUSTO_SECO: 75,
+  // trigo plantado crescendo (plantacoes.js): broto -> verde -> Trigo maduro
+  TRIGO_BROTO: 76, TRIGO_VERDE: 77,
 };
 
 // tiles: [cima, baixo, lados]
@@ -70,6 +72,8 @@ def(B.FOLHAS_PINHEIRO, 'Folhas de pinheiro', 37);
 def(B.TRONCO_BETULA, 'Tronco de bétula', [6, 6, 38]);
 def(B.FOLHAS_SELVA, 'Folhas da selva', 39);
 def(B.ARBUSTO_SECO, 'Arbusto seco', 40, { solido: false, opaco: false, planta: true });
+def(B.TRIGO_BROTO, 'Trigo plantado', 140, { solido: false, opaco: false, planta: true });
+def(B.TRIGO_VERDE, 'Trigo crescendo', 141, { solido: false, opaco: false, planta: true });
 def(B.BANCADA, 'Bancada', [128, 9, 129]);
 
 // ---------- itens (não são blocos: não vão para o mundo) ----------

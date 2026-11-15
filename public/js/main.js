@@ -24,6 +24,7 @@ import { criarPosEfeitos } from './posefeitos.js';
 import { icone, preencherIcones, comIcone, nomeEmote, ligarThree } from './icones.js';
 import { Escavacao, toquesPara } from './escavar.js';
 import { Fisica } from './fisica.js';
+import { Plantacoes } from './plantacoes.js';
 import { Agua } from './agua.js';
 import { criarComandos } from './comandos.js';
 import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, ESTILOS, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto, raioExtraMundo, precisa16 } from './opcoes-mundo.js';
@@ -186,7 +187,7 @@ const som = new Som();
 // água: fôlego e a visão embaixo d'água
 const agua = new Agua({ cena, graf, som, aviso: (t, ms, ic) => aviso(t, ms, ic), vida, esconder: () => [nuvens] });
 
-let mundo = null, jog = null, ctrl = null, bichos = null, aldeoes = null, sala = null, escav = null, fisica = null;
+let mundo = null, jog = null, ctrl = null, bichos = null, aldeoes = null, sala = null, escav = null, fisica = null, plantacoes = null;
 let jogando = false, pausado = false;
 let modo = 'local', mundoAtual = null;
 const BARRA_CRIATIVO = [B.GRAMA, B.TERRA, B.PEDRA, B.TABUAS, B.TRONCO, B.VIDRO, B.TIJOLO, B.LA_VERMELHA, B.FLOR_AMARELA];
@@ -949,6 +950,11 @@ function usar(ponto) {
   if (novo === B.AGUA && atual === B.AGUA) return;
   if (SOLIDO[novo] && jog.ocupa(x, y, z)) return;
   if (PRECISA_CHAO[novo] && !SOLIDO[mundo.bloco(x, y - 1, z)]) return;
+  // trigo: na Terra de plantar vira broto e cresce sozinho; coletando, só dá para plantar nela
+  if (novo === B.TRIGO) {
+    if (mundo.bloco(x, y - 1, z) === B.TERRA_ARADA) novo = B.TRIGO_BROTO;
+    else if (sobrev()) { aviso('Plante o trigo na Terra de plantar (crie com Terra na Mochila). Perto da água cresce mais rápido', 3200, 'milho'); return; }
+  }
   // esteira: anda para onde o jogador está olhando
   if (novo === E.ESTEIRA) {
     const fx = -Math.sin(jog.yaw), fz = -Math.cos(jog.yaw);
@@ -1217,6 +1223,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   escav = new Escavacao(cena, mundo, matBlocos, atlasCanvas);
   drops.usarMundo(mundo);
   fisica = new Fisica(cena, mundo, matBlocos);
+  plantacoes = new Plantacoes(mundo);
   fisica.aoCair = (x, y, z) => { if (Math.abs(x - jog.pos.x) + Math.abs(z - jog.pos.z) < 24) som.passo(); };
   fisica.aoFolha = (x, y, z, b) => escav.estilhacar(x, y, z, b, null, null);
   mundo.carregarEdicoes(edicoes);
@@ -1765,6 +1772,7 @@ function laco(agora) {
 
   escav.atualizar(dt, jog.pos.x, jog.pos.z);
   fisica.atualizar(dt);
+  plantacoes.atualizar(jog.pos.x, jog.pos.z);
   drops.quadro(dt, jog, !pausado && !garagem.dentro);
   if (mundo.aventura) verLugar();
   guerra.quadro(dt, pausado);
@@ -1917,4 +1925,4 @@ if (conta.token) abrirJogos().then(() => { if (mundoPedido && conta.usuario) ent
 else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv }; }
+if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; } }; }
