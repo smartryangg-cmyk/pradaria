@@ -151,7 +151,14 @@ const saiu = await p.evaluate(() => window.__jogo.jog.pos.z);
 conferir(saiu > porta[2] + 0.3, 'passa pela grade serrada');
 await ir(p, info.prisao.x + 0.5, info.prisao.z + 25);
 await p.waitForTimeout(700);
-const fuga = await p.evaluate(() => ({ preso: !!window.__jogo.guerra.preso, est: window.__jogo.guerra.procurado, m: window.__jogo.guerra.missoes.fuga }));
+// confere e já leva para a Base Aliada no mesmo instante: no CI (lento) a polícia que vinha atrás alcançava e prendia
+// entre a conferência e o despiste
+const fuga = await p.evaluate(([bx, bz]) => {
+  const J = window.__jogo, g = J.guerra, r = { preso: !!g.preso, est: g.procurado, m: g.missoes.fuga };
+  J.mundo.atualizar(bx, bz, 400);
+  J.cmd.teleportar(bx, J.mundo.chao(Math.floor(bx), Math.floor(bz)) + 1.2, bz, J.jog.yaw, '');
+  return r;
+}, [info.base.x, info.base.z]);
 conferir(!fuga.preso && fuga.est >= 2 && fuga.m === true, 'fugiu do presídio: missão Fuga e 2 estrelas');
 // despista: some de perto da polícia (os reforços que vinham atrás ficam para trás)
 // se a polícia derrubou o jogador na fuga, o desmaio se resolve antes (senão ele "acorda" preso já na base); e a vida volta cheia

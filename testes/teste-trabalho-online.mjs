@@ -27,6 +27,9 @@ await a.click('#m-novo [data-opcao=objetivos]'); // mod Missões (desligado nos 
 await a.click('#m-novo button[type=submit]');
 await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 20000 });
 await a.waitForTimeout(2500);
+// a sala precisa estar ligada: o que se faz antes não chega ao servidor (no CI lento a missão se perdia)
+await a.waitForFunction(() => window.__jogo.sala.ws && window.__jogo.sala.ws.readyState === 1 && window.__jogo.mercado.e, null, { timeout: 20000 });
+await a.waitForTimeout(500);
 // junta moedas: missão de colocar 10 blocos (+5) e presente do Beto (+10)
 await a.evaluate(() => {
   const { mundo: m0, jog, comoJogador } = window.__jogo; const x = Math.floor(jog.pos.x) + 3, z = Math.floor(jog.pos.z);
@@ -38,7 +41,8 @@ await bb.click('#bt-codigo'); await bb.fill('#n-nome', codigo); await bb.click('
 await bb.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.outros > 0, null, { timeout: 20000 });
 await bb.waitForTimeout(1000);
 await bb.evaluate(() => { const [id] = [...window.__jogo.mercado.ui.outros()].map((o) => o.id); window.__jogo.sala.enviar({ t: 'dar', para: id, n: 10 }); });
-await a.waitForTimeout(1500);
+// a missão e o presente passam pelo servidor: espera chegar (no CI lento passava de 1,5 s)
+await a.waitForFunction(() => window.__jogo.mercado.e.moedas >= 25, null, { timeout: 15000 }).catch(() => {});
 let e = await est(a);
 conferir(e.moedas === 25, 'Ana juntou 25 moedas (' + e.moedas + ')');
 // de manhã (só o dono muda a hora)
