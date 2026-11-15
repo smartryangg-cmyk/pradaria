@@ -13,6 +13,7 @@ import { F, FORMA_NOVA, desenharFormaNova, mirarForma } from './formas.js';
 const ELET = new Uint8Array(256);
 for (let b = 1; b < 256; b++) ELET[b] = ELETRICO(b) ? 1 : 0;
 import { criarSuavizador } from './suave.js';
+import { calcularLuz, EMITE, RAIO_LUZ } from './luz-blocos.js';
 
 export const CX = 16, CZ = 16, ALT = 96;
 export const NIVEL_AGUA = 20; // mar do terreno de antes (o clássico usa mundo.nivelAgua = 40)
@@ -310,6 +311,7 @@ export class Mundo {
     if (lx === CX - 1) this.marcarSujo(cx + 1, cz);
     if (lz === 0) this.marcarSujo(cx, cz - 1);
     if (lz === CZ - 1) this.marcarSujo(cx, cz + 1);
+    this.sujarLuz(x, z, antes, b);
     // planta (ou fio, botão...) sem chão some
     if (!SOLIDO[b] && PRECISA_CHAO[this.bloco(x, y + 1, z)]) this.definir(x, y + 1, z, AR, daRede);
     this.agendarAgua(x, y, z);
@@ -459,6 +461,21 @@ export class Mundo {
     return l > 0.01 ? [fx / l, fz / l] : [0, 0];
   }
 
+  // pôs ou tirou uma luz (ou um bloco perto de uma): os pedaços que ela alcança são montados de novo
+  sujarLuz(x, z, antes, b) {
+    if (!EMITE[antes] && !EMITE[b] && !this.temLuzPerto(x, z)) return;
+    const R = RAIO_LUZ;
+    for (let a = Math.floor((x - R) / CX); a <= Math.floor((x + R) / CX); a++)
+      for (let d = Math.floor((z - R) / CZ); d <= Math.floor((z + R) / CZ); d++) this.marcarSujo(a, d);
+  }
+
+  // há luz de bloco nos pedaços em volta deste ponto? (guardado na montagem da malha)
+  temLuzPerto(x, z) {
+    const cx = Math.floor(x / CX), cz = Math.floor(z / CZ);
+    for (let a = -1; a <= 1; a++) for (let d = -1; d <= 1; d++) { const o = this.chunks.get(chave(cx + a, cz + d)); if (o && o.temLuz) return true; }
+    return false;
+  }
+
   marcarSujo(cx, cz) {
     const c = this.chunks.get(chave(cx, cz));
     if (c && c.malha !== undefined) { c.sujo = true; c.prioridade = true; }
@@ -570,6 +587,16 @@ export class Mundo {
       else for (let y = ALT - 1; y >= 0; y--) if (OPACO[get(x, y, z)]) { altCeu[x + 1 + (z + 1) * LC] = y; break; }
     }
     const coberto = (x, y, z) => (altCeu[x + 1 + (z + 1) * LC] > y ? 1 : 0);
+    // quão escuro fica sem o céu: sombra leve embaixo de árvore/beiral (como antes); mais de 5 blocos
+    // de teto (caverna) vai escurecendo até 62%
+    const escuroCeu = (x, y, z) => { const t = altCeu[x + 1 + (z + 1) * LC]; return t > y ? Math.min(0.62, 0.32 + 0.03 * Math.max(0, t - y - 5)) : 0; };
+    // luz dos blocos (lampião, fogueira...) espalhada em volta; null = nenhuma por perto
+    const arrs = [];
+    for (let b2 = -1; b2 <= 1; b2++) for (let a = -1; a <= 1; a++) {
+      const o = a || b2 ? this.chunks.get(chave(c.cx + a, c.cz + b2)) : c;
+      arrs.push(o ? o.dados : null);
+    }
+    const luzB = calcularLuz(arrs, CX, CZ, ALT);
     // água (para o shader): profundidade e beirada no canto de uma face.
     // Retorna [fundura 0..1, 1 - beirada, 1]; (1,1,1) = "fundo, sem espuma" (padrão seguro).
     const ehAgua = (q) => !!(BLOCOS[q] && BLOCOS[q].agua);
@@ -612,8 +639,9 @@ export class Mundo {
           const k = P.length / 3;
           P.push(x + ax, py, z + az, x + bx, py, z + bz, x + bx, py + 0.9, z + bz, x + ax, py + 0.9, z + az);
           U.push(u0, v0, u1, v0, u1, v1, u0, v1);
-          const lp = 0.95 * (coberto(x, y, z) ? 0.7 : 1);
-          for (let n = 0; n < 4; n++) { C.push(lp, lp, lp); N.push(0, 1, 0); L.push(0); BD.push(0); }
+          const lb = luzB ? luzB(x, y, z) : 0;
+          const lp = 0.95 * (1 - escuroCeu(x, y, z) * (1 - lb));
+          for (let n = 0; n < 4; n++) { C.push(lp, lp, lp); N.push(0, 1, 0); L.push(Math.max(BRILHO[b], lb * 0.3)); BD.push(0); }
           O.push(0, 0, 1, 1); // só o topo da plantinha balança
           I.push(k, k + 1, k + 2, k, k + 2, k + 3, k, k + 2, k + 1, k, k + 3, k + 2);
         }
@@ -696,19 +724,22 @@ export class Mundo {
           aos.push(ao);
           if (agua) { CC.push(...corAgua(x, y, z, cn, f)); FA.push(fluxoX, fluxoZ, f.n[1] === 0 ? caindo : 0); continue; }
           // luz do céu nas 4 colunas que tocam o canto (só no plano da face)
-          let cob = 0, nc = 0;
+          // (caverna funda fica mais escura; a luz dos blocos em volta clareia de novo)
+          let cob = 0, lb = 0, nc = 0;
           for (let i = 0; i < 4; i++) {
             const qx = f.n[0] ? x + f.n[0] : x + cn[0] - (i & 1);
             const qz = f.n[2] ? z + f.n[2] : z + cn[2] - (i >> 1);
             if (f.n[0] && (i & 1)) continue;
             if (f.n[2] && (i >> 1)) continue;
-            cob += coberto(qx, y + f.n[1], qz); nc++;
+            cob += escuroCeu(qx, y + f.n[1], qz); nc++;
+            if (luzB) lb += luzB(qx, y + f.n[1], qz);
           }
-          const v = (gs ? AO_SUAVE : AO)[ao] * (1 - 0.32 * cob / nc); // no chão liso o AO é mais leve (sem "curvas de nível" escuras)
+          lb /= nc;
+          const v = (gs ? AO_SUAVE : AO)[ao] * (1 - (cob / nc) * (1 - lb)); // no chão liso o AO é mais leve (sem "curvas de nível" escuras)
           CC.push(v, v, v);
           if (s) N.push(s[3], s[4], s[5]); else N.push(f.n[0], f.n[1], f.n[2]);
           O.push(FOLHAGEM[b] ? 0.6 : 0);
-          L.push(BRILHO[b]);
+          L.push(Math.max(BRILHO[b], lb * 0.3)); // perto do lampião a parede brilha um pouco (mais de noite)
           BD.push(bd);
         }
         UU.push(u0, v0, u1, v0, u1, v1, u0, v1);
@@ -744,6 +775,7 @@ export class Mundo {
     };
     c.malha = fazer(P, U, C, I, this.mat, c.malha, true);
     c.luzes = luzes;
+    c.temLuz = !!luzB;
     c.especiais = especiais;
     c.agua = fazer(PA, UA, CA, IA, this.matAgua, c.agua, false, FA);
     if (c.agua) c.agua.renderOrder = 1;
