@@ -5,4 +5,6 @@ export const ESCADA_MAO = 211;
 export const ehEscadaMao = (b) => b >= ESCADA_MAO && b < ESCADA_MAO + 4;
 // direção da parede de cada giro
 export const PAREDE = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+// tocha (graveto + carvão): fica no chão, ilumina em volta (luz-blocos.js)
+export const TOCHA = 221;
 export const SOBE = 2.4, DESCE = 2.4; // blocos por segundo (subindo / escorregando devagar)
