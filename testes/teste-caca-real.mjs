@@ -82,7 +82,10 @@ async function juntarChao(p) {
 async function segurarNoBicho(p, cdp, achar, ms, ate) {
   const fim = Date.now() + ms;
   while (Date.now() < fim) {
-    const pt = await p.evaluate((f) => { const bb = eval(f)(); if (!bb) return null; window.__olhar(bb); return true; }, achar.toString());
+    // o bicho que apanha foge: a pessoa vai atrás dele (fica a 1,8 bloco) antes de segurar o dedo de novo
+    const pt = await p.evaluate((f) => { const bb = eval(f)(); if (!bb) return null; const g = window.__jogo, j = g.jog, d = Math.hypot(bb.x - j.pos.x, bb.z - j.pos.z);
+      if (d > 2.6) { const k = 1.8 / d; const x = bb.x + (j.pos.x - bb.x) * k, z = bb.z + (j.pos.z - bb.z) * k; g.cmd.teleportar(x, g.mundo.chao(Math.floor(x), Math.floor(z)) + 1.02, z, j.yaw, ''); }
+      window.__olhar(bb); return true; }, achar.toString());
     if (!pt) return;
     await p.waitForTimeout(450); // a câmera acompanha no próximo quadro
     const t = await p.evaluate((f) => { const bb = eval(f)(); return bb ? window.__tela(bb) : null; }, achar.toString());
