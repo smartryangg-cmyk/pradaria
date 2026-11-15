@@ -90,7 +90,7 @@ await bb.evaluate(() => { window.__ouviu.length = 0; });
 await bb.evaluate(() => { window.__jogo.jog.pos.x += 7; });
 await a.evaluate(() => { window.__jogo.jog.pitch = 0; window.__jogo.jog.yaw = -Math.PI / 2; });
 const ini = await a.evaluate(() => ({ ...window.__jogo.jog.pos }));
-await a.keyboard.down('KeyW'); await a.waitForTimeout(2200); await a.keyboard.up('KeyW');
+await a.keyboard.down('KeyW'); await a.waitForTimeout(3500); await a.keyboard.up('KeyW');
 console.log('     Ana andou de', ini.x.toFixed(1), 'até', await a.evaluate(() => window.__jogo.jog.pos.x.toFixed(1)), 'Beto vê acao', await bb.evaluate(() => window.__jogo.outrosLista[0].acao));
 await bb.waitForTimeout(800);
 const ps = await ouviu(bb, 'passo');
