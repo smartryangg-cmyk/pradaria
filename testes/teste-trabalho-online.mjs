@@ -15,7 +15,7 @@ async function jogador(nome, tablet) {
   p.on('console', (m) => { if (m.type() === 'error' && !/WebSocket|404/.test(m.text())) erros.push(nome + ' ' + m.text()); });
   await p.goto(BASE + '/#teste');
   await p.click('#bt-criar-conta'); await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123'); if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok'); await p.click('#c-ok');
-  await p.waitForSelector('#m-mundos:not([hidden])');
+  await p.waitForSelector('#m-jogos:not([hidden])'); await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])');
   return p;
 }
 const est = (p) => p.evaluate(() => JSON.parse(JSON.stringify(window.__jogo.mercado.e)));
@@ -104,7 +104,7 @@ e = await est(a);
 conferir(e.equipe[0].deve > -12 && e.equipe[0].feito >= fim.reais, `o pedreiro trabalhou por conta do salário (deve ${e.equipe[0].deve.toFixed(1)}) e fez ${e.equipe[0].feito} blocos`);
 // sai e volta: a casa e a equipe continuam
 await bb.reload();
-await bb.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 }).catch(() => {});
+await bb.waitForSelector('#m-jogos:not([hidden])', { timeout: 15000 }); await bb.click('.jogo[data-jogo=pradaria]'); await bb.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 }).catch(() => {});
 await bb.click('#bt-codigo'); await bb.fill('#n-nome', codigo); await bb.click('#m-novo button[type=submit]');
 await bb.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.mundo, null, { timeout: 20000 });
 await bb.waitForTimeout(2000);

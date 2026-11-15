@@ -20,7 +20,7 @@ async function jogador(nome, toque) {
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
   if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
   await p.click('#c-ok');
-  await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
+  await p.waitForSelector('#m-jogos:not([hidden])', { timeout: 15000 }); await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
   return p;
 }
 const ultimas = (p) => p.$$eval('#chat-log .chat-msg', (l) => l.map((e) => e.textContent));

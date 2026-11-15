@@ -196,7 +196,7 @@ async function conta(p, nome) {
   await p.click('#bt-criar-conta'); await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
   if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
   await p.click('#c-ok');
-  await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 90000 });
+  await p.waitForSelector('#m-jogos:not([hidden])', { timeout: 90000 }); await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 90000 });
 }
 const a = await pagina('Ana');
 await conta(a, 'Ana' + sfx);
@@ -251,6 +251,7 @@ conferir(await qtd(a, T.TRONCO) === 1 && await qtd(bt, T.TRONCO) === 0, 'online:
 await a.evaluate(([x, y, z]) => window.__jogo.mercado.enviar({ t: 'ev', e: 'la', x: x + 4.5, y: y + 2, z: z + 4.5 }, true), [x0, y0, z0]);
 conferir(await ate(bt, () => window.__jogo.drops.lista().some((d) => d.id === 14)), 'online: a lã que caiu aparece para o Beto');
 await bt.reload();
+await bt.waitForSelector('#m-jogos:not([hidden])'); await bt.click('.jogo[data-jogo=pradaria]');
 await bt.waitForSelector('#m-mundos:not([hidden])');
 await bt.click('#lista-mundos .mundo');
 await bt.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala);
