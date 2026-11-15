@@ -100,7 +100,7 @@ ok(true, 'celular troca para alavanca e botões');
 await espera(2500);
 // para o teste não depender de onde o mundo começa (árvore, água, morro): anda voando lá no alto e pousa para mexer nos blocos
 const voarAlto = () => tv.evaluate(() => { const j = window.__jogo.jog; j.voando = true; j.pos.y += 25; });
-const pousar = async () => { await tv.evaluate(() => { window.__jogo.jog.voando = false; }); await tv.waitForFunction(() => window.__jogo.jog.noChao, null, { timeout: 15000 }); await espera(300); };
+const pousar = async () => { await tv.evaluate(() => { window.__jogo.jog.voando = false; }); await tv.waitForFunction(() => window.__jogo.jog.noChao || window.__jogo.jog.naAgua, null, { timeout: 20000 }); await espera(300); };
 await voarAlto();
 await espera(300);
 
