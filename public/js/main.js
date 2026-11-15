@@ -1853,7 +1853,7 @@ async function jogarOnline(m, volta = null) {
     bloco: (msg) => {
       if (!mundo) return;
       const antes = mundo.bloco(msg.x, msg.y, msg.z);
-      if (msg.bom && msg.b === FOGO) mundo.marcarFogo(msg.x, msg.y, msg.z); // fogo de verdade (a sala marcou)
+      if (msg.b === FOGO && Array.isArray(msg.bom) && msg.bom.length === 3 && msg.bom.every(Number.isInteger)) mundo.marcarFogo(msg.x, msg.y, msg.z, msg.bom); // fogo de verdade (a sala marcou, com o isqueiro de origem)
       mundo.definir(msg.x, msg.y, msg.z, msg.b, true);
       // o amigo quebrou/colocou: ouve de onde foi (só o que alguém fez, não a água escorrendo)
       if (msg.j && antes !== msg.b) som.em(meioDe(msg.x, msg.y, msg.z), () => (msg.b ? som.colocar(msg.b) : som.quebrar(antes)));
