@@ -959,6 +959,44 @@ export class Mundo {
   }
 
   // raio (DDA) a partir da câmera: retorna bloco atingido e a face
+  // Estilo Natural 3D: o chão desenhado (arredondado) fica mais baixo que o topo do bloco nas beiradas e
+  // declives. Devolve a altura do chão DESENHADO em (x, z) logo abaixo de y (ou null), para pôr os pés
+  // do boneco nele (a colisão continua nos blocos). Índice por coluna feito uma vez por malha.
+  alturaVisual(x, y, z) {
+    if (!this.suave) return null;
+    const cx = Math.floor(x / CX), cz = Math.floor(z / CZ), c = this.chunks.get(chave(cx, cz));
+    const m = c && c.malha;
+    if (!m) return null;
+    if (!c.colunas || c.colunas.malha !== m) {
+      const P = m.geometry.attributes.position.array, I = m.geometry.index.array, cols = new Array(CX * CZ);
+      for (let t = 0; t < I.length; t += 3) {
+        const a = I[t] * 3, b = I[t + 1] * 3, d = I[t + 2] * 3;
+        // só o que está virado para cima (chão)
+        const ux = P[b] - P[a], uz = P[b + 2] - P[a + 2], vx = P[d] - P[a], vz = P[d + 2] - P[a + 2];
+        if (uz * vx - ux * vz <= 1e-6) continue;
+        const x0 = Math.max(0, Math.floor(Math.min(P[a], P[b], P[d]))), x1 = Math.min(CX - 1, Math.floor(Math.max(P[a], P[b], P[d]) - 1e-6));
+        const z0 = Math.max(0, Math.floor(Math.min(P[a + 2], P[b + 2], P[d + 2]))), z1 = Math.min(CZ - 1, Math.floor(Math.max(P[a + 2], P[b + 2], P[d + 2]) - 1e-6));
+        for (let i = x0; i <= x1; i++) for (let k = z0; k <= z1; k++) (cols[i * CZ + k] ??= []).push(t);
+      }
+      c.colunas = { malha: m, cols, P, I };
+    }
+    const { cols, P, I } = c.colunas, lx = x - cx * CX, lz = z - cz * CZ, l = cols[Math.floor(lx) * CZ + Math.floor(lz)];
+    if (!l) return null;
+    let melhor = null;
+    for (const t of l) {
+      const a = I[t] * 3, b = I[t + 1] * 3, d = I[t + 2] * 3;
+      const v0x = P[d] - P[a], v0z = P[d + 2] - P[a + 2], v1x = P[b] - P[a], v1z = P[b + 2] - P[a + 2], v2x = lx - P[a], v2z = lz - P[a + 2];
+      const d00 = v0x * v0x + v0z * v0z, d01 = v0x * v1x + v0z * v1z, d11 = v1x * v1x + v1z * v1z, d20 = v2x * v0x + v2z * v0z, d21 = v2x * v1x + v2z * v1z;
+      const den = d00 * d11 - d01 * d01;
+      if (Math.abs(den) < 1e-9) continue;
+      const u = (d11 * d20 - d01 * d21) / den, v = (d00 * d21 - d01 * d20) / den;
+      if (u < -1e-4 || v < -1e-4 || u + v > 1 + 1e-4) continue;
+      const yy = P[a + 1] + u * (P[d + 1] - P[a + 1]) + v * (P[b + 1] - P[a + 1]);
+      if (yy <= y + 0.05 && yy > y - 1.2 && (melhor === null || yy > melhor)) melhor = yy;
+    }
+    return melhor;
+  }
+
   raycast(o, dir, max = 6, pegaAgua = false) {
     let x = Math.floor(o.x), y = Math.floor(o.y), z = Math.floor(o.z);
     const sx = Math.sign(dir.x), sy = Math.sign(dir.y), sz = Math.sign(dir.z);

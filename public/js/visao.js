@@ -157,7 +157,11 @@ export class Visao {
     const b = this.meuBoneco(skin);
     if (b.grupo.parent !== this.cena) this.cena.add(b.grupo);
     const yaw = jog.yaw, pitch = jog.pitch, m = this.med;
-    b.grupo.position.set(jog.pos.x, jog.yVisual ?? jog.pos.y + (jog.degrauY ?? 0), jog.pos.z); // yVisual: sobe o degrau suave
+    // Natural 3D: na beirada/declive o chão desenhado é mais baixo que o bloco: os pés descem até ele (só o desenho)
+    let desce = 0;
+    if (jog.noChao && mundo && mundo.suave) { const h = mundo.alturaVisual(jog.pos.x, jog.pos.y, jog.pos.z); if (h !== null && h < jog.pos.y) desce = h - jog.pos.y; }
+    this.pesNoChao = (this.pesNoChao ?? 0) + (desce - (this.pesNoChao ?? 0)) * Math.min(1, dt * 12);
+    b.grupo.position.set(jog.pos.x, (jog.yVisual ?? jog.pos.y + (jog.degrauY ?? 0)) + this.pesNoChao, jog.pos.z); // yVisual: sobe o degrau suave
     if (this.golpe < 1) this.golpe = Math.min(1, this.golpe + dt / GOLPE);
     animarBoneco(b, {
       vx: m.vx, vz: m.vz, vy: jog.vel.y, y: jog.pos.y, yaw, pitch,
