@@ -7,7 +7,7 @@ import { M, DEFS_MEC, PINTORES_MEC } from './blocos-mecanismos.js';
 import { MV, DEFS_MOVEIS, PINTORES_MOVEIS } from './moveis.js';
 export { M };
 import { DEFS_FORMAS, INVENTARIO_FORMAS } from './formas-defs.js';
-import { ESCADA_MAO } from './escada-mao.js';
+import { ESCADA_MAO, TOCHA } from './escada-mao.js';
 import { LAVA, LAVA_CORRENTE, LAVA_CAINDO, OBSIDIANA } from './lava-regras.js';
 export { INVENTARIO_FORMAS };
 
@@ -178,6 +178,7 @@ def(LAVA, 'Lava', 150, { solido: false, opaco: false, brilho: 1 });
 for (let n = 1; n <= 3; n++) def(LAVA_CORRENTE[n], 'Lava', 150, { solido: false, opaco: false, brilho: 1 });
 def(LAVA_CAINDO, 'Lava', 150, { solido: false, opaco: false, brilho: 1 });
 def(OBSIDIANA, 'Obsidiana', 151);
+def(TOCHA, 'Tocha', [150, 9, 9], { solido: false, opaco: false, forma: 'tocha', chao: true, brilho: 0.6 });
 // escada de mão (escada-mao.js): 4 giros, de madeira, presa na parede
 for (let d = 0; d < 4; d++) def(ESCADA_MAO + d, 'Escada de mão', 9, { solido: false, opaco: false, forma: 'escadamao' });
 
@@ -207,7 +208,7 @@ NIVEL[AGUA_CAINDO] = 8;
 // Ordem dos blocos no inventário (modo criativo)
 export const INVENTARIO = [
   B.GRAMA, B.TERRA, B.PEDRA, B.PEDRISCO, B.AREIA, B.TRONCO, B.TABUAS, B.FOLHAS, B.VIDRO, B.TIJOLO,
-  B.LAMPIAO, ESCADA_MAO, B.FENO, B.BANCADA, B.TERRA_ARADA, B.LA_BRANCA, B.LA_VERMELHA, B.LA_AZUL, B.LA_AMARELA, B.LA_VERDE, B.LA_ROSA,
+  B.LAMPIAO, TOCHA, ESCADA_MAO, B.FENO, B.BANCADA, B.TERRA_ARADA, B.LA_BRANCA, B.LA_VERMELHA, B.LA_AZUL, B.LA_AMARELA, B.LA_VERDE, B.LA_ROSA,
   B.FLOR_VERMELHA, B.FLOR_AMARELA, B.FLOR_AZUL, B.CAPIM, B.TRIGO, B.MUDA, B.MUDA_PINHEIRO, B.AGUA, LAVA, OBSIDIANA,
   B.CACTO, B.CASCALHO, B.CARVAO, B.FERRO, B.OURO, B.DIAMANTE,
   B.TRONCO_PINHEIRO, B.FOLHAS_PINHEIRO, B.TRONCO_BETULA, B.FOLHAS_SELVA, B.ARBUSTO_SECO,
