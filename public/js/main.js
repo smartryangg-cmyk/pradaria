@@ -1050,11 +1050,43 @@ let porJogador = false;
 function comoJogador(fn) { porJogador = true; try { return fn(); } finally { porJogador = false; } }
 let maoQuebrando = 0; // o que estava na mão ao quebrar (vidro só sai inteiro com picareta)
 
-// segurar o dedo (ou clicar) num bicho bate nele; com ferramenta na mão o golpe é mais forte
-const FORCA = { [ITEM.PICARETA_MADEIRA]: 2, [ITEM.MACHADO_MADEIRA]: 2, [ITEM.PA_MADEIRA]: 2, [ITEM.PICARETA_PEDRA]: 3, [ITEM.MACHADO_PEDRA]: 3, [ITEM.PA_PEDRA]: 3 };
+// segurar o dedo (ou clicar) num bicho bate nele. Como no clássico: cada coisa na mão tem dano (em meios corações)
+// e um tempo de recarga; bater antes de recarregar dá golpe fraco (20% a 100%). Segurando o dedo, o golpe
+// sai sozinho quando a recarga enche. Golpe caindo de um pulo é crítico (1,5x).
+const GOLPE = { // [dano, segundos de recarga]
+  mao: [0.5, 0.25],
+  [ITEM.PICARETA_MADEIRA]: [1, 0.83], [ITEM.PICARETA_PEDRA]: [1.5, 0.83],
+  [ITEM.MACHADO_MADEIRA]: [3.5, 1.25], [ITEM.MACHADO_PEDRA]: [4.5, 1.25],
+  [ITEM.PA_MADEIRA]: [1.25, 1], [ITEM.PA_PEDRA]: [1.75, 1],
+};
+const golpeDe = (id) => GOLPE[id] || GOLPE.mao;
+let golpeEm = -1e9, tentouEm = -1e9;
+function cargaGolpe() { return Math.min(1, (performance.now() - golpeEm) / 1000 / golpeDe(naMao())[1]); }
 function baterNoBicho(b) {
-  const r = bichos.bater(b, FORCA[naMao()] || 1);
+  const agora = performance.now(), carga = cargaGolpe();
+  const segurando = agora - tentouEm < 330; // segurar repete a cada 260 ms: espera a recarga encher
+  tentouEm = agora;
+  if (segurando && carga < 0.95) return;
+  const [dano] = golpeDe(naMao());
+  const critico = carga > 0.9 && !jog.noChao && !jog.naAgua && !jog.voando && jog.vel.y < 0;
+  const r = bichos.bater(b, dano * (0.2 + 0.8 * carga * carga), { critico, empurrao: carga > 0.9 ? 1 : 0.6 });
+  golpeEm = agora;
+  mostrarRecarga();
   if (r && !b.vidaMax) aviso('O cachorro é seu amigo! Faça carinho com um toque rápido', 2200, 'coracao');
+}
+// barrinha da recarga embaixo da mira (some quando enche)
+let recargaRaf = 0;
+function mostrarRecarga() {
+  const el = $('#recarga');
+  if (!el || recargaRaf) return;
+  el.hidden = false;
+  const passo = () => {
+    const c = cargaGolpe();
+    el.firstElementChild.style.width = Math.round(c * 100) + '%';
+    if (c >= 1) { recargaRaf = 0; setTimeout(() => { if (!recargaRaf) el.hidden = true; }, 150); return; }
+    recargaRaf = requestAnimationFrame(passo);
+  };
+  recargaRaf = requestAnimationFrame(passo);
 }
 function fazerCarinho(b) { if (!bichos.carinho(b)) return; mercado.evento('carinho'); laDaOvelha(b); } // bicho selvagem: o toque espanta (não conta como carinho)
 function conversarCom(a) {

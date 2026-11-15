@@ -32,6 +32,9 @@ button { font-family: inherit; color: inherit; }
 #mira::before { left: 10px; top: 0; width: 2px; height: 22px; }
 #mira::after { top: 10px; left: 0; height: 2px; width: 22px; }
 body.toque #mira { display: none; }
+#recarga { position: absolute; left: 50%; top: calc(50% + 18px); width: 34px; height: 5px; transform: translateX(-50%); background: rgba(0,0,0,.45); border-radius: 3px; overflow: hidden; pointer-events: none; }
+#recarga[hidden] { display: none; }
+#recarga i { display: block; height: 100%; width: 0; background: #fff; }
 body.visao-frente #mira { display: none; }
 
 #topo { position: absolute; top: max(10px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left)); right: max(10px, env(safe-area-inset-right)); display: flex; align-items: center; gap: 10px; }
@@ -85,7 +88,7 @@ body:not(.toque) #botoes-toque, body:not(.toque) #dica-toque { display: none; }
   #dica-toque { left: 12px; right: 118px; transform: none; white-space: normal; text-align: center; border-radius: 16px; }
 }
 
-#aviso { position: absolute; left: 50%; top: 20%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px); padding: 10px 20px; border-radius: 999px; background: var(--hud-fundo); color: #fff; font-weight: 900; font-size: 20px; opacity: 0; transition: opacity .3s; text-align: center; }
+#aviso { position: absolute; left: 50%; top: 20%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px); padding: 10px 20px; border-radius: 999px; background: var(--hud-fundo); color: #fff; font-weight: 900; font-size: 20px; opacity: 0; transition: opacity .3s; text-align: center; pointer-events: none; }
 #aviso:empty { display: none; }
 #aviso .ic-svg { font-size: 30px; }
 #aviso.mostra { opacity: 1; }
