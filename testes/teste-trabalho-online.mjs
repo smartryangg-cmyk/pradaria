@@ -14,7 +14,7 @@ async function jogador(nome, tablet) {
   p.on('pageerror', (e) => erros.push(nome + ' ' + e.message));
   p.on('console', (m) => { if (m.type() === 'error' && !/WebSocket|404/.test(m.text())) erros.push(nome + ' ' + m.text()); });
   await p.goto(BASE + '/#teste');
-  await p.click('#bt-criar-conta'); await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123'); if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok'); await p.click('#c-ok');
+  await p.click('#bt-criar-conta'); await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123'); if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok'); if (await p.isVisible('#c-nasc .d-ano')) { await p.selectOption('#c-nasc .d-dia', '1'); await p.selectOption('#c-nasc .d-mes', '1'); await p.selectOption('#c-nasc .d-ano', '1990'); } await p.click('#c-ok');
   await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])'); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])'); } })();
   return p;
 }
@@ -23,6 +23,7 @@ const a = await jogador('Ana' + sfx);
 await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Obras');
 await a.click('[data-modo=criativo]'); // desliga o Coletar e criar: blocos à vontade (a marca de comprado é testada em teste-compra-online)
 await a.click('#m-novo [data-opcao=mercado]'); // mod (desligado nos mundos novos)
+await a.click('#m-novo [data-opcao=objetivos]'); // mod Missões (desligado nos mundos novos): a missão de colocar 10 blocos dá +5
 await a.click('#m-novo button[type=submit]');
 await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 20000 });
 await a.waitForTimeout(2500);
