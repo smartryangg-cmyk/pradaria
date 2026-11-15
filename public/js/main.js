@@ -38,6 +38,7 @@ import { ehCama } from './dormir-regras.js';
 import { ESCADA_MAO, PAREDE } from './escada-mao.js';
 import { LAVA, ehLava, DANO_LAVA } from './lava-regras.js';
 import { FOGO, ISQUEIRO, DANO_FOGO, inflamavel } from './fogo-regras.js';
+import { nivelDe } from './xp-regras.js';
 import { fornoNovo, avancar, normalizarForno, fornoDaRede, conteudo, assavel, queima, TEMPO_FORNO } from './fornalha-regras.js';
 import { BAU, ESPACOS_BAU, bauNovo, normalizarBau, conteudoBau, vazioBau } from './bau-regras.js';
 import { FORMA_NOVA } from './formas.js';
@@ -538,7 +539,7 @@ const chaveInv = () => 'pradaria.inv.' + (modo === 'online' && mundoAtual ? mund
 // a mochila já tem a contagem certa deste mundo: carrega a arrumação guardada e acerta
 function prepararInventario() {
   carregarFornos(); fecharFornalha(); carregarBaus(); fecharBau();
-  carregarCorpo(); morto = false; pararComer(); $('#morte').hidden = true;
+  carregarCorpo(); morto = false; pararComer(); $('#morte').hidden = true; document.body.classList.remove('morto');
   inv = new Inventario(); invChave = chaveInv(); invPronto = sobrev();
   barraVista = new Array(9).fill(0); // a barra guardada (na sala ou no mundo) diz o que fica em cada espaço
   if (!invPronto) return;
@@ -1141,6 +1142,28 @@ function mostrarColeta(id, n) {
 }
 // depois de quebrar: o que tinha ali cai no chão (economia.js diz o quê: mercado ui.caiu chama drops.cair;
 // online quem põe no chão é a sala)
+// ---------- experiência (xp-regras.js): barra verde em cima da barra de itens, com o nível no meio ----------
+let xpVisto = -1, nivelVisto = -1;
+function desenharXp() {
+  const el = $('#xp');
+  const liga = jogando && sobrev() && !!mercado.op.fome && podeConstruir();
+  if (el.hidden === liga) { el.hidden = !liga; document.body.classList.toggle('com-xp', liga); xpVisto = -1; }
+  if (!liga) return;
+  const xp = mercado.e.xp | 0;
+  if (xp === xpVisto) return;
+  const { nivel, frac } = nivelDe(xp);
+  el.querySelector('i').style.width = (frac * 100).toFixed(1) + '%';
+  const b = el.querySelector('b');
+  b.textContent = nivel; b.hidden = nivel === 0;
+  el.setAttribute('aria-label', `Experiência: nível ${nivel}`);
+  if (xpVisto >= 0 && xp > xpVisto) {
+    if (nivel > nivelVisto) { som.tom(660, 0.12, { tipo: 'triangle', vol: 0.2, ate: 990 }); aviso(`Subiu para o nível ${nivel}!`, 1600, 'estrela'); }
+    else som.tom(1250 + Math.random() * 250, 0.05, { tipo: 'sine', vol: 0.12 }); // plim de experiência
+  }
+  xpVisto = xp; nivelVisto = nivel;
+}
+$('#bt-morte-sair').addEventListener('click', () => { som.clique(); morto = false; $('#morte').hidden = true; document.body.classList.remove('morto'); sairDoMundo(); });
+
 // jogo clássico: quebrou pedra/minério sem a picareta certa (não caiu nada): diz qual precisa
 let avisouPicareta = 0;
 function mostrarQueCaiu(b) {
@@ -1436,15 +1459,17 @@ function morrer() {
   if (bichos) bichos.acalmar();
   if (document.pointerLockElement) document.exitPointerLock();
   // tudo o que estava na mochila cai no chão (some em 5 minutos, como no clássico)
-  const p = jog.pos, r = mercado.mexer({ t: 'morrer' }, true);
+  const p = jog.pos, nivelAntes = nivelDe(mercado.e.xp | 0).nivel, r = mercado.mexer({ t: 'morrer' }, true);
   if (r) {
     if (mercado.sala) mercado.sala.enviar({ t: 'morrer' });
     else for (const [id, n, c, dg] of r.cai || []) drops.novoLocal(id, n, p.x, p.y + 0.6, p.z, [(Math.random() - 0.5) * 4, 3 + Math.random() * 2, (Math.random() - 0.5) * 4], '', c, dg);
     desenharBarra();
   }
   $('#morte-txt').textContent = MORREU[vida.motivo] || '';
+  // como no clássico: a pontuação é a experiência que tinha (e que se perde)
+  $('#morte-pontos').textContent = r && r.xpPerdido ? `Pontuação: ${r.xpPerdido} (nível ${nivelAntes})` : 'Pontuação: 0';
   vida.motivo = null;
-  $('#morte').hidden = false;
+  $('#morte').hidden = false; document.body.classList.add('morto');
   try { localStorage.removeItem(chaveCorpo()); } catch {} // renasce com tudo cheio
   if (corpoCama) try { localStorage.setItem(chaveCorpo(), JSON.stringify({ cama: corpoCama })); } catch {}
   som.tom(220, 0.5, { tipo: 'sawtooth', vol: 0.18, ate: 70 });
@@ -1452,7 +1477,7 @@ function morrer() {
 function renascer() {
   if (!morto || !jogando) return;
   morto = false;
-  $('#morte').hidden = true;
+  $('#morte').hidden = true; document.body.classList.remove('morto');
   const b = corpoCama && mundo.bloco(corpoCama[0], corpoCama[1], corpoCama[2]);
   if (corpoCama && ehCama(b)) cmd.teleportar(corpoCama[0] + 0.5, corpoCama[1] + 1.02, corpoCama[2] + 0.5, jog.yaw, 'Você renasceu na sua cama');
   else {
@@ -2577,6 +2602,7 @@ function laco(agora) {
   turnoAcum += dt;
   if (turnoAcum >= 3) { mercado.turno(turnoAcum, horaDe(tempoDia)); turnoAcum = 0; }
   if (!pausado && !morto) { vida.atualizar(dt); quadroComer(dt); }
+  desenharXp();
   if ((timerCorpo += dt) > 3) { timerCorpo = 0; salvarCorpo(); }
   armas.quadro(dt, pausado || garagem.dentro);
   if (garagem.dentro || visao.terceira) armas.mao.visible = false;
