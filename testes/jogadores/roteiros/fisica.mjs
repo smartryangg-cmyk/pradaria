@@ -72,6 +72,9 @@ export default async function fisica(j) {
   }
   // pulo: altura de ~1,25 bloco
   await j.p.waitForTimeout(500);
+  // pulo só vale com o céu livre (2 blocos acima da cabeça), senão é o teto que segura, não o jogo
+  const teto = await j.p.evaluate(() => { const g = window.__jogo, p = g.jog.pos; for (let d = 2; d <= 3; d++) if (g.mundo.bloco(Math.floor(p.x), Math.floor(p.y) + d, Math.floor(p.z))) return d; return 0; });
+  if (teto) { j.passo('tem bloco em cima da cabeça; anda um pouco antes de pular'); await virarParaOAberto(j); await j.andar('frente', 1500); }
   const y0 = (await pos(j)).y;
   const subida = j.p.evaluate(() => new Promise((r) => { const jg = window.__jogo.jog, y0 = jg.pos.y; let mx = y0; const t0 = performance.now(); const f = () => { mx = Math.max(mx, jg.pos.y); if (performance.now() - t0 < 2500) requestAnimationFrame(f); else r(mx - y0); }; requestAnimationFrame(f); }));
   await j.pular();
@@ -101,6 +104,7 @@ export default async function fisica(j) {
   }
   const topo = await pos(j);
   const subiu = Math.round(topo.y - base.y);
+  if (subiu < 4) j.passo('fps na hora do pilar: ' + (await j.p.evaluate(() => new Promise((r) => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 1000) requestAnimationFrame(f); else r(n); }; requestAnimationFrame(f); }))));
   if (!(await j.espera(subiu >= 4, 'pular e colocar bloco embaixo sobe um pilar (técnica do clássico)', { tipo: 'clássico', esperado: 'subir 5', visto: 'subiu ' + subiu }))) return;
   const vida0 = (await j.estado).vida;
   // mede a queda de verdade: do último instante no chão até tocar o chão de novo (descer uma ladeira não conta)
