@@ -208,7 +208,7 @@ await o.waitForSelector('#m-mundos:not([hidden])');
 await o.click('#lista-mundos .mundo');
 await o.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala);
 await o.waitForTimeout(1000);
-conferir(await qtd(o, B.TABUAS) === 4 && await qtd(o, B.TRONCO) === 0 && await qtd(o, B.LA_BRANCA) === 1, 'online: mochila volta igual depois de sair e entrar');
+conferir(await qtd(o, B.TABUAS) === 4 && await qtd(o, B.TRONCO) === 0 && await qtd(o, B.LA_BRANCA) === 1, 'online: mochila volta igual depois de sair e entrar ' + JSON.stringify(await o.evaluate(() => window.__jogo.mercado.e.itens)));
 conferir(await o.evaluate(() => window.__jogo.barra.includes(8)), 'online: a barra também volta');
 
 console.log(erros.length ? 'ERROS:\n' + erros.join('\n') : 'sem erros no console');

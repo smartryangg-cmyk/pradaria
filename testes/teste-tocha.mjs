@@ -36,7 +36,8 @@ const GRAVETO = 1000;
 await p.evaluate(([G, C]) => { const m = window.__jogo.mercado; m.e.itens[G] = 1; m.e.itens[C] = 1; m.recebeu(m.e); }, [GRAVETO, CARVAO]);
 await p.evaluate(() => window.__jogo.abrirInventario('criar'));
 await p.waitForSelector('#inventario:not([hidden]) [data-receita=tocha]');
-await p.click('[data-receita=tocha]');
+await p.click('[data-receita=tocha]'); // o livro arruma a grade de criar
+await p.click('#inv-saida', { modifiers: ['Shift'] }); // tira o resultado direto para a mochila
 const it = await p.evaluate(([G, C, T]) => { const e = window.__jogo.mercado.e.itens; return [e[G] || 0, e[C] || 0, e[T] || 0]; }, [GRAVETO, CARVAO, TOCHA]);
 ok(it[0] === 0 && it[1] === 0 && it[2] === 4, `criou 4 tochas com 1 graveto e 1 carvão, sem bancada (graveto, carvão, tochas: ${it})`);
 await p.screenshot({ path: SAIDA + '/tocha-0-receita.png' });
