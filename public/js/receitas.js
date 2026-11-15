@@ -134,7 +134,7 @@ export const RECEITAS = [
   { id: 'tijolo', faz: [I.TIJOLO, 2], usa: [[I.TERRA, 1], [I.AREIA, 1]], bancada: true, grupo: 'construir' },
   { id: 'vidro', faz: [I.VIDRO, 1], usa: [[I.AREIA, 2]], bancada: true, grupo: 'construir' },
   { id: 'tocha', faz: [221, 4], usa: [[I.GRAVETO, 1], [66, 1]], grupo: 'construir' }, // 66 = carvão
-  { id: 'escada-mao', faz: [211, 3], usa: [[I.GRAVETO, 7]], bancada: true, grupo: 'construir' },
+  { id: 'escada-mao', faz: [211, 3], usa: [[I.GRAVETO, 7]], bancada: true, grupo: 'construir', forma: ['G.G', 'GGG', 'G.G'] },
   { id: 'lampiao', faz: [I.LAMPIAO, 1], usa: [[I.VIDRO, 1], [I.GRAVETO, 1]], bancada: true, grupo: 'construir' },
   { id: 'feno', faz: [I.FENO, 1], usa: [[I.TRIGO, 3]], grupo: 'construir', forma: ['WWW'] },
   { id: 'porta', faz: [I.PORTA, 3], usa: [[I.TABUAS, 6]], bancada: true, grupo: 'construir', forma: ['TT', 'TT', 'TT'] },
