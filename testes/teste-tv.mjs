@@ -137,10 +137,22 @@ ok(olhar.pitch < -0.1, 'arrastar para baixo olha para baixo');
 // pular
 const y0 = await tv.evaluate(() => window.__jogo.jog.pos.y);
 await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...(await (async () => { const r = await cel.locator('[data-segurar=pular]').boundingBox(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()), id: 4 }] });
-let subiu = 0;
-for (let i = 0; i < 8; i++) { await espera(50); subiu = Math.max(subiu, (await tv.evaluate(() => window.__jogo.jog.pos.y)) - y0); }
+// segura até a TV subir (pela internet o recado demora um pouco: mede quanto)
+const t0 = Date.now();
+let subiu = 0, demora = null;
+while (Date.now() - t0 < 2500) {
+  await espera(40);
+  subiu = (await tv.evaluate(() => window.__jogo.jog.pos.y)) - y0;
+  if (demora === null && subiu > 0.05) demora = Date.now() - t0;
+  if (subiu > 0.6) break;
+}
 await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-ok(subiu > 0.3, 'botão Pular do celular sobe (voando: ' + subiu.toFixed(2) + ')');
+ok(subiu > 0.6, 'botão Pular do celular sobe (voando: ' + subiu.toFixed(2) + ', a TV reagiu em ' + demora + ' ms)');
+// soltou: para de subir (o botão não fica preso)
+await espera(1200);
+const ySolto = await tv.evaluate(() => window.__jogo.jog.pos.y);
+await espera(600);
+ok(Math.abs((await tv.evaluate(() => window.__jogo.jog.pos.y)) - ySolto) < 0.3, 'soltou o Pular: para de subir');
 
 await pousar();
 // segurar quebra; toque rápido coloca
