@@ -62,6 +62,12 @@ body.pag-dama { background: linear-gradient(160deg, #e0525a, #a8303a); }
 .casa.vai-comer::before { content: ""; position: absolute; inset: 8%; border-radius: 50%; border: 4px dashed #e64a3c; pointer-events: none; }
 .regras-dama { font-size: 14px; }
 
+/* níveis do computador com os pontos aproximados */
+.nivel { display: flex; flex-direction: column; line-height: 1.1; }
+.nivel small { font-size: 11px; font-weight: 700; opacity: .8; }
+/* problema: casa da resposta */
+.casa.resposta { box-shadow: inset 0 0 0 5px #2f9a24; }
+
 /* ritmos no menu */
 .ritmos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .ritmos .bt { display: flex; flex-direction: column; line-height: 1.1; }

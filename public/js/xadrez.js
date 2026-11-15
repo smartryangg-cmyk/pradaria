@@ -7,6 +7,7 @@ import { icone, preencherIcones, comIcone } from './icones.js';
 import { Lobby } from './lobby.js';
 import { somDaPagina } from './som.js';
 import { criarAnalise, criarPerfil, guardarLocal } from './xadrez-analise.js';
+import { PROBLEMAS } from './xadrez-problemas.js';
 
 // sons: peça de madeira na casa, "toc-toc" ao comer, aviso de xeque e o fim da partida
 const som = somDaPagina();
@@ -57,7 +58,7 @@ function aviso(txt, ms = 1800, ic = null) {
 
 // ---------- estado ----------
 const CHAVE = 'pradaria.xadrez';
-let modo = null; // 'pc' | 'online'
+let modo = null; // 'pc' | 'online' | 'problema'
 let e = X.novo();
 let voce = 'w';
 let nivel = 2;
@@ -105,7 +106,7 @@ function desenhar() {
     const c = casas[k];
     c.dataset.i = i;
     const l = i >> 3, co = i & 7;
-    c.className = 'casa' + ((l + co) % 2 ? ' escura' : '') + (ult && (ult.de === i || ult.para === i) ? ' ultimo' : '') + (i === sel ? ' sel' : '') + (i === xeque ? ' xeque' : '') + (pre && (pre.de === i || pre.para === i) ? ' pre' : '');
+    c.className = 'casa' + ((l + co) % 2 ? ' escura' : '') + (ult && (ult.de === i || ult.para === i) ? ' ultimo' : '') + (i === sel ? ' sel' : '') + (i === xeque ? ' xeque' : '') + (pre && (pre.de === i || pre.para === i) ? ' pre' : '') + (prob && prob.marca && (prob.marca.de === i || prob.marca.para === i) ? ' resposta' : '');
     const p = e.b[i];
     const pode = alvos.find((m) => m.para === i);
     if (pode) c.classList.add('pode'), (p || pode.ep) && c.classList.add('come');
@@ -146,6 +147,7 @@ function desenharJogadores(baixo) {
   const cima = baixo === 'w' ? 'b' : 'w';
   const nome = (l) => {
     if (modo === 'pc') return l === voce ? 'Você' : 'Computador (' + ['', 'fácil', 'médio', 'difícil'][nivel] + ')';
+    if (modo === 'problema') return l === voce ? 'Você' : 'Problema (nível ' + prob.p.r + ')';
     const j = online && online.jogadores && online.jogadores[l];
     if (!j) return 'Esperando seu amigo…';
     return (l === voce ? 'Você' : j.nome);
@@ -193,6 +195,7 @@ const comRede = (u) => (redeTeste ? u + '&rede=' + encodeURIComponent(redeTeste)
 function status() {
   const s = $('#x-status');
   let t = '', minha = false;
+  if (modo === 'problema') { textoProblema(s); return; }
   if (fimAtual) t = X.TEXTO_FIM[fimAtual.tipo] || 'Fim';
   else if (modo === 'online' && (!online.jogadores || !online.jogadores.b || !online.jogadores.w)) t = 'Esperando seu amigo entrar';
   else if (pensando) t = 'Computador pensando…';
@@ -217,6 +220,7 @@ function status() {
 
 // ---------- jogar ----------
 function podeMexer() {
+  if (modo === 'problema') return !!prob && !prob.resolvido && !prob.voltando && e.vez === voce;
   if (fimAtual || pensando) return false;
   if (modo === 'online' && (!online.jogadores || !online.jogadores.w || !online.jogadores.b)) return false;
   return e.vez === meuLado();
@@ -278,6 +282,7 @@ function fazer(de, para, promo) {
   const m = X.achar(e, de, para, promo);
   if (!m) return;
   sel = -1; alvos = [];
+  if (modo === 'problema') { conferirProblema(m); return; }
   e = X.avancar(e, m);
   if (modo === 'online') { online.ws && online.ws.readyState === 1 && online.ws.send(JSON.stringify({ t: 'lance', de, para, promo })); desenhar(); return; }
   fimAtual = X.fim(e);
@@ -407,6 +412,8 @@ marcar('.nivel', 'nivel', nivel); marcar('.cor-peca', 'cor', voce); marcar('.rit
 function abrirMenu() {
   fecharOnline();
   modo = null;
+  prob = null; mostrarBotoesProblema();
+  mostrarPontosProblemas();
   $('#x-jogo').hidden = true; $('#x-fim').hidden = true; $('#promo').hidden = true; $('#x-analise').hidden = true; $('#x-perfil').hidden = true;
   $('#x-menu').hidden = false;
   $('#bt-continuar').hidden = !lerPC();
@@ -448,6 +455,97 @@ $('#bt-revanche').addEventListener('click', () => {
   $('#fim-espera').hidden = false; $('#fim-espera').textContent = 'Esperando seu amigo topar…';
 });
 $('#bt-ver').addEventListener('click', () => { $('#x-fim').hidden = true; });
+
+// ---------- problemas de xadrez ----------
+// Um lance por problema: "dê xeque-mate" ou "ganhe material". Os pontos de problemas ficam no aparelho e sobem/descem
+// pelo mesmo cálculo das partidas (o problema tem a sua dificuldade). Só a primeira tentativa conta.
+const CHAVE_PROB = 'pradaria.xadrez.problemas';
+let prob = null; // { p, resolvido, tentou, certo, marca, voltando }
+function lerProb() {
+  const base = { r: 800, rd: 200, feitos: 0, certos: 0, vistos: [] };
+  try { const o = JSON.parse(localStorage.getItem(CHAVE_PROB) || '{}'); return { ...base, ...(o && typeof o === 'object' ? o : {}) }; } catch { return base; }
+}
+function salvarProb(st) { try { localStorage.setItem(CHAVE_PROB, JSON.stringify(st)); } catch {} }
+function mostrarPontosProblemas() {
+  const st = lerProb();
+  $('#x-prob-pontos').textContent = `Seus pontos de problemas: ${Math.round(st.r)}${st.feitos < 5 ? '?' : ''} · ${st.certos} de ${st.feitos} certos`;
+}
+function mostrarBotoesProblema() {
+  const em = modo === 'problema' && !!prob;
+  $('#bt-prob-prox').hidden = !(em && prob.resolvido);
+  $('#bt-prob-resposta').hidden = !(em && !prob.resolvido);
+  if (em) { $('#bt-desistir').hidden = true; $('#bt-empate').hidden = true; $('#bt-chamar').hidden = true; $('#bt-vitoria').hidden = true; }
+}
+function textoProblema(s) {
+  const cor = voce === 'w' ? 'Brancas' : 'Pretas';
+  let t, minha = false;
+  if (!prob) t = '';
+  else if (prob.resolvido) t = prob.certo ? 'Certo!' + (prob.dif != null ? ` (${prob.dif >= 0 ? '+' : ''}${prob.dif})` : '') : 'Resposta: ' + prob.p.sol;
+  else { t = cor + (prob.p.tipo === 'mate1' ? ': dê xeque-mate' : ': ganhe material'); minha = true; }
+  s.textContent = t; s.classList.toggle('minha', minha);
+  mostrarBotoesProblema();
+}
+function posicaoProblema(p) {
+  return { b: p.b.split('').map((c) => (c === '.' ? '' : c)), vez: p.vez, roque: p.roque, ep: p.ep, meio: 0, n: 1, rep: {}, ultimo: null, hist: [] };
+}
+function abrirProblema(p) {
+  fecharOnline();
+  modo = 'problema'; voce = p.vez; girado = false; sel = -1; alvos = []; pre = null; modoPre = false; relogio = null; fimAtual = null; lancesVistos = -1;
+  prob = { p, resolvido: false, tentou: false, certo: false, marca: null, voltando: false, dif: null };
+  e = posicaoProblema(p);
+  $('#x-menu').hidden = true; $('#x-fim').hidden = true; $('#x-jogo').hidden = false;
+  desenhar();
+}
+function proximoProblema() {
+  const st = lerProb(), vistos = new Set(st.vistos);
+  let cands = PROBLEMAS.filter((p) => !vistos.has(p.id));
+  if (!cands.length) { st.vistos = []; salvarProb(st); cands = PROBLEMAS.slice(); }
+  // perto do seu nível (entre os 6 mais próximos, um ao acaso)
+  cands.sort((a, b) => Math.abs(a.r - st.r) - Math.abs(b.r - st.r));
+  abrirProblema(cands[Math.floor(Math.random() * Math.min(6, cands.length))]);
+}
+// primeira tentativa: conta para os pontos de problemas
+function contarProblema(certo) {
+  if (prob.tentou) return;
+  prob.tentou = true;
+  const st = lerProb();
+  const antes = Math.round(st.r);
+  const r = P.partida({ ...P.INICIAL, r: st.r, rd: st.rd, jogos: st.feitos }, { ...P.INICIAL, r: prob.p.r, rd: 60, jogos: 50 }, certo ? 1 : 0);
+  st.r = r.w.r; st.rd = r.w.rd; st.feitos++; if (certo) st.certos++;
+  st.vistos = [...st.vistos.filter((x) => x !== prob.p.id), prob.p.id].slice(-120);
+  salvarProb(st);
+  prob.dif = Math.round(st.r) - antes;
+}
+function conferirProblema(m) {
+  const t = X.notacao(e, m);
+  const certo = prob.p.ok.includes(t);
+  contarProblema(certo);
+  e = X.avancar(e, m);
+  if (certo) {
+    prob.resolvido = true; prob.certo = true;
+    som.fim('ganhou');
+    desenhar();
+    return;
+  }
+  // errou: mostra o lance um pouquinho e volta para tentar de novo (os pontos já contaram como erro)
+  som.fim('perdeu');
+  aviso(`${t} não resolve. Tente de novo ou veja a resposta.`, 2200, 'alvo');
+  prob.voltando = true;
+  desenhar();
+  setTimeout(() => { if (modo !== 'problema' || !prob) return; prob.voltando = false; e = posicaoProblema(prob.p); lancesVistos = -1; desenhar(); }, 900);
+}
+function verResposta() {
+  if (!prob || prob.resolvido) return;
+  contarProblema(false);
+  e = posicaoProblema(prob.p);
+  const m = X.lances(e).find((x) => X.notacao(e, x) === prob.p.sol);
+  if (m) { prob.marca = { de: m.de, para: m.para }; e = X.avancar(e, m); }
+  prob.resolvido = true; prob.certo = false;
+  desenhar();
+}
+$('#bt-problemas').addEventListener('click', () => proximoProblema());
+$('#bt-prob-prox').addEventListener('click', () => proximoProblema());
+$('#bt-prob-resposta').addEventListener('click', () => verResposta());
 
 // ---------- análise e perfil ----------
 const analise = criarAnalise({ svgPeca, aoVoltar: () => abrirMenu() });
@@ -547,5 +645,5 @@ if (pedida && /^[A-Za-z0-9]{10,24}$/.test(pedida) && conta.token) jogarOnline(pe
 else abrirMenu();
 
 // para os testes automáticos (testes/teste-xadrez.mjs)
-window.__xadrez = { get e() { return e; }, get voce() { return voce; }, get modo() { return modo; }, get fim() { return fimAtual; }, get online() { return online; }, get relogio() { return relogio; }, get pre() { return pre; }, get preFeitos() { return preFeitos; }, get busca() { return busca; }, set ritmo(v) { ritmo = v; }, X, set nivel(v) { nivel = v; }, set demoraPC(v) { demoraPC = v; }, fazer, analise };
+window.__xadrez = { get e() { return e; }, get voce() { return voce; }, get modo() { return modo; }, get fim() { return fimAtual; }, get online() { return online; }, get relogio() { return relogio; }, get pre() { return pre; }, get preFeitos() { return preFeitos; }, get busca() { return busca; }, set ritmo(v) { ritmo = v; }, X, set nivel(v) { nivel = v; }, set demoraPC(v) { demoraPC = v; }, fazer, analise, get prob() { return prob; }, abrirProblema, PROBLEMAS };
 void icone;
