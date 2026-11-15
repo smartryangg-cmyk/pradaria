@@ -410,7 +410,11 @@ export class Aldeoes {
       const atual = a.grupo.rotation.y;
       const delta = ((a.dir - atual + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
       a.grupo.rotation.y = atual + delta * Math.min(1, dt * 7);
-      a.grupo.position.set(a.x, a.y, a.z);
+      // Natural 3D: pés no chão desenhado (mais baixo que o bloco no declive); só o desenho
+      let rente = 0;
+      if (this.mundo.suave) { const h = this.mundo.alturaVisual(a.x, a.y, a.z); if (h !== null && h < a.y) rente = h - a.y; }
+      a.pesY = (a.pesY ?? 0) + (rente - (a.pesY ?? 0)) * Math.min(1, dt * 10);
+      a.grupo.position.set(a.x, a.y + a.pesY, a.z);
     }
   }
 }

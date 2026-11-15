@@ -812,6 +812,56 @@ export class Mundo {
       }
     };
     // capim em tufo (folhinhas em ponta, escuras no pé e claras na ponta) e flor (estrela colorida no cabinho)
+    // pinheiro de desenho: as folhas em blocos (que viravam uma massa amassada) dão lugar a 3 cones lisos
+    // empilhados, com a borda ondulada. Os blocos de folha continuam lá (colisão, mira, quebrar).
+    // Acha os pinheiros (tronco natural com folha de pinheiro em cima) até 3 blocos fora do pedaço.
+    const pinheiros = [];
+    if (liso && d.includes(B.FOLHAS_PINHEIRO)) {
+      for (let z = -3; z < CZ + 3; z++) for (let x = -3; x < CX + 3; x++) {
+        for (let y = Math.min(ALT - 2, topo + 3); y > 0; y--) {
+          const q = get(x, y, z);
+          if (q === F.TRONCO_R_PINHEIRO || q === B.TRONCO_PINHEIRO) {
+            if (get(x, y + 1, z) !== B.FOLHAS_PINHEIRO || !liso.natural(x, y, z)) break;
+            let yb = y; while (yb > 1 && get(x, yb - 1, z) === q) yb--;
+            pinheiros.push({ x, z, topo: y, base: yb });
+            break;
+          }
+          if (GRUPO_SUAVE[q] === 1 || (OPACO[q] && q !== B.FOLHAS_PINHEIRO)) break;
+        }
+      }
+    }
+    // folha de pinheiro natural que faz parte de um pinheiro desenhado em cone (não desenha as faces)
+    const folhaDePinheiro = (x, y, z) => {
+      for (const t of pinheiros) if (Math.abs(t.x - x) <= 3 && Math.abs(t.z - z) <= 3 && y > t.base && y <= t.topo + 3) return true;
+      return false;
+    };
+    const desenharPinheiro = (t) => {
+      const p = PALETA[B.FOLHAS_PINHEIRO], escuro = p.l.map((v) => v * 0.7);
+      const h0 = t.base + 2.4, h1 = t.topo + 2.6, H = h1 - h0, S = 12;
+      const fase = hash3(ox + t.x, 5, oz + t.z, 9) * 6.283, cx = t.x + 0.5, cz = t.z + 0.5;
+      const br = BRILHO[B.FOLHAS_PINHEIRO];
+      // camadas: [base, topo, raio] (a de baixo é a maior)
+      const camadas = [[0, 0.5, 2.35], [0.3, 0.78, 1.8], [0.58, 1, 1.25]];
+      completar();
+      for (const [a0, a1, R] of camadas) {
+        const yb = h0 + a0 * H, yt = h0 + a1 * H, inc = R / (yt - yb), nl = Math.hypot(1, inc);
+        const k = P.length / 3;
+        vLiso(cx, yt, cz, 0, 1, 0, p.t, p.t, 1.05, 0.35, br); // ponta
+        for (let i = 0; i < S; i++) {
+          const a = fase + (i / S) * 6.283, r = R * (i & 1 ? 0.88 : 1.04), ca = Math.cos(a), sa = Math.sin(a);
+          vLiso(cx + ca * r, yb - (i & 1 ? 0 : 0.12), cz + sa * r, ca / nl, inc / nl, sa / nl, p.t, p.l, 0.9, 0.3, br);
+        }
+        // embaixo da saia: disco mais escuro (visto de baixo)
+        const kb = P.length / 3;
+        vLiso(cx, yb + 0.15, cz, 0, -1, 0, escuro, escuro, 0.7, 0.3, br);
+        for (let i = 0; i < S; i++) {
+          const j = (i + 1) % S;
+          IS.push(k, k + 1 + j, k + 1 + i); // lado do cone (de fora)
+          IS.push(kb, k + 1 + i, k + 1 + j); // disco de baixo
+        }
+      }
+    };
+    for (const t of pinheiros) if (t.x >= 0 && t.x < CX && t.z >= 0 && t.z < CZ) desenharPinheiro(t);
     const desenharPlantaLisa = (x, py, z, b, luz, br) => {
       completar();
       const h = hash3(ox + x, Math.floor(py), oz + z, 3);
@@ -923,6 +973,7 @@ export class Mundo {
         }
         // cantos lisos: deslocamento + normal de cada canto (null = canto preso, fica no lugar)
         if (gs < 0) gs = sv && !agua ? sv.grupo(x, y, z, b) : 0;
+        if (gs === 2 && b === B.FOLHAS_PINHEIRO && pinheiros.length && folhaDePinheiro(x, y, z)) break; // vira cone (desenharPinheiro)
         let sc = null, ft = f.t;
         if (gs) {
           sc = SC;

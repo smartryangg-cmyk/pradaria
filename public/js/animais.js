@@ -604,7 +604,11 @@ export class Bichos {
     const desce = b.pernas.length ? b.pernas[0].position.y * 0.7 * b.deita * b.esc : 0;
     // avisando: tremidinha de raiva (rosnado, chocalho)
     const treme = b.estado === 'avisar' ? Math.sin(tempo * 40) * 0.03 : 0;
-    b.grupo.position.set(b.x + treme, b.y - desce, b.z);
+    // Natural 3D: no declive o chão desenhado é mais baixo que o bloco; as patas descem até ele (só o desenho)
+    let rente = 0;
+    if (this.mundo.suave && b.vy === 0) { const h = this.mundo.alturaVisual(b.x, b.y, b.z); if (h !== null && h < b.y) rente = h - b.y; }
+    b.pesY = (b.pesY ?? 0) + (rente - (b.pesY ?? 0)) * Math.min(1, dt * 10);
+    b.grupo.position.set(b.x + treme, b.y - desce + b.pesY, b.z);
     // golpe: fica vermelho por meio segundo (como no clássico)
     if (b.golpe > 0) { b.golpe = Math.max(0, b.golpe - dt); if (b.golpe <= 0) pintarFerido(b, false); }
     // zzz de quem dorme perto do jogador
