@@ -901,7 +901,7 @@ export class Sala extends DurableObject {
       await this.ctx.storage.put('e:' + eu.uid, econ);
       ws.send(JSON.stringify({ t: 'econ', s: econ }));
       const [x, y, z] = eu.p;
-      await this.soltarNoChao(r.cai.map(([id, n, c, dg]) => [id, n, x, y + 0.6, z, [(Math.random() - 0.5) * 4, 3 + Math.random() * 2, (Math.random() - 0.5) * 4], c, dg, eu.id]), '', eu.uid);
+      await this.soltarNoChao(r.cai.map(([id, n, c, dg]) => [id, n, x, y + 0.6, z, [(Math.random() - 0.5) * 4, 3 + Math.random() * 2, (Math.random() - 0.5) * 4], c, dg, String(eu.uid)]), '', eu.uid);
     } else if (m.t === 'chao-largar') {
       // largou da mochila no chão (para guardar depois ou passar para um amigo)
       const op = this.op();

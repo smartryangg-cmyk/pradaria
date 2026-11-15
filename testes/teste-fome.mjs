@@ -269,7 +269,14 @@ for (const [nome, disp] of [['celular', devices['Pixel 7']], ['tablet', devices[
   await esperar(bt, 3000);
   ok(await J(bt, () => window.__jogo.mercado.qtd(6)) === 0, 'online: o Beto em cima do tronco da Ana não pega (30 s só dela)');
   await bt.screenshot({ path: SAIDA + '/fome-online-beto.png' });
-  // a Ana volta lá e pega a própria mochila
+  // a Ana recarrega a página (o tablet de criança faz isso: outra conexão, mesma conta), volta lá e pega a própria mochila
+  await a.reload();
+  await a.waitForSelector('#m-jogos:not([hidden]), #m-mundos:not([hidden])', { timeout: 90000 }); if (await a.isVisible('#m-jogos')) await a.click('.jogo[data-jogo=pradaria]');
+  await a.waitForSelector('#m-mundos:not([hidden])', { timeout: 90000 });
+  await a.click('#bt-codigo'); await a.fill('#n-nome', codigo); await a.click('#m-novo button[type=submit]');
+  await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala && window.__jogo.drops.lista().some((d) => d.id === 6), null, { timeout: 30000 });
+  ok(await J(a, () => window.__jogo.mercado.qtd(6)) === 0, 'online: a Ana recarregou a página e entrou de novo');
+  await esperar(a, 1500);
   await J(a, ([x, y, z]) => { const j = window.__jogo.jog; j.pos.x = x; j.pos.y = y; j.pos.z = z; }, [tr.x, tr.y, tr.z]);
   ok(await ate(a, () => window.__jogo.mercado.qtd(6) === 1, null, 6000), 'online: a Ana voltou e pegou o próprio tronco (' + JSON.stringify(await J(a, () => [window.__jogo.drops.eu, window.__jogo.drops.lista().map((d) => [d.id, d.res, d.x, d.y, d.z]), window.__jogo.jog.pos])) + ')');
   ok(await ate(bt, () => !window.__jogo.drops.lista().some((d) => d.id === 6), null, 4000), 'online: o tronco sumiu da tela do Beto');

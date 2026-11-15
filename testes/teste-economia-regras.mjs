@@ -63,9 +63,10 @@ conferir(extraEditado === 0 && extraNatural > 0, `extra só em bloco natural (ed
 // a mochila de quem morreu: só ele pega nos primeiros 30 s, depois qualquer um
 {
   const c = new Chao(), t0 = Date.now();
-  const d = c.novo(6, 1, 0, 40, 0, [0, 0, 0], '', t0, null, 0, 'uid-ana', null, 'ana');
-  conferir(!podePegar(d, 'beto', t0 + 5000) && podePegar(d, 'ana', t0 + 5000) && podePegar(d, 'beto', t0 + ESPERA_MORTE + 1) && publico(d, t0).res === 'ana',
+  const d = c.novo(6, 1, 0, 40, 0, [0, 0, 0], '', t0, null, 0, '203', null, '203');
+  conferir(!podePegar(d, '77-abcde', t0 + 5000) && podePegar(d, '203-abcde', t0 + 5000) && podePegar(d, '77-abcde', t0 + ESPERA_MORTE + 1) && publico(d, t0).res === '203',
     'chão: a mochila de quem morreu é só dele por 30 s');
+  conferir(podePegar(d, '203-zzzzz', t0 + 5000), 'chão: recarregou a página (outra conexão, mesma conta) e ainda pega a própria mochila');
   const l = c.novo(6, 1, 0, 40, 0, [0, 0, 0], '', t0);
   conferir(podePegar(l, 'beto', t0 + 1000) && publico(l, t0).res === undefined, 'chão: item comum qualquer um pega');
 }
