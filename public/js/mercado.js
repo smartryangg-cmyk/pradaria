@@ -3,6 +3,8 @@
 import { icone, comIcone } from './icones.js';
 import { opcoesEcon, econLigada, estadoNovo, normalizar, aplicar, liberado, LOJA, LOTE_LOJA, naLoja, precoVenda, vendivel, objetivosDoMundo, objetivosAtivos, OBJETIVOS } from './economia.js';
 import { OFICIOS, HORA_INI, HORA_FIM, livreDe, MAX_MARCAS } from './trabalho.js';
+import { DURA } from './receitas.js';
+import { nomeDe } from './blocos.js';
 
 const $ = (s) => document.querySelector(s);
 const CHAVE_LOCAL = 'pradaria.econ';
@@ -90,9 +92,22 @@ export class Mercado {
   // só sem internet (online o servidor conta pela própria mensagem do bloco)
   // online, o "Coletar e criar" já mexe na mochila daqui na hora (a sala confere e manda a certa logo depois)
   bloco(b, y, de, natural, x, z, mao = 0) {
-    const a = { t: 'bloco', b, x, y, z, de, natural, mao };
+    const a = { t: 'bloco', b, x, y, z, de, natural, mao }, antes = this.e.itens[mao] | 0;
     if (!this.sala) this.enviar(a, true);
     else if (this.op.sobrevivencia) this.otimista(a);
+    this.avisarQuebrou(mao, antes);
+  }
+  // acendeu fogo com o isqueiro: gasta 1 (receitas.js DURA)
+  acender() {
+    if (!this.ligado || !this.op.sobrevivencia) return;
+    const a = { t: 'acender' }, antes = this.e.itens[1010] | 0;
+    if (!this.sala) this.enviar(a, true);
+    else if (this.otimista(a, true)) this.sala.enviar(a);
+    this.avisarQuebrou(1010, antes);
+  }
+  // a ferramenta gastou até o fim (como no clássico)
+  avisarQuebrou(id, antes) {
+    if (DURA[id] && antes > (this.e.itens[id] | 0)) this.ui.aviso(`${nomeDe(id)} quebrou de tanto usar! Crie outro na bancada`, 2600, 'martelo');
   }
   criar(r, bancada, n = 1) {
     const a = { t: 'criar', r, bancada, n };

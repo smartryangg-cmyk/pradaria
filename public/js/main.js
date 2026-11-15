@@ -1462,6 +1462,7 @@ function acenderFogo(x, y, z) {
   if (!SOLIDO[mundo.bloco(x, y - 1, z)] && !perto) { aviso('O fogo precisa de chão ou de madeira do lado', 1800, 'explosao'); return; }
   mundo.marcarFogo(x, y, z);
   acendendo = true; try { mundo.definir(x, y, z, FOGO); } finally { acendendo = false; } // isq: a sala marca como fogo de verdade
+  if (sobrev()) mercado.acender(); // gasta o isqueiro (depois do fogo: a sala confere que ainda tem)
   som.tom(900, 0.05, { tipo: 'square', vol: 0.15, ate: 300 });
 }
 
