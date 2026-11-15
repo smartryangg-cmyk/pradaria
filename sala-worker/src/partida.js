@@ -16,6 +16,7 @@ const FIM_SEM_JOGO = ['desistiu', 'saiu', 'tempo', 'tempo-empate'];
 const PRAZO_FORA = 60000; // o adversário saiu: depois disso dá para pedir a vitória
 const PRAZO_PRIMEIRO = 30000; // tempo para fazer o primeiro lance (partida com relógio)
 const PRAZO_TRUCO = 30000; // truco online: tempo de cada jogada; acabou, o computador joga pela pessoa
+const ROBO_MAX = 3; // truco valendo pontos: o computador joga por alguém no máximo 3 vezes; na 4ª, essa pessoa perde
 const PRAZO_TRUCO_FORA = 3000; // ... e bem menos para quem saiu da mesa (a mesa não fica parada esperando)
 
 export class Partida extends DurableObject {
@@ -311,7 +312,7 @@ export class Partida extends DurableObject {
     const eu = p.lugares.findIndex((j) => j && j.uid === uid);
     const lugares = p.lugares.map((j) => (j ? (j.robo ? { nome: j.nome, robo: true, online: true } : { nome: j.nome, online: this.online(j.uid) }) : null));
     const prazo = p.e && !p.e.fim && p.prazoJogada ? { falta: Math.max(0, p.prazoJogada - Date.now()), total: p.prazoTotal || this.prazoTruco() } : null;
-    return { t: 'estado', jogo: 'truco', n: p.n, lugares, voce: eu, dono: p.dono === uid, comecou: !!p.e, estado: p.e ? T.visao(p.e, eu) : null, fim: p.e ? p.e.fim : null, revanche: p.revanche || [], partida: p.partidas, prazo, esgotou: p.esgotou || null, ranqueada: !!p.ranqueada, pontos: p.pontos || null, resultado: p.registrado || null };
+    return { t: 'estado', jogo: 'truco', n: p.n, lugares, voce: eu, dono: p.dono === uid, comecou: !!p.e, estado: p.e ? T.visao(p.e, eu) : null, fim: p.e ? p.e.fim : null, revanche: p.revanche || [], partida: p.partidas, prazo, esgotou: p.esgotou || null, porRobo: p.porRobo || null, roboMax: ROBO_MAX, ranqueada: !!p.ranqueada, pontos: p.pontos || null, resultado: p.registrado || null };
   }
   comecarTruco() {
     const p = this.p;
@@ -402,8 +403,13 @@ export class Partida extends DurableObject {
       if (Date.now() < p.prazoJogada - 30) { this.ctx.storage.setAlarm(p.prazoJogada); return; }
       l = humanos[0];
       p.esgotou = { lugar: l, n: ((p.esgotou && p.esgotou.n) || 0) + 1 };
+      // valendo pontos: ninguém ganha pontos com o computador jogando por ele (saiu ou deixou o tempo acabar)
+      if (p.ranqueada && p.n === 2) {
+        p.porRobo = p.porRobo || [0, 0];
+        if (++p.porRobo[l] > ROBO_MAX) p.e.fim = { vencedor: 1 - T.time(l), abandono: l };
+      }
     }
-    const a = T.robo(p.e, l);
+    const a = p.e.fim ? null : T.robo(p.e, l);
     if (a) T.agir(p.e, l, a);
     this.agendarRobo();
     await this.registrarTruco();
@@ -431,7 +437,7 @@ export class Partida extends DurableObject {
       if (!p.e || !p.e.fim) return;
       p.revanche = [...new Set([...(p.revanche || []), meu])];
       const humanos = p.lugares.map((j, i) => (j && !j.robo ? i : -1)).filter((i) => i >= 0);
-      if (humanos.every((i) => p.revanche.includes(i))) { p.e = T.novo(p.n); p.revanche = []; p.partidas++; p.registrado = null; p.idJogo = crypto.randomUUID(); this.agendarRobo(); await this.lerPontosTruco(); }
+      if (humanos.every((i) => p.revanche.includes(i))) { p.e = T.novo(p.n); p.revanche = []; p.partidas++; p.registrado = null; p.porRobo = null; p.idJogo = crypto.randomUUID(); this.agendarRobo(); await this.lerPontosTruco(); }
     } else return;
     await this.registrarTruco();
     await this.salvar();
