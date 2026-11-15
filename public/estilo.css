@@ -92,6 +92,11 @@ body:not(.toque) #botoes-toque, body:not(.toque) #dica-toque { display: none; }
 #aviso:empty { display: none; }
 #aviso .ic-svg { font-size: 30px; }
 #aviso.mostra { opacity: 1; }
+/* dormindo na cama: a tela escurece (os botões continuam funcionando: andar levanta) */
+#sono { position: absolute; inset: 0; display: grid; place-items: center; background: #0b1630; opacity: 0; transition: opacity 1.2s; pointer-events: none; }
+#sono.mostra { opacity: .88; }
+#sono p { display: flex; align-items: center; gap: 10px; margin: 0 16px; color: #e8eefc; font-weight: 900; font-size: 22px; text-align: center; }
+#sono .ic-svg { font-size: 30px; }
 #fps { position: fixed; left: 8px; bottom: 8px; color: #fff; font: 12px monospace; text-shadow: 0 1px 2px #000; pointer-events: none; }
 
 /* ---------- janelas / menus ---------- */
