@@ -74,5 +74,13 @@ conferir(extraEditado === 0 && extraNatural > 0, `extra só em bloco natural (ed
   s.limpar(t0 + 1000);
   conferir(s.itens.size === MAX_CHAO && !s.itens.has(1) && s.itens.has(MAX_CHAO + 10), `chão sem internet: guarda ${MAX_CHAO} e tira os mais antigos`);
 }
+// ferramenta na mão só vale se estiver na mochila (aparelho modificado dizia ter picareta e tirava vidro inteiro)
+{
+  const op = { sobrevivencia: true }, e = estadoNovo();
+  const vidro = (mao) => aplicar(e, op, { t: 'bloco', b: 0, x: 1, y: 40, z: 1, de: IDS.VIDRO, natural: false, mao }).cai || [];
+  conferir(vidro(IDS.PICARETA_MADEIRA).length === 0, 'vidro: picareta inventada (fora da mochila) não tira inteiro');
+  e.itens[IDS.PICARETA_MADEIRA] = 1;
+  conferir(JSON.stringify(vidro(IDS.PICARETA_MADEIRA).map(([id, n]) => [id, n])) === JSON.stringify([[IDS.VIDRO, 1]]), 'vidro: picareta de verdade tira inteiro');
+}
 if (falhas) { console.log(falhas + ' falha(s)'); process.exit(1); }
 console.log('tudo certo');

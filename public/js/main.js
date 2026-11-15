@@ -1,18 +1,22 @@
 // Pradaria: jogo de construir e explorar, pacífico, para o navegador.
 import * as THREE from '../vendor/three.module.min.js';
 import { F } from './formas.js';
+import { FOLHAGEM } from './blocos.js';
 import { criarAtlas, iconeBloco, INVENTARIO, INVENTARIO_MAQUINAS, INVENTARIO_FORMAS, B, E, AR, BLOCOS, SOLIDO, AGUA, PRECISA_CHAO, ITEM, ehItem, nomeDe } from './blocos.js';
 import { toquesCom, receitasDoMundo, GRUPOS, podeCriar, faltaBancada, gastoDe } from './receitas.js';
 import { BASE, PRECISA_ENERGIA, ELETRICO } from './energia.js';
 import { Mundo, ALT, NIVEL_AGUA } from './mundo.js';
+import { vento as forcaVento } from './energia.js';
 import { Jogador, OLHOS } from './jogador.js';
 import { Controles } from './controles.js';
 import { Bichos } from './animais.js';
 import { Aldeoes } from './aldeoes.js';
 import { Garagem } from './garagem.js';
-import { Som } from './som.js';
+import { Som, VOL_PADRAO } from './som.js';
+import { materialDe } from './som-materiais.js';
+import { Voz } from './voz.js';
 import { montarBoneco, vestirBoneco, etiqueta, matModelo, matContorno, caixa, juntar, bola, animarBoneco, poseNeutra } from './modelos.js';
-import { normalizarSkin, skinDeCor, skinIgual, CORES_ROUPA } from './skin.js';
+import { normalizarSkin, skinDeCor, skinIgual, CORES_ROUPA, corDe, normalizarModelos } from './skin.js';
 import { Personagem } from './personagem.js';
 import { Visao } from './visao.js';
 import { Chat } from './chat.js';
@@ -60,7 +64,7 @@ const CORES = [0x3f6fd9, 0xe8433f, 0x4caf50, 0xf2c72e, 0x9c5bd9, 0xf29ac2, 0xff8
 const naTV = modoTV();
 const ehToque = !naTV && (matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window);
 if (ehToque) document.body.classList.add('toque');
-const AJ_PADRAO = { dist: ehToque ? 3 : 4, qual: ehToque ? 0.8 : 1, graf: 'auto', grafAuto: null, grafTeto: null, grafManual: false, gopc: null, ...PESSOAIS, auto: true, sens: 0.0055, som: true, fps: false, minimapa: true };
+const AJ_PADRAO = { dist: ehToque ? 3 : 4, qual: ehToque ? 0.8 : 1, graf: 'auto', grafAuto: null, grafTeto: null, grafManual: false, gopc: null, ...PESSOAIS, auto: true, sens: 0.0055, som: true, ...VOL_PADRAO, fps: false, minimapa: true };
 let ajustes = { ...AJ_PADRAO };
 try { Object.assign(ajustes, JSON.parse(localStorage.getItem('pradaria.ajustes') || '{}')); } catch {}
 // quem nunca escolheu os gráficos à mão fica no automático (inclusive quem jogou antes desta versão)
@@ -174,8 +178,10 @@ const nuvens = (() => {
   return m;
 })();
 
+let somPronto = false;
 function aplicarGraficos() {
   const o = graf.aplicar(opcoesGraficas());
+  if (somPronto) aplicarSom(); // gráfico Leve deixa o som mais simples também
   nuvens.visible = o.nuvens;
   matContorno.visible = !!o.contorno;
   $('#vinheta').hidden = !o.vinheta;
@@ -192,6 +198,24 @@ cena.add(contorno);
 
 // ---------- estado do jogo ----------
 const som = new Som();
+som.materialDe = materialDe;
+// sons: liga/desliga, volumes separados (música, efeitos, voz dos amigos) e modo leve (gráfico Leve ou celular)
+const celular = () => ehToque && Math.min(innerWidth, innerHeight) < 500;
+function aplicarSom() {
+  som.configurar({ ligado: ajustes.som, musica: ajustes.volMusica, efeitos: ajustes.volEfeitos, voz: ajustes.volVoz, leve: opcoesGraficas().sombra === 0 || celular() });
+  Voz.definirVolume(ajustes.som ? ajustes.volVoz : 0);
+}
+aplicarSom();
+somPronto = true;
+// o que o pé pisa (no ar logo acima de meio bloco/rampa, olha um pouco mais embaixo)
+function chaoDe(x, y, z) {
+  if (!mundo) return 'terra';
+  const bx = Math.floor(x), bz = Math.floor(z);
+  let b = mundo.bloco(bx, Math.floor(y - 0.05), bz);
+  if (!b) b = mundo.bloco(bx, Math.floor(y - 0.6), bz);
+  return b ? materialDe(b) : 'terra';
+}
+const meioDe = (x, y, z) => ({ x: x + 0.5, y: y + 0.5, z: z + 0.5 });
 // água: fôlego e a visão embaixo d'água
 const agua = new Agua({ cena, graf, som, aviso: (t, ms, ic) => aviso(t, ms, ic), vida, esconder: () => [nuvens] });
 
@@ -243,6 +267,12 @@ function levarSkinLocal() {
   if (!u || u.skinSalva || !s) return;
   api('eu/skin', { skin: s }).then((r) => { u.skin = r.skin; u.skinSalva = true; }).catch(() => {});
 }
+// conta sem modelos guardados: leva os deste aparelho
+function levarModelosLocal() {
+  const u = conta.usuario, l = modelosLocal();
+  if (!u || (u.modelos && u.modelos.length) || !l.length) return;
+  api('eu/modelos', { modelos: l }).then((r) => { u.modelos = r.modelos; }).catch(() => {});
+}
 function vestirMeusBonecos(s) {
   if (visao.boneco) vestirBoneco(visao.boneco, s);
   if (garagem.meuBoneco) vestirBoneco(garagem.meuBoneco, s);
@@ -263,7 +293,23 @@ async function salvarSkin(s) {
   aviso('Personagem salvo!', 1500, 'camiseta');
   return null;
 }
-const personagem = new Personagem({ som, salvar: salvarSkin });
+// modelos guardados (vários personagens): na conta e neste aparelho
+const CHAVE_MODELOS = 'pradaria.modelos';
+function modelosLocal() { try { return normalizarModelos(localStorage.getItem(CHAVE_MODELOS)); } catch { return []; } }
+function meusModelos() {
+  const u = conta.usuario;
+  return u && u.modelos && u.modelos.length ? normalizarModelos(u.modelos) : modelosLocal();
+}
+async function salvarModelos(lista) {
+  lista = normalizarModelos(lista);
+  try { localStorage.setItem(CHAVE_MODELOS, JSON.stringify(lista)); } catch {}
+  if (conta.token && conta.usuario) {
+    try { conta.usuario.modelos = (await api('eu/modelos', { modelos: lista })).modelos; }
+    catch (e) { conta.usuario.modelos = lista; return 'Guardei neste aparelho, mas não na conta: ' + e.message; }
+  }
+  return null;
+}
+const personagem = new Personagem({ som, salvar: salvarSkin, modelos: meusModelos, salvarModelos });
 function abrirPersonagem(voltar) {
   som.iniciar();
   personagem.abrir(meuSkin(), voltar);
@@ -422,6 +468,7 @@ function porNaMao(id) {
 }
 function abrirInventario(aba) {
   if (!jogando || !podeConstruir()) return;
+  if ($('#inventario').hidden) som.abrir(); // "fwip" só quando abre (trocar de aba não toca)
   const abas = abasDoMundo();
   if (typeof aba === 'string') abaInv = aba;
   if (!abas.some((a) => a[0] === abaInv)) abaInv = abas[0][0];
@@ -548,7 +595,7 @@ function tocarReceita(r) {
   const temBancada = bancadaPerto();
   if (podeCriar(mercado.e.itens, r, temBancada)) {
     mercado.criar(r.id, temBancada);
-    som.colocar();
+    som.criar();
     colocarNaBarra(r.faz[0]);
     aviso(`Criou ${r.faz[1] > 1 ? r.faz[1] + ' ' : ''}${nomeDe(r.faz[0])}!`, 1400, 'martelo');
   } else if (faltaBancada(r, temBancada)) {
@@ -623,7 +670,7 @@ function laDaOvelha(bicho) {
 function abrirPausa() {
   if (document.pointerLockElement) document.exitPointerLock();
   $('#aj-dist').value = ajustes.dist; $('#aj-qual').value = ajustes.qual; preencherGraficos(); $('#aj-sens').value = ajustes.sens;
-  $('#aj-som').checked = ajustes.som; $('#aj-fps').checked = ajustes.fps; $('#aj-minimapa').checked = ajustes.minimapa;
+  $('#aj-som').checked = ajustes.som; $('#aj-vol-musica').value = ajustes.volMusica; $('#aj-vol-efeitos').value = ajustes.volEfeitos; $('#aj-vol-voz').value = ajustes.volVoz; $('#aj-fps').checked = ajustes.fps; $('#aj-minimapa').checked = ajustes.minimapa;
   // o código só aparece para o dono (é ele quem decide quem entra)
   $('#pausa-mundo').textContent = modo === 'online' ? `Mundo: ${mundoAtual.nome}` + (mundoAtual.dono ? ` · código ${mundoAtual.codigo}` : '') : 'Mundo sem internet (salvo neste aparelho)';
   preencherDono(modo === 'online' ? mundoAtual : null, () => abrirPausa());
@@ -632,10 +679,12 @@ function abrirPausa() {
   // editar o mundo: só o dono (no mundo sem internet, quem joga é o dono)
   $('#bt-editar-mundo').hidden = !(modo === 'local' || (mundoAtual && mundoAtual.dono));
   $('#bt-chamar-amigos').hidden = !(modo === 'online' && mundoAtual && mundoAtual.dono && conta.token);
+  if ($('#pausa').hidden) som.abrir();
   $('#pausa').hidden = false;
   pausado = true;
 }
 function fecharJanelas() {
+  if (jogando && (!$('#inventario').hidden || !$('#pausa').hidden || !$('#mapa').hidden || !$('#garagem').hidden)) som.fechar();
   $('#editar-mundo').hidden = true;
   $('#inventario').hidden = true; $('#pausa').hidden = true; $('#mapa').hidden = true; $('#mapa-ilha').hidden = true; $('#garagem').hidden = true; $('#missoes').hidden = true;
   if (cmd) cmd.fechar();
@@ -798,7 +847,11 @@ for (const [id, k] of PESS) $('#' + id).addEventListener('input', (e) => { ajust
 $('#aj-auto').addEventListener('change', (e) => { ajustes.auto = e.target.checked; salvarAjustes(); });
 $('#aj-qual').addEventListener('input', (e) => { ajustes.qual = +e.target.value; salvarAjustes(); redimensionar(); });
 $('#aj-sens').addEventListener('input', (e) => { ajustes.sens = +e.target.value; if (ctrl) ctrl.sensToque = ajustes.sens; salvarAjustes(); });
-$('#aj-som').addEventListener('change', (e) => { ajustes.som = e.target.checked; som.ligado = ajustes.som; salvarAjustes(); });
+$('#aj-som').addEventListener('change', (e) => { ajustes.som = e.target.checked; aplicarSom(); salvarAjustes(); som.iniciar(); som.clique(); });
+for (const [id, k] of [['aj-vol-musica', 'volMusica'], ['aj-vol-efeitos', 'volEfeitos'], ['aj-vol-voz', 'volVoz']]) {
+  $('#' + id).addEventListener('input', (e) => { ajustes[k] = +e.target.value; aplicarSom(); salvarAjustes(); });
+  $('#' + id).addEventListener('change', () => { if (k === 'volEfeitos') som.clique(); }); // amostra do volume novo
+}
 $('#aj-minimapa').addEventListener('change', (e) => { ajustes.minimapa = e.target.checked; salvarAjustes(); aplicarMinimapa(); });
 $('#minimapa').addEventListener('click', () => { som.clique(); mapa.abrir(); });
 $('#bt-abrir-mapa').addEventListener('click', () => { $('#pausa').hidden = true; mapa.abrir(); });
@@ -982,7 +1035,7 @@ function usar(ponto) {
     novo += novo === MV.CAMA ? d : (d + 2) & 3;
   }
   comoJogador(() => mundo.definir(x, y, z, novo));
-  som.colocar();
+  som.em(meioDe(x, y, z), () => som.colocar(novo));
   dicaEnergia(novo, x, y, z);
 }
 
@@ -1120,7 +1173,7 @@ function quebrar(ponto) {
   const p = raio.ray.at(h.t + 0.001, new THREE.Vector3());
   const total = toquesCom(toquesPara(h.b), h.b, mao);
   maoQuebrando = mao;
-  if (comoJogador(() => escav.bater(h, p, total))) { som.quebrar(); mostrarQueCaiu(h.b, h.x, h.y, h.z); } else som.bater(h.b);
+  if (comoJogador(() => escav.bater(h, p, total))) { som.em(meioDe(h.x, h.y, h.z), () => som.quebrar(h.b)); mostrarQueCaiu(h.b, h.x, h.y, h.z); } else som.em(meioDe(h.x, h.y, h.z), () => som.bater(h.b));
 }
 
 // recolhe a fonte de água mirada; a água corrente que dependia dela seca sozinha
@@ -1137,7 +1190,7 @@ function recolherAgua(ponto) {
   }
   if (!alvo) { aviso('Essa água vem de longe', 1500, 'gota'); return true; }
   comoJogador(() => mundo.definir(alvo.x, alvo.y, alvo.z, AR));
-  som.quebrar();
+  som.splash(0.2);
   mostrarQueCaiu(B.AGUA, alvo.x, alvo.y, alvo.z);
   return true;
 }
@@ -1161,12 +1214,12 @@ function adicionarOutro(j) {
   if (j.id === euId || outros.has(j.id)) return;
   const b = montarBoneco(j.skin ? normalizarSkin(j.skin, j.cor) : skinDeCor(j.cor));
   const et = etiqueta(j.nome);
-  et.position.y = 2.25;
+  et.position.y = b.topo + 0.37; et.userData.etiqueta = true;
   b.grupo.add(et);
   const p = j.p || [0, 60, 0];
   b.grupo.position.set(p[0], p[1], p[2]);
   cena.add(b.grupo);
-  outros.set(j.id, { ...b, nome: j.nome, corCss: '#' + CORES_ROUPA[b.skin.corRoupa].toString(16).padStart(6, '0'), alvo: new THREE.Vector3(...p), yaw: 0, alvoYaw: (j.r && j.r[0]) || 0, yawOlhar: (j.r && j.r[0]) || 0, vRede: new THREE.Vector3(), vAnim: new THREE.Vector3(), vTmp: new THREE.Vector3() });
+  outros.set(j.id, { ...b, nome: j.nome, corCss: '#' + corDe(CORES_ROUPA, b.skin.corRoupa).toString(16).padStart(6, '0'), alvo: new THREE.Vector3(...p), yaw: 0, alvoYaw: (j.r && j.r[0]) || 0, yawOlhar: (j.r && j.r[0]) || 0, vRede: new THREE.Vector3(), vAnim: new THREE.Vector3(), vTmp: new THREE.Vector3() });
 }
 
 // posição de um amigo (vem da sala ~8x por segundo)
@@ -1275,7 +1328,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   drops.usarMundo(mundo);
   fisica = new Fisica(cena, mundo, matBlocos);
   plantacoes = new Plantacoes(mundo);
-  fisica.aoCair = (x, y, z) => { if (Math.abs(x - jog.pos.x) + Math.abs(z - jog.pos.z) < 24) som.passo(); };
+  fisica.aoCair = (x, y, z, b) => { som.em({ x: x + 0.5, y, z: z + 0.5 }, () => som.passo(b || 'areia', 0.7)); };
   fisica.aoFolha = (x, y, z, b) => escav.estilhacar(x, y, z, b, null, null);
   mundo.carregarEdicoes(edicoes);
   mundo.aoMudarBloco = (x, y, z, b, de, natural) => {
@@ -1291,7 +1344,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   jog.aoBorda = () => { if (tempoTotal - avisoBorda > 6) { avisoBorda = tempoTotal; aviso('Aqui é o fim do mundo! Só mar daqui pra frente', 2200, 'gota'); } };
   // queda alta: baque sempre; com corações ligados, tira meio coração por bloco acima de 4
   jog.aoQueda = (blocos, dano, machucou) => {
-    som.tom(machucou ? 140 : 110, 0.14, { tipo: 'sine', vol: machucou ? 0.4 : 0.22, ate: 60 }); som.passo();
+    som.queda(chaoDe(jog.pos.x, jog.pos.y, jog.pos.z), machucou);
     if (machucou) aviso('Ai, que tombo! Quedas altas machucam', 1800, 'coracao');
   };
   lugarAtual = null;
@@ -1371,7 +1424,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   aplicarMinimapa();
   garagem.comecar(mundo, veiculos, veiculosP);
   guerra.comecar();
-  som.ligado = ajustes.som;
+  aplicarSom();
   ajustarNevoa();
   desenharBarra();
   $('#bt-voar').classList.remove('ligado'); $('#bt-descer').hidden = true; $('#bt-agachar').hidden = false;
@@ -1468,13 +1521,19 @@ async function jogarOnline(m, volta = null) {
       const o = outros.get(msg.id);
       if (!o || !msg.s) return;
       vestirBoneco(o, msg.s);
-      o.corCss = '#' + CORES_ROUPA[o.skin.corRoupa].toString(16).padStart(6, '0');
+      o.corCss = '#' + corDe(CORES_ROUPA, o.skin.corRoupa).toString(16).padStart(6, '0');
     },
     saiu: (msg) => { const o = outros.get(msg.id); if (o) aviso(`${o.nome} saiu`); chat.jogadorSaiu(msg.id); removerOutro(msg.id); },
     chat: (msg) => chat.recebeu(msg), 'chat-erro': (msg) => chat.erro(msg), 'chat-op': (msg) => chat.aplicarOp(msg),
     voz: (msg) => chat.mensagemVoz(msg), 'voz-lista': (msg) => chat.mensagemVoz(msg), 'voz-sinal': (msg) => chat.mensagemVoz(msg), 'voz-fala': (msg) => chat.mensagemVoz(msg),
     pos: recebeuPos,
-    bloco: (msg) => { if (mundo) mundo.definir(msg.x, msg.y, msg.z, msg.b, true); },
+    bloco: (msg) => {
+      if (!mundo) return;
+      const antes = mundo.bloco(msg.x, msg.y, msg.z);
+      mundo.definir(msg.x, msg.y, msg.z, msg.b, true);
+      // o amigo quebrou/colocou: ouve de onde foi (só o que alguém fez, não a água escorrendo)
+      if (msg.j && antes !== msg.b) som.em(meioDe(msg.x, msg.y, msg.z), () => (msg.b ? som.colocar(msg.b) : som.quebrar(antes)));
+    },
     racha: (msg) => { if (escav) escav.remoto(msg.x, msg.y, msg.z, msg.b, msg.n, msg.de); },
     blocos: (msg) => { if (Array.isArray(msg.l)) porBlocosObra(msg.l, true); },
     emote: (msg) => {
@@ -1511,7 +1570,7 @@ function recarregarOnline(m) {
   if (sala) sala.enviar({ t: 'pos', p: volta.pos, r: [jog.yaw, jog.pitch] });
   cmd.saiu();
   limparMundo();
-  jogando = false; pausado = false;
+  jogando = false; pausado = false; som.silenciarJogo();
   fecharJanelas();
   $('#hud').hidden = true;
   jogarOnline(m, volta);
@@ -1525,7 +1584,7 @@ function sairDoMundo(op = {}) {
   cmd.saiu();
   if (sala && jog) sala.enviar({ t: 'pos', p: [jog.pos.x, jog.pos.y, jog.pos.z], r: [jog.yaw, jog.pitch] });
   limparMundo();
-  jogando = false; pausado = false;
+  jogando = false; pausado = false; som.silenciarJogo();
   fecharJanelas();
   $('#hud').hidden = true;
   if (op.semMenu) return;
@@ -1568,7 +1627,7 @@ $('#m-conta').addEventListener('submit', async (e) => {
   try {
     const r = await api(modoConta === 'entrar' ? 'entrar' : 'cadastrar', { nome: $('#c-nome').value.trim(), senha: $('#c-senha').value, cor: corEscolhida, skin: modoConta === 'entrar' ? undefined : skinLocal() || undefined });
     conta.salvar(r.token); conta.usuario = r.usuario;
-    levarSkinLocal();
+    levarSkinLocal(); levarModelosLocal();
     $('#c-senha').value = '';
     abrirJogos();
   } catch (err) { $('#c-erro').textContent = err.message; }
@@ -1592,7 +1651,7 @@ async function entrarPorCodigo(codigo) {
   jogarOnline(r.mundo);
 }
 const amigos = criarAmigos({
-  lobby, som: () => { som.iniciar(); som.clique(); }, aviso,
+  lobby, som: () => { som.iniciar(); som.clique(); }, somConvite: () => som.convite(), somAviso: () => som.aviso(), aviso,
   contador: ({ online, pedidos }) => {
     const c = $('#amigos-contador');
     c.textContent = pedidos ? `${pedidos} pedido${pedidos > 1 ? 's' : ''}` : online ? `${online} online` : '';
@@ -1624,7 +1683,7 @@ async function abrirMundos() {
   mostrarMenu('m-carregando');
   $('#carregando-txt').textContent = 'Buscando seus mundos…';
   try {
-    if (!conta.usuario) { conta.usuario = (await api('eu')).usuario; levarSkinLocal(); }
+    if (!conta.usuario) { conta.usuario = (await api('eu')).usuario; levarSkinLocal(); levarModelosLocal(); }
     const { mundos } = await api('mundos');
     nomesMeusMundos = mundos.filter(m => m.dono).map(m => m.nome);
     $('#m-nome').textContent = conta.usuario.nome;
@@ -1754,6 +1813,28 @@ $('#m-novo').addEventListener('submit', async (e) => {
   } catch (err) { $('#n-erro').textContent = err.message; }
 });
 
+// ---------- som ambiente (vento, água, passarinhos, grilos, caverna) e música ----------
+const amb = { t: 0, agua: 0, arvores: 0, coberto: false };
+function ambienteSom(dt) {
+  amb.t -= dt;
+  const c = camera.position;
+  // olha o que tem em volta duas vezes por segundo (pouca conta: uma grade espaçada)
+  if (amb.t <= 0) {
+    amb.t = 0.5;
+    const cx = Math.floor(c.x), cy = Math.floor(c.y), cz = Math.floor(c.z);
+    let ag = 0, fo = 0;
+    for (let dx = -8; dx <= 8; dx += 2) for (let dz = -8; dz <= 8; dz += 2) {
+      for (let dy = -4; dy <= 0; dy += 2) if (AGUA[mundo.bloco(cx + dx, cy + dy, cz + dz)]) { ag++; break; }
+      for (let dy = 1; dy <= 9; dy += 2) if (FOLHAGEM[mundo.bloco(cx + dx, cy + dy, cz + dz)]) { fo++; break; }
+    }
+    amb.agua = Math.min(1, ag / 18); amb.arvores = Math.min(1, fo / 14);
+    amb.coberto = mundo.alturaEm(cx, cz) - c.y > 5;
+  }
+  som.caverna(amb.coberto);
+  som.ambiente({ dt, dia: 1 - graf.U.uNoite.value, vento: forcaVento(), agua: amb.agua, arvores: amb.arvores, coberto: amb.coberto, altura: c.y, pausado, debaixoDagua: !!som.abafado });
+  som.motoresQuadro();
+}
+
 // ---------- laço principal ----------
 let turnoAcum = 0;
 let ultimo = performance.now(), acumPos = 0, quadros = 0, tempoFps = 0, tempoTotal = 0, ultimoPasso = 0;
@@ -1774,7 +1855,7 @@ function laco(agora) {
     const ent = ctrl.atualizar();
     if (!garagem.quadro(dt, ent, false)) {
       jog.atualizar(dt, ent);
-      if (jog.noChao && Math.floor(jog.passo / 1.8) !== ultimoPasso) { ultimoPasso = Math.floor(jog.passo / 1.8); som.passo(); }
+      if ((jog.noChao || jog.naAgua) && Math.floor(jog.passo / 1.8) !== ultimoPasso) { ultimoPasso = Math.floor(jog.passo / 1.8); som.passo(jog.naAgua ? 'agua' : chaoDe(jog.pos.x, jog.pos.y, jog.pos.z), visao.agachado ? 0.18 : visao.correndo ? 0.45 : 0.35); }
     }
   }
   const dirigindo = garagem.camera(camera);
@@ -1783,6 +1864,8 @@ function laco(agora) {
     camera.rotation.set(jog.pitch, jog.yaw, 0, 'YXZ');
   }
 
+  som.ouvinte(camera.position.x, camera.position.y, camera.position.z, camera.rotation.y);
+  ambienteSom(dt);
   mundo.energia.noite = graf.U.uNoite.value > 0.5;
   mundo.atualizar(jog.pos.x, jog.pos.z, ehToque ? 5 : 8, jog.pos.y);
   if (!pausado) vigiarPlaca();
@@ -1853,6 +1936,12 @@ function laco(agora) {
       correndo: !!(acao & 16) || (!o.flagsNovas && noChao && Math.hypot(v.x, v.z) > 6), agachado: !!(acao & 32),
       golpe: o.golpe ?? 1,
     }, dt);
+    // passos do amigo: ouve de onde ele está, com o som do chão que ele pisa
+    if (noChao || acao & 4) {
+      const vel = Math.hypot(v.x, v.z);
+      o.passoAc = (o.passoAc || 0) + vel * dt;
+      if (o.passoAc > 1.9) { o.passoAc = 0; if (vel > 0.8) som.em(g, () => som.passo(acao & 4 ? 'agua' : chaoDe(g.x, g.y, g.z), acao & 32 ? 0.18 : 0.35)); }
+    }
   }
 
   // ciclo de dia e noite (a noite é clarinha: nada de medo!)
@@ -1957,7 +2046,7 @@ const tv = iniciarTV({
 });
 requestAnimationFrame(laco);
 addEventListener('beforeunload', () => salvarLocal());
-document.addEventListener('visibilitychange', () => { if (document.hidden) { salvarLocal(); if (jogando) enviarBarra(); } });
+document.addEventListener('visibilitychange', () => { som.pausarTudo(document.hidden); if (document.hidden) { salvarLocal(); if (jogando) enviarBarra(); } });
 void edicoesPendentes;
 
 // início: se já tem sessão, vai direto para a escolha do jogo
@@ -1969,4 +2058,4 @@ if (conta.token) abrirJogos().then(() => { if (mundoPedido && conta.usuario) ent
 else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; }, get escav() { return escav; } }; }
+if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; }, get escav() { return escav; }, som }; }

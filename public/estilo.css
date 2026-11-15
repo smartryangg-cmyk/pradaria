@@ -490,8 +490,8 @@ body.toque #coleta .pego.some { transform: translateX(-20px); }
 #pers-vitrine { position: relative; border: 3px solid var(--txt); border-radius: 18px; background: linear-gradient(#bfe6ff, #eaf7ff 70%, #d8efc8); overflow: hidden; }
 #pers-canvas { display: block; width: 100%; height: 240px; touch-action: none; cursor: grab; }
 #pers-vitrine .sub { position: absolute; left: 0; right: 0; bottom: 4px; margin: 0; font-size: 13px; pointer-events: none; }
-#pers-abas { display: flex; gap: 6px; margin-bottom: 8px; }
-.pers-aba { flex: 1; min-height: 44px; border: 3px solid var(--txt); border-radius: 14px; background: #fff; font: inherit; font-weight: 900; font-size: 15px; color: var(--txt); cursor: pointer; padding: 4px; }
+#pers-abas { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.pers-aba { flex: 1 1 auto; min-width: 74px; min-height: 42px; border: 3px solid var(--txt); border-radius: 14px; background: #fff; font: inherit; font-weight: 900; font-size: 15px; color: var(--txt); cursor: pointer; padding: 4px; }
 .pers-aba.sel { background: var(--amarelo); }
 #pers-painel { display: flex; flex-direction: column; gap: 10px; }
 .pers-linha .sub { margin-bottom: 6px; }
@@ -500,6 +500,28 @@ body.toque #coleta .pego.some { transform: translateX(-20px); }
 .pers-estilo.sel { background: var(--verde); color: #fff; }
 .pers-cores { justify-content: flex-start; gap: 8px; padding: 4px; }
 .pers-cores button { width: 34px; height: 34px; border-radius: 10px; }
+/* outra cor: o seletor de cores do aparelho, num quadradinho de arco-íris */
+.pers-livre { position: relative; width: 34px; height: 34px; border-radius: 10px; border: 3px solid var(--txt); box-shadow: 0 3px 0 var(--txt); cursor: pointer; box-sizing: border-box;
+  background: conic-gradient(#ff5a5a, #ffd23f, #5cbf4a, #3fc3e8, #5b6cf0, #d45bd9, #ff5a5a); }
+.pers-livre.sel { background: var(--cor, #fff); outline: 4px solid var(--amarelo); outline-offset: 2px; transform: translateY(-2px); }
+.pers-livre input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+.pers-tom { margin-top: 8px; font-size: 14px; }
+.pers-tom input[type=range] { width: 100%; height: 26px; -webkit-appearance: none; appearance: none; border-radius: 13px; border: 3px solid var(--txt);
+  background: linear-gradient(90deg, #ffe9d6, #f6d0b1, #eab48a, #d59a6a, #b97c4c, #95603a, #704428, #4b2c19, #33200f); }
+.pers-tom input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: #fff; border: 3px solid var(--txt); }
+.pers-tom input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 3px solid var(--txt); }
+.pers-guardar { display: flex; gap: 8px; }
+.pers-guardar input { flex: 1; min-width: 0; font: inherit; font-weight: 700; padding: 8px 12px; border: 3px solid var(--txt); border-radius: 12px; }
+.pers-guardar .bt { min-height: 44px; font-size: 15px; padding: 6px 12px; }
+.pers-guardar .bt .ic-svg { width: 20px; height: 20px; }
+.pers-modelos { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.pers-modelo { position: relative; }
+.pers-usar { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 4px 6px; border: 3px solid var(--txt); border-radius: 14px; background: linear-gradient(#bfe6ff, #eaf7ff); cursor: pointer; font: inherit; color: var(--txt); box-shadow: 0 3px 0 var(--txt); }
+.pers-modelo.sel .pers-usar { background: #fff3c4; outline: 4px solid var(--amarelo); }
+.pers-usar img { width: 72px; height: 90px; object-fit: contain; }
+.pers-usar b { font-size: 13px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pers-apagar { position: absolute; top: -6px; right: -6px; width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border-radius: 50%; border: 3px solid var(--txt); background: #ffe1dc; cursor: pointer; }
+.pers-apagar .ic-svg { width: 18px; height: 18px; }
 @media (min-width: 700px) {
   .pers-grade { grid-template-columns: 260px 1fr; }
   #pers-canvas { height: 360px; }

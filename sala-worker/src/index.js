@@ -556,7 +556,8 @@ export class Sala extends DurableObject {
       ed.set(k, b);
       await this.ctx.storage.put('b:' + k, b);
       if (b === 76 || b === 77) { (this.estagioEm ??= new Map()).set(k, Date.now()); if (this.estagioEm.size > 5000) this.estagioEm.clear(); }
-      this.enviarTodos({ t: 'bloco', x, y, z, b }, ws);
+      // j: foi a mão de alguém (os outros ouvem o som de quebrar/colocar; água escorrendo fica quieta)
+      this.enviarTodos(m.j ? { t: 'bloco', x, y, z, b, j: 1 } : { t: 'bloco', x, y, z, b }, ws);
       // "c:x,y,z" = ali está um bloco feito com coisa comprada (quebrar devolve marcado, para ninguém lucrar
       // colocando e quebrando, nem passando para um amigo quebrar). Mudou o bloco, a marca sai.
       const comprado = !natural && !!(await this.ctx.storage.get('c:' + k));

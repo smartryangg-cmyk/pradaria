@@ -5,6 +5,18 @@ import * as X from './dama-regras.js';
 import { conta } from './rede.js';
 import { icone, preencherIcones, comIcone } from './icones.js';
 import { Lobby } from './lobby.js';
+import { somDaPagina } from './som.js';
+
+// sons: peça de madeira na casa, "toc-toc" ao comer, aviso de xeque e o fim da partida
+const som = somDaPagina();
+let tabAntes = null;
+function somDoTabuleiro() {
+  const pecas = e.b.filter(Boolean).length, sig = e.b.join(',');
+  if (tabAntes && sig !== tabAntes.sig && pecas <= tabAntes.pecas) {
+    som.peca(pecas < tabAntes.pecas);
+  }
+  tabAntes = { sig, pecas };
+}
 import { criarAmigos } from './amigos.js';
 import { jogo as dadosJogo } from './jogos.js';
 
@@ -59,6 +71,7 @@ for (let k = 0; k < 64; k++) {
 const meuLado = () => (modo === 'online' ? voce || 'w' : voce);
 
 function desenhar() {
+  somDoTabuleiro();
   const baixo = meuLado();
   const virar = (baixo === 'b') !== girado;
   const xeque = -1;
@@ -171,6 +184,7 @@ function vezDoComputador() {
 function mostrarFim() {
   const f = fimAtual;
   const venci = f.vencedor && f.vencedor === meuLado();
+  som.fim(!f.vencedor ? 'empate' : venci ? 'ganhou' : 'perdeu');
   $('#fim-titulo').textContent = !f.vencedor ? 'Empate!' : venci ? 'Você ganhou!' : 'Você perdeu';
   let txt = X.TEXTO_FIM[f.tipo] || '';
   if (f.tipo === 'desistiu') txt = f.quem === meuLado() ? 'Você desistiu.' : (modo === 'pc' ? 'O computador desistiu.' : 'Seu amigo desistiu.');
@@ -288,7 +302,7 @@ let lobby = null, amigos = null;
 if (conta.token) {
   lobby = new Lobby('dama');
   amigos = criarAmigos({
-    lobby, aviso,
+    lobby, aviso, som: () => som.clique(), somConvite: () => som.convite(), somAviso: () => som.aviso(),
     aceitarConvite(m) {
       const j = dadosJogo(m.jogo);
       if (m.jogo === 'dama') { jogarOnline(m.sala); return; }

@@ -184,7 +184,17 @@ export class Bichos {
       this.tempoUivo -= dt;
       if (this.tempoUivo <= 0) {
         this.tempoUivo = 35 + Math.random() * 40;
-        if (this.lista.some((b) => b.especie === 'lobo' && b.distJog > 12)) this.som.bicho('uivo');
+        const lobo = this.lista.find((b) => b.especie === 'lobo' && b.distJog > 12);
+        if (lobo) this.som.em(lobo, () => this.som.bicho('uivo'), 90);
+      }
+    }
+    // de vez em quando um bicho perto "fala" (a vaca muge, a galinha cacareja), de onde ele está
+    if (dt > 0) {
+      this.tempoVoz = (this.tempoVoz ?? 4) - dt;
+      if (this.tempoVoz <= 0) {
+        this.tempoVoz = 5 + Math.random() * 9;
+        const perto = this.lista.filter((b) => b.distJog < 22 && !b.caindo && b.estado !== 'dormir' && b.estado !== 'atacar');
+        if (perto.length) { const b = perto[Math.floor(Math.random() * perto.length)]; this.som.bicho(b.e.som, false, b); }
       }
     }
     this._px = p.x; this._pz = p.z;
@@ -293,7 +303,7 @@ export class Bichos {
       const irrita = (filhoteAmeacado || (I.territorio && dist < I.territorio)) && !calmo;
       if (irrita && b.estado !== 'recuar') {
         this.mudar(b, 'avisar', I.naoPersegue ? 1.2 : 2.6); b.alvo = 'jog';
-        this.som.bicho(b.e.som, true);
+        this.som.bicho(b.e.som, true, b);
         if (this.aoAvisar) this.aoAvisar(b);
         return;
       }
@@ -415,7 +425,7 @@ export class Bichos {
           const limite = I.bote || Math.max(I.territorio ? I.territorio * 1.3 : 0, b.defendendo ? I.defende * 1.2 : 0);
           if (b.distJog < limite) { b.estado = 'atacar'; b.timer = I.naoPersegue ? 0.6 : 3; }
           else b.timer = 1.2; // continua avisando enquanto o jogador estiver perto
-          if (I.naoPersegue && b.estado !== 'atacar') this.som.bicho(b.e.som, true);
+          if (I.naoPersegue && b.estado !== 'atacar') this.som.bicho(b.e.som, true, b);
         }
         break;
       }
@@ -467,7 +477,7 @@ export class Bichos {
     const dx = jog.pos.x - b.x, dz = jog.pos.z - b.z, n = Math.hypot(dx, dz) || 1;
     jog.vel.x += (dx / n) * 6; jog.vel.z += (dz / n) * 6;
     if (!jog.voando) { jog.vel.y = Math.max(jog.vel.y, 5); jog.noChao = false; }
-    this.som.bicho(b.e.som, true);
+    this.som.bicho(b.e.som, true, b);
     b.estado = 'recuar'; b.timer = 3; b.calmo = 10; b.cacandoGente = false; b.fome = Math.max(0, b.fome - 0.2);
     if (this.aoMorder) this.aoMorder(b, b.I.dano || 0);
   }
@@ -623,7 +633,7 @@ export class Bichos {
     if (b.ultimoCarinho && agora - b.ultimoCarinho < 700) return false;
     b.ultimoCarinho = agora;
     if (b.I.selvagem) { this.espantar(b); return false; }
-    this.som.bicho(b.e.som);
+    this.som.bicho(b.e.som, false, b);
     b.andando = false; b.timer = 2; b.calmo = 30;
     if (b.estado === 'fugir' || b.estado === 'dormir' || b.estado === 'avisar' || b.estado === 'atacar') { b.estado = 'parar'; b.medo = 0; }
     if (b.vy === 0) b.vy = 3.5; // pulinho de alegria só saindo do chão
@@ -634,7 +644,7 @@ export class Bichos {
 
   // "xô!": o selvagem foge do jogador (como na vida real: fazer barulho e parecer grande afasta)
   espantar(b) {
-    this.som.tom(300, 0.12, { tipo: 'square', vol: 0.15, ate: 520 });
+    this.som.em(b, () => this.som.tom(300, 0.12, { tipo: 'square', vol: 0.15, ate: 520 }));
     this.icone('pata', b.x, b.y + b.e.alt * b.esc + 0.3, b.z, 1, 0.4);
     b.calmo = 25; b.cacandoGente = false; b.alvo = null;
     b.folego = b.I.folego;
@@ -661,9 +671,9 @@ export class Bichos {
     const topo = b.y + b.e.alt * b.esc;
     if (critico) for (let k = 0; k < 6; k++) this.icone('estrela', b.x + (Math.random() - 0.5) * 0.9, topo - Math.random() * 0.5, b.z + (Math.random() - 0.5) * 0.9, 0.5, 0.22);
     // o cachorro é de estimação: não se machuca, só chora e sai correndo
-    if (!b.vidaMax) { this.som.tom(900, 0.18, { tipo: 'sine', vol: 0.2, ate: 600 }); b.segue = 0; this.fugir(b, 'jog', 4); return true; }
+    if (!b.vidaMax) { this.som.em(b, () => this.som.tom(900, 0.18, { tipo: 'sine', vol: 0.2, ate: 600 })); b.segue = 0; this.fugir(b, 'jog', 4); return true; }
     b.vida -= dano * (critico ? 1.5 : 1);
-    this.som.bicho(b.e.som, true);
+    this.som.bicho(b.e.som, true, b);
     if (b.vida <= 0.001) { this.cair(b); return 'caiu'; }
     this.reagir(b);
     return true;
