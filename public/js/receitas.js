@@ -23,7 +23,7 @@ export const IDS = {
   GRAVETO: 1000, PICARETA_MADEIRA: 1001, PICARETA_PEDRA: 1002, MACHADO_MADEIRA: 1003, MACHADO_PEDRA: 1004, PA_MADEIRA: 1005, PA_PEDRA: 1006, CARNE: 1007, COURO: 1008, BALDE: 1009,
 };
 const I = IDS;
-export const ULTIMO_ITEM = 1009;
+export const ULTIMO_ITEM = 1010; // 1010 isqueiro (fogo-regras.js)
 export const MAX_BLOCO = 255;
 
 // pode ficar guardado na mochila: blocos (menos as águas correntes) e os itens conhecidos
@@ -60,6 +60,7 @@ export function oQueCai(b, x = 0, y = 0, z = 0, natural = true, mao = 0) {
   // vidro estilhaça: só sai inteiro com picareta na mão (com a mão vazia vira cacos)
   if (b === I.VIDRO && !(FERRAMENTAS[mao] && FERRAMENTAS[mao][0] === 'picareta')) return [];
   if (b >= 215 && b <= 219) return []; // lava não se quebra: só sai com balde (lava-regras.js)
+  if (b === 222) return []; // fogo (fogo-regras.js)
   if (b === 220 && !(FERRAMENTAS[mao] && FERRAMENTAS[mao][0] === 'picareta')) return []; // obsidiana: só com picareta
   const r = [[VIRA[b] ?? baseDe(b), 1]];
   // o extra só vem de bloco do mundo (colocar e quebrar não multiplica nada), menos o trigo maduro e as folhas:
@@ -133,6 +134,7 @@ export const RECEITAS = [
   { id: 'terra-arada', faz: [I.TERRA_ARADA, 1], usa: [[I.TERRA, 1]], grupo: 'construir' },
   { id: 'tijolo', faz: [I.TIJOLO, 2], usa: [[I.TERRA, 1], [I.AREIA, 1]], bancada: true, grupo: 'construir' },
   { id: 'vidro', faz: [I.VIDRO, 1], usa: [[I.AREIA, 2]], bancada: true, grupo: 'construir' },
+  { id: 'isqueiro', faz: [1010, 1], usa: [[20, 1], [67, 1]], bancada: true, grupo: 'ferramentas' }, // pedrisco + minério de ferro
   { id: 'tocha', faz: [221, 4], usa: [[I.GRAVETO, 1], [66, 1]], grupo: 'construir' }, // 66 = carvão
   { id: 'escada-mao', faz: [211, 3], usa: [[I.GRAVETO, 7]], bancada: true, grupo: 'construir', forma: ['G.G', 'GGG', 'G.G'] },
   { id: 'lampiao', faz: [I.LAMPIAO, 1], usa: [[I.VIDRO, 1], [I.GRAVETO, 1]], bancada: true, grupo: 'construir' },

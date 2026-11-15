@@ -94,7 +94,7 @@ if (LOCAL) {
   await criarConta(p, nome, [1, 1, 2000]);
   await p.click('#c-ok');
   await p.waitForSelector('#m-jogos:not([hidden])', { timeout: 15000 });
-  execSync(`npx wrangler d1 execute pradaria-db --local --persist-to .estado --command "UPDATE usuarios SET nascimento = NULL WHERE nome = '${nome}'"`, { stdio: 'ignore' });
+  execSync(`npx wrangler d1 execute pradaria-db --local --persist-to ${process.env.ESTADO || '.estado'} --command "UPDATE usuarios SET nascimento = NULL WHERE nome = '${nome}'"`, { stdio: 'ignore' });
   await p.evaluate(() => localStorage.removeItem('pradaria.token'));
   await p.reload(); await p.waitForTimeout(500);
   await p.click('#bt-entrar');
