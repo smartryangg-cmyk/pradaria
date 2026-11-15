@@ -98,6 +98,7 @@ export class Chat {
     if (document.pointerLockElement) document.exitPointerLock();
     $('#chat-caixa').hidden = false;
     $('#conversa').classList.add('aberto');
+    document.body.classList.add('chat-aberto'); // no celular esconde pular/voar e a dica para a caixa caber
     $('#chat-erro').textContent = '';
     for (const l of this.log) l.el.classList.remove('some');
     const t = $('#chat-txt');
@@ -109,6 +110,7 @@ export class Chat {
     if ($('#chat-caixa').hidden) return;
     $('#chat-caixa').hidden = true;
     $('#conversa').classList.remove('aberto');
+    document.body.classList.remove('chat-aberto');
     $('#chat-txt').blur();
     const agora = Date.now();
     for (const l of this.log) if (agora - l.em > SOME_EM) l.el.classList.add('some');
