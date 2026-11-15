@@ -30,7 +30,7 @@ async function mundo(ctx, toque) {
 // um chão de pedra lá no alto (igual em qualquer semente)
 const palco = (p, c = null) => p.evaluate((c) => {
   const j = window.__jogo.jog, m = window.__jogo.mundo;
-  const x0 = c ? c[0] : Math.floor(j.pos.x), z0 = c ? c[2] : Math.floor(j.pos.z), y0 = 60;
+  const x0 = c ? c[0] : Math.floor(j.pos.x), z0 = c ? c[2] : Math.floor(j.pos.z), y0 = c ? c[1] : 60;
   for (let dx = -8; dx <= 8; dx++) for (let dz = -8; dz <= 8; dz++) {
     m.definir(x0 + dx, y0 - 1, z0 + dz, 3); m.definir(x0 + dx, y0, z0 + dz, 3);
     for (let dy = 1; dy <= 20; dy++) m.definir(x0 + dx, y0 + dy, z0 + dz, 0);
@@ -246,8 +246,39 @@ if (PARTES.includes('online')) {
   await olharAlvo(a, cb); await esperar(a, 1500); // volta para perto da bancada
   await J(a, () => window.__jogo.mercado.criar('picareta-pedra', true, 1)); await esperar(a, 800);
   ok(await qtd(a, 1002) === 1, 'online: com 3 pedras criou a picareta de pedra (' + await qtd(a, 3) + ' pedras)');
-  await quebrarPegar(67, 1002); await quebrarPegar(67, 1002); await quebrarPegar(66, 1002);
-  await quebrarPegar(188, 1002); // uma fornalha qualquer (posta no teste) vira a fornalha dela
+  // a fornalha de verdade: 8 pedregulhos na bancada
+  for (let k = 0; k < 8; k++) await quebrarPegar(20, 1002);
+  await olharAlvo(a, cb); await esperar(a, 1500);
+  await J(a, () => window.__jogo.mercado.criar('fornalha', true, 1)); await esperar(a, 900);
+  ok(await qtd(a, 188) === 1 && await qtd(a, 20) === 0, 'online: Ana criou a fornalha com 8 pedregulhos (' + await qtd(a, 20) + ' sobraram)');
+  // a sala não acredita em fornalha "do mundo": quebrar uma que só existe no aparelho não dá nada
+  await quebrarPegar(188, 1002);
+  ok(await qtd(a, 188) === 1, 'online: fornalha que ninguém colocou (só no aparelho) não deu nada (' + await qtd(a, 188) + ')');
+  // minério: a sala confere se ali passa um veio daquele minério (gerador.js). Diamante numa pedra qualquer: nada
+  await quebrarPegar(69, 1002); await quebrarPegar(67, 1002);
+  ok(await qtd(a, 69) === 0 && await qtd(a, 1103) === 0 && await qtd(a, 67) === 0, 'online: minério onde não tem veio (aparelho mentindo) não deu nada');
+  // no lugar certo do veio (embaixo da Ana, sem sair do lugar no mapa), o minério sai
+  const veio = (bl) => J(a, async ([bl, usados]) => {
+    const { minerioPossivel } = await import('/js/gerador.js');
+    const j = window.__jogo.jog, m = window.__jogo.mundo, px = Math.floor(j.pos.x), pz = Math.floor(j.pos.z), cache = new Map();
+    for (let y = 8; y < 50; y++) for (let r = 0; r <= 5; r++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+      if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+      const x = px + dx, z = pz + dz;
+      if (!usados.includes(x + ',' + y + ',' + z) && minerioPossivel(m.semente, 96, x, y, z, bl, cache)) return [x, y, z];
+    }
+    return null;
+  }, [bl, usados]);
+  const usados = [];
+  const minerar = async (bl) => {
+    const v = await veio(bl); if (!v) return false;
+    usados.push(v.join(','));
+    const l = [v[0], v[1] - 1, v[2] + 2];
+    await palco(a, l); await esperar(a, 600);
+    await quebrarAlvo(a, l, bl, 1002); await esperar(a, 500); await pegarTudo(a, l);
+    return true;
+  };
+  ok(await minerar(67) && await minerar(67) && await minerar(66), 'online: achou veios de ferro e de carvão perto da Ana');
+  await olharAlvo(a, c); await esperar(a, 800); // volta para cima
   ok(await qtd(a, 67) === 2 && await qtd(a, 1100) === 1 && await qtd(a, 188) === 1, 'online: Ana tem 2 minérios de ferro, 1 carvão e a fornalha (' + JSON.stringify(await J(a, () => window.__jogo.mercado.e.itens)) + ')');
   const cf = lugar();
   await J(a, ([x, y, z]) => window.__jogo.mundo.definir(x, y + 1, z - 2, 0), cf);

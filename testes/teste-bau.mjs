@@ -150,8 +150,18 @@ if (ONLINE) {
   let nl = 0;
   const lugar = () => { const k = nl++; return [c[0] - 6 + (k % 12), c[1], c[2] + (k >= 12 ? 5 : 0)]; };
   const quebrarPegar = async (bl) => { const l = lugar(); await J(a, ([x, y, z, bl]) => window.__jogo.mundo.definir(x, y + 1, z - 2, bl), [...l, bl]); await olharAlvo(a, l); await esperar(a, 400); await segurar(a, 0); const q = await quebrarEm(a, l[0], l[1] + 1, l[2] - 2); await esperar(a, 500); await pegarTudo(a, l); return q; };
-  for (let k = 0; k < 3; k++) await quebrarPegar(TRONCO);
+  for (let k = 0; k < 6; k++) await quebrarPegar(TRONCO);
+  // baú "do mundo" que o aparelho inventou: no mundo original não nasce baú, a sala não dá nada
   await quebrarPegar(BAU);
+  ok(await qtd(a, BAU) === 0, 'online: baú inventado pelo aparelho (não existe no mundo original) não deu nada (' + await qtd(a, BAU) + ')');
+  // o baú de verdade: 3 troncos -> 12 tábuas -> bancada (4) colocada -> baú (8) na bancada
+  await J(a, () => window.__jogo.mercado.criar('tabuas', false, 3)); await esperar(a, 500);
+  await J(a, () => window.__jogo.mercado.criar('bancada', false, 1)); await esperar(a, 800);
+  const cbanc = lugar();
+  await J(a, ([x, y, z]) => window.__jogo.mundo.definir(x, y + 1, z - 2, 0), cbanc);
+  await olharAlvo(a, cbanc); await esperar(a, 400); await segurar(a, BANCADA);
+  await J(a, () => window.__jogo.usar(null)); await esperar(a, 1200);
+  await J(a, () => window.__jogo.mercado.criar('bau', true, 1)); await esperar(a, 900);
   ok(await qtd(a, TRONCO) === 3 && await qtd(a, BAU) === 1, `online: Ana tem 3 troncos e 1 baú (a sala conferiu) (${await qtd(a, TRONCO)}, ${await qtd(a, BAU)})`);
   // coloca o baú, abre e guarda os troncos
   const cb = lugar();

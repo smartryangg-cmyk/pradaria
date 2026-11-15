@@ -42,9 +42,52 @@ function curva(c) {
   return CURVA[CURVA.length - 1][1];
 }
 
+const NIVEL_MAR = 40;
+
+// minérios e bolsões, em "veios" que andam ao acaso (determinísticos por pedaço). O caminho dos veios não depende
+// do terreno (o terreno só decide se ali era pedra), então a sala refaz só isto, sem gerar o pedaço inteiro.
+// cada(bloco, índice no pedaço, x, y, z) para cada lugar por onde o veio passou
+function veios(semente, cx, cz, ALT, cada) {
+  const S = NIVEL_MAR;
+  const rnd = rngSemente((semente * 31 + cx * 73856093 + cz * 19349663) >>> 0);
+  const veio = (bloco, tentativas, yMin, yMax, tamMin, tamMax) => {
+    for (let t = 0; t < tentativas; t++) {
+      let x = Math.floor(rnd() * CX), z = Math.floor(rnd() * CZ), y = yMin + Math.floor(rnd() * (yMax - yMin));
+      const n = tamMin + Math.floor(rnd() * (tamMax - tamMin + 1));
+      for (let i = 0; i < n; i++) {
+        if (x >= 0 && x < CX && z >= 0 && z < CZ && y > 1 && y < ALT) cada(bloco, idx(x, y, z), x, y, z);
+        const dir = Math.floor(rnd() * 6);
+        if (dir === 0) x++; else if (dir === 1) x--; else if (dir === 2) z++; else if (dir === 3) z--; else if (dir === 4) y++; else y--;
+      }
+    }
+  };
+  veio(G.CASCALHO, 3, 6, S + 20, 10, 22);
+  veio(G.TERRA, 2, 10, S + 20, 10, 18);
+  veio(G.CARVAO, 16, 5, S + 40, 6, 12);
+  veio(G.FERRO, 10, 4, S + 10, 4, 8);
+  veio(G.OURO, 3, 3, 26, 3, 7);
+  veio(G.DIAMANTE, rnd() < 0.6 ? 1 : 2, 2, 14, 2, 6);
+}
+
+// a sala confere o "estava ali" que o aparelho manda ao quebrar um bloco do mundo original: minério só pode
+// estar onde passou um veio daquele minério (senão um aparelho modificado tirava diamante de qualquer pedra)
+export const MINERIOS = new Set([G.CARVAO, G.FERRO, G.OURO, G.DIAMANTE]);
+export function minerioPossivel(semente, alt, x, y, z, bloco, cache = null) {
+  if (!MINERIOS.has(bloco) || ![x, y, z].every(Number.isInteger)) return false;
+  const cx = Math.floor(x / CX), cz = Math.floor(z / CZ), ck = cx + ',' + cz;
+  let m = cache && cache.get(ck);
+  if (!m) {
+    m = new Map();
+    veios(semente, cx, cz, alt, (b, k) => { if (MINERIOS.has(b) && !m.has(k)) m.set(k, new Set()); if (MINERIOS.has(b)) m.get(k).add(b); });
+    if (cache) { if (cache.size > 2000) cache.clear(); cache.set(ck, m); }
+  }
+  const s = m.get(idx(x - cx * CX, y, z - cz * CZ));
+  return !!s && s.has(bloco);
+}
+
 // limite: meia-largura do mundo-ilha (pequeno/médio) ou null (sem fim)
 export function criarGerador(semente, alt, limite = null) {
-  const S = 40; // nível do mar
+  const S = NIVEL_MAR; // nível do mar
   const ALT = alt;
   const rc = criarRuido(semente + 11), re = criarRuido(semente + 23), rp = criarRuido(semente + 37);
   const rd = criarRuido(semente + 41), rr = criarRuido(semente + 53), rt = criarRuido(semente + 67);
@@ -192,28 +235,8 @@ export function criarGerador(semente, alt, limite = null) {
       }
     }
 
-    // minérios e bolsões, em "veios" que andam ao acaso (determinísticos por pedaço)
-    const rnd = rngSemente((semente * 31 + cx * 73856093 + cz * 19349663) >>> 0);
-    const veio = (bloco, tentativas, yMin, yMax, tamMin, tamMax) => {
-      for (let t = 0; t < tentativas; t++) {
-        let x = Math.floor(rnd() * CX), z = Math.floor(rnd() * CZ), y = yMin + Math.floor(rnd() * (yMax - yMin));
-        const n = tamMin + Math.floor(rnd() * (tamMax - tamMin + 1));
-        for (let i = 0; i < n; i++) {
-          if (x >= 0 && x < CX && z >= 0 && z < CZ && y > 1 && y < ALT) {
-            const k = idx(x, y, z);
-            if (d[k] === G.PEDRA) d[k] = bloco;
-          }
-          const dir = Math.floor(rnd() * 6);
-          if (dir === 0) x++; else if (dir === 1) x--; else if (dir === 2) z++; else if (dir === 3) z--; else if (dir === 4) y++; else y--;
-        }
-      }
-    };
-    veio(G.CASCALHO, 3, 6, S + 20, 10, 22);
-    veio(G.TERRA, 2, 10, S + 20, 10, 18);
-    veio(G.CARVAO, 16, 5, S + 40, 6, 12);
-    veio(G.FERRO, 10, 4, S + 10, 4, 8);
-    veio(G.OURO, 3, 3, 26, 3, 7);
-    veio(G.DIAMANTE, rnd() < 0.6 ? 1 : 2, 2, 14, 2, 6);
+    // minérios e bolsões (veios): só entram onde ficou pedra
+    veios(semente, cx, cz, ALT, (bloco, k) => { if (d[k] === G.PEDRA) d[k] = bloco; });
     return { dados: d, alturas, biomas };
   }
 
