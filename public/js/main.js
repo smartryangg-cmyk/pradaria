@@ -42,6 +42,7 @@ import { abrirEditarMundo, desenharEstilos, desenharListaOpcoes, marcarLista, ba
 import { Mecanismos } from './mecanismos.js';
 import { Guerra } from './guerra.js';
 import { confirmarIdade16 } from './idade.js';
+import { ligarHub, abrirJogos } from './hub.js';
 
 const $ = (s) => document.querySelector(s);
 preencherIcones();
@@ -1446,7 +1447,7 @@ function abrirConta(m) {
   mostrarMenu('m-conta');
   setTimeout(() => $('#c-nome').focus(), 50);
 }
-$('#bt-entrar').addEventListener('click', () => conta.token ? abrirMundos() : abrirConta('entrar'));
+$('#bt-entrar').addEventListener('click', () => conta.token ? abrirJogos() : abrirConta('entrar'));
 $('#bt-criar-conta').addEventListener('click', () => abrirConta('criar'));
 $('#bt-sozinho').addEventListener('click', () => { som.iniciar(); jogarLocal(); });
 $('#bt-sozinho2').addEventListener('click', () => { som.iniciar(); jogarLocal(); });
@@ -1462,11 +1463,15 @@ $('#m-conta').addEventListener('submit', async (e) => {
     conta.salvar(r.token); conta.usuario = r.usuario;
     levarSkinLocal();
     $('#c-senha').value = '';
-    abrirMundos();
+    abrirJogos();
   } catch (err) { $('#c-erro').textContent = err.message; }
   $('#c-ok').disabled = false;
 });
-$('#bt-sair-conta').addEventListener('click', () => { conta.salvar(null); conta.usuario = null; mostrarMenu('m-inicio'); });
+const sairDaConta = () => { conta.salvar(null); conta.usuario = null; mostrarMenu('m-inicio'); };
+$('#bt-sair-conta').addEventListener('click', sairDaConta);
+$('#bt-sair-conta2').addEventListener('click', sairDaConta);
+$('#bt-personagem4').addEventListener('click', () => abrirPersonagem());
+ligarHub({ mostrarMenu, abrirMundos, som: () => { som.iniciar(); som.clique(); }, abrirConta: (m, msg) => { abrirConta(m); if (msg) $('#c-erro').textContent = msg; } });
 ligarApagarConta(() => mostrarMenu('m-inicio'));
 $('#bt-personagem').addEventListener('click', () => abrirPersonagem());
 $('#bt-personagem2').addEventListener('click', () => abrirPersonagem());
@@ -1800,9 +1805,9 @@ addEventListener('beforeunload', () => salvarLocal());
 document.addEventListener('visibilitychange', () => { if (document.hidden) { salvarLocal(); if (jogando) enviarBarra(); } });
 void edicoesPendentes;
 
-// início: se já tem sessão, vai direto para os mundos
+// início: se já tem sessão, vai direto para a escolha do jogo
 camera.position.set(0, 40, 0);
-if (conta.token) abrirMundos(); else mostrarMenu('m-inicio');
+if (conta.token) abrirJogos(); else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
 if (location.hash === '#teste') { window.__jogo = { get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, armas, get pausado() { return pausado; }, mecanismos, guerra, drops, largarDaMao }; }
