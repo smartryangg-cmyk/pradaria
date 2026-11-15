@@ -46,21 +46,23 @@ const p = await abrir(ctx, 'pc');
 await p.click('#bt-sozinho');
 await p.waitForSelector('#m-novo:not([hidden]) #n-opcoes:not([hidden])');
 conferir(await p.isVisible('[data-tipo=guerra]'), 'tipo Guerra aparece na criação do mundo');
-// "não tenho 16": não deixa escolher
+// menos de 16 (data de nascimento): não deixa escolher
 await p.click('[data-tipo=guerra]');
 await p.waitForSelector('#idade:not([hidden])');
 await p.screenshot({ path: SAIDA + '/guerra-idade.png' });
-await p.click('#idade-nao');
+await p.selectOption('#idade .d-ano', String(new Date().getFullYear() - 10));
+await p.click('#idade-sim');
 await p.waitForSelector('#idade-ok:not([hidden])');
 conferir((await p.textContent('#idade-txt')).includes('16 anos'), 'quem não tem 16 vê a explicação');
 await p.click('#idade-ok');
 conferir(await p.getAttribute('[data-tipo=guerra]', 'aria-pressed') !== 'true', 'Guerra não fica escolhida para quem tem menos de 16');
 await p.click('[data-tipo=guerra]');
-conferir(await p.isVisible('#idade-ok'), 'resposta "não" fica guardada (não pergunta de novo)');
+conferir(await p.isVisible('#idade-ok'), 'idade fica guardada (não pergunta de novo)');
 await p.click('#idade-ok');
-// outra pessoa no mesmo aparelho: responde que tem 16
-await p.evaluate(() => localStorage.removeItem('pradaria.idade16'));
+// outra pessoa no mesmo aparelho: tem 16 ou mais
+await p.evaluate(() => localStorage.removeItem('pradaria.nascimento'));
 await p.click('[data-tipo=guerra]');
+await p.selectOption('#idade .d-ano', '1990');
 await p.click('#idade-sim');
 conferir(await p.getAttribute('[data-tipo=guerra]', 'aria-pressed') === 'true', 'com 16 anos ou mais, Guerra fica escolhida');
 await p.click('#m-novo summary');
@@ -271,7 +273,7 @@ await ctx.close();
 // ---------------- tablet (toque) ----------------
 const tctx = await b.newContext({ ...devices['iPad (gen 7) landscape'] });
 const t = await abrir(tctx, 'tablet');
-await t.evaluate(() => localStorage.setItem('pradaria.idade16', '1'));
+await t.evaluate(() => localStorage.setItem('pradaria.nascimento', '1990-01-01'));
 await t.tap('#bt-sozinho');
 await t.waitForSelector('#m-novo:not([hidden]) #n-opcoes:not([hidden])');
 await t.tap('[data-tipo=guerra]');

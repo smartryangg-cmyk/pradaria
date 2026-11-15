@@ -1,7 +1,7 @@
-// API de contas e mundos.  /api/cadastrar  /api/entrar  /api/eu  /api/eu/idade  /api/mundos  /api/mundos/entrar
+// API de contas e mundos.  /api/cadastrar  /api/entrar  /api/eu  /api/eu/nascimento  /api/mundos  /api/mundos/entrar
 // Dono do mundo: /api/mundos/membros  /api/mundos/expulsar  /api/mundos/codigo-novo  /api/mundos/editar  /api/mundos/chat
 // /api/mundos/apagar  /api/mundos/exportar.  Importar (vira um mundo novo de quem importa): /api/mundos/importar.  Apagar conta: DELETE /api/eu
-import { json, erro, banco, criarToken, usuarioDa, hashSenha, iguais, limitar, codigoNovo, textoProibido } from '../../lib/base.js';
+import { json, erro, banco, criarToken, usuarioDa, hashSenha, iguais, limitar, codigoNovo, textoProibido, nascimentoOk, mais16De } from '../../lib/base.js';
 import { listarAmigos, pedirAmizade, responderAmizade, removerAmizade } from '../../lib/amigos.js';
 import { normalizarOpcoes, sementeDeTexto, editarOpcoes, opcoesMudadas, precisaRecarregar, precisa16 } from '../../public/js/opcoes-mundo.js';
 import { lerArquivo, montarArquivo } from '../../public/js/arquivo-mundo.js';
@@ -21,12 +21,12 @@ async function corpo(request) {
   if (Number(request.headers.get('content-length') || 0) > MAX_CORPO) return {};
   try { const t = await request.text(); return t.length > MAX_CORPO ? {} : JSON.parse(t); } catch { return {}; }
 }
-const publico = (u) => ({ id: u.id, nome: u.nome, cor: u.cor, skin: normalizarSkin(u.skin, u.cor), skinSalva: !!u.skin, modelos: normalizarModelos(u.modelos), idade16: u.idade16 == null ? null : !!u.idade16 });
+const publico = (u) => ({ id: u.id, nome: u.nome, cor: u.cor, skin: normalizarSkin(u.skin, u.cor), skinSalva: !!u.skin, modelos: normalizarModelos(u.modelos), idade16: mais16De(u.nascimento), temNascimento: !!u.nascimento });
 const MSG_16 = 'Este mundo tem temas para quem tem 16 anos ou mais.';
 // resposta da pergunta "Você tem 16 anos ou mais?" guardada na conta (null = ainda não respondeu)
 async function idade16De(db, uid) {
-  const r = await db.prepare('SELECT idade16 FROM usuarios WHERE id = ?').bind(uid).first();
-  return r && r.idade16 != null ? !!r.idade16 : null;
+  const r = await db.prepare('SELECT nascimento FROM usuarios WHERE id = ?').bind(uid).first();
+  return r ? mais16De(r.nascimento) : null;
 }
 
 async function cadastrar(request, env) {
@@ -35,6 +35,8 @@ async function cadastrar(request, env) {
   if (!NOME_OK.test(nome)) return erro('O nome precisa ter de 3 a 16 letras ou números (sem espaço).');
   if (textoProibido(nome)) return erro('Escolha outro nome: sem números de telefone, redes sociais ou palavras feias.');
   if (senha.length < 4 || senha.length > 100) return erro('A senha precisa ter pelo menos 4 caracteres.');
+  const nascimento = nascimentoOk(c0.nascimento);
+  if (!nascimento) return erro('Escolha o dia, o mês e o ano em que você nasceu.');
   const ip = ipDe(request);
   if (!(await porIp(env, 'cad:', ip, 10, 3600e3))) return erro('Muitas contas criadas agora. Tente mais tarde.', 429);
   const db = await banco(env);
@@ -46,8 +48,8 @@ async function cadastrar(request, env) {
   const skin = c0.skin && typeof c0.skin === 'object' ? JSON.stringify(normalizarSkin(c0.skin, c)) : null;
   let r;
   try {
-    r = await db.prepare('INSERT INTO usuarios (nome, hash, sal, cor, criado_em, skin) VALUES (?, ?, ?, ?, ?, ?) RETURNING id, nome, cor, skin')
-      .bind(nome, hash, sal, c, Date.now(), skin).first();
+    r = await db.prepare('INSERT INTO usuarios (nome, hash, sal, cor, criado_em, skin, nascimento) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id, nome, cor, skin, nascimento')
+      .bind(nome, hash, sal, c, Date.now(), skin, nascimento).first();
   } catch (e) { if (/UNIQUE/i.test(String(e))) return erro('Esse nome já existe. Escolha outro!', 409); throw e; }
   return json({ token: await criarToken(env, r), usuario: publico(r) });
 }
@@ -63,7 +65,7 @@ async function entrar(request, env) {
     || !(await limitar(env, 'entn:' + n, 60, 15 * 60e3)))
     return erro('Muitas tentativas. Espere uns minutos e tente de novo.', 429);
   const db = await banco(env);
-  const u = await db.prepare('SELECT id, nome, cor, skin, modelos, hash, sal, idade16 FROM usuarios WHERE nome = ?').bind(nome).first();
+  const u = await db.prepare('SELECT id, nome, cor, skin, modelos, hash, sal, nascimento FROM usuarios WHERE nome = ?').bind(nome).first();
   if (!u) return erro('Nome ou senha errados.', 401);
   const { hash } = await hashSenha(senha, u.sal);
   if (!iguais(hash, u.hash)) return erro('Nome ou senha errados.', 401);
@@ -278,13 +280,14 @@ async function opcoesChat(request, env, u) {
   return json({ opcoes: n });
 }
 
-// "Você tem 16 anos ou mais?": responde uma vez só (quem disse não não consegue trocar sozinho para sim)
-async function responderIdade(request, env, u) {
-  const { mais16 } = await corpo(request);
-  if (typeof mais16 !== 'boolean') return erro('Resposta inválida.');
+// data de nascimento de conta antiga (criada antes de o cadastro pedir): guarda uma vez só, depois não muda
+async function salvarNascimento(request, env, u) {
+  const nascimento = nascimentoOk((await corpo(request)).nascimento);
+  if (!nascimento) return erro('Escolha o dia, o mês e o ano em que você nasceu.');
   const db = await banco(env);
-  await db.prepare('UPDATE usuarios SET idade16 = ? WHERE id = ? AND idade16 IS NULL').bind(mais16 ? 1 : 0, u.id).run();
-  return json({ idade16: await idade16De(db, u.id) });
+  await db.prepare('UPDATE usuarios SET nascimento = ? WHERE id = ? AND nascimento IS NULL').bind(nascimento, u.id).run();
+  const r = await db.prepare('SELECT id, nome, cor, skin, modelos, nascimento FROM usuarios WHERE id = ?').bind(u.id).first();
+  return json({ usuario: publico(r) });
 }
 
 // apagar a conta: some o usuário, os mundos dele e as participações (pede a senha de novo)
@@ -342,13 +345,13 @@ export async function onRequest({ request, env, params }) {
     const u = await usuarioDa(request, env);
     if (!u) return erro('Sessão expirada, entre de novo.', 401);
     // a conta pode ter sido apagada: o token assinado continua válido, então confere no banco
-    const atual = await (await banco(env)).prepare('SELECT id, nome, cor, skin, modelos, idade16 FROM usuarios WHERE id = ?').bind(u.id).first();
+    const atual = await (await banco(env)).prepare('SELECT id, nome, cor, skin, modelos, nascimento FROM usuarios WHERE id = ?').bind(u.id).first();
     if (!atual) return erro('Sessão expirada, entre de novo.', 401);
     if (rota === 'eu' && metodo === 'DELETE') return await apagarConta(request, env, u);
     if (rota === 'eu/skin' && metodo === 'POST') return await salvarSkin(request, env, atual);
     if (rota === 'eu/modelos' && metodo === 'POST') return await salvarModelos(request, env, atual);
     if (rota === 'eu') return json({ usuario: publico(atual) });
-    if (rota === 'eu/idade' && metodo === 'POST') return await responderIdade(request, env, u);
+    if (rota === 'eu/nascimento' && metodo === 'POST') return await salvarNascimento(request, env, u);
     if (rota === 'mundos' && metodo === 'GET') return json({ mundos: await listarMundos(env, u) });
     if (rota === 'mundos' && metodo === 'POST') return await criarMundo(request, env, u);
     if (rota === 'mundos/entrar' && metodo === 'POST') return await entrarMundo(request, env, u);

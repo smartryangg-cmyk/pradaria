@@ -1,7 +1,8 @@
-// "Você tem 16 anos ou mais?" na opção Armas, jogando de verdade:
-//  - sem internet: ligar Armas na criação pergunta; "não" deixa desligado e fica guardado; "sim" liga e o mundo abre com armas
-//  - online: resposta guardada na conta; quem tem menos de 16 não entra no mundo com Armas pelo código (e o servidor barra,
-//    sem deixar trocar a resposta); quem tem 16 entra (tablet)
+// Opção Armas só com 16 anos ou mais (a idade sai da data de nascimento), jogando de verdade:
+//  - sem internet: ligar Armas pergunta a data de nascimento uma vez (fica no aparelho); menos de 16 deixa desligado e fica guardado;
+//    16 ou mais liga e o mundo abre com armas
+//  - online: a data é pedida ao criar a conta; quem tem menos de 16 não entra no mundo com Armas pelo código (e o servidor barra,
+//    sem deixar trocar a data); quem tem 16 entra (tablet) sem pergunta nenhuma
 // LOCAL=http://localhost:8799 (arquivos estáticos) e BASE=http://localhost:8788 (npm run dev:sala + npm run dev) ou o site no ar.
 import { createRequire } from 'module'; const { chromium, devices } = createRequire(import.meta.url)('playwright');
 const LOCAL = process.env.LOCAL || process.env.BASE || 'http://localhost:8788';
@@ -26,17 +27,20 @@ const ouvir = (p, nome) => {
   await p.click('#m-novo [data-opcao=armas]');
   await p.waitForSelector('#idade:not([hidden])');
   await p.screenshot({ path: SAIDA + '/idade-pergunta.png' });
-  await p.click('#idade-nao');
+  conferir(await p.isVisible('#idade-data'), 'sem conta: pergunta a data de nascimento');
+  await p.selectOption('#idade .d-ano', String(new Date().getFullYear() - 10));
+  await p.click('#idade-sim');
   conferir((await p.textContent('#idade-txt')).includes('16 anos'), 'quem não tem 16 vê a explicação');
   await p.click('#idade-ok');
   conferir(await p.getAttribute('#m-novo [data-opcao=armas]', 'aria-pressed') === 'false', '"não": Armas continua desligada');
   await p.click('#m-novo [data-opcao=armas]');
   conferir(await p.isVisible('#idade-ok') && !(await p.isVisible('#idade-sim')), 'resposta "não" fica guardada (não pergunta de novo)');
   await p.click('#idade-ok');
-  await p.evaluate(() => localStorage.removeItem('pradaria.idade16')); // outra pessoa no aparelho
+  await p.evaluate(() => localStorage.removeItem('pradaria.nascimento')); // outra pessoa no aparelho
   await p.click('#m-novo [data-opcao=armas]');
+  await p.selectOption('#idade .d-ano', '1990');
   await p.click('#idade-sim');
-  conferir(await p.getAttribute('#m-novo [data-opcao=armas]', 'aria-pressed') === 'true', '"sim": Armas liga');
+  conferir(await p.getAttribute('#m-novo [data-opcao=armas]', 'aria-pressed') === 'true', '16 anos ou mais: Armas liga');
   await p.click('#m-novo button[type=submit]');
   await p.waitForFunction(() => window.__jogo && window.__jogo.jog, null, { timeout: 30000 });
   conferir(await p.evaluate(() => window.__jogo.opcoesMundo.armas === true), 'mundo abre com armas');
@@ -49,7 +53,7 @@ const ouvir = (p, nome) => {
   // quem respondeu "não" neste aparelho não abre o mundo salvo com armas
   await p.evaluate(() => document.querySelector('#bt-sair-mundo').click());
   await p.waitForTimeout(400);
-  await p.evaluate(() => { localStorage.setItem('pradaria.idade16', '0'); window.__jogo.jogarLocal(); });
+  await p.evaluate(() => { localStorage.setItem('pradaria.nascimento', '2016-01-01'); window.__jogo.jogarLocal(); });
   await p.waitForSelector('#idade:not([hidden])');
   await p.click('#idade-ok');
   await p.waitForTimeout(500);
@@ -58,13 +62,14 @@ const ouvir = (p, nome) => {
 }
 
 // ---------- online ----------
-async function jogador(nome, op) {
+async function jogador(nome, op, ano = 1990) {
   const ctx = await b.newContext(op);
   const p = await ctx.newPage(); ouvir(p, nome);
   await p.goto(BASE + '/#teste');
   await p.click('#bt-criar-conta');
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
   if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
+  await p.selectOption('#c-nasc .d-dia', '1'); await p.selectOption('#c-nasc .d-mes', '1'); await p.selectOption('#c-nasc .d-ano', String(ano));
   await p.click('#c-ok');
   await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])', { timeout: 15000 }); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 }); } })();
   return p;
@@ -74,30 +79,30 @@ const a = await jogador('Ana' + sfx, { viewport: { width: 1024, height: 640 } })
 await a.click('#bt-novo-mundo');
 await a.fill('#n-nome', 'Batalha');
 await a.click('#m-novo [data-opcao=armas]');
-await a.waitForSelector('#idade:not([hidden])');
-await a.click('#idade-sim');
-await a.waitForFunction(() => document.querySelector('#idade').hidden);
-conferir(await a.evaluate(async (k) => (await (await fetch('/api/eu', { headers: { authorization: 'Bearer ' + localStorage.getItem(k) } })).json()).usuario.idade16, TOKEN) === true, 'A: resposta guardada na conta');
+await a.waitForTimeout(400);
+conferir(!(await a.isVisible('#idade')) && await a.getAttribute('#m-novo [data-opcao=armas]', 'aria-pressed') === 'true', 'A (adulta): liga Armas sem pergunta');
+conferir(await a.evaluate(async (k) => (await (await fetch('/api/eu', { headers: { authorization: 'Bearer ' + localStorage.getItem(k) } })).json()).usuario.idade16, TOKEN) === true, 'A: idade guardada na conta');
 await a.click('#m-novo button[type=submit]');
 await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 30000 });
 conferir(await a.evaluate(() => window.__jogo.opcoesMundo.armas === true), 'A entra no mundo com Armas');
 const codigo = await a.evaluate(() => window.__jogo.sala.codigo);
 
-const c = await jogador('Caio' + sfx, { viewport: { width: 900, height: 600 } });
+const c = await jogador('Caio' + sfx, { viewport: { width: 900, height: 600 } }, new Date().getFullYear() - 12);
 await c.click('#bt-codigo'); await c.fill('#n-nome', codigo); await c.click('#m-novo button[type=submit]');
 await c.waitForSelector('#idade:not([hidden])', { timeout: 10000 });
 await c.screenshot({ path: SAIDA + '/idade-amigo.png' });
-await c.click('#idade-nao');
+conferir(await c.isVisible('#idade-ok') && !(await c.isVisible('#idade-data')), 'C (12 anos): aviso de 16 anos, sem perguntar de novo');
 await c.click('#idade-ok');
 await c.waitForTimeout(800);
 conferir(!(await c.evaluate(() => !!(window.__jogo && window.__jogo.sala))), 'C (menos de 16) não entra no mundo com Armas');
 const barrado = await c.evaluate(async ([cod, k]) => {
   const h = { 'content-type': 'application/json', authorization: 'Bearer ' + localStorage.getItem(k) };
   const r = await fetch('/api/mundos/entrar', { method: 'POST', headers: h, body: JSON.stringify({ codigo: cod }) });
-  const r2 = await fetch('/api/eu/idade', { method: 'POST', headers: h, body: JSON.stringify({ mais16: true }) });
-  return [r.status, (await r2.json()).idade16];
+  await fetch('/api/eu/nascimento', { method: 'POST', headers: h, body: JSON.stringify({ nascimento: '1990-01-01' }) });
+  const r2 = await fetch('/api/eu', { headers: h });
+  return [r.status, (await r2.json()).usuario.idade16];
 }, [codigo, TOKEN]);
-conferir(barrado[0] === 403 && barrado[1] === false, 'servidor barra C e não deixa trocar a resposta para "sim": ' + barrado);
+conferir(barrado[0] === 403 && barrado[1] === false, 'servidor barra C e não deixa trocar a data: ' + barrado);
 // C cria um mundo sem armas normalmente, mas o servidor recusa criar com armas
 const criar = await c.evaluate(async (k) => (await fetch('/api/mundos', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + localStorage.getItem(k) }, body: JSON.stringify({ nome: 'Tiros', opcoes: { armas: true } }) })).status, TOKEN);
 conferir(criar === 403, 'servidor não deixa C criar mundo com Armas: ' + criar);
@@ -105,8 +110,6 @@ await c.context().close();
 
 const bb = await jogador('Beto' + sfx, { ...devices['iPad (gen 7) landscape'] });
 await bb.tap('#bt-codigo'); await bb.fill('#n-nome', codigo); await bb.tap('#m-novo button[type=submit]');
-await bb.waitForSelector('#idade:not([hidden])', { timeout: 10000 });
-await bb.tap('#idade-sim');
 await bb.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.outros > 0, null, { timeout: 30000 });
 conferir(await bb.evaluate(() => window.__jogo.opcoesMundo.armas === true), 'B (tablet, 16 anos ou mais) entra no mundo com Armas');
 await bb.screenshot({ path: SAIDA + '/idade-tablet-dentro.png' });

@@ -53,7 +53,7 @@ import { Armas } from './armas.js';
 import { abrirEditarMundo, desenharRegrasMods, desenharAbas, atualizarAbas, baixarArquivo, escolherArquivo, montarArquivo } from './editar-mundo.js';
 import { Mecanismos } from './mecanismos.js';
 import { Guerra } from './guerra.js';
-import { confirmarIdade16 } from './idade.js';
+import { confirmarIdade16, seletorData } from './idade.js';
 import { ligarHub, abrirJogos } from './hub.js';
 import { modoTV, iniciarTV } from './tv.js';
 import { Lobby } from './lobby.js';
@@ -1651,13 +1651,15 @@ function sairDoMundo(op = {}) {
 }
 
 // ---------- menus de conta e mundos ----------
-let modoConta = 'entrar', corEscolhida = 0;
+let modoConta = 'entrar', corEscolhida = 0, dataNasc = null;
 function abrirConta(m) {
   modoConta = m;
   $('#conta-titulo').textContent = m === 'entrar' ? 'Entrar' : 'Criar conta';
   $('#c-ok').textContent = m === 'entrar' ? 'Entrar' : 'Criar e jogar';
   $('#c-senha').autocomplete = m === 'entrar' ? 'current-password' : 'new-password';
   $('#c-cores').hidden = m === 'entrar';
+  $('#c-nasc-caixa').hidden = m === 'entrar';
+  if (!dataNasc) dataNasc = seletorData($('#c-nasc'));
   contaModo(m);
   $('#c-erro').textContent = '';
   const cc = $('#c-cores');
@@ -1670,7 +1672,7 @@ function abrirConta(m) {
     cc.appendChild(b);
   });
   mostrarMenu('m-conta');
-  setTimeout(() => $('#c-nome').focus(), 50);
+  setTimeout(() => { if (!$('#m-conta').contains(document.activeElement)) $('#c-nome').focus(); }, 50); // não rouba o foco de quem já está digitando
 }
 $('#bt-entrar').addEventListener('click', () => conta.token ? abrirJogos() : abrirConta('entrar'));
 $('#bt-criar-conta').addEventListener('click', () => abrirConta('criar'));
@@ -1682,9 +1684,11 @@ $('#m-conta').addEventListener('submit', async (e) => {
   e.preventDefault();
   som.iniciar();
   $('#c-erro').textContent = '';
+  const nascimento = modoConta === 'entrar' ? undefined : dataNasc.valor();
+  if (modoConta !== 'entrar' && !nascimento) { $('#c-erro').textContent = 'Escolha o dia, o mês e o ano em que você nasceu.'; return; }
   $('#c-ok').disabled = true;
   try {
-    const r = await api(modoConta === 'entrar' ? 'entrar' : 'cadastrar', { nome: $('#c-nome').value.trim(), senha: $('#c-senha').value, cor: corEscolhida, skin: modoConta === 'entrar' ? undefined : skinLocal() || undefined });
+    const r = await api(modoConta === 'entrar' ? 'entrar' : 'cadastrar', { nome: $('#c-nome').value.trim(), senha: $('#c-senha').value, cor: corEscolhida, nascimento, skin: modoConta === 'entrar' ? undefined : skinLocal() || undefined });
     conta.salvar(r.token); conta.usuario = r.usuario;
     levarSkinLocal(); levarModelosLocal();
     $('#c-senha').value = '';
