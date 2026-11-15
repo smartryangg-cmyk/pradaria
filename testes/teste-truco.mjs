@@ -189,7 +189,7 @@ ok(outros === 3, 'mesa de 4: cada um vê os outros 3 lugares');
 let roboJogou = false;
 for (let i = 0; i < 10 && !roboJogou; i++) {
   const v = await ve(ana);
-  roboJogou = v.eventos.some((x) => x.t === 'jogou' && x.lugar >= 2) || v.mesa.some((x) => x.lugar >= 2) || v.vazas.length > 0;
+  roboJogou = v.eventos.some((x) => ['jogou', 'pediu', 'aceitou', 'correu'].includes(x.t) && x.lugar >= 2) || v.mesa.some((x) => x.lugar >= 2) || v.vazas.length > 0;
   if (roboJogou) break;
   const eus = [[ana, await ana.p.evaluate(() => window.__truco.eu)], [beto, await beto.p.evaluate(() => window.__truco.eu)]];
   const ag = eus.find(([, l]) => v.vez === l && !v.aposta && !v.onze);
@@ -197,6 +197,20 @@ for (let i = 0; i < 10 && !roboJogou; i++) {
   await ana.p.waitForTimeout(2000);
 }
 ok(roboJogou, 'mesa de 4: o computador joga nas vagas');
+// segue a mão: quem for humano responde/joga pela tela; o computador tem que jogar uma carta no servidor
+let cartaRobo = false;
+for (let i = 0; i < 20 && !cartaRobo; i++) {
+  const v = await ve(ana);
+  cartaRobo = v.eventos.some((x) => x.t === 'jogou' && x.lugar >= 2) || v.vazas.length > 0;
+  if (cartaRobo || v.fim) break;
+  for (const j of [ana, beto]) {
+    const s = await j.p.evaluate(() => { const v = window.__truco.v, eu = window.__truco.eu, T = window.__truco.T; if (v.onze && v.onze.time === T.time(eu)) return 'r'; if (v.aposta && T.time(v.aposta.lugar) !== T.time(eu) && v.age.includes(eu)) return 'r'; if (!v.aposta && !v.onze && v.vez === eu && document.querySelector('#t-minhas.pode')) return 'j'; return ''; });
+    if (s === 'r') await j.clica('#t-acoes .verde').catch(() => {});
+    if (s === 'j') await j.clica('#t-minhas .minha').catch(() => {});
+  }
+  await ana.p.waitForTimeout(1500);
+}
+ok(cartaRobo, 'mesa de 4: o computador joga carta na mesa');
 await beto.foto('11-beto-mesa-4');
 ok(ana.erros.length === 0 && beto.erros.length === 0, 'mesa de 4: sem erros no console ' + [...ana.erros, ...beto.erros].join(' | ').slice(0, 300));
 await b.close();

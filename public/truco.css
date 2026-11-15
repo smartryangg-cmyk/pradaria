@@ -107,3 +107,13 @@ body.pag-truco { background: linear-gradient(160deg, #3f9b5c, #256b3c); }
   .jogada .carta { --w: 44px; }
   .jogada.pos-baixo { top: 30px; } .jogada.pos-cima { top: -30px; }
 }
+
+/* celular em pé: lugares dos lados mais estreitos e cartas jogadas mais juntas, para não cobrirem os nomes */
+@media (max-width: 480px) and (orientation: portrait) {
+  .t-lugar[data-pos="esq"], .t-lugar[data-pos="dir"] { top: 30%; }
+  .t-lugar[data-pos="esq"] .t-nome, .t-lugar[data-pos="dir"] .t-nome { max-width: 92px; font-size: 12px; }
+  .t-lugar .t-nome .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .jogada .carta { --w: 50px; }
+  .jogada.pos-esq { left: -42px; } .jogada.pos-dir { left: 42px; }
+  .jogada.pos-baixo { top: 40px; } .jogada.pos-cima { top: -40px; }
+}

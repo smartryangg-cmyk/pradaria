@@ -137,7 +137,7 @@ export class Partida extends DurableObject {
   comecarTruco() {
     const p = this.p;
     let k = 0;
-    p.lugares = p.lugares.map((j) => j || { robo: true, nome: 'Computador ' + ++k });
+    p.lugares = p.lugares.map((j) => j || { robo: true, nome: 'Robô ' + ++k });
     p.e = T.novo(p.n);
     p.revanche = [];
     this.agendarRobo();

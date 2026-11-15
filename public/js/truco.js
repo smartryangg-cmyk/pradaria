@@ -107,7 +107,7 @@ function desenhar() {
     const vez = v.age.includes(l) && !v.fim;
     el.className = 't-lugar' + (vez ? ' vez' : '') + (time(l) === nos() ? ' parceiro' : '');
     el.innerHTML = `<div class="t-nome"><span class="bolinha${!j || j.online ? ' on' : ''}"></span><span class="n"></span>${l === v.dealer ? '<span class="dealer" title="Deu as cartas">D</span>' : ''}</div><div class="t-costas">${Array(v.quantas[l]).fill(0).map(costas).join('')}</div>`;
-    el.querySelector('.n').textContent = nome(l) + (v.n === 4 && time(l) === nos() ? ' (parceiro)' : '');
+    el.querySelector('.n').textContent = nome(l) + (v.n === 4 && time(l) === nos() && !/parceiro/i.test(nome(l)) ? ' (parceiro)' : '');
   }
 
   // vira e manilha
@@ -227,7 +227,7 @@ function comecarPC(guardado = null) {
   modo = 'pc'; eu = 0; vistoSeq = -1; rodadaAte = 0; fimVisto = null;
   if (guardado) { e = guardado.e; nMesa = guardado.n; } else e = T.novo(nMesa);
   lugares = nMesa === 2 ? [{ nome: 'Você' }, { nome: 'Computador', robo: true, online: true }]
-    : [{ nome: 'Você' }, { nome: 'Computador 1', robo: true, online: true }, { nome: 'Parceiro', robo: true, online: true }, { nome: 'Computador 2', robo: true, online: true }];
+    : [{ nome: 'Você' }, { nome: 'Rival 1', robo: true, online: true }, { nome: 'Parceiro', robo: true, online: true }, { nome: 'Rival 2', robo: true, online: true }];
   $('#x-menu').hidden = true; $('#x-fim').hidden = true; $('#t-espera').hidden = true; $('#t-jogo').hidden = false;
   $('#bt-chamar').hidden = true;
   atualizarPC();
