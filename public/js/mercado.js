@@ -105,6 +105,14 @@ export class Mercado {
     else if (this.otimista(a, true)) this.sala.enviar(a);
     this.avisarQuebrou(1010, antes);
   }
+  // bateu num bicho com a ferramenta da mão (jogo clássico): ela gasta
+  golpe(id) {
+    if (!this.ligado || !this.op.fome || !DURA[id] || !((this.e.itens[id] | 0) > 0)) return;
+    const a = { t: 'golpe', mao: id }, antes = this.e.itens[id] | 0;
+    if (!this.sala) this.enviar(a, true);
+    else if (this.otimista(a, true)) this.sala.enviar(a);
+    this.avisarQuebrou(id, antes);
+  }
   // a ferramenta gastou até o fim (como no clássico)
   avisarQuebrou(id, antes) {
     if (DURA[id] && antes > (this.e.itens[id] | 0)) this.ui.aviso(`${nomeDe(id)} quebrou de tanto usar! Crie outro na bancada`, 2600, 'martelo');

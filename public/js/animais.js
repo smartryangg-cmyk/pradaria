@@ -15,6 +15,9 @@ import { SOLIDO, AGUA, B, BRILHO } from './blocos.js';
 import { G } from './gerador.js';
 import { opcoesMundo } from './opcoes-mundo.js';
 import { instinto, acordado } from './instintos.js';
+import { classico } from './vida.js';
+import { EMITE } from './luz-blocos.js';
+import { MAX_MONSTROS, LONGE_MIN, LONGE_MAX, SEM_LUZ, escuroPara, aranhaBrava, qualMonstro, NOITE } from './monstros-regras.js';
 
 const MAX = 18; // bichos ao mesmo tempo perto do jogador
 const MAX_PREDADORES = 3; // na natureza há bem menos caçadores que presas
@@ -172,12 +175,67 @@ export class Bichos {
     }
   }
 
+  // monstros da noite (monstros-regras.js): só no jogo clássico, no escuro, longe de luz e do jogador
+  tentarMonstro(px, py, pz, sol, forcar = null) {
+    if (!classico() && !forcar) return 0;
+    let n = 0;
+    for (const b of this.lista) if (b.I.monstro && !b.caindo) n++;
+    if (n >= MAX_MONSTROS) return 0;
+    const ang = Math.random() * TAU, dist = LONGE_MIN + Math.random() * (LONGE_MAX - LONGE_MIN);
+    const x = Math.floor(px + Math.cos(ang) * dist), z = Math.floor(pz + Math.sin(ang) * dist);
+    const chao = this.mundo.chao(x, z);
+    let y = null;
+    if (sol < NOITE && Math.abs(chao - py) <= 14) {
+      const topo = this.mundo.bloco(x, chao, z);
+      if (SOLIDO[topo] && !AGUA[topo] && topo !== B.FOLHAS) y = chao + 1;
+    }
+    // dentro das cavernas: um vão de 2 blocos com chão, perto da altura do jogador e bem abaixo da superfície
+    if (y === null && py < this.mundo.chao(Math.floor(px), Math.floor(pz)) - 3) {
+      for (let dy = -8; dy <= 8 && y === null; dy++) {
+        const yy = Math.floor(py) + dy;
+        if (yy >= chao - 4) continue;
+        if (SOLIDO[this.mundo.bloco(x, yy - 1, z)] && !this.mundo.bloco(x, yy, z) && !this.mundo.bloco(x, yy + 1, z)) y = yy;
+      }
+    }
+    if (y === null || !escuroPara(sol, y, chao)) return 0;
+    if (this.luzPerto(x, y, z, SEM_LUZ)) return 0; // a luz espanta: perto de tocha não nasce
+    const esp = forcar || qualMonstro(Math.random());
+    this.criar(esp, x + 0.5, y, z + 0.5, { grupo: this.proxGrupo++ });
+    return 1;
+  }
+
+  // o monstro decide: caça o jogador se estiver bravo e perto; o barrento queima no sol
+  pensarMonstro(b, { p, sol }, jog) {
+    const I = b.I, dist = b.distJog;
+    const bx = Math.floor(b.x), bz = Math.floor(b.z), chao = this.mundo.chao(bx, bz);
+    if (I.queimaNoSol && sol > 0.05 && b.y >= chao + 0.5) {
+      b.queima = (b.queima || 0) + PENSAR;
+      this.icone('fogo', b.x + (Math.random() - 0.5) * 0.5, b.y + b.e.alt * 0.7, b.z + (Math.random() - 0.5) * 0.5, 0.6, 0.35);
+      if (b.queima > 3) { // virou pó com o sol (sem deixar nada)
+        for (let k = 0; k < 4; k++) this.icone('brilho', b.x + (Math.random() - 0.5), b.y + 0.4 + Math.random(), b.z + (Math.random() - 0.5), 0.9, 0.4);
+        const i = this.lista.indexOf(b); if (i >= 0) this.remover(i);
+        return;
+      }
+    } else b.queima = 0;
+    const bravo = (b.especie !== 'aranha' || aranhaBrava(sol, b.y, chao) || b.provocado > 0) && !(jog.voando && p.y - b.y > 4);
+    if (bravo && dist < 20) {
+      if (b.estado !== 'atacar' && this.aoAvisar) this.aoAvisar(b);
+      b.estado = 'atacar'; b.cacandoGente = true; b.alvo = 'jog'; b.timer = 4;
+      return;
+    }
+    if (b.estado === 'atacar') { b.estado = 'vagar'; b.timer = 2; b.cacandoGente = false; }
+    if (b.timer > 0) return;
+    if (Math.random() < 0.5) { this.mudar(b, 'vagar', 2 + Math.random() * 3); b.dir += (Math.random() - 0.5) * 2.5; }
+    else this.mudar(b, 'parar', 1.5 + Math.random() * 3);
+  }
+
   // procura um bloco que brilha (lampião, lâmpada acesa) perto: bicho selvagem evita luz de noite
   luzPerto(x, y, z, r) {
     const bx = Math.floor(x), by = Math.floor(y), bz = Math.floor(z);
     for (let dy = -2; dy <= 3; dy++) for (let dz = -r; dz <= r; dz += 1) for (let dx = -r; dx <= r; dx += 1) {
       if (dx * dx + dz * dz > r * r) continue;
-      if (BRILHO[this.mundo.bloco(bx + dx, by + dy, bz + dz)] > 0) return { x: bx + dx + 0.5, z: bz + dz + 0.5 };
+      const q = this.mundo.bloco(bx + dx, by + dy, bz + dz);
+      if (BRILHO[q] > 0 || EMITE[q] > 0) return { x: bx + dx + 0.5, z: bz + dz + 0.5 };
     }
     return null;
   }
@@ -187,7 +245,7 @@ export class Bichos {
     const sol = opcoesMundo.cicloDia === false ? 1 : Math.sin(tempoDia * TAU);
     const noite = sol < -0.15;
     this.tempoSpawn -= dt;
-    if (this.tempoSpawn <= 0) { this.tempoSpawn = 1.5; this.tentarSpawn(p.x, p.y, p.z, sol); }
+    if (this.tempoSpawn <= 0) { this.tempoSpawn = 1.5; this.tentarSpawn(p.x, p.y, p.z, sol); this.tentarMonstro(p.x, p.y, p.z, sol); }
     // uivo de lobo ao longe, de noite (lobos uivam para chamar a matilha)
     if (noite && dt > 0) {
       this.tempoUivo -= dt;
@@ -243,6 +301,7 @@ export class Bichos {
   // olhar em volta e decidir o que fazer (roda poucas vezes por segundo)
   pensar(b, { p, sol, noite }, jog) {
     const I = b.I;
+    if (I.monstro) { this.pensarMonstro(b, { p, sol }, jog); return; }
     const dist = b.distJog;
     const ativo = acordado(I.atividade, sol);
     const voando = jog.voando && p.y - b.y > 4; // lá do alto o bicho nem liga
@@ -502,6 +561,15 @@ export class Bichos {
     const agora = performance.now();
     if (agora - b.mordeu < 1500) return;
     b.mordeu = agora;
+    // monstro: empurra, machuca e continua atrás (só existe no jogo clássico)
+    if (b.I.monstro) {
+      const dx = jog.pos.x - b.x, dz = jog.pos.z - b.z, n = Math.hypot(dx, dz) || 1;
+      jog.vel.x += (dx / n) * 5; jog.vel.z += (dz / n) * 5;
+      if (!jog.voando) { jog.vel.y = Math.max(jog.vel.y, 4); jog.noChao = false; }
+      this.som.bicho(b.e.som, true, b);
+      if (this.aoMorder) this.aoMorder(b, b.I.dano || 0);
+      return;
+    }
     // "Animais podem machucar" desligado: o bicho só avisa e vai embora (sem empurrão nem susto)
     if (!opcoesMundo.selvagensMachucam) { b.estado = 'recuar'; b.timer = 3; b.calmo = 10; b.cacandoGente = false; return; }
     const dx = jog.pos.x - b.x, dz = jog.pos.z - b.z, n = Math.hypot(dx, dz) || 1;
@@ -765,7 +833,7 @@ export class Bichos {
     const mae = I.defende && this.lista.some((o) => o.mae === b);
     const bando = this.lista.filter((o) => o !== b && !o.caindo && !o.filhote && o.especie === b.especie && o.grupoId === b.grupoId && Math.hypot(o.x - b.x, o.z - b.z) < 14);
     let enfrenta = mae || rev === 'sempre' || (rev === 'bando' && bando.length > 0) || (rev === 'bote' && b.distJog < (I.bote || 1.5) + 1);
-    if (b.vida <= b.vidaMax * 0.34 && !mae) enfrenta = false; // ferido demais: foge para salvar a pele
+    if (b.vida <= b.vidaMax * 0.34 && !mae && !I.monstro) enfrenta = false; // ferido demais: foge para salvar a pele (monstro não foge)
     if (b.filhote) enfrenta = false;
     if (!enfrenta) {
       b.folego = I.folego;
@@ -790,7 +858,7 @@ export class Bichos {
     b.caindo = 1.1; b.estado = 'caido'; b.vel = 0; b.alvo = null; b.empX *= 0.4; b.empZ *= 0.4;
     for (const o of this.lista) {
       if (o.mae === b) { o.mae = null; o.estado = 'fugir'; o.medo = 6; o.de = 'jog'; }
-      else if (o !== b && o.especie === b.especie && o.estado !== 'atacar' && Math.hypot(o.x - b.x, o.z - b.z) < 12) this.fugir(o, 'jog', 6);
+      else if (o !== b && o.especie === b.especie && !o.I.monstro && o.estado !== 'atacar' && Math.hypot(o.x - b.x, o.z - b.z) < 12) this.fugir(o, 'jog', 6);
       if (o.alvo === b) { o.alvo = null; o.estado = 'vagar'; o.timer = 1; }
     }
     b.golpe = 0; pintarFerido(b, true); // fica vermelho até sumir
