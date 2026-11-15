@@ -84,6 +84,7 @@ export const ITEM = {
   MACHADO_MADEIRA: 1003, MACHADO_PEDRA: 1004,
   PA_MADEIRA: 1005, PA_PEDRA: 1006,
   CARNE: 1007, COURO: 1008, // caem dos bichos (animais.js -> economia.js CAI_BICHO)
+  BALDE: 1009, // balde vazio: pega a água parada (fonte). Cheio, é a Água na mão; colocar a água devolve o balde
 };
 export const ITENS = {
   [ITEM.GRAVETO]: { nome: 'Graveto', tile: 130 },
@@ -95,6 +96,7 @@ export const ITENS = {
   [ITEM.PA_PEDRA]: { nome: 'Pá de pedra', tile: 136 },
   [ITEM.CARNE]: { nome: 'Carne', tile: 137 },
   [ITEM.COURO]: { nome: 'Couro', tile: 138 },
+  [ITEM.BALDE]: { nome: 'Balde', tile: 142 },
 };
 export const ehItem = (id) => id >= 1000;
 // nome de qualquer coisa que cabe na mão (bloco ou item)
@@ -369,6 +371,18 @@ function pintarCriacao(img) {
   pintarTile(img, 130, (x, y, r) => {
     if (x + y === 15 && x >= 3 && x <= 12) return var_(cabo, r, 0.08);
     if (x + y === 16 && x >= 3 && x <= 12) return var_(caboEsc, r, 0.08);
+    return [0, 0, 0, 0];
+  });
+  // 142 balde: de tábuas, com aros escuros e alça
+  pintarTile(img, 142, (x, y, r) => {
+    const alca = Math.hypot(x - 7.5, y - 6.5);
+    if (y <= 6 && alca > 5.2 && alca < 6.3) return var_(caboEsc, r, 0.06);
+    // um pouco mais largo em cima
+    if (y >= 6 && y <= 14 && Math.abs(x - 7.5) <= 5.5 - (y - 6) * 0.2) {
+      if (y === 6) return var_(madEsc, r, 0.05);
+      if (y === 8 || y === 13) return var_(hex(0x4b4f55), r, 0.05);
+      return var_(x % 3 === 0 ? madEsc : mad, r, 0.1);
+    }
     return [0, 0, 0, 0];
   });
   // picareta: arco no alto

@@ -120,7 +120,7 @@ canvas.addEventListener('webglcontextlost', (e) => {
 canvas.addEventListener('webglcontextrestored', () => { try { aplicarGraficos(); preencherGraficos(); } catch {} });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 const cena = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 400);
+const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 400); // perto = 0,05 (como no clássico): com tela larga e visão 100° o canto da tela não entra na parede nem no teto
 cena.fog = new THREE.Fog(0x8fd3ff, 30, 60);
 // efeitos de cinema do Ultra (desligados não custam nada)
 const pos = criarPosEfeitos(renderer, cena, camera);
@@ -443,7 +443,7 @@ function desenharBarra() {
 let abaInv = 'blocos';
 const maquinasLigadas = () => opcoesMundo.maquinas !== false;
 // ferramentas também no modo criativo (quebram mais rápido)
-const FERRAMENTAS_CRIATIVO = [ITEM.PICARETA_PEDRA, ITEM.MACHADO_PEDRA, ITEM.PA_PEDRA];
+const FERRAMENTAS_CRIATIVO = [ITEM.PICARETA_PEDRA, ITEM.MACHADO_PEDRA, ITEM.PA_PEDRA, ITEM.BALDE];
 function abasDoMundo() {
   if (sobrev()) return [['mochila', 'mochila', 'Mochila'], ['criar', 'martelo', 'Criar']];
   const formas = ['formas', 'bloco', 'Formas'];
@@ -1034,6 +1034,8 @@ function usar(ponto) {
   }
   comoJogador(() => mundo.definir(x, y, z, novo));
   som.em(meioDe(x, y, z), () => som.colocar(novo));
+  // coletando: despejou a última água, o balde vazio volta para a mão
+  if (novo === B.AGUA && sobrev() && qtd(B.AGUA) < 1) trocarNaMao(B.AGUA, ITEM.BALDE);
   dicaEnergia(novo, x, y, z);
 }
 
@@ -1161,9 +1163,9 @@ function quebrar(ponto) {
   if (m.aldeao) { conversarCom(m.aldeao); return; }
   if (m.trabalhador) { negocios.tocar(m.trabalhador); return; }
   if (armas.empunhando || !podeConstruir()) return; // sem construção ninguém quebra bloco
-  // com a Água na mão, "quebrar" recolhe a água (como um balde); coletando, a mão vazia também pega
+  // a água não se quebra: a mira atravessa e acerta o que está atrás. Só o balde vazio pega a água
   const mao = naMao();
-  if ((mao === B.AGUA || (sobrev() && !mao)) && recolherAgua(ponto)) return;
+  if (mao === ITEM.BALDE && recolherAgua(ponto)) return;
   const h = m.bloco;
   if (!h || h.y < 1) return;
   if (guerra.quebrarBloco(h)) return; // grade da cela (serrar), paredes do presídio e alvos do forte
@@ -1187,10 +1189,19 @@ function recolherAgua(ponto) {
     }
   }
   if (!alvo) { aviso('Essa água vem de longe', 1500, 'gota'); return true; }
+  if (sobrev() && qtd(ITEM.BALDE) < 1) return true;
+  maoQuebrando = ITEM.BALDE;
   comoJogador(() => mundo.definir(alvo.x, alvo.y, alvo.z, AR));
   som.splash(0.2);
-  mostrarQueCaiu(B.AGUA, alvo.x, alvo.y, alvo.z);
+  // coletando: o balde ficou cheio (Água na mochila); acabaram os vazios, a mão passa a segurar a água
+  if (sobrev() && qtd(ITEM.BALDE) < 1) trocarNaMao(ITEM.BALDE, B.AGUA);
   return true;
+}
+// o espaço da barra com "de" passa a mostrar "para" (ou escolhe o espaço que já tem "para")
+function trocarNaMao(de, para) {
+  const ja = barra.indexOf(para);
+  if (ja >= 0) slotSel = ja; else { const i = barra[slotSel] === de ? slotSel : barra.indexOf(de); if (i < 0) return; barra[i] = para; slotSel = i; }
+  desenharBarra();
 }
 
 const partQ = [];
