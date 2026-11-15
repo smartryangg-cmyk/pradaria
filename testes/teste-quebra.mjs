@@ -112,7 +112,7 @@ if (ONLINE) {
   const a = await jogador('Ana' + sfx);
   await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Pedreira');
   // coletar e criar (quebra em vários toques; no criativo quebra num toque só)
-  if (await a.getAttribute('[data-opcao=sobrevivencia]', 'aria-pressed') !== 'true') await a.click('[data-opcao=sobrevivencia]');
+  await a.click('[data-modo=sobrevivencia]');
   await a.click('#m-novo button[type=submit]');
   await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 30000 });
   await a.waitForTimeout(2500);

@@ -54,7 +54,9 @@ const blocoEm = (p, [x, y, z]) => p.evaluate(([x, y, z]) => window.__jogo.mundo.
 const p = await pagina();
 await p.click('#bt-sozinho');
 await p.waitForSelector('#m-novo:not([hidden]) #n-opcoes:not([hidden])');
-conferir(await p.getAttribute('[data-opcao=sobrevivencia]', 'aria-pressed') === 'true', 'Coletar e criar vem ligado no mundo novo');
+conferir(await p.getAttribute('[data-modo=sobrevivencia]', 'aria-pressed') === 'true', 'Coletar e criar vem ligado no mundo novo');
+await p.click('#n-abas [data-ir=mods]');
+await p.click('#m-novo [data-opcao=mercado]'); // mod Mercado: a loja usa a mesma mochila
 await p.click('#m-novo button[type=submit]');
 await p.waitForFunction(() => window.__jogo && window.__jogo.jog);
 await p.waitForTimeout(2500);
@@ -151,7 +153,8 @@ const c = await pagina();
 await c.evaluate(() => localStorage.removeItem('pradaria.local'));
 await c.click('#bt-sozinho');
 await c.waitForSelector('#m-novo:not([hidden]) #n-opcoes:not([hidden])');
-await c.click('[data-opcao=sobrevivencia]');
+await c.click('[data-modo=criativo]');
+await c.click('#m-novo [data-opcao=maquinas]'); // mod Máquinas: aba Engenharia
 await c.click('#m-novo button[type=submit]');
 await c.waitForFunction(() => window.__jogo && window.__jogo.jog);
 await c.waitForTimeout(1500);

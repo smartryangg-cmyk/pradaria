@@ -86,7 +86,7 @@ export const TIPOS = {
   aventura: { icone: 'ilha', nome: 'Ilha de Aventura', desc: 'Cidades, estradas, porto, farol e lugares com nome', limite: 256, raioExtra: 1 },
   // Guerra (guerra.js, guerra-mapa.js): ilha com Base Aliada, Forte Vermelho, presídio, delegacia e polícia.
   // mais16 = pergunta a idade antes de entrar (idade.js); forca = opções que valem sempre neste tipo
-  guerra: { icone: 'tanque', nome: 'Guerra', desc: 'Base, forte inimigo, tanques, presídio e polícia. 16 anos ou mais', limite: 256, raioExtra: 1, mais16: true, forca: { armas: true } },
+  guerra: { icone: 'tanque', nome: 'Guerra', desc: 'Base, forte inimigo, tanques, presídio e polícia. 16 anos ou mais', limite: 256, raioExtra: 1, mais16: true, forca: { armas: true, veiculos: true, maquinas: true } }, // os tanques e os portões das celas precisam dos mods Veículos e Máquinas
 };
 
 // PADRAO_MUNDO: o que vale quando falta a opção (mundos antigos); PADRAO_NOVO: o que já vem marcado ao criar

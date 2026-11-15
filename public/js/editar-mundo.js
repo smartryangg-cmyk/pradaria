@@ -82,7 +82,8 @@ export function desenharRegrasMods(regras, mods, escolha, { criando = true, aoMu
       for (const [id, t] of Object.entries(TIPOS)) {
         if (!tipoMod(id)) continue;
         const b = botaoOpcao(t.icone, t.nome, t.desc.replace(/\.? *16 anos ou mais\.?$/, ''), { tipo: id });
-        if (t.mais16) b.querySelector('.tx').insertAdjacentHTML('beforeend', '<i class="etiqueta">Precisa: Armas · 16 anos</i>');
+        const precisa = Object.keys(t.forca || {}).map((k) => OPCOES_MUNDO.find((o) => o.id === k)?.nome).filter(Boolean);
+        if (precisa.length || t.mais16) b.querySelector('.tx').insertAdjacentHTML('beforeend', `<i class="etiqueta">${[precisa.length ? 'Liga junto: ' + precisa.join(', ') : '', t.mais16 ? '16 anos' : ''].filter(Boolean).join(' · ')}</i>`);
         b.addEventListener('click', async () => {
           if (!criando) return;
           const liga = escolha.tipo !== id;

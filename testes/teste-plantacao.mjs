@@ -118,7 +118,7 @@ if (ONLINE) {
   const a = await jogador('Ana' + sfx);
   await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Fazenda');
   // modo criativo (a mochila do servidor não tem trigo; o custo de plantar já foi testado acima)
-  if (await a.getAttribute('[data-opcao=sobrevivencia]', 'aria-pressed') === 'true') await a.click('[data-opcao=sobrevivencia]');
+  if (await a.getAttribute('[data-modo=sobrevivencia]', 'aria-pressed') === 'true') await a.click('[data-modo=criativo]');
   if (await a.getAttribute('[data-opcao=mercado]', 'aria-pressed') === 'true') await a.click('[data-opcao=mercado]'); // sem loja: trigo livre
   await a.click('#m-novo button[type=submit]');
   await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 30000 });

@@ -51,8 +51,8 @@ const olharPara = (p, i = 0) => p.evaluate((i) => {
   const { ctx, p } = await abrir({ ...devices['iPad (gen 7) landscape'], hasTouch: true, isMobile: true }, 'tablet');
   await p.tap('#bt-sozinho');
   await p.waitForSelector('#n-opcoes:not([hidden])');
-  await p.tap('[data-opcao=selvagensMachucam]');
-  conferir(await p.getAttribute('[data-opcao=selvagens]', 'aria-pressed') === 'true' && await p.getAttribute('[data-opcao=selvagensMachucam]', 'aria-pressed') === 'true', 'tablet: liga "Animais podem machucar" tocando na opção');
+  await p.tap('[data-dificuldade=normal]');
+  conferir(await p.getAttribute('[data-opcao=selvagens]', 'aria-pressed') === 'true' && await p.getAttribute('[data-dificuldade=normal]', 'aria-pressed') === 'true', 'tablet: liga "Animais podem machucar" tocando na opção');
   await p.screenshot({ path: SAIDA + '/real-tablet-opcoes.png' });
   await p.tap('[data-tamanho=pequeno]');
   await p.tap('#m-novo button[type=submit]');
@@ -134,10 +134,11 @@ const olharPara = (p, i = 0) => p.evaluate((i) => {
   await p.click('#bt-sozinho');
   await p.waitForSelector('#n-opcoes:not([hidden])');
   await p.click('[data-tamanho=pequeno]');
+  await p.click('[data-dificuldade=pacifico]');
   await p.click('#m-novo button[type=submit]');
   await p.waitForFunction(() => window.__jogo && window.__jogo.jog);
   await p.waitForTimeout(3000);
-  conferir(!(await p.isVisible('#vida')), 'pc: sem "podem machucar" não tem corações');
+  conferir(!(await p.isVisible('#vida')), 'pc: no Pacífico não tem corações');
   await preparar(p);
   // trava o mouse (primeiro clique no jogo)
   await p.mouse.click(640, 380);

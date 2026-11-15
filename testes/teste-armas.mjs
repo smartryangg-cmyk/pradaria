@@ -144,7 +144,7 @@ const disparar = async (p, vezes = 1, espera = 360) => { for (let i = 0; i < vez
   await p.click('[data-opcao=armas]');
   await p.click('#idade-sim');
   // modo criativo (blocos à vontade) para testar colocar bloco de mãos livres
-  if (await p.getAttribute('[data-opcao=sobrevivencia]', 'aria-pressed') === 'true') await p.click('[data-opcao=sobrevivencia]');
+  if (await p.getAttribute('[data-modo=sobrevivencia]', 'aria-pressed') === 'true') await p.click('[data-modo=criativo]');
   await p.click('#m-novo button[type=submit]');
   await p.waitForFunction(() => window.__jogo && window.__jogo.jog && !window.__jogo.pausado);
   await esperar(p, 2500);

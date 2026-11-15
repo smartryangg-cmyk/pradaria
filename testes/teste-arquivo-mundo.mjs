@@ -46,8 +46,8 @@ const A = await pagina(false), B = await pagina(true);
 await criarConta(A, 'Dono' + sfx, clicar);
 await A.click('#bt-novo-mundo');
 await A.fill('#n-nome', 'Castelo Azul');
-await A.click('#m-novo [data-opcao=sobrevivencia]');
-await A.click('#m-novo [data-opcao=selvagensMachucam]');
+await A.click('#m-novo [data-modo=criativo]');
+await A.click('#m-novo [data-dificuldade=normal]');
 await A.click('#m-novo button[type=submit]');
 await naSala(A);
 // como o jogador colocando com as mãos (a sala só guarda blocos novos assim)

@@ -21,7 +21,7 @@ async function jogador(nome, tablet) {
 const est = (p) => p.evaluate(() => JSON.parse(JSON.stringify(window.__jogo.mercado.e)));
 const a = await jogador('Ana' + sfx);
 await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Obras');
-await a.click('[data-opcao=sobrevivencia]'); // desliga o Coletar e criar: blocos à vontade (a marca de comprado é testada em teste-compra-online)
+await a.click('[data-modo=criativo]'); // desliga o Coletar e criar: blocos à vontade (a marca de comprado é testada em teste-compra-online)
 await a.click('#m-novo button[type=submit]');
 await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 20000 });
 await a.waitForTimeout(2500);
