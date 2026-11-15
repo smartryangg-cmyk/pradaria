@@ -110,8 +110,8 @@ export class Jogador {
     this.naLava = !this.voando && (ehLava(this.mundo.bloco(bx, Math.floor(p.y + 0.1), bz)) || ehLava(this.mundo.bloco(bx, Math.floor(p.y + 0.9), bz)));
     let vel = this.voando ? 9 : this.naAgua ? 2.6 : 4.4;
     if (this.naLava) vel *= 0.4;
-    if (this.agachado) vel *= 0.35;
-    else if (ent.correr && !this.naAgua && vida.podeCorrer()) vel *= 1.45; // com fome (6 ou menos) não corre
+    if (this.agachado) vel *= 0.3; // como no clássico: agachado anda a 30%, correndo a 130%
+    else if (ent.correr && !this.naAgua && vida.podeCorrer()) vel *= 1.3; // com fome (6 ou menos) não corre
     this.correndo = !!ent.correr && vida.podeCorrer() && !this.agachado && !this.naAgua && !this.voando && this.noChao && len > 0.1;
     // aceleração: no chão pega velocidade rápido e para mais rápido ainda; no ar tem pouco controle
     const parado = len < 0.1;

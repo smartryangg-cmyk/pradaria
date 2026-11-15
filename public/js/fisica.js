@@ -77,6 +77,8 @@ export class Fisica {
     }
     // descobriu terra: a grama do lado vai crescendo por cima
     if (!OPACO[b] && m.bloco(x, y - 1, z) === B.TERRA) this.crescer(x, y - 1, z);
+    // colocou terra do lado da grama (com céu aberto em cima): a grama cresce nela também
+    if (b === B.TERRA) this.crescer(x, y, z);
     if (b === B.GRAMA) for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) for (let dy = -1; dy <= 1; dy++) {
       if (m.bloco(x + dx, y + dy, z + dz) === B.TERRA) this.crescer(x + dx, y + dy, z + dz);
     }
