@@ -10,6 +10,9 @@ export const FORMA_NOVA = new Uint8Array(256);
 for (let b = 80; b <= 99; b++) FORMA_NOVA[b] = 1;
 for (let d = 0; d < 4; d++) FORMA_NOVA[ESCADA_MAO + d] = 1;
 FORMA_NOVA[TOCHA] = 1;
+for (let b = 225; b <= 231; b++) FORMA_NOVA[b] = 1; // bolo (bolo-regras.js)
+// bolo: começa em 1/16 e cada fatia comida tira 2/16 do lado -x
+const inicioBolo = (b) => (1 + (b - 225) * 2) / 16;
 
 const TRONCOS = new Set([F.TRONCO_R, F.TRONCO_R_PINHEIRO, F.TRONCO_R_BETULA]);
 const ehTronco = (b) => TRONCOS.has(b);
@@ -245,6 +248,12 @@ export function desenharFormaNova(A, get, x, y, z, b, cor = 1) {
     case 'laje':
       caixa(p, 0, 0, 0, 1, 0.5, 1, def.tiles[2], (i) => i !== 2 && tapadoFace(get, x, y, z, i));
       break;
+    case 'bolo': {
+      const x0 = inicioBolo(b);
+      caixa(p, x0, 0, 1 / 16, 15 / 16, 0.4375, 15 / 16, def.tiles[2], (i) => i === 3 && tapado(0, -1, 0));
+      caixa(p, x0, 0.4375, 1 / 16, 15 / 16, 0.5, 15 / 16, def.tiles[0]);
+      break;
+    }
     case 'tocha':
       // cabo de madeira e a chama em cima (a chama usa a textura da lava)
       caixa(p, 0.44, 0, 0.44, 0.56, 0.6, 0.56, def.tiles[2], (i) => i === 3 && tapado(0, -1, 0));
@@ -348,6 +357,7 @@ export function caixasForma(b, get, x, y, z) {
     case 'bola': return [[0, 0, 0, 1, 1, 1]];
     case 'cupula': return [[0, 0, 0, 1, 0.5, 1]];
     case 'laje': return [[0, 0, 0, 1, 0.5, 1]];
+    case 'bolo': return [[inicioBolo(b), 0, 1 / 16, 15 / 16, 0.5, 15 / 16]];
     case 'escadamao': return [girarCaixa(b - ESCADA_MAO, [0.78, 0, 0, 1, 1, 1])];
     case 'tocha': return [[0.36, 0, 0.36, 0.64, 0.82, 0.64]];
     case 'rampa': return [[0, 0, 0, 1, 1, 1]];
@@ -483,6 +493,11 @@ function desenharIcone(ctx, id, tam, atlas) {
       break;
     case 'escada':
       preencher(poli([[4, 44], [4, 32], [16, 32], [16, 20], [28, 20], [28, 8], [44, 8], [44, 44]]), tile, 0.1);
+      break;
+    case 'bolo':
+      preencher(poli([[24, 16], [44, 24], [24, 32], [4, 24]]), topo);
+      preencher(poli([[4, 24], [24, 32], [24, 44], [4, 36]]), tile, 0.18);
+      preencher(poli([[24, 32], [44, 24], [44, 36], [24, 44]]), tile, 0.35);
       break;
     case 'tocha':
       preencher(poli([[21, 20], [27, 20], [27, 46], [21, 46]]), tile, 0.1);

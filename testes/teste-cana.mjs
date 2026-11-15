@@ -1,6 +1,6 @@
 // Cana-de-açúcar (como no clássico): só pega na grama/terra/areia com água do lado (ou em cima de outra cana),
 // cresce sozinha até 3, quebrar um pedaço derruba os de cima (e eles caem para pegar), vira açúcar,
-// 3 trigos + 2 açúcares na bancada fazem um bolo, e o bolo mata a fome.
+// 3 trigos + 2 açúcares na bancada fazem um bolo (comer em fatias: teste-bolo.mjs).
 // Tablet sem internet; online (2 jogadores) a cana cresce para os dois e a sala não deixa crescer fora da hora.
 // Uso: python3 -m http.server 8765 -d public, a sala (8790) e o pages dev (8788), e
 //   URL=http://localhost:8765 ONLINE=http://localhost:8788 SAIDA=/tmp node testes/teste-cana.mjs
@@ -125,11 +125,7 @@ async function pegarTudo(p, c) {
   await p.tap('#inv-saida'); await esperar(p, 300);
   ok(await qtd(p, BOLO) === 1 && await qtd(p, ACUCAR) === 0 && await qtd(p, TRIGO) === 0, 'fez o bolo na bancada com 3 trigos e 2 açúcares');
   await p.click('#inventario [data-fechar]'); await esperar(p, 300);
-  // come o bolo: com fome, um toque segurando o bolo
-  await J(p, () => { const v = window.__jogo.vida; v.fome.f = 8; v.fome.s = 0; v.desenhar(); });
-  await segurar(p, BOLO); await J(p, () => { window.__jogo.jog.pitch = 1.2; }); await esperar(p, 300);
-  await tocarMeio(p); await esperar(p, 2300);
-  ok(await J(p, () => window.__jogo.vida.fome.f) === 15 && await qtd(p, BOLO) === 0, `comeu o bolo: fome 8 -> ${await J(p, () => window.__jogo.vida.fome.f)}`);
+  // comer o bolo (colocado no chão, em fatias): testes/teste-bolo.mjs
   // o mundo gerado tem cana na beira da água (mesmo sorteio para todos)
   const naturais = await J(p, () => {
     const m = window.__jogo.mundo; let n = 0, beira = 0;

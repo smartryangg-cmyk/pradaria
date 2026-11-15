@@ -51,6 +51,7 @@ export function baseDe(b) {
   if (b >= 211 && b <= 214) return 211; // escada de mão virada (escada-mao.js)
   if (b === 76 || b === 77) return I.TRIGO; // trigo plantado ainda crescendo: é o mesmo trigo
   if (b === 189) return I.FORNALHA; // fornalha acesa
+  if (b >= 225 && b <= 231) return 1012; // bolo colocado (bolo-regras.js): colocar gasta o bolo da mochila
   return b;
 }
 // o tronco redondo das árvores dá o tronco comum (dá para refazer o redondo no livro, 1 por 1)
@@ -85,6 +86,7 @@ export function oQueCai(b, x = 0, y = 0, z = 0, natural = true, mao = 0, classic
   if (b === I.VIDRO && !(FERRAMENTAS[mao] && FERRAMENTAS[mao][0] === 'picareta')) return [];
   if (b >= 215 && b <= 219) return []; // lava não se quebra: só sai com balde (lava-regras.js)
   if (b === 222) return []; // fogo (fogo-regras.js)
+  if (b >= 225 && b <= 231) return []; // bolo colocado: quebrar não dá nada (como no clássico)
   if (b === 220 && !(FERRAMENTAS[mao] && FERRAMENTAS[mao][0] === 'picareta')) return []; // obsidiana: só com picareta
   const r = [[VIRA[b] ?? baseDe(b), 1]];
   // o extra só vem de bloco do mundo (colocar e quebrar não multiplica nada), menos o trigo maduro e as folhas:
