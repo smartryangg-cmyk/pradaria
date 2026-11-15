@@ -64,7 +64,7 @@ await p.keyboard.up('Space');
 ok(pulo[2] < -0.3 && pulo[3] > 0.2, 'pulando: pernas abertas ' + pulo.join(','));
 await p.waitForTimeout(800);
 // volta ao centro e testa a mira: quebra o bloco na frente, olhando para baixo
-await p.evaluate(() => { const J = window.__jogo, j = J.jog, [x0, y0, z0] = window.__base; j.pos.x = x0 + 0.5; j.pos.z = z0 + 0.5; j.pos.y = y0; j.vel.x = j.vel.z = 0; j.yaw = 0; j.pitch = -0.6; J.mundo.definir(x0, y0, z0 - 2, 2); });
+await p.evaluate(() => { const J = window.__jogo, j = J.jog, [x0, y0, z0] = window.__base; j.pos.x = x0 + 0.5; j.pos.z = z0 + 0.5; j.pos.y = y0; j.vel.x = j.vel.z = 0; j.yaw = 0; j.pitch = -0.45; J.mundo.definir(x0, y0, z0 - 2, 2); });
 await p.waitForTimeout(400);
 // o bloco que está no meio da tela (raio puro da câmera) é o que tem que quebrar
 const alvo = await p.evaluate(() => {
