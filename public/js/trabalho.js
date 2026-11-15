@@ -14,6 +14,7 @@
 //    para a vitrine). O dinheiro das vendas vai para as suas moedas.
 import { DURA } from './receitas.js';
 import { PLANTAS, ESTILOS_OBRA, blocosDaObra, materiais, alturaDaPlanta, areaDaObra, brutoDe } from './casas.js';
+import { DURACAO_DIA } from './dormir-regras.js';
 
 export const TRIGO = 32, FARINHA = 57, PAO = 58;
 
@@ -34,7 +35,7 @@ export const HORA_INI = 7, HORA_FIM = 18;
 export const horaDe = (dia) => ((dia * 24 + 6) % 24 + 24) % 24;
 export const noHorario = (hora) => hora >= HORA_INI && hora < HORA_FIM;
 // um dia de trabalho, em segundos de verdade (o dia do jogo dura 600 s)
-export const SEG_DIA_TRABALHO = (HORA_FIM - HORA_INI) / 24 * 600;
+export const SEG_DIA_TRABALHO = (HORA_FIM - HORA_INI) / 24 * DURACAO_DIA;
 
 export const SEG_POR_BLOCO = 0.6; // o pedreiro coloca um bloco a cada 0,6 s
 export const SEG_POR_PAO = 15; // o padeiro assa um pão a cada 15 s (gasta 2 trigos)
