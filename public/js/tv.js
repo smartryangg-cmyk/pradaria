@@ -13,6 +13,8 @@ const CHAVE_COD = 'pradaria.tv.codigo';
 const UA_TV = /SMART-?TV|SmartTV|Tizen|Web0S|webOS|NetCast|HbbTV|BRAVIA|Android ?TV|GoogleTV|CrKey|AFT[A-Z]|Roku|Viera|AQUOS|VIDAA|TitanOS|Opera TV|DTV/i;
 const LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem I, O, 0 e 1
 const $ = (s) => document.querySelector(s);
+// tela dividida (/tv-dupla): esta metade é o Jogador 1 ou 2 (js/tela-dividida.js); 0 = TV inteira
+export const jogadorTV = () => window.jogadorTV || 0;
 
 export const ehNavegadorTV = () => UA_TV.test(navigator.userAgent);
 
@@ -72,12 +74,18 @@ export function focaveis() {
 }
 
 let focoAtual = null;
+// o botão escolhido agora. Na tela dividida as duas metades não podem disputar o foco do navegador
+// (uma tiraria o da outra), então lá vale o que a própria metade marcou
+function ativo() {
+  if (window.jogadorTV && focoAtual && focoAtual.isConnected) return focoAtual;
+  return document.activeElement;
+}
 function focar(el) {
   if (focoAtual && focoAtual !== el) focoAtual.classList.remove('foco-tv');
   focoAtual = el;
   if (!el) return;
   el.classList.add('foco-tv');
-  try { el.focus({ preventScroll: true }); } catch { el.focus(); }
+  if (window.jogadorTV !== 2) try { el.focus({ preventScroll: true }); } catch { el.focus(); }
   // no meio da tela: não fica escondido atrás de uma barra que fica parada no topo (abas do Novo mundo)
   const r = el.getBoundingClientRect();
   if (r.top < innerHeight * 0.18 || r.bottom > innerHeight * 0.82) el.scrollIntoView({ block: 'center', inline: 'nearest' });
@@ -87,14 +95,15 @@ const centro = (r) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
 
 // primeiro foco de uma tela: o primeiro campo para escrever (nome, senha...), senão o botão principal (verde), senão o de cima
 function focoInicial(lista) {
-  return lista.find((e) => e.tagName === 'INPUT' && /^(text|password|search|email|)$/.test(e.type) && !(e.closest('details')))
+  return lista.find((e) => e.id === 'tv-mundo-par')
+    || lista.find((e) => e.tagName === 'INPUT' && /^(text|password|search|email|)$/.test(e.type) && !(e.closest('details')))
     || lista.find((e) => e.classList.contains('verde') || e.dataset.jogo === 'pradaria')
     || [...lista].sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)[0];
 }
 
 // tela nova (o botão escolhido sumiu): já deixa um escolhido, para o controle remoto/celular não ficar sem foco
 export function garantirFoco() {
-  const el = document.activeElement;
+  const el = ativo();
   if (el && el !== document.body && !el.closest('[hidden]') && el.getBoundingClientRect().width > 0) return false;
   const lista = focaveis();
   if (!lista.length) return false;
@@ -106,7 +115,7 @@ export function garantirFoco() {
 export function navegar(dir) {
   const lista = focaveis();
   if (!lista.length) return false;
-  const atual = lista.includes(document.activeElement) ? document.activeElement : null;
+  const foco = ativo(), atual = lista.includes(foco) ? foco : null;
   if (!atual) {
     focar(focoInicial(lista));
     return true;
@@ -145,9 +154,9 @@ export function navegar(dir) {
 }
 
 function apertarFocado() {
-  const el = document.activeElement;
+  const el = ativo();
   if (!el || el === document.body || !focaveis().includes(el)) { navegar('baixo'); return; }
-  if (el.tagName === 'INPUT' && /^(text|password|search|number|email|)$/.test(el.type)) { el.focus(); return; }
+  if (el.tagName === 'INPUT' && /^(text|password|search|number|email|)$/.test(el.type)) { if (window.jogadorTV !== 2) el.focus(); return; }
   if (el.tagName === 'SELECT') { navegar('dir'); return; }
   el.click();
 }
@@ -290,7 +299,9 @@ export function iniciarTV(api) {
     const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
     const c = ctrl();
     if (!pads.length) { if (c && c.fontes.pad) c.fontes.pad = null; return; }
-    const g = pads[0];
+    const j = jogadorTV();
+    const g = j ? pads.find((p) => p.index === j - 1) || pads[j - 1] : pads[0];
+    if (!g) { if (c && c.fontes.pad) c.fontes.pad = null; return; }
     const bt = (i) => !!(g.buttons[i] && (g.buttons[i].pressed || g.buttons[i].value > 0.5));
     const novo = (i) => bt(i) && !antes[i];
     const morto = (v) => (Math.abs(v) < 0.18 ? 0 : (v - Math.sign(v) * 0.18) / 0.82);
@@ -336,10 +347,10 @@ export function iniciarTV(api) {
   let ultimoModo = '';
   function mandarCel(obj) { if (tv.ws && tv.ws.readyState === 1) tv.ws.send(JSON.stringify(obj)); }
   function modoAgora() {
-    const el = document.activeElement;
+    const el = ativo();
     const campo = !emJogo() && el && el.tagName === 'INPUT' && /^(text|password|search|number|email|)$/.test(el.type)
       ? { tipo: el.type === 'password' ? 'password' : 'text', valor: el.type === 'password' ? '' : el.value, nome: (el.labels && el.labels[0] && el.labels[0].textContent.trim().slice(0, 40)) || el.placeholder || '' } : null;
-    return { t: 'modo', menu: !emJogo(), campo };
+    return { t: 'modo', menu: !emJogo(), campo, j: jogadorTV() };
   }
   function recado(m) {
     tv.ultimoCel = performance.now();
@@ -365,7 +376,7 @@ export function iniciarTV(api) {
         else if (['cima', 'baixo', 'esq', 'dir'].includes(m.d)) navegar(m.d);
         break;
       case 'txt': { // o celular escreveu no campo que está escolhido na TV
-        const el = document.activeElement;
+        const el = ativo();
         if (el && el.tagName === 'INPUT' && typeof m.v === 'string') {
           el.value = m.v.slice(0, +el.maxLength > 0 ? +el.maxLength : 60);
           el.dispatchEvent(new Event('input', { bubbles: true }));
@@ -437,10 +448,12 @@ export function iniciarTV(api) {
         </div>
         <p class="sub">Dá para jogar também com um controle de videogame ligado na TV ou com as setas do controle remoto.</p>
         <button class="bt verde grande" type="button" id="tv-pronto">${icone('controle')}<span id="tv-pronto-txt">Pronto</span></button>
+        <button class="bt" type="button" id="tv-dois" hidden>${icone('amigos')}<span>Jogar em dois (tela dividida)</span></button>
         <button class="bt fraco" type="button" id="tv-novo">Trocar o código</button>
       </div>`;
       document.body.appendChild(el);
       el.querySelector('#tv-pronto').addEventListener('click', fecharPainel);
+      el.querySelector('#tv-dois').addEventListener('click', telaDividida);
       el.querySelector('#tv-novo').addEventListener('click', () => {
         tv.codigo = novoCodigo();
         try { sessionStorage.setItem(CHAVE_COD, tv.codigo); } catch {}
@@ -451,7 +464,9 @@ export function iniciarTV(api) {
     }
     // versão da TV: a tela inteira é o código, e dá para seguir sem celular (controle remoto ou videogame)
     tv.painel.classList.toggle('tv-cheia', cheia);
-    $('#tv-titulo').lastElementChild.textContent = cheia ? 'Pegue o celular para jogar' : 'Celular como controle';
+    const j = jogadorTV();
+    $('#tv-titulo').lastElementChild.textContent = j ? `Jogador ${j}: pegue o seu celular` : cheia ? 'Pegue o celular para jogar' : 'Celular como controle';
+    $('#tv-dois').hidden = !cheia || !!j;
     $('#tv-pronto-txt').textContent = cheia ? 'Jogar sem celular' : 'Pronto';
     $('#tv-qr').innerHTML = desenharQR(urlControle());
     $('#tv-url').textContent = location.host + '/controle';
@@ -492,8 +507,19 @@ export function iniciarTV(api) {
     };
     const versao = $('#versao-inicio');
     if (versao) { versao.before(fazer('bt-celular-inicio')); versao.before(opcaoTV()); }
+    // versão da TV: entrar na tela dividida (dois jogadores, um celular cada) ou voltar para um
+    const dividir = (id, onde) => {
+      if (!onde) return;
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'bt bt-tela-dividida'; b.id = id;
+      b.innerHTML = jogadorTV() ? icone('tv') + '<span>Voltar para um jogador</span>' : icone('amigos') + '<span>Jogar em dois (tela dividida)</span>';
+      b.addEventListener('click', jogadorTV() ? umJogador : telaDividida);
+      onde.before(b);
+    };
+    if (tvPrimeiro()) dividir('bt-dividir-inicio', $('#bt-celular-inicio'));
     const sair = $('#bt-sair-mundo');
     if (sair) { sair.before(fazer('bt-celular-pausa')); sair.before(opcaoTV()); }
+    if (jogadorTV()) dividir('bt-dividir-pausa', $('#bt-celular-pausa'));
     // no celular: abrir a tela de controle para mandar numa TV
     const pers = $('#bt-personagem');
     if (pers && (matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window)) {
@@ -503,6 +529,45 @@ export function iniciarTV(api) {
       pers.after(a);
     }
   }
+  function telaDividida() { location.href = '/tv-dupla' + location.hash; }
+  function umJogador() { parent.postMessage({ t: 'um' }, location.origin); }
+
+  // ----- tela dividida: cada metade conta em que mundo online está, e a outra pode entrar com um OK -----
+  let mundoContado;
+  function contarMundo() {
+    const m = api.mundo && api.mundo();
+    const cod = m ? m.codigo : '';
+    if (cod === mundoContado) return;
+    mundoContado = cod;
+    parent.postMessage({ t: 'mundo', mundo: m }, location.origin);
+  }
+  function botaoMundoPar() {
+    let b = document.getElementById('tv-mundo-par');
+    const m = tv.mundoPar, meu = api.mundo && api.mundo();
+    const menu = ['m-mundos', 'm-jogos'].map((id) => document.getElementById(id)).find((e) => e && !e.hidden);
+    if (!m || (meu && meu.codigo === m.codigo) || !menu) { if (b) b.remove(); return; }
+    const novo = !b;
+    if (!b) {
+      b = document.createElement('button');
+      b.type = 'button'; b.id = 'tv-mundo-par'; b.className = 'bt verde grande';
+      b.innerHTML = icone('globo') + '<span></span>';
+      b.addEventListener('click', () => { const c = tv.mundoPar && tv.mundoPar.codigo; if (c) { b.disabled = true; Promise.resolve(api.entrarMundo(c)).finally(() => { b.disabled = false; }); } });
+    }
+    b.lastElementChild.textContent = `Entrar no mundo do Jogador ${m.de}: ${m.nome || 'sem nome'}`;
+    const depois = menu.querySelector('h2');
+    if (b.parentNode !== menu) { depois ? depois.after(b) : menu.prepend(b); focar(b); }
+    else if (novo) focar(b);
+  }
+  if (jogadorTV()) {
+    addEventListener('message', (ev) => {
+      const m = ev.data;
+      if (ev.origin !== location.origin || ev.source !== parent || !m || m.t !== 'mundo-par') return;
+      tv.mundoPar = m.mundo && m.mundo.codigo ? { codigo: m.mundo.codigo, nome: m.mundo.nome, de: m.de } : null;
+      botaoMundoPar();
+    });
+    parent.postMessage({ t: 'pronto' }, location.origin);
+  }
+
   botoes();
   tv.aplicar(modoTV());
   if (tvPrimeiro()) {
@@ -539,6 +604,7 @@ export function iniciarTV(api) {
       tv.ultimoFoco = agora;
       garantirFoco();
     }
+    if (jogadorTV() && agora - (tv.ultimoPar || 0) > 300) { tv.ultimoPar = agora; contarMundo(); botaoMundoPar(); }
     // conta para o celular se a TV está num menu (ele mostra as setas) ou jogando (alavanca e botões)
     if (tv.conectado) {
       const m = modoAgora(), txt = JSON.stringify(m);
