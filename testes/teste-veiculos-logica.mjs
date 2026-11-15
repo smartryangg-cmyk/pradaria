@@ -181,13 +181,16 @@ await p.waitForTimeout(1500);
 await ev(() => window.__jogo.garagem.chamar('carro'));
 await p.waitForFunction(() => window.__jogo.garagem.dentro, null, { timeout: 8000 }).catch(() => {});
 const pp = await ev(() => { const g = window.__jogo.garagem; const q = [...g.postos.values()][0]; return { x: q.x, y: q.y, z: q.z }; });
-await ev((q) => { const v = window.__jogo.garagem.dentro.v; v.x = q.x + 1.5; v.z = q.z; v.y = q.y; v.yVis = q.y; v.vel = 0; v.comb = 0.3; v.dano = 0.5; window.__jogo.garagem._esperado = null; }, pp);
+await ev((q) => { const g = window.__jogo.garagem, v = g.dentro.v, vg = g.vagaPosto([...g.postos.values()][0], 1); v.x = vg.x; v.z = vg.z; v.yaw = vg.yaw; v.y = q.y; v.yVis = q.y; v.vel = 0; v.comb = 0.3; v.dano = 0.5; g._esperado = null; }, pp);
 await p.waitForTimeout(800);
 ok(await p.isVisible('#bt-abastecer') && await p.isVisible('#bt-consertar'), 'no posto aparecem Abastecer e Consertar');
 await p.screenshot({ path: SAIDA + '/posto-botoes.png' });
 const m0 = await ev(() => window.__jogo.mercado.e.moedas);
 await tocar('#bt-abastecer'); await p.waitForTimeout(300);
+// o tanque enche aos poucos (o veículo fica parado); depois conserta
+await p.waitForFunction(() => !window.__jogo.garagem.enchendo, null, { timeout: 15000 });
 await tocar('#bt-consertar'); await p.waitForTimeout(300);
+await p.waitForFunction(() => !window.__jogo.garagem.enchendo, null, { timeout: 15000 });
 d = await dentro();
 const m1 = await ev(() => window.__jogo.mercado.e.moedas);
 ok(d.comb === 1 && d.dano === 0, 'tanque cheio e consertado');

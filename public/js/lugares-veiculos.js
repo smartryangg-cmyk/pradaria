@@ -41,11 +41,11 @@ export class LugaresVeiculos {
     const yawDe = (dx, dz) => Math.atan2(-dx, -dz); // frente do veículo virada para (dx, dz)
     const out = { postos: [], parados: [] };
     const ruas = v.ruas;
-    // posto no fim da primeira rua (a rua chega nele)
-    if (ruas[0]) { const [px, pz] = pt(ruas[0], 4 + ruas[0].L + 4, 0); out.postos.push({ k: k + 'p', x: px, z: pz, yaw: yawDe(ruas[0].dx, ruas[0].dz) }); }
+    // posto no fim de uma rua, no pátio de concreto que a vila aplainou (vilas.js)
+    if (v.posto) out.postos.push({ k: k + 'p', x: v.posto.x, z: v.posto.z, y: v.posto.y, yaw: v.posto.yaw });
     // um ou dois veículos estacionados no fim das outras ruas, virados para a praça
     const tipos = DA_VILA[v.estilo] || DA_VILA.campo;
-    ruas.slice(1, 3).forEach((r, i) => {
+    ruas.filter((r, i) => !v.posto || i !== v.posto.rua).slice(0, 2).forEach((r, i) => {
       const [px, pz] = pt(r, 4 + r.L + 3, 0);
       const tipo = tipos[i % tipos.length];
       out.parados.push({ k: k + 'c' + i, tipo, cor: this.cor(k + i), x: px, z: pz, yaw: yawDe(-r.dx, -r.dz) });

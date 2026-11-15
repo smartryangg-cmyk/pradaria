@@ -62,6 +62,8 @@ export class Jogador {
         if (colideForma(b, get, bx, by, bz, x - LARG, y, z - LARG, x + LARG, y + this.altura - 0.01, z + LARG)) return true;
       } else if (by >= y0) return true;
     }
+    // coisas sólidas que não são blocos (bombas e colunas do posto): garagem.js liga este gancho
+    if (this.extraColide && this.extraColide(x - LARG, y, z - LARG, x + LARG, y + this.altura - 0.01, z + LARG)) return true;
     return false;
   }
 
