@@ -28,7 +28,7 @@ export const IDS = {
   PICARETA_FERRO: 1105, MACHADO_FERRO: 1106, PA_FERRO: 1107, PICARETA_DIAMANTE: 1108, MACHADO_DIAMANTE: 1109, PA_DIAMANTE: 1110,
 };
 const I = IDS;
-export const ULTIMO_ITEM = 1010; // 1010 isqueiro (fogo-regras.js)
+export const ULTIMO_ITEM = 1012; // 1010 isqueiro (fogo-regras.js); 1011 açúcar, 1012 bolo (cana-regras.js)
 export const PRIMEIRO_CLASSICO = 1100, ULTIMO_CLASSICO = 1110; // itens do jogo clássico (minérios, fornalha)
 export const MAIOR_ITEM = ULTIMO_CLASSICO;
 export const MAX_BLOCO = 255;
@@ -178,6 +178,8 @@ export const RECEITAS = [
   { id: 'barras-ouro', faz: [I.BARRA_OURO, 9], usa: [[I.BLOCO_OURO, 1]], grupo: 'construir' },
   { id: 'bloco-diamante', faz: [I.BLOCO_DIAMANTE, 1], usa: [[I.DIAMANTE, 9]], bancada: true, grupo: 'construir', forma: ['DDD', 'DDD', 'DDD'] },
   { id: 'diamantes', faz: [I.DIAMANTE, 9], usa: [[I.BLOCO_DIAMANTE, 1]], grupo: 'construir' },
+  { id: 'acucar', faz: [1011, 1], usa: [[224, 1]], grupo: 'basico' },
+  { id: 'bolo', faz: [1012, 1], usa: [[32, 3], [1011, 2]], bancada: true, grupo: 'basico' },
   { id: 'bau', faz: [223, 1], usa: [[I.TABUAS, 8]], bancada: true, grupo: 'construir', forma: ['TTT', 'T.T', 'TTT'] },
   { id: 'escada-mao', faz: [211, 3], usa: [[I.GRAVETO, 7]], bancada: true, grupo: 'construir', forma: ['G.G', 'GGG', 'G.G'] },
   { id: 'lampiao', faz: [I.LAMPIAO, 1], usa: [[I.VIDRO, 1], [I.GRAVETO, 1]], bancada: true, grupo: 'construir' },

@@ -3,6 +3,7 @@ import { CHAO_DA_MUDA } from './arvores-regras.js';
 import * as THREE from '../vendor/three.module.min.js';
 import { F } from './formas.js';
 import { FOLHAGEM } from './blocos.js';
+import { CANA, cabeCana } from './cana-regras.js';
 import { criarAtlas, iconeBloco, INVENTARIO, INVENTARIO_MAQUINAS, INVENTARIO_FORMAS, B, E, AR, BLOCOS, SOLIDO, AGUA, PRECISA_CHAO, ITEM, ehItem, nomeDe, FORNALHA } from './blocos.js';
 import { toquesCom, receitasDoMundo, GRUPOS, podeCriar, faltaBancada, gastoDe, receitaDaGrade, arrumar, cabeNaGrade, pilhaDe, cabe, nivelFalta, NOME_NIVEL, baseDe, DURA } from './receitas.js';
 import { Inventario, MAO2 } from './inventario.js';
@@ -1643,7 +1644,10 @@ function usar(ponto) {
   if (atual !== AR && !AGUA[atual] && !BLOCOS[atual].planta && !(ehLava(atual) && atual !== LAVA)) return; // na lava corrente dá para pôr
   if ((novo === B.AGUA || novo === LAVA) && atual === novo) return;
   if (SOLIDO[novo] && jog.ocupa(x, y, z)) return;
-  if (PRECISA_CHAO[novo] && !SOLIDO[mundo.bloco(x, y - 1, z)]) return;
+  // cana-de-açúcar (cana-regras.js): na grama/terra/areia encostada na água, ou em cima de outra cana
+  if (novo === CANA) {
+    if (!cabeCana((a, b, c) => mundo.bloco(a, b, c), x, y, z)) { aviso('A cana só pega na grama, terra ou areia com água bem do lado', 3000, 'milho'); return; }
+  } else if (PRECISA_CHAO[novo] && !SOLIDO[mundo.bloco(x, y - 1, z)]) return;
   // trigo: na Terra de plantar vira broto e cresce sozinho; coletando, só dá para plantar nela
   if (novo === B.TRIGO) {
     if (mundo.bloco(x, y - 1, z) === B.TERRA_ARADA) novo = B.TRIGO_BROTO;

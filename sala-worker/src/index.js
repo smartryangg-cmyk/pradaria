@@ -20,6 +20,7 @@ import { mudancaSemMao } from '../../public/js/blocos-rede.js';
 import { FOGO, ISQUEIRO, ALCANCE_FOGO, inflamavel } from '../../public/js/fogo-regras.js';
 import { podeCrescer } from '../../public/js/plantacoes-regras.js';
 import { ehCama, podeDormir, ACORDA, PERTO_DA_CAMA } from '../../public/js/dormir-regras.js';
+import { CANA, ALTURA_CANA, CANA_MIN, podeCrescerCana } from '../../public/js/cana-regras.js';
 import { MUDAS, MUDA_MIN, TRONCO_DA_MUDA, BLOCOS_ARVORE, podeCrescerMuda, naCaixa } from '../../public/js/arvores-regras.js';
 export { Controle } from './controle.js';
 
@@ -581,7 +582,15 @@ export class Sala extends DurableObject {
       const copa = !m.j && !brotou && BLOCOS_ARVORE.has(b) && (!ed.has(k) || !ed.get(k) || BLOCOS_ARVORE.has(ed.get(k)) || [11, 12, 13, 22, 75].includes(ed.get(k)))
         && [...arv.values()].some((a) => agoraA - a.t < 20000 && naCaixa(x - a.x, y - a.y, z - a.z));
       const arvore = brotou || copa;
-      if (!m.j && !destruiu && !cresceu && !arvore && !mudancaSemMao(ed.has(k) ? ed.get(k) : m.de, b, this.regras().construcao)) return;
+      // cana-de-açúcar crescendo (plantacoes.js + cana-regras.js): um pedaço novo no vazio em cima de uma cana
+      // plantada, no tique sorteado, depois de um tempo do pedaço de baixo e com a coluna menor que 3
+      const kAbaixo = x + ',' + (y - 1) + ',' + z;
+      let colCana = 0;
+      while (colCana < ALTURA_CANA && ed.get(x + ',' + (y - 1 - colCana) + ',' + z) === CANA) colCana++;
+      const cana = !m.j && b === CANA && !ed.get(k) && colCana >= 1 && colCana < ALTURA_CANA
+        && podeCrescerCana(x, y, z, Date.now())
+        && Date.now() - ((this.estagioEm && this.estagioEm.get(kAbaixo)) || 0) >= CANA_MIN;
+      if (!m.j && !destruiu && !cresceu && !arvore && !cana && !mudancaSemMao(ed.has(k) ? ed.get(k) : m.de, b, this.regras().construcao)) return;
       // fogo (fogo-regras.js): a sala lembra onde está o fogo "de verdade": aceso pelo isqueiro (perto de quem
       // acendeu e, coletando, com isqueiro na mochila) ou espalhado de um fogo de verdade (herda a marca).
       // O que alguém construiu só pega fogo de fogo de verdade; o fogo sem marca (o da lava, ou o de um aparelho
@@ -638,7 +647,7 @@ export class Sala extends DurableObject {
       const eraBau = ed.get(k) === BAU && b !== BAU;
       ed.set(k, b);
       await this.ctx.storage.put('b:' + k, b);
-      if (b === 76 || b === 77 || MUDAS.has(b)) { (this.estagioEm ??= new Map()).set(k, Date.now()); if (this.estagioEm.size > 5000) this.estagioEm.clear(); }
+      if (b === 76 || b === 77 || b === CANA || MUDAS.has(b)) { (this.estagioEm ??= new Map()).set(k, Date.now()); if (this.estagioEm.size > 5000) this.estagioEm.clear(); }
       // j: foi a mão de alguém (os outros ouvem o som de quebrar/colocar; água escorrendo fica quieta)
       this.enviarTodos(m.j ? { t: 'bloco', x, y, z, b, j: 1 } : b === FOGO && this.fogoBom && this.fogoBom.has(k) ? { t: 'bloco', x, y, z, b, bom: this.fogoBom.get(k) } : { t: 'bloco', x, y, z, b }, ws);
       // "c:x,y,z" = ali está um bloco feito com coisa comprada (quebrar devolve marcado, para ninguém lucrar
