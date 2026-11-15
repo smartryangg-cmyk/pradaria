@@ -98,10 +98,13 @@ export const ITEM = {
   PA_MADEIRA: 1005, PA_PEDRA: 1006,
   CARNE: 1007, COURO: 1008, // caem dos bichos (animais.js -> economia.js CAI_BICHO)
   ISQUEIRO, // 1010: acende fogo (fogo-regras.js)
+  ACUCAR: 1011, BOLO: 1012, // cana-regras.js
   BALDE: 1009, // balde vazio: pega a água parada (fonte). Cheio, é a Água na mão; colocar a água devolve o balde
   // jogo clássico (receitas.js IDS): minérios, fornalha, ferramentas de ferro e diamante
   CARVAO: 1100, BARRA_FERRO: 1101, BARRA_OURO: 1102, DIAMANTE: 1103, CARNE_ASSADA: 1104,
   PICARETA_FERRO: 1105, MACHADO_FERRO: 1106, PA_FERRO: 1107, PICARETA_DIAMANTE: 1108, MACHADO_DIAMANTE: 1109, PA_DIAMANTE: 1110,
+  // monstros da noite (monstros-regras.js)
+  TEIA: 1111, CARNE_ESTRAGADA: 1112, ESPADA_MADEIRA: 1113, ESPADA_PEDRA: 1114, ESPADA_FERRO: 1115, ESPADA_DIAMANTE: 1116,
 };
 export const ITENS = {
   [ITEM.GRAVETO]: { nome: 'Graveto', tile: 130 },
@@ -115,6 +118,8 @@ export const ITENS = {
   [ITEM.COURO]: { nome: 'Couro', tile: 138 },
   [ITEM.BALDE]: { nome: 'Balde', tile: 142 },
   [ISQUEIRO]: { nome: 'Isqueiro', tile: 153 },
+  [1011]: { nome: 'Açúcar', tile: 157 },
+  [1012]: { nome: 'Bolo', tile: 158 },
   [ITEM.CARVAO]: { nome: 'Carvão', tile: 173 },
   [ITEM.BARRA_FERRO]: { nome: 'Barra de ferro', tile: 174 },
   [ITEM.BARRA_OURO]: { nome: 'Barra de ouro', tile: 175 },
@@ -126,6 +131,12 @@ export const ITENS = {
   [ITEM.PICARETA_DIAMANTE]: { nome: 'Picareta de diamante', tile: 181 },
   [ITEM.MACHADO_DIAMANTE]: { nome: 'Machado de diamante', tile: 182 },
   [ITEM.PA_DIAMANTE]: { nome: 'Pá de diamante', tile: 183 },
+  [ITEM.TEIA]: { nome: 'Fio de teia', tile: 188 },
+  [ITEM.CARNE_ESTRAGADA]: { nome: 'Carne estragada', tile: 189 },
+  [ITEM.ESPADA_MADEIRA]: { nome: 'Espada de madeira', tile: 184 },
+  [ITEM.ESPADA_PEDRA]: { nome: 'Espada de pedra', tile: 185 },
+  [ITEM.ESPADA_FERRO]: { nome: 'Espada de ferro', tile: 186 },
+  [ITEM.ESPADA_DIAMANTE]: { nome: 'Espada de diamante', tile: 187 },
 };
 export const ehItem = (id) => id >= 1000;
 // nome de qualquer coisa que cabe na mão (bloco ou item)
@@ -203,7 +214,8 @@ def(LAVA_CAINDO, 'Lava', 150, { solido: false, opaco: false, brilho: 1 });
 def(OBSIDIANA, 'Obsidiana', 151);
 def(FOGO, 'Fogo', 152, { solido: false, opaco: false, planta: true, brilho: 1 }); // fogo-regras.js (não vai para a mochila)
 def(TOCHA, 'Tocha', [150, 9, 9], { solido: false, opaco: false, forma: 'tocha', chao: true, brilho: 0.6 });
-def(223, 'Baú', [154, 154, 155]); // bau-regras.js: guarda 27 pilhas
+def(223, 'Baú', [154, 154, 155]);
+def(224, 'Cana-de-açúcar', 156, { solido: false, opaco: false, planta: true }); // cana-regras.js // bau-regras.js: guarda 27 pilhas
 // escada de mão (escada-mao.js): 4 giros, de madeira, presa na parede
 for (let d = 0; d < 4; d++) def(ESCADA_MAO + d, 'Escada de mão', 9, { solido: false, opaco: false, forma: 'escadamao' });
 
@@ -450,6 +462,26 @@ function pintarCriacao(img) {
     if (x >= 6 && x <= 9 && y >= 4 && y <= 8) return var_(x === 6 || x === 9 || y === 8 ? hex(0x4b4f55) : hex(0xb8bec6), r, 0.05);
     return var_(y % 5 === 2 ? madEsc : mad, r, 0.1);
   });
+  // 156 cana-de-açúcar: talos verdes com nós claros, fundo transparente (em cruz, como as plantas)
+  pintarTile(img, 156, (x, y, r) => {
+    const talo = [2, 7, 12].find((c) => x >= c && x <= c + 1);
+    if (talo === undefined) return (x === 4 || x === 9 || x === 14) && y % 6 === 3 ? var_(hex(0x6fae3a), r, 0.1) : [0, 0, 0, 0];
+    if ((y + talo) % 5 === 0) return var_(hex(0xc9e08a), r, 0.06);
+    return var_(x === talo ? hex(0x7cc04a) : hex(0x5a9a34), r, 0.08);
+  });
+  // 157 açúcar: montinho branco
+  pintarTile(img, 157, (x, y, r) => {
+    const d = Math.hypot((x - 7.5) / 6, (y - 11) / 4);
+    if (y > 13 || d > 1 || y < 6) return [0, 0, 0, 0];
+    return var_((x * 7 + y * 3) % 5 ? hex(0xf4f4f0) : hex(0xd8dbe0), r, 0.04);
+  });
+  // 158 bolo: massa com cobertura branca e pontinhos vermelhos
+  pintarTile(img, 158, (x, y, r) => {
+    if (x < 2 || x > 13 || y < 5 || y > 13) return [0, 0, 0, 0];
+    if (y <= 7) return (x * 5 + y) % 7 === 0 ? var_(hex(0xd9363e), r, 0.05) : var_(hex(0xfbf6ec), r, 0.04);
+    if (y === 8) return var_(x % 3 ? hex(0xfbf6ec) : hex(0xb07a48), r, 0.05);
+    return var_(hex(0xb07a48), r, 0.1);
+  });
   // 142 balde: de tábuas, com aros escuros e alça
   pintarTile(img, 142, (x, y, r) => {
     const alca = Math.hypot(x - 7.5, y - 6.5);
@@ -517,6 +549,31 @@ function pintarCriacao(img) {
     if (!topo && !baixo) return [0, 0, 0, 0];
     if (topo) return var_(x < 7 ? hex(0xb8fff8) : hex(0x7beee4), r, 0.05);
     return var_((x + y) % 4 === 0 ? hex(0xd8fffb) : x < 8 ? hex(0x4cd6cc) : hex(0x2aa9a1), r, 0.06);
+  });
+  // espadas: lâmina na diagonal, guarda atravessada e o cabo curto (184 madeira, 185 pedra, 186 ferro, 187 diamante)
+  const espada = (c, e) => (x, y, r) => {
+    if (x - y >= -6 && x - y <= -5 && x >= 2 && x <= 7) return var_(caboEsc, r, 0.06); // guarda
+    if ((x + y === 15 || x + y === 16) && x >= 1 && x <= 3) return var_(x + y === 16 ? caboEsc : cabo, r, 0.08); // cabo
+    if (x + y >= 14 && x + y <= 16 && x >= 5 && x <= 13 && !(x === 13 && x + y !== 15)) return var_(x + y === 15 ? c : e, r, 0.06); // lâmina
+    return [0, 0, 0, 0];
+  };
+  pintarTile(img, 184, espada(mad, madEsc));
+  pintarTile(img, 185, espada(pedraC, pedraE));
+  pintarTile(img, 186, espada(ferroC, ferroE));
+  pintarTile(img, 187, espada(diaC, diaE));
+  // 188 fio de teia: novelo branco-acinzentado com fios soltos
+  pintarTile(img, 188, (x, y, r) => {
+    const d = Math.hypot(x - 7.5, y - 8);
+    if (d < 4.6) return var_((x * 3 + y * 2) % 5 === 0 ? hex(0xb9bcc2) : hex(0xeef0f3), r, 0.05);
+    if ((x - y === 5 && x > 10 && x < 15) || (x + y === 6 && x < 4)) return var_(hex(0xd6d9de), r, 0.04);
+    return [0, 0, 0, 0];
+  });
+  // 189 carne estragada: a carne esverdeada com manchas
+  pintarTile(img, 189, (x, y, r) => {
+    const d = Math.hypot((x - 7.5) * 0.85, y - 8);
+    if (d > 5.6) return [0, 0, 0, 0];
+    if (d > 4.8) return var_(hex(0x3f4a22), r, 0.05);
+    return var_((x * 7 + y * 3) % 6 === 0 ? hex(0x6b7d2e) : hex(0x9a8a4a), r, 0.1);
   });
   // 177 carne assada: a coxa, dourada
   pintarTile(img, 177, (x, y, r) => {

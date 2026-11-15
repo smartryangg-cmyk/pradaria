@@ -12,6 +12,8 @@ export const COMIDA = {
   [I.PAO]: { f: 5, s: 6 },
   [I.CARNE]: { f: 3, s: 1.8 },
   [I.CARNE_ASSADA]: { f: 8, s: 12.8 }, // assada na fornalha (fornalha-regras.js) enche bem mais
+  1012: { f: 7, s: 8.4 }, // bolo (cana-regras.js): 3 trigos + 2 açúcares
+  [I.CARNE_ESTRAGADA]: { f: 4, s: 0.8 }, // cai do barrento (monstro): mata pouco a fome
 };
 export const ehComida = (id) => Object.prototype.hasOwnProperty.call(COMIDA, id);
 export const TEMPO_COMER = 1.6; // segundos segurando para comer

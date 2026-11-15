@@ -304,6 +304,42 @@ export const ESPECIES = {
       };
     },
   },
+  // ---------- monstros da noite (só no jogo clássico; monstros-regras.js) ----------
+  // barrento: gente de barro e musgo, encurvada, com olhos de brasa; anda em duas pernas
+  barrento: {
+    nome: 'Barrento', vel: 0.9, alt: 1.9, raio: 0.34, som: 'barrento',
+    montar(r) {
+      const barro = r < 0.5 ? 0x6e5a3c : 0x5d5236, escuro = 0x43391f, musgo = 0x5f8a3a, brasa = 0xff8a1f;
+      return {
+        corpo: [caixa(0.56, 0.72, 0.34, barro, 0, 1.14, 0), caixa(0.6, 0.12, 0.38, escuro, 0, 0.84, 0),
+          caixa(0.2, 0.12, 0.2, musgo, -0.14, 1.46, 0.08), caixa(0.16, 0.1, 0.16, escuro, 0.16, 1.2, 0.18),
+          // braços pendurados, compridos
+          caixa(0.16, 0.7, 0.18, barro, -0.38, 1.08, 0.04), caixa(0.16, 0.7, 0.18, barro, 0.38, 1.08, 0.04),
+          caixa(0.18, 0.12, 0.2, escuro, -0.38, 0.72, 0.04), caixa(0.18, 0.12, 0.2, escuro, 0.38, 0.72, 0.04)],
+        cabeca: [caixa(0.46, 0.44, 0.42, barro, 0, 0, 0), caixa(0.5, 0.12, 0.46, musgo, 0, 0.22, 0),
+          caixa(0.09, 0.06, 0.02, brasa, -0.11, 0.03, 0.215), caixa(0.09, 0.06, 0.02, brasa, 0.11, 0.03, 0.215),
+          caixa(0.2, 0.05, 0.02, escuro, 0, -0.12, 0.215)],
+        cabecaPos: [0, 1.74, 0.06],
+        pernas: [[0.2, 0.8, 0.22, escuro, [[-0.14, 0.8, 0], [0.14, 0.8, 0]]]],
+      };
+    },
+  },
+  // aranha: corpo baixo e largo, oito pernas e olhos amarelos
+  aranha: {
+    nome: 'Aranha', vel: 1.2, alt: 0.8, raio: 0.6, som: 'aranha',
+    montar() {
+      const c = 0x2e2a2f, m = 0x4a3d52, olho = 0xf2d14c;
+      return {
+        corpo: [caixa(0.7, 0.5, 0.8, c, 0, 0.52, -0.42), caixa(0.5, 0.4, 0.4, m, 0, 0.5, 0.1), caixa(0.3, 0.06, 0.4, m, 0, 0.78, -0.42)],
+        cabeca: [caixa(0.44, 0.34, 0.34, c, 0, 0, 0),
+          caixa(0.06, 0.06, 0.02, olho, -0.12, 0.06, 0.175), caixa(0.06, 0.06, 0.02, olho, 0.12, 0.06, 0.175),
+          caixa(0.04, 0.04, 0.02, olho, -0.05, 0.1, 0.175), caixa(0.04, 0.04, 0.02, olho, 0.05, 0.1, 0.175),
+          caixa(0.05, 0.1, 0.04, m, -0.07, -0.16, 0.16), caixa(0.05, 0.1, 0.04, m, 0.07, -0.16, 0.16)],
+        cabecaPos: [0, 0.5, 0.42],
+        pernas: [[0.1, 0.5, 0.1, c, [[-0.42, 0.45, 0.3], [0.42, 0.45, 0.3], [-0.48, 0.45, 0.08], [0.48, 0.45, 0.08], [-0.48, 0.45, -0.14], [0.48, 0.45, -0.14], [-0.42, 0.45, -0.36], [0.42, 0.45, -0.36]]]],
+      };
+    },
+  },
   cobra: {
     nome: 'Cobra', vel: 0.6, alt: 0.3, raio: 0.3, som: 'cobra',
     montar(r) {

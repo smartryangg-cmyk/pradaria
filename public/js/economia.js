@@ -3,7 +3,8 @@
 // Não importe nada daqui que dependa do navegador (o servidor também usa este arquivo).
 
 import { caberNoBau, porNoBau, tirarDoBau, ESPACOS_BAU } from './bau-regras.js';
-import { ganharXp, normalizarXp, xpDoMinerio, XP_FORNO, XP_CACA } from './xp-regras.js';
+import { ganharXp, normalizarXp, xpDoMinerio, XP_FORNO, XP_CACA, XP_MONSTRO } from './xp-regras.js';
+import { CAI_MONSTRO, ehMonstro } from './monstros-regras.js';
 import { avancar, caberNoForno, porNoForno, tirarDoForno, PILHA_FORNO } from './fornalha-regras.js';
 import { aplicarTrabalho, normalizarTrabalho, negocioNovo, livreDe, marcarCompra, ajustarCompra, converter } from './trabalho.js';
 import { RECEITAS, guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm, cabe, cabeQuanto, pilhaDe, DURA, ajustarDesg, desgastar, tirarDesg, porDesg, desgLista, receitaNoMundo } from './receitas.js';
@@ -107,11 +108,13 @@ export const CAI_BICHO = {
   ovelha: [[CAR, 1], [LB, 2]], porquinho: [[CAR, 2]], galinha: [[CAR, 1]], vaca: [[CAR, 2], [COU, 1]],
   capivara: [[CAR, 1], [COU, 1]], coelho: [[CAR, 1]], veado: [[CAR, 2], [COU, 1]], lobo: [[COU, 1]],
   raposa: [[COU, 1]], urso: [[CAR, 2], [COU, 2]], onca: [[COU, 1]], cobra: [[COU, 1]],
+  ...CAI_MONSTRO, // monstros da noite (monstros-regras.js)
 };
 export function caiDoBicho(especie, filhote) {
   const l = Object.prototype.hasOwnProperty.call(CAI_BICHO, especie) ? CAI_BICHO[especie] : [];
   return filhote ? l.slice(0, 1).map(([id]) => [id, 1]) : l;
 }
+const ESPADAS = new Set([1113, 1114, 1115, 1116]); // receitas.js I.ESPADA_*
 const MAX_ITEM = 9999, MAX_MOEDAS = 999999;
 
 // ---------- veículos (só valem com a opção Veículos ligada no mundo) ----------
@@ -258,9 +261,10 @@ export function aplicar(e, op, a, ctx = {}) {
       if (a.e === 'la') { if (!op.sobrevivencia) return falha('?'); cai = [[LB, 1]]; }
       else {
         if (!op.sobrevivencia && !op.mercado) return falha('?');
+        if (ehMonstro(String(a.b)) && !op.fome) return falha('?'); // monstro só existe no jogo clássico
         cai = caiDoBicho(String(a.b), !!a.f);
         if (!cai.length) return falha('?');
-        if (op.fome) r.xp = ganharXp(e, XP_CACA); // caçar dá experiência (jogo clássico)
+        if (op.fome) r.xp = ganharXp(e, XP_MONSTRO[a.b] || XP_CACA); // caçar dá experiência (jogo clássico); monstro dá mais
       }
       if (noChao) r.cai = cai.map(([id, q]) => [id, q, 0]);
       else for (const [id, q] of cai) por(e.itens, id, q);
@@ -414,6 +418,14 @@ export function aplicar(e, op, a, ctx = {}) {
     if (!ehComida(id)) return falha('Isso não se come.');
     if (!tirar(e.itens, id, 1)) return falha('Acabou a comida.');
     ajustarCompra(e);
+    r.mudou = true;
+  } else if (a.t === 'golpe') {
+    // bateu num bicho/monstro com uma ferramenta (jogo clássico): a espada gasta 1, as outras ferramentas 2
+    if (!op.fome) return falha('?');
+    const id = a.mao | 0;
+    if (!DURA[id] || (e.itens[id] | 0) < 1) return falha('?');
+    r.ferramenta = desgastar(e, id);
+    if (!ESPADAS.has(id) && r.ferramenta === 'gastou') r.ferramenta = desgastar(e, id);
     r.mudou = true;
   } else if (a.t === 'morrer') {
     // morreu (sem corações): tudo o que dá para pôr no chão cai, em pilhas, onde a pessoa estava

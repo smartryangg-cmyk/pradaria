@@ -26,10 +26,12 @@ export const IDS = {
   FORNALHA: 188, BLOCO_FERRO: 190, BLOCO_OURO: 191, BLOCO_DIAMANTE: 192,
   CARVAO: 1100, BARRA_FERRO: 1101, BARRA_OURO: 1102, DIAMANTE: 1103, CARNE_ASSADA: 1104,
   PICARETA_FERRO: 1105, MACHADO_FERRO: 1106, PA_FERRO: 1107, PICARETA_DIAMANTE: 1108, MACHADO_DIAMANTE: 1109, PA_DIAMANTE: 1110,
+  // monstros da noite (monstros-regras.js): o que eles deixam e as espadas
+  TEIA: 1111, CARNE_ESTRAGADA: 1112, ESPADA_MADEIRA: 1113, ESPADA_PEDRA: 1114, ESPADA_FERRO: 1115, ESPADA_DIAMANTE: 1116,
 };
 const I = IDS;
-export const ULTIMO_ITEM = 1010; // 1010 isqueiro (fogo-regras.js)
-export const PRIMEIRO_CLASSICO = 1100, ULTIMO_CLASSICO = 1110; // itens do jogo clássico (minérios, fornalha)
+export const ULTIMO_ITEM = 1012; // 1010 isqueiro (fogo-regras.js); 1011 açúcar, 1012 bolo (cana-regras.js)
+export const PRIMEIRO_CLASSICO = 1100, ULTIMO_CLASSICO = 1116; // itens do jogo clássico (minérios, fornalha, monstros, espadas)
 export const MAIOR_ITEM = ULTIMO_CLASSICO;
 export const MAX_BLOCO = 255;
 
@@ -160,6 +162,11 @@ export const RECEITAS = [
   { id: 'picareta-diamante', faz: [I.PICARETA_DIAMANTE, 1], usa: [[I.DIAMANTE, 3], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas', forma: ['DDD', '.G.', '.G.'] },
   { id: 'machado-diamante', faz: [I.MACHADO_DIAMANTE, 1], usa: [[I.DIAMANTE, 3], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas', forma: ['DD', 'DG', '.G'] },
   { id: 'pa-diamante', faz: [I.PA_DIAMANTE, 1], usa: [[I.DIAMANTE, 1], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas', forma: ['D', 'G', 'G'] },
+  { id: 'espada-madeira', faz: [I.ESPADA_MADEIRA, 1], usa: [[I.TABUAS, 2], [I.GRAVETO, 1]], bancada: true, grupo: 'ferramentas', forma: ['T', 'T', 'G'] },
+  { id: 'espada-pedra', faz: [I.ESPADA_PEDRA, 1], usa: [[I.PEDRA, 2], [I.GRAVETO, 1]], bancada: true, grupo: 'ferramentas', forma: ['P', 'P', 'G'] },
+  { id: 'espada-ferro', faz: [I.ESPADA_FERRO, 1], usa: [[I.BARRA_FERRO, 2], [I.GRAVETO, 1]], bancada: true, grupo: 'ferramentas', forma: ['F', 'F', 'G'] },
+  { id: 'espada-diamante', faz: [I.ESPADA_DIAMANTE, 1], usa: [[I.DIAMANTE, 2], [I.GRAVETO, 1]], bancada: true, grupo: 'ferramentas', forma: ['D', 'D', 'G'] },
+  { id: 'la-de-fio', faz: [14, 1], usa: [[I.TEIA, 4]], grupo: 'construir', forma: ['II', 'II'] }, // 4 fios de teia de aranha = 1 lã
   { id: 'balde', faz: [I.BALDE, 1], usa: [[I.TABUAS, 3]], bancada: true, grupo: 'ferramentas', forma: ['T.T', '.T.'] },
   // construção
   { id: 'pedrisco', faz: [I.PEDRISCO, 2], usa: [[I.PEDRA, 2]], grupo: 'construir', forma: ['P.', '.P'] },
@@ -178,6 +185,8 @@ export const RECEITAS = [
   { id: 'barras-ouro', faz: [I.BARRA_OURO, 9], usa: [[I.BLOCO_OURO, 1]], grupo: 'construir' },
   { id: 'bloco-diamante', faz: [I.BLOCO_DIAMANTE, 1], usa: [[I.DIAMANTE, 9]], bancada: true, grupo: 'construir', forma: ['DDD', 'DDD', 'DDD'] },
   { id: 'diamantes', faz: [I.DIAMANTE, 9], usa: [[I.BLOCO_DIAMANTE, 1]], grupo: 'construir' },
+  { id: 'acucar', faz: [1011, 1], usa: [[224, 1]], grupo: 'basico' },
+  { id: 'bolo', faz: [1012, 1], usa: [[32, 3], [1011, 2]], bancada: true, grupo: 'basico' },
   { id: 'bau', faz: [223, 1], usa: [[I.TABUAS, 8]], bancada: true, grupo: 'construir', forma: ['TTT', 'T.T', 'TTT'] },
   { id: 'escada-mao', faz: [211, 3], usa: [[I.GRAVETO, 7]], bancada: true, grupo: 'construir', forma: ['G.G', 'GGG', 'G.G'] },
   { id: 'lampiao', faz: [I.LAMPIAO, 1], usa: [[I.VIDRO, 1], [I.GRAVETO, 1]], bancada: true, grupo: 'construir' },
@@ -288,7 +297,7 @@ function cabeDepois(itens, r) {
 // sem `forma`: as coisas podem estar em qualquer lugar (uma por espaço). Cada espaço gasta 1.
 // Letras: T tábuas, G graveto, P pedra, R pedrisco, W trigo, F barra de ferro, D diamante, O barra de ouro,
 // C carvão, L = o único ingrediente da receita.
-const LETRAS = { T: I.TABUAS, G: I.GRAVETO, P: I.PEDRA, R: I.PEDRISCO, W: I.TRIGO, F: I.BARRA_FERRO, D: I.DIAMANTE, O: I.BARRA_OURO, C: I.CARVAO };
+const LETRAS = { T: I.TABUAS, G: I.GRAVETO, P: I.PEDRA, R: I.PEDRISCO, W: I.TRIGO, F: I.BARRA_FERRO, D: I.DIAMANTE, O: I.BARRA_OURO, C: I.CARVAO, I: I.TEIA };
 const letra = (r, c) => (c === '.' ? 0 : c === 'L' ? r.usa[0][0] : LETRAS[c]);
 export function desenhoDe(r) {
   if (r.forma) return r.forma.map((l) => [...l].map((c) => letra(r, c)));
@@ -359,7 +368,7 @@ export function criarEm(itens, r, temBancada, limite = false) {
 // e.desg[id] = lista com o uso já gasto de cada ferramenta desse tipo (a primeira é a da mão: gasta primeiro).
 // Quebrar um bloco com a ferramenta gasta 1 (plantas e coisas de um toque não); acender com o isqueiro gasta 1.
 // Quando chega no máximo, a ferramenta quebra. Largar no chão leva o desgaste junto (pegar de volta não conserta).
-export const DURA = { 1001: 59, 1003: 59, 1005: 59, 1002: 131, 1004: 131, 1006: 131, 1010: 64, 1105: 250, 1106: 250, 1107: 250, 1108: 1561, 1109: 1561, 1110: 1561 };
+export const DURA = { 1001: 59, 1003: 59, 1005: 59, 1002: 131, 1004: 131, 1006: 131, 1010: 64, 1105: 250, 1106: 250, 1107: 250, 1108: 1561, 1109: 1561, 1110: 1561, 1113: 59, 1114: 131, 1115: 250, 1116: 1561 };
 const lim = (id, v) => Math.max(0, Math.min(DURA[id] - 1, v | 0));
 // desgaste válido para n ferramentas id (lista de números; o que faltar é ferramenta nova)
 export const desgLista = (id, l, n) => (DURA[id] && Array.isArray(l) ? l.slice(0, Math.max(0, n | 0)).map((v) => lim(id, v)) : []);

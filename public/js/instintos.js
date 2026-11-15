@@ -69,6 +69,12 @@ export const INSTINTOS = {
     corrida: 5.6, folego: 4, curioso: 0, territorio: 0, defende: 7, dano: 2, cacaGente: true, sucesso: 0.4, habitat: { floresta: 1, beira: 1.5, selva: 3, savana: 0.5 }, nome: 'a onça' },
   cobra: { selvagem: true, vida: 2, revida: 'bote', dieta: 'carne', atividade: 'dia', grupo: [1, 1], fuga: 0, alerta: 4, corrida: 1.6, folego: 2, curioso: 0, territorio: 3, bote: 1.5,
     dano: 1, naoPersegue: true, habitat: { prado: 0.5, floresta: 0.6, praia: 0.8, deserto: 2, selva: 1.5, savana: 1 }, nome: 'a cobra' },
+  // monstros da noite (jogo clássico; monstros-regras.js): não fogem, não têm habitat (nascem no escuro) e caçam gente.
+  // O barrento queima no sol; a aranha de dia fica quieta (só briga se apanhar)
+  barrento: { selvagem: true, monstro: true, queimaNoSol: true, vida: 10, revida: 'sempre', dieta: 'carne', atividade: 'sempre', grupo: [1, 1], fuga: 0, alerta: 0,
+    corrida: 2.4, folego: 99, curioso: 0, dano: 1.5, habitat: {}, nome: 'o barrento' },
+  aranha: { selvagem: true, monstro: true, vida: 8, revida: 'sempre', dieta: 'carne', atividade: 'sempre', grupo: [1, 1], fuga: 0, alerta: 0,
+    corrida: 4.2, folego: 99, curioso: 0, dano: 1, habitat: {}, nome: 'a aranha' },
 };
 
 // bichos novos (das eras, por exemplo) entram aqui. Campos que faltarem usam o padrão abaixo.

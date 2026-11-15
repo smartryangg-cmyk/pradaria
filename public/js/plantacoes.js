@@ -8,6 +8,7 @@
 import { B, AGUA, PLANTA, FOLHAGEM } from './blocos.js';
 import { MUDAS, CHAO_DA_MUDA, MUDA_MIN, cresceMuda, formaArvore } from './arvores-regras.js';
 import { CX, CZ } from './mundo.js';
+import { CANA, ALTURA_CANA, CANA_MIN, cabeCana, alturaCana, cresceCana } from './cana-regras.js';
 
 export { TIQUE_MS, CHANCE, CHANCE_MOLHADA, sorteio } from './plantacoes-regras.js';
 import { TIQUE_MS, CHANCE, CHANCE_MOLHADA, sorteio } from './plantacoes-regras.js';
@@ -23,7 +24,7 @@ export function molhada(mundo, x, y, z) {
 }
 
 export class Plantacoes {
-  constructor(mundo) { this.mundo = mundo; this.ultimo = Math.floor(Date.now() / TIQUE_MS); this.mudaVista = new Map(); }
+  constructor(mundo) { this.mundo = mundo; this.ultimo = Math.floor(Date.now() / TIQUE_MS); this.mudaVista = new Map(); this.canaVista = new Map(); }
 
   // chamado a cada quadro; px/pz = onde o jogador está
   atualizar(px, pz, agora = Date.now()) {
@@ -42,6 +43,7 @@ export class Plantacoes {
       if (Math.abs(cx * CX + CX / 2 - px) > RAIO + CX || Math.abs(cz * CZ + CZ / 2 - pz) > RAIO + CZ) continue;
       for (const [i, b] of mapa) {
         if (MUDAS.has(b)) { this.muda(cx, cz, i, b, tique, arvores); continue; }
+        if (b === CANA) { this.cana(cx, cz, i, tique, crescer); continue; }
         if (!PROXIMO[b]) continue;
         const x = cx * CX + (i % CX), z = cz * CZ + (Math.floor(i / CX) % CZ), y = Math.floor(i / (CX * CZ));
         if (m.bloco(x, y, z) !== b) continue; // ainda não carregou ou já mudou
@@ -54,6 +56,21 @@ export class Plantacoes {
     // árvore nova: o tronco no lugar da muda primeiro (é o que a sala confere), depois o resto
     for (const blocos of arvores) for (const [x, y, z, b] of blocos) m.definir(x, y, z, b);
     return crescer.length + arvores.length;
+  }
+
+  // cana plantada (cana-regras.js): o pedaço de cima, com ar em cima e coluna menor que 3, ganha mais um
+  // no tique sorteado, depois de CANA_MIN desde que esse pedaço apareceu (a sala confere igual)
+  cana(cx, cz, i, tique, crescer) {
+    const m = this.mundo, x = cx * CX + (i % CX), z = cz * CZ + (Math.floor(i / CX) % CZ), y = Math.floor(i / (CX * CZ));
+    const bl = (a, b, c) => m.bloco(a, b, c);
+    if (bl(x, y, z) !== CANA || bl(x, y + 1, z) !== 0) return;
+    const alt = alturaCana(bl, x, y, z);
+    if (alt >= ALTURA_CANA || !cabeCana(bl, x, y - alt + 1, z)) return;
+    const k = x + ',' + y + ',' + z, agora = tique * TIQUE_MS;
+    if (!this.canaVista.has(k) || this.canaVista.get(k) > agora) { this.canaVista.set(k, agora); if (this.canaVista.size > 2000) this.canaVista.clear(); }
+    if (agora - this.canaVista.get(k) < CANA_MIN || !cresceCana(x, y + 1, z, tique)) return;
+    this.canaVista.delete(k);
+    crescer.push([x, y + 1, z, CANA]);
   }
 
   // muda plantada na grama/terra: depois de 1 min, a cada tique pode virar árvore (se tiver espaço em cima)

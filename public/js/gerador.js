@@ -10,6 +10,7 @@ export const G = {
   FLOR_VERMELHA: 11, FLOR_AMARELA: 12, CAPIM: 13, FLOR_AZUL: 22,
   // neve, grama com neve, gelo e arenito: blocos das eras (blocos-eras.js)
   NEVE: 140, GRAMA_NEVE: 137, GELO: 138, ARENITO: 146, CACTO: 63, CASCALHO: 65,
+  CANA: 224, // cana-regras.js
   CARVAO: 66, FERRO: 67, OURO: 68, DIAMANTE: 69, ROCHA_MAE: 70,
   TRONCO_PINHEIRO: 71, FOLHAS_PINHEIRO: 72, TRONCO_BETULA: 73, FOLHAS_SELVA: 74, ARBUSTO_SECO: 75,
   // troncos redondos das árvores (formas-defs.js)
@@ -228,6 +229,16 @@ export function criarGerador(semente, alt, limite = null) {
       const bio = biomas[x + z * CX];
       const r = hash3(wx, 7, wz, semente), r2 = hash3(wx, 11, wz, semente), r3 = hash3(wx, 3, wz, semente);
       const cabe = (m) => x >= m && x <= CX - 1 - m && z >= m && z <= CZ - 1 - m && !semArvore(wx, wz);
+      // cana-de-açúcar na beira da água (cana-regras.js): grama, terra ou areia com água do lado, 1 a 3 de altura
+      if ((chao === G.GRAMA || chao === G.TERRA || chao === G.AREIA) && x > 0 && x < CX - 1 && z > 0 && z < CZ - 1 &&
+          (d[idx(x + 1, h, z)] === G.AGUA || d[idx(x - 1, h, z)] === G.AGUA || d[idx(x, h, z + 1)] === G.AGUA || d[idx(x, h, z - 1)] === G.AGUA)) {
+        const rc = hash3(wx, 23, wz, semente);
+        if (rc < 0.1) {
+          const a = 1 + Math.floor(hash3(wx, 29, wz, semente) * 3);
+          for (let i = 1; i <= a; i++) d[idx(x, h + i, z)] = G.CANA;
+          continue;
+        }
+      }
       if (chao === G.AREIA) {
         if (bio === BIOMA.DESERTO) {
           if (r < 0.006 && cabe(1)) { const a = 1 + Math.floor(r3 * 3); for (let i = 1; i <= a; i++) d[idx(x, h + i, z)] = G.CACTO; }
