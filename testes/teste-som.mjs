@@ -173,7 +173,9 @@ for (const d of DISP) {
   ok((await conta(p, 'abrir')).length >= 1 && (await conta(p, 'fechar')).length >= 1, 'mochila: som de abrir e fechar');
 
   // bichos: esperam um pouco e "falam" de onde estão (som 3D)
-  await p.evaluate(() => { const j = window.__jogo.jog; j.pitch = 0; });
+  // uns bichos mansos por perto (em mundo sorteado, às vezes não tinha nenhum ao alcance do ouvido)
+  await p.evaluate(() => { const { jog, bichos, mundo } = window.__jogo; jog.pitch = 0;
+    ['ovelha', 'galinha', 'vaca', 'porquinho'].forEach((e, i) => { const x = Math.floor(jog.pos.x) + (i % 2 ? 4 : -4), z = Math.floor(jog.pos.z) + (i < 2 ? 4 : -4); bichos.criar(e, x + 0.5, mundo.chao(x, z) + 1, z + 0.5); }); });
   await p.waitForFunction(() => window.__log.some((x) => x.k === 'bicho'), null, { timeout: 30000 }).catch(() => {});
   const bi = await conta(p, 'bicho');
   ok(bi.length >= 1, `bichos falando: ${bi.map((x) => `${x.t} (lado ${x.pan}, vol ${x.vol})`).slice(0, 4).join('; ')}`);
