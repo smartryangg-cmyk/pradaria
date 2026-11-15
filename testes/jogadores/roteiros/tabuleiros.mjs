@@ -28,15 +28,16 @@ async function partidaAoAcaso(j, jogo, rnd) {
     await j.espera(pecas === 24, 'dama: 24 peças no começo', { tipo: 'clássico', visto: String(pecas) });
   }
   let lances = 0, semSaida = 0;
-  while (lances < 60) {
+  while (lances < 40) {
     if (await j.p.isVisible('#x-fim:not([hidden])')) { j.passo('a partida acabou: ' + (await j.p.locator('#fim-titulo').innerText())); break; }
     const status = await j.p.locator('#x-status').innerText().catch(() => '');
     if (!/Sua vez|Tem que comer|Xeque|sua vez/i.test(status)) { await j.p.waitForTimeout(700); semSaida++; if (semSaida > 40) { await j.bug(`${jogo}: o computador não respondeu em 28 s`, { tipo: 'travou', visto: status }); return; } continue; }
     semSaida = 0;
-    const todas = await j.p.$$eval('.casa', (l) => l.map((e) => +e.dataset.i));
+    // só as casas com peça (as do adversário não mostram lance, então custam um toque só)
+    const todas = await j.p.$$eval('#tabuleiro .casa', (l) => l.filter((e) => e.querySelector('svg, .peca, img, span:not(:empty)') || e.textContent.trim()).map((e) => +e.dataset.i));
     let fez = false;
     for (const i of todas.sort(() => rnd() - 0.5)) {
-      await j.p.locator(`.casa[data-i="${i}"]`).click({ timeout: 3000 }).catch(() => {});
+      await j.p.locator(`.casa[data-i="${i}"]`).click({ timeout: 1500 }).catch(() => {});
       const pode = await casasPode(j);
       if (!pode.length) continue;
       const alvo = pode[Math.floor(rnd() * pode.length)];
