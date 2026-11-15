@@ -1,10 +1,12 @@
-// Partida de jogo de tabuleiro entre dois amigos (xadrez agora; dama e truco depois).
+// Partida de jogo de tabuleiro entre dois amigos (xadrez e dama).
 // Uma instância por código de partida. O servidor confere cada lance com as mesmas regras do navegador
 // (public/js/xadrez-regras.js) e guarda tudo, então dá para recarregar a página e continuar.
 import { DurableObject } from 'cloudflare:workers';
 import * as X from '../../public/js/xadrez-regras.js';
+import * as D from '../../public/js/dama-regras.js';
 
-const JOGOS = { xadrez: X };
+// cada jogo: novo, validar(estado, mensagem), avancar, fim, publico (as regras ficam em public/js)
+const JOGOS = { xadrez: X, dama: D };
 const LUGARES = ['w', 'b'];
 
 export class Partida extends DurableObject {
@@ -23,14 +25,14 @@ export class Partida extends DurableObject {
     const jog = {};
     for (const l of LUGARES) { const j = p.lugares[l]; jog[l] = j ? { nome: j.nome, online: this.online(j.uid) } : null; }
     const voce = LUGARES.find((l) => p.lugares[l] && p.lugares[l].uid === uid) || null;
-    return { t: 'estado', jogo: p.jogo, estado: X.publico(p.e), jogadores: jog, voce, fim: p.fim, empate: p.empate || null, revanche: p.revanche || [], n: p.partidas };
+    return { t: 'estado', jogo: p.jogo, estado: JOGOS[p.jogo].publico(p.e), jogadores: jog, voce, fim: p.fim, empate: p.empate || null, revanche: p.revanche || [], n: p.partidas };
   }
   avisarTodos() { for (const w of this.conexoes()) { try { w.send(JSON.stringify(this.visao(w.deserializeAttachment().uid))); } catch {} } }
 
   novaPartida(trocar) {
     const p = this.p;
     if (trocar) { const w = p.lugares.w; p.lugares.w = p.lugares.b; p.lugares.b = w; }
-    p.e = X.novo(); p.fim = null; p.empate = null; p.revanche = []; p.partidas = (p.partidas || 1) + (trocar ? 1 : 0);
+    p.e = JOGOS[p.jogo].novo(); p.fim = null; p.empate = null; p.revanche = []; p.partidas = (p.partidas || 1) + (trocar ? 1 : 0);
   }
 
   async fetch(request) {
@@ -42,7 +44,7 @@ export class Partida extends DurableObject {
     if (!this.p) {
       if (!JOGOS[jogo]) return recusar('Jogo desconhecido.');
       // quem abre a partida joga de brancas
-      this.p = { jogo, lugares: { w: { uid: u.id, nome: u.nome }, b: null }, e: X.novo(), fim: null, criado: Date.now(), partidas: 1 };
+      this.p = { jogo, lugares: { w: { uid: u.id, nome: u.nome }, b: null }, e: JOGOS[jogo].novo(), fim: null, criado: Date.now(), partidas: 1 };
       await this.salvar();
     } else if (jogo && jogo !== this.p.jogo) return recusar('Este convite é de outro jogo.');
     const p = this.p;
@@ -63,7 +65,7 @@ export class Partida extends DurableObject {
 
   async webSocketMessage(ws, dados) {
     const eu = ws.deserializeAttachment();
-    if (!eu || typeof dados !== 'string' || dados.length > 300) return;
+    if (!eu || typeof dados !== 'string' || dados.length > 600) return;
     const agora = Date.now();
     if (agora - eu.janela > 10000) { eu.janela = agora; eu.cota = 0; }
     if (++eu.cota > 30) { ws.serializeAttachment(eu); return; }
@@ -79,11 +81,12 @@ export class Partida extends DurableObject {
       if (p.fim) return erro('A partida acabou.');
       if (!p.lugares[outro]) return erro('Espere seu amigo chegar.');
       if (p.e.vez !== meu) return erro('Não é a sua vez.');
-      const l = X.achar(p.e, +m.de, +m.para, typeof m.promo === 'string' ? m.promo.slice(0, 1) : 'Q');
+      const R = JOGOS[p.jogo];
+      const l = R.validar(p.e, m);
       if (!l) { ws.send(JSON.stringify(this.visao(eu.uid))); return erro('Esse lance não vale.'); }
-      p.e = X.avancar(p.e, l);
+      p.e = R.avancar(p.e, l);
       p.empate = null;
-      const f = X.fim(p.e);
+      const f = R.fim(p.e);
       if (f) p.fim = f;
     } else if (m.t === 'desistir') {
       if (p.fim) return;

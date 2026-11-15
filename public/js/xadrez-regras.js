@@ -130,6 +130,9 @@ export function achar(e, de, para, promo) {
   return ls[0];
 }
 
+// o lance mandado pelo jogador (mensagem { de, para, promo }) se for legal: usado pelo servidor da partida
+export const validar = (e, m) => achar(e, +m.de, +m.para, typeof m.promo === 'string' ? m.promo.slice(0, 1) : 'Q');
+
 // joga de verdade (guarda as repetições de posição para o empate por repetição)
 export function avancar(e, m) {
   const n = jogar(e, m);

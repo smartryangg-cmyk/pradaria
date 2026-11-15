@@ -55,3 +55,8 @@ a.bt { text-decoration: none; }
   #x-cima { grid-row: 2; } #x-baixo { grid-row: 4; } #x-botoes { grid-row: 5; flex-direction: column; }
 }
 .pag-tabuleiro .bt:disabled { opacity: .5; cursor: default; }
+/* dama: fundo vermelho e as peças que vão ser comidas marcadas */
+body.pag-dama { background: linear-gradient(160deg, #e0525a, #a8303a); }
+.pag-dama .titulo-jogo { -webkit-text-stroke-color: #6b1a22; text-shadow: 0 4px 0 #6b1a22; }
+.casa.vai-comer::before { content: ""; position: absolute; inset: 8%; border-radius: 50%; border: 4px dashed #e64a3c; pointer-events: none; }
+.regras-dama { font-size: 14px; }

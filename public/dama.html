@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#a8303a">
+<title>Dama - Pradaria</title>
+<link rel="icon" href="icone.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="estilo.css?v=22">
+<link rel="stylesheet" href="tabuleiro.css?v=1">
+</head>
+<body class="pag-tabuleiro pag-dama">
+<div id="fundo" aria-hidden="true"></div>
+
+<!-- escolher como jogar -->
+<div id="x-menu" class="janela">
+  <div class="caixa">
+    <div class="titulo-jogo"><span data-icone="dama"></span><span>Dama</span></div>
+    <p class="sub centro">Como você quer jogar?</p>
+    <p class="sub regras-dama">Regras brasileiras: comer é obrigatório e vale o lance que come mais peças. A dama anda e come de longe.</p>
+    <h3>Contra o computador</h3>
+    <div class="niveis" role="radiogroup" aria-label="Nível do computador">
+      <button class="bt nivel" data-nivel="1" type="button" role="radio">Fácil</button>
+      <button class="bt nivel" data-nivel="2" type="button" role="radio">Médio</button>
+      <button class="bt nivel" data-nivel="3" type="button" role="radio">Difícil</button>
+    </div>
+    <div class="niveis" role="radiogroup" aria-label="Sua cor">
+      <button class="bt cor-peca" data-cor="w" type="button" role="radio">Brancas</button>
+      <button class="bt cor-peca" data-cor="b" type="button" role="radio">Vermelhas</button>
+    </div>
+    <button class="bt verde grande" id="bt-computador" type="button"><span data-icone="engrenagem"></span>Jogar contra o computador</button>
+    <button class="bt amarelo" id="bt-continuar" type="button" hidden><span data-icone="relogio"></span>Continuar a partida</button>
+    <h3>Com um amigo</h3>
+    <button class="bt verde grande" id="bt-amigo" type="button"><span data-icone="amigos"></span>Chamar um amigo</button>
+    <p class="sub" id="x-sem-conta" hidden>Para jogar com amigos, <a href="/">entre na sua conta</a>.</p>
+    <p id="x-erro" class="erro"></p>
+    <a class="bt fraco" href="/" id="bt-jogos"><span data-icone="voltar"></span>Todos os jogos</a>
+  </div>
+</div>
+
+<!-- a partida -->
+<main id="x-jogo" hidden>
+  <div class="barra-topo">
+    <button class="redondo" id="bt-sair" aria-label="Sair da partida"><span data-icone="voltar"></span></button>
+    <div id="x-status" aria-live="polite"></div>
+    <button class="redondo" id="bt-girar" aria-label="Virar o tabuleiro"><span data-icone="recarregar"></span></button>
+  </div>
+  <div class="jogador-linha" id="x-cima"></div>
+  <div id="tabuleiro" role="grid" aria-label="Tabuleiro de dama"></div>
+  <div class="jogador-linha" id="x-baixo"></div>
+  <div class="linha-bts" id="x-botoes">
+    <button class="bt" id="bt-empate" type="button" hidden>Propor empate</button>
+    <button class="bt" id="bt-desistir" type="button">Desistir</button>
+    <button class="bt verde" id="bt-chamar" type="button" hidden><span data-icone="acenar"></span>Chamar amigo</button>
+  </div>
+</main>
+
+<!-- fim da partida -->
+<div id="x-fim" class="janela" hidden>
+  <div class="caixa">
+    <h2 id="fim-titulo"></h2>
+    <p class="sub centro" id="fim-txt"></p>
+    <button class="bt verde grande" id="bt-revanche" type="button">Jogar de novo</button>
+    <p class="sub centro" id="fim-espera" hidden></p>
+    <button class="bt" id="bt-ver" type="button">Ver o tabuleiro</button>
+    <button class="bt" id="bt-menu-fim" type="button">Outro jeito de jogar</button>
+  </div>
+</div>
+
+<div id="aviso"></div>
+<script type="module" src="js/dama.js?v=1"></script>
+</body>
+</html>
