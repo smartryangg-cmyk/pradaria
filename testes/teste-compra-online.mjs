@@ -1,5 +1,6 @@
 // Coletar e criar online: o que se compra na loja da vila vem marcado e a marca segue o bloco no mundo.
-// A Ana compra tijolos, põe um no chão e o Beto (amigo) quebra: o tijolo chega marcado para ele e os
+// (lã: no jogo clássico tijolo e pedra só saem com picareta, e a marca de comprado vale para qualquer bloco)
+// A Ana compra lãs, põe uma no chão e o Beto (amigo) quebra: a lã chega marcada para ele e os
 // moradores não compram de volta. Precisa de `npm run dev:sala` e `npm run dev` (porta 8788).
 import { createRequire } from 'module'; const { chromium } = createRequire(import.meta.url)('playwright');
 const BASE = process.env.BASE || 'http://localhost:8788';
@@ -31,34 +32,34 @@ await bb.waitForTimeout(1000);
 conferir((await est(a)).moedas >= 10 && (await a.evaluate(() => window.__jogo.mercado.op.sobrevivencia)), 'mundo com Coletar e criar e mercado');
 await bb.evaluate(() => { const [id] = [...window.__jogo.mercado.ui.outros()].map((o) => o.id); window.__jogo.sala.enviar({ t: 'dar', para: id, n: 5 }); });
 await a.waitForTimeout(1200);
-await a.evaluate(() => window.__jogo.mercado.enviar({ t: 'comprar', b: 10 }));
+await a.evaluate(() => window.__jogo.mercado.enviar({ t: 'comprar', b: 14 }));
 await a.waitForTimeout(1200);
 const ea = await est(a);
-conferir(ea.itens[10] === 4 && ea.compra[10] === 4, `Ana comprou 4 tijolos e vêm marcados (${ea.itens[10]}, marca ${ea.compra[10]})`);
+conferir(ea.itens[14] === 4 && ea.compra[14] === 4, `Ana comprou 4 lãs e vêm marcados (${ea.itens[14]}, marca ${ea.compra[14]})`);
 // vender de volta não dá
-await a.evaluate(() => window.__jogo.mercado.enviar({ t: 'vender', b: 10, n: 4 }));
+await a.evaluate(() => window.__jogo.mercado.enviar({ t: 'vender', b: 14, n: 4 }));
 await a.waitForTimeout(1000);
-conferir((await est(a)).itens[10] === 4, 'os moradores não compram de volta o que ela comprou');
-// põe um tijolo no chão perto dos dois
+conferir((await est(a)).itens[14] === 4, 'os moradores não compram de volta o que ela comprou');
+// põe uma lã no chão perto dos dois
 const lugar = await a.evaluate(() => {
   const { jog, mundo, comoJogador } = window.__jogo; const x = Math.floor(jog.pos.x) + 2, z = Math.floor(jog.pos.z) + 1;
   let y = 94; while (y > 2 && !mundo.bloco(x, y - 1, z)) y--;
-  comoJogador(() => mundo.definir(x, y, z, 10)); return [x, y, z];
+  comoJogador(() => mundo.definir(x, y, z, 14)); return [x, y, z];
 });
 await a.waitForTimeout(1500);
-conferir((await est(a)).itens[10] === 3, 'colocar gastou um tijolo da mochila');
+conferir((await est(a)).itens[14] === 3, 'colocar gastou uma lã da mochila');
 await bb.evaluate(([x, y, z]) => { const { jog } = window.__jogo; jog.voando = true; Object.assign(jog.pos, { x: x + 0.5, y: y + 2, z: z + 2.5 }); }, lugar);
-await bb.waitForFunction(([x, y, z]) => window.__jogo.mundo.bloco(x, y, z) === 10, lugar, { timeout: 10000 }).catch(() => {});
+await bb.waitForFunction(([x, y, z]) => window.__jogo.mundo.bloco(x, y, z) === 14, lugar, { timeout: 10000 }).catch(() => {});
 const antesB = await est(bb);
 await bb.evaluate(([x, y, z]) => { const { mundo, comoJogador } = window.__jogo; comoJogador(() => mundo.definir(x, y, z, 0)); }, lugar);
 await bb.waitForTimeout(1500);
 const depoisB = await est(bb);
-conferir((depoisB.itens[10] || 0) === (antesB.itens[10] || 0) + 1, `Beto quebrou o tijolo e pegou (${depoisB.itens[10]})`);
-conferir((depoisB.compra[10] || 0) === 1, `o tijolo chegou marcado como comprado (${JSON.stringify(depoisB.compra)})`);
-await bb.evaluate(() => window.__jogo.mercado.enviar({ t: 'vender', b: 10, n: 1 }));
+conferir((depoisB.itens[14] || 0) === (antesB.itens[14] || 0) + 1, `Beto quebrou a lã e pegou (${depoisB.itens[14]})`);
+conferir((depoisB.compra[14] || 0) === 1, `a lã chegou marcado como comprado (${JSON.stringify(depoisB.compra)})`);
+await bb.evaluate(() => window.__jogo.mercado.enviar({ t: 'vender', b: 14, n: 1 }));
 await bb.waitForTimeout(1000);
 const fimB = await est(bb);
-conferir(fimB.moedas === depoisB.moedas && fimB.itens[10] === 1, 'os moradores não compram do Beto o tijolo que a Ana comprou');
+conferir(fimB.moedas === depoisB.moedas && fimB.itens[14] === 1, 'os moradores não compram do Beto a lã que a Ana comprou');
 // e um bloco que o Beto colheu (terra natural) vende normal
 const terra = await bb.evaluate(() => {
   const { jog, mundo, comoJogador } = window.__jogo; const x = Math.floor(jog.pos.x) - 3, z = Math.floor(jog.pos.z) - 3;
@@ -67,7 +68,7 @@ const terra = await bb.evaluate(() => {
 });
 await bb.waitForTimeout(1200);
 const colheu = await est(bb);
-const cai = Object.keys(colheu.itens).map(Number).find((k) => k !== 10 && !colheu.compra[k]);
+const cai = Object.keys(colheu.itens).map(Number).find((k) => k !== 14 && !colheu.compra[k]);
 await bb.evaluate((k) => window.__jogo.mercado.enviar({ t: 'vender', b: k, n: 1 }), cai);
 await bb.waitForTimeout(1000);
 conferir((await est(bb)).moedas > colheu.moedas, `o que o Beto colheu (bloco ${terra} -> ${cai}) vende normal`);

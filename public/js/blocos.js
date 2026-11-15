@@ -70,7 +70,7 @@ def(B.CASCALHO, 'Cascalho', 30);
 def(B.CARVAO, 'Minério de carvão', 31);
 def(B.FERRO, 'Minério de ferro', 32);
 def(B.OURO, 'Minério de ouro', 33);
-def(B.DIAMANTE, 'Diamante', 34);
+def(B.DIAMANTE, 'Minério de diamante', 34);
 def(B.ROCHA_MAE, 'Rocha-mãe', 35);
 def(B.TRONCO_PINHEIRO, 'Tronco de pinheiro', [6, 6, 36]);
 def(B.FOLHAS_PINHEIRO, 'Folhas de pinheiro', 37);
@@ -82,6 +82,12 @@ def(B.TRIGO_VERDE, 'Trigo crescendo', 141, { solido: false, opaco: false, planta
 def(B.MUDA, 'Muda de árvore', 143, { solido: false, opaco: false, planta: true });
 def(B.MUDA_PINHEIRO, 'Muda de pinheiro', 144, { solido: false, opaco: false, planta: true });
 def(B.BANCADA, 'Bancada', [128, 9, 129]);
+// jogo clássico: fornalha (fornalha-regras.js) e blocos de metal (blocos 188..210, tiles 168..191)
+export const FORNALHA = 188, BLOCO_FERRO = 190, BLOCO_OURO = 191, BLOCO_DIAMANTE = 192;
+def(FORNALHA, 'Fornalha', [169, 169, 168]);
+def(BLOCO_FERRO, 'Bloco de ferro', 170);
+def(BLOCO_OURO, 'Bloco de ouro', 171);
+def(BLOCO_DIAMANTE, 'Bloco de diamante', 172);
 
 // ---------- itens (não são blocos: não vão para o mundo) ----------
 // Números a partir de 1000, longe de todos os blocos (0..255). Receitas e força das ferramentas: receitas.js.
@@ -93,6 +99,9 @@ export const ITEM = {
   CARNE: 1007, COURO: 1008, // caem dos bichos (animais.js -> economia.js CAI_BICHO)
   ISQUEIRO, // 1010: acende fogo (fogo-regras.js)
   BALDE: 1009, // balde vazio: pega a água parada (fonte). Cheio, é a Água na mão; colocar a água devolve o balde
+  // jogo clássico (receitas.js IDS): minérios, fornalha, ferramentas de ferro e diamante
+  CARVAO: 1100, BARRA_FERRO: 1101, BARRA_OURO: 1102, DIAMANTE: 1103, CARNE_ASSADA: 1104,
+  PICARETA_FERRO: 1105, MACHADO_FERRO: 1106, PA_FERRO: 1107, PICARETA_DIAMANTE: 1108, MACHADO_DIAMANTE: 1109, PA_DIAMANTE: 1110,
 };
 export const ITENS = {
   [ITEM.GRAVETO]: { nome: 'Graveto', tile: 130 },
@@ -106,6 +115,17 @@ export const ITENS = {
   [ITEM.COURO]: { nome: 'Couro', tile: 138 },
   [ITEM.BALDE]: { nome: 'Balde', tile: 142 },
   [ISQUEIRO]: { nome: 'Isqueiro', tile: 153 },
+  [ITEM.CARVAO]: { nome: 'Carvão', tile: 173 },
+  [ITEM.BARRA_FERRO]: { nome: 'Barra de ferro', tile: 174 },
+  [ITEM.BARRA_OURO]: { nome: 'Barra de ouro', tile: 175 },
+  [ITEM.DIAMANTE]: { nome: 'Diamante', tile: 176 },
+  [ITEM.CARNE_ASSADA]: { nome: 'Carne assada', tile: 177 },
+  [ITEM.PICARETA_FERRO]: { nome: 'Picareta de ferro', tile: 178 },
+  [ITEM.MACHADO_FERRO]: { nome: 'Machado de ferro', tile: 179 },
+  [ITEM.PA_FERRO]: { nome: 'Pá de ferro', tile: 180 },
+  [ITEM.PICARETA_DIAMANTE]: { nome: 'Picareta de diamante', tile: 181 },
+  [ITEM.MACHADO_DIAMANTE]: { nome: 'Machado de diamante', tile: 182 },
+  [ITEM.PA_DIAMANTE]: { nome: 'Pá de diamante', tile: 183 },
 };
 export const ehItem = (id) => id >= 1000;
 // nome de qualquer coisa que cabe na mão (bloco ou item)
@@ -453,6 +473,69 @@ function pintarCriacao(img) {
   };
   pintarTile(img, 135, ferramenta(pa(mad, madEsc)));
   pintarTile(img, 136, ferramenta(pa(pedraC, pedraE)));
+  // ferro (cinza claro, brilho) e diamante (azul-piscina)
+  const ferroC = hex(0xdfe3e8), ferroE = hex(0x8d949c), diaC = hex(0x5fe0d6), diaE = hex(0x1f8f8a);
+  pintarTile(img, 178, ferramenta(picareta(ferroC, ferroE)));
+  pintarTile(img, 179, ferramenta(machado(ferroC, ferroE)));
+  pintarTile(img, 180, ferramenta(pa(ferroC, ferroE)));
+  pintarTile(img, 181, ferramenta(picareta(diaC, diaE)));
+  pintarTile(img, 182, ferramenta(machado(diaC, diaE)));
+  pintarTile(img, 183, ferramenta(pa(diaC, diaE)));
+  // 173 carvão: pedra preta com facetas
+  pintarTile(img, 173, (x, y, r) => {
+    const d = Math.abs(x - 7.5) + Math.abs(y - 8) * 1.1;
+    if (d > 6.5) return [0, 0, 0, 0];
+    if (d > 5.6) return var_(hex(0x16161a), r, 0.05);
+    return var_((x + y * 2) % 7 === 0 ? hex(0x5a5a66) : (x > y ? hex(0x2a2a30) : hex(0x3a3a42)), r, 0.12);
+  });
+  // barras (lingotes): trapézio com topo claro
+  const barra = (c, cl, e) => (x, y, r) => {
+    if (y < 5 || y > 11) return [0, 0, 0, 0];
+    const meia = 4 + (y - 5) * 0.55;
+    if (Math.abs(x - 7.5) > meia) return [0, 0, 0, 0];
+    if (y === 11 || Math.abs(x - 7.5) > meia - 1) return var_(e, r, 0.05);
+    return var_(y < 7 ? cl : c, r, 0.06);
+  };
+  pintarTile(img, 174, barra(hex(0xc9ced4), hex(0xf2f4f6), hex(0x7d848c)));
+  pintarTile(img, 175, barra(hex(0xf2c335), hex(0xfff2a0), hex(0xa8790f)));
+  // 176 diamante: gema lapidada
+  pintarTile(img, 176, (x, y, r) => {
+    const topo = y >= 3 && y <= 6 && Math.abs(x - 7.5) <= 3 + (y - 3);
+    const baixo = y > 6 && y <= 13 && Math.abs(x - 7.5) <= 6 - (y - 7);
+    if (!topo && !baixo) return [0, 0, 0, 0];
+    if (topo) return var_(x < 7 ? hex(0xb8fff8) : hex(0x7beee4), r, 0.05);
+    return var_((x + y) % 4 === 0 ? hex(0xd8fffb) : x < 8 ? hex(0x4cd6cc) : hex(0x2aa9a1), r, 0.06);
+  });
+  // 177 carne assada: a coxa, dourada
+  pintarTile(img, 177, (x, y, r) => {
+    const dx = x - 6, dy = y - 6, d = Math.hypot(dx, dy);
+    if (d < 5.4) return var_(d > 4.5 ? hex(0x5e3216) : (dx + dy < -3 ? hex(0xd9954a) : hex(0xa9622a)), r, 0.06);
+    const osso = x - y === 0 && x >= 10 && x <= 13;
+    const ponta = Math.hypot(x - 13.2, y - 13.2) < 1.6;
+    if (osso || ponta) return var_(hex(0xf3ead8), r, 0.04);
+    if (x - y === 1 && x >= 11 && x <= 14 || x - y === -1 && x >= 10 && x <= 13) return var_(hex(0xcfc3a8), r, 0.04);
+    return [0, 0, 0, 0];
+  });
+  // 168 fornalha (lado): pedra com a boca escura e grelha; 169 topo de pedra lisa
+  const pedraFor = (x, y, r) => var_(((x >> 2) + (y >> 2) * 3) % 5 === 0 ? hex(0x6e7178) : (x % 8 === 0 || y % 5 === 0) ? hex(0x5c5f66) : hex(0x84878e), r, 0.1);
+  pintarTile(img, 168, (x, y, r) => {
+    if (x >= 4 && x <= 11 && y >= 8 && y <= 13) {
+      if (y === 8 || x === 4 || x === 11) return var_(hex(0x3c3e44), r, 0.05);
+      return var_(y >= 11 ? hex(0xff8a2a) : hex(0x1a1a1e), r, 0.12); // brasa no fundo da boca
+    }
+    if (x >= 4 && x <= 11 && y === 5) return var_(hex(0x3c3e44), r, 0.05);
+    return pedraFor(x, y, r);
+  });
+  pintarTile(img, 169, (x, y, r) => (x === 0 || y === 0 || x === 15 || y === 15 ? var_(hex(0x5c5f66), r, 0.05) : pedraFor(x, y, r)));
+  // blocos de metal: placa com borda e rebite
+  const placa = (c, cl, e) => (x, y, r) => {
+    if (x === 0 || y === 0 || x === 15 || y === 15) return var_(e, r, 0.05);
+    if ((x === 2 || x === 13) && (y === 2 || y === 13)) return var_(cl, r, 0.03);
+    return var_(x + y < 12 ? cl : c, r, 0.07);
+  };
+  pintarTile(img, 170, placa(hex(0xc9ced4), hex(0xeef1f4), hex(0x7d848c)));
+  pintarTile(img, 171, placa(hex(0xf0bd2a), hex(0xffe67a), hex(0xa8790f)));
+  pintarTile(img, 172, placa(hex(0x4cd6cc), hex(0xb8fff8), hex(0x1f8f8a)));
   // 137 carne: coxa de desenho animado (osso branco saindo do pedaço)
   pintarTile(img, 137, (x, y, r) => {
     const dx = x - 6, dy = y - 6, d = Math.hypot(dx, dy);

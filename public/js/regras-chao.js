@@ -5,7 +5,7 @@
 //   c (quantos são coisa comprada na loja: a marca vai junto, veja trabalho.js),
 //   q (quem fez cair: largou, quebrou ou caçou; só a sala usa, para um jogador não apagar os itens dos outros) }
 // A física (cair, quicar, boiar) é só desenho no aparelho; quem decide quem pegou é a sala (ou o próprio jogo, sem internet).
-import { guardavel, ULTIMO_ITEM, desgLista } from './receitas.js';
+import { guardavel, desgLista } from './receitas.js';
 
 export const VIDA_CHAO = 5 * 60 * 1000;   // some depois de 5 minutos no chão
 export const MAX_CHAO = 200;              // por mundo; passando disso some o mais antigo de quem tem mais no chão
@@ -18,7 +18,7 @@ export const ESPERA_PEGAR = 350;          // ninguém pega no mesmo instante em 
 export const MAX_LARGAR = 64;             // de uma vez
 export const PERTO_SALA = 7;              // a sala aceita pegar até esta distância (a posição chega atrasada)
 
-export const podeNoChao = (id, n) => guardavel(id) && id <= ULTIMO_ITEM && Number.isInteger(n) && n >= 1 && n <= MAX_LARGAR;
+export const podeNoChao = (id, n) => guardavel(id) && Number.isInteger(n) && n >= 1 && n <= MAX_LARGAR;
 const arr = (v) => Math.round(v * 100) / 100;
 
 // guarda os itens no chão de um mundo

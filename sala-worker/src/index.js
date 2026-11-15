@@ -5,7 +5,9 @@ export { Partida } from './partida.js';
 export { Pontos } from './pontos.js';
 import { ARMAS, danoMaximo, VOLTA_ITEM } from '../../public/js/armas-dados.js';
 import { opcoesEcon, econLigada, normalizar, aplicar, dar, liberado, temMochila, temVeiculo, estadoDaGaragem } from '../../public/js/economia.js';
-import { lugarVazio, gastoDe, oQueCai, ULTIMO_ITEM } from '../../public/js/receitas.js';
+import { lugarVazio, gastoDe, oQueCai, MAIOR_ITEM } from '../../public/js/receitas.js';
+import { normalizarForno, avancar, conteudo, fornoPublico } from '../../public/js/fornalha-regras.js';
+const FORNALHA = 188;
 import { Chao, publico, podePegar, pertoParaPegar, podeNoChao, MAX_LARGAR } from '../../public/js/regras-chao.js';
 import { normalizarOpcoes } from '../../public/js/opcoes-mundo.js';
 import { normalizarSkin } from '../../public/js/skin.js';
@@ -65,7 +67,7 @@ const CHAT_HISTORICO = 20, CHAT_HISTORICO_MS = 10 * 60000; // quem entra vê as 
 const VOZ_SINAL_MAX = 8000; // tamanho de um recado (uma oferta de áudio tem uns 2-4 mil letras)
 const VOZ_SINAIS_POR_5S = 60;
 const chatDe = (opcoes) => ({ texto: opcoes.chatTexto !== false, voz: opcoes.chatVoz !== false });
-const MAX_ID_ITEM = ULTIMO_ITEM; // blocos 1..255 e itens 1000+ (ferramentas etc.)
+const MAX_ID_ITEM = MAIOR_ITEM; // blocos 1..255 e itens 1000+ (ferramentas etc.)
 
 // posição [x, y, z] (e giro opcional) dentro dos limites do mundo
 function posOk(p) {
@@ -152,6 +154,23 @@ export class Sala extends DurableObject {
     await this.ctx.storage.put(put);
     await this.limparChao();
     this.enviarTodos({ t: 'chao', d: novos.filter((d) => c.itens.has(d.i)).map((d) => publico(d)) });
+  }
+  // fornalhas: carrega quando alguém usa (fica guardada em "f:x,y,z")
+  async fornoDe(k) {
+    this.fornos ??= new Map();
+    let f = this.fornos.get(k);
+    if (!f) { f = normalizarForno(await this.ctx.storage.get('f:' + k)); this.fornos.set(k, f); if (this.fornos.size > 500) this.fornos.clear(); }
+    return f;
+  }
+  // a fornalha saiu dali: o que estava dentro cai no chão
+  async fornoSumiu(x, y, z, q) {
+    const k = x + ',' + y + ',' + z, f = await this.fornoDe(k);
+    avancar(f, Date.now());
+    const tem = conteudo(f);
+    this.fornos.delete(k);
+    await this.ctx.storage.delete('f:' + k);
+    this.enviarTodos({ t: 'forno', x, y, z, f: null });
+    if (tem.length && temMochila(this.op())) await this.soltarNoChao(tem.map(([id, n]) => [id, n, x + 0.5, y + 0.4, z + 0.5]), '', q);
   }
   // limite simples por jogador (fica na conexão)
   balde(ws, eu, k, max, janela = 1000) {
@@ -598,6 +617,7 @@ export class Sala extends DurableObject {
         if (Math.hypot(x + 0.5 - eu.p[0], z + 0.5 - eu.p[2]) > 10 || ++c.n > 40) { natural = false; if (op.sobrevivencia) de = 0; }
         this.coleta.set(eu.uid, c);
       }
+      const eraForno = ed.get(k) === FORNALHA && b !== FORNALHA;
       ed.set(k, b);
       await this.ctx.storage.put('b:' + k, b);
       if (b === 76 || b === 77 || MUDAS.has(b)) { (this.estagioEm ??= new Map()).set(k, Date.now()); if (this.estagioEm.size > 5000) this.estagioEm.clear(); }
@@ -613,6 +633,7 @@ export class Sala extends DurableObject {
         // coletar e criar: quebrou com as mãos, o que tinha ali cai no chão
         if (r && r.ok && r.cai && b === 0) await this.soltarNoChao(r.cai.map(([id, n, c]) => [id, n, x + 0.5, y + 0.3, z + 0.5, null, c]), '', eu.uid);
       }
+      if (eraForno) await this.fornoSumiu(x, y, z, eu.uid); // quebrou a fornalha: o que tinha dentro cai no chão
     } else if (m.t === 'vnovo') {
       if (eu.semVeiculos || !LUGARES[m.tipo] || MILITARES.has(m.tipo) || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
       const cor = Number.isInteger(m.cor) && m.cor >= 0 && m.cor < 8 ? m.cor : 0;
@@ -902,6 +923,28 @@ export class Sala extends DurableObject {
       ws.send(JSON.stringify({ t: 'econ', s: econ }));
       const [x, y, z] = eu.p;
       await this.soltarNoChao(r.cai.map(([id, n, c, dg]) => [id, n, x, y + 0.6, z, [(Math.random() - 0.5) * 4, 3 + Math.random() * 2, (Math.random() - 0.5) * 4], c, dg, String(eu.uid)]), '', eu.uid);
+    } else if (m.t === 'forno-ver' || m.t === 'forno-por' || m.t === 'forno-tirar') {
+      // fornalha (fornalha-regras.js): o estado é do mundo (todos usam a mesma) e fica na sala
+      const op = this.op();
+      if (!op.sobrevivencia || ![m.x, m.y, m.z].every(Number.isInteger)) return;
+      const k = m.x + ',' + m.y + ',' + m.z, ed = await this.carregarEdicoes();
+      // recusou: devolve a mochila certa (o aparelho já tinha mexido nela)
+      const recusar = async (f) => { if (m.t !== 'forno-ver') ws.send(JSON.stringify({ t: 'econ', s: await this.econDe(eu.uid) })); if (f !== undefined) ws.send(JSON.stringify({ t: 'forno', x: m.x, y: m.y, z: m.z, f })); };
+      if (ed.get(k) !== FORNALHA) { await recusar(null); return; }
+      if (!eu.p || Math.hypot(eu.p[0] - m.x - 0.5, eu.p[1] - m.y, eu.p[2] - m.z - 0.5) > 9 || !this.balde(ws, eu, 'fo', 12, 1000)) {
+        const f0 = await this.fornoDe(k); avancar(f0, Date.now()); await recusar(fornoPublico(f0)); return;
+      }
+      const f = await this.fornoDe(k), agora = Date.now();
+      if (m.t !== 'forno-ver') {
+        const econ = await this.econDe(eu.uid);
+        const a = m.t === 'forno-por'
+          ? { t: m.t, k: m.k === 'c' ? 'c' : 'e', id: m.id | 0, n: Math.max(1, Math.min(64, m.n | 0)), f, agora }
+          : { t: m.t, k: ['e', 'c', 's'].includes(m.k) ? m.k : 's', n: Math.max(1, Math.min(64, m.n | 0 || 64)), f, agora };
+        const r = await this.econAplicar(ws, eu, econ, a, true);
+        if (r.ok) await this.ctx.storage.put('f:' + k, f);
+      } else avancar(f, agora);
+      const msg = { t: 'forno', x: m.x, y: m.y, z: m.z, f: fornoPublico(f, agora) };
+      if (m.t === 'forno-ver') ws.send(JSON.stringify(msg)); else this.enviarTodos(msg);
     } else if (m.t === 'chao-largar') {
       // largou da mochila no chão (para guardar depois ou passar para um amigo)
       const op = this.op();

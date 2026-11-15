@@ -2,8 +2,9 @@
 // A sala online roda estas mesmas regras e é ela quem decide as moedas de cada jogador.
 // Não importe nada daqui que dependa do navegador (o servidor também usa este arquivo).
 
+import { avancar, caberNoForno, porNoForno, tirarDoForno, PILHA_FORNO } from './fornalha-regras.js';
 import { aplicarTrabalho, normalizarTrabalho, negocioNovo, livreDe, marcarCompra, ajustarCompra, converter } from './trabalho.js';
-import { RECEITAS, guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm, cabe, cabeQuanto, pilhaDe, DURA, ajustarDesg, desgastar, tirarDesg, porDesg, desgLista } from './receitas.js';
+import { RECEITAS, guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm, cabe, cabeQuanto, pilhaDe, DURA, ajustarDesg, desgastar, tirarDesg, porDesg, desgLista, receitaNoMundo } from './receitas.js';
 import { ehComida } from './fome-regras.js';
 
 // ids dos blocos (iguais aos de blocos.js)
@@ -282,7 +283,7 @@ export function aplicar(e, op, a, ctx = {}) {
         // quebrou: o que cai vai para o chão (regras-chao.js); quem chamou põe no chão. A mochila só recebe quando
         // alguém pega. O que cai de um bloco que era comprado continua marcado (c = quantos são comprados).
         // A ferramenta só vale se estiver na mochila (senão o aparelho dizia ter picareta e tirava vidro inteiro)
-        r.cai = oQueCai(a.de, a.x, a.y, a.z, !!a.natural, (e.itens[a.mao | 0] | 0) > 0 ? a.mao | 0 : 0).map(([id, n]) => [id, n, a.comprado ? n : 0]);
+        r.cai = oQueCai(a.de, a.x, a.y, a.z, !!a.natural, (e.itens[a.mao | 0] | 0) > 0 ? a.mao | 0 : 0, !!op.fome).map(([id, n]) => [id, n, a.comprado ? n : 0]);
         // a ferramenta da mão gasta (planta e coisa de um toque não: DESGASTA_NAO)
         if (!DESGASTA_NAO.has(a.de | 0)) r.ferramenta = desgastar(e, a.mao | 0);
       }
@@ -366,7 +367,7 @@ export function aplicar(e, op, a, ctx = {}) {
   } else if (a.t === 'criar') {
     if (!op.sobrevivencia) return falha('?');
     const rc = receita(a.r);
-    if (!rc) return falha('?');
+    if (!rc || !receitaNoMundo(rc, op.fome)) return falha('?');
     if (faltaBancada(rc, a.bancada)) return falha('Precisa de uma Bancada perto.');
     if (!temTudo(e.itens, rc)) return falha('Faltam coisas para essa receita.');
     // n = quantas vezes (shift na grade de criar: o máximo de uma vez); cria enquanto der
@@ -438,6 +439,33 @@ export function aplicar(e, op, a, ctx = {}) {
     // deu trigo na mão para um bicho de fazenda (animais.js: cruzar)
     if (!op.sobrevivencia) return falha('?');
     if (!tirar(e.itens, TRI, 1)) return falha('Você não tem trigo.');
+    r.mudou = true;
+  } else if (a.t === 'forno-por' || a.t === 'forno-tirar') {
+    // fornalha (fornalha-regras.js). a.f = o estado da fornalha: quem chama (a sala, ou o jogo sem internet) põe,
+    // nunca o que veio do aparelho; aqui só se mexe na mochila e no estado
+    if (!op.sobrevivencia) return falha('?');
+    const f = a.f;
+    if (!f || typeof f !== 'object') return falha('?');
+    avancar(f, Number.isFinite(a.agora) ? a.agora : Date.now());
+    if (a.t === 'forno-por') {
+      const id = a.id | 0;
+      // coisa comprada não entra (senão tirar de volta apagava a marca de comprada)
+      const n = Math.min(Math.max(1, a.n | 0), livreDe(e, id));
+      if (!guardavel(id) || n < 1) return falha('Você não tem isso.');
+      const q = caberNoForno(f, a.k, id, n);
+      if (!q) return falha(a.k === 'c' ? 'Isso não serve de combustível.' : 'Isso não vai na fornalha.');
+      tirar(e.itens, id, q); porNoForno(f, a.k, id, q);
+      r.foi = q;
+    } else {
+      const k = a.k;
+      if (!f[k]) return falha('?');
+      const [id] = f[k];
+      const q = Math.min(Math.max(1, a.n | 0 || PILHA_FORNO), f[k][1], cabeQuanto(e.itens, id));
+      if (q < 1) return falha('A mochila está cheia! Largue ou use alguma coisa.');
+      tirarDoForno(f, k, q); por(e.itens, id, q);
+      r.veio = [id, q];
+      if (k === 's') r.feitos = contar(e, op, 'forno', q);
+    }
     r.mudou = true;
   } else if (a.t === 'moer' || a.t === 'assar') {
     if (!op.mercado && !op.sobrevivencia) return falha('Este mundo não tem mochila.');
