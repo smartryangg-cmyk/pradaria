@@ -19,6 +19,7 @@ import { Som, VOL_PADRAO } from './som.js';
 import { materialDe } from './som-materiais.js';
 import { Voz } from './voz.js';
 import { montarBoneco, vestirBoneco, etiqueta, matModelo, matContorno, caixa, juntar, bola, animarBoneco, poseNeutra } from './modelos.js';
+import { detalheRedondo } from './redondos.js';
 import { normalizarSkin, skinDeCor, skinIgual, CORES_ROUPA, corDe, normalizarModelos } from './skin.js';
 import { Personagem } from './personagem.js';
 import { Visao } from './visao.js';
@@ -2035,6 +2036,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   mundo = new Mundo(cena, matBlocos, matAgua, semente);
   mundo.raio = raioVisao();
   mundo.suaveSimples = opcoesGraficas().sombra === 0; // gráfico Leve: arredondado simples (monta mais rápido)
+  detalheRedondo(mundo.suaveSimples); // e bonecos e bichos redondos com menos lados
   mundo.matSuave = mundo.suave ? graf.matSuave : null; // Natural 3D: chão e árvores com cor lisa de desenho (graficos.js)
   escav = new Escavacao(cena, mundo, matBlocos, atlasCanvas);
   mundo.cuboProvisorio = (x, y, z, b) => escav.cubo(x, y, z, b);

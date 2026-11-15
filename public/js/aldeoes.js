@@ -2,6 +2,8 @@
 // acenam para quem chega e conversam com um toque. À noite voltam para casa e dormem.
 import * as THREE from '../vendor/three.module.min.js';
 import { caixa, juntar, matModelo, contornar } from './modelos.js';
+import { montarAldeaoRedondo } from './redondos.js';
+import { opcoesMundo } from './opcoes-mundo.js';
 import { SOLIDO, AGUA, M } from './blocos.js';
 import { ANEL } from './vilas.js';
 import { ALT } from './mundo.js';
@@ -35,6 +37,7 @@ function membro(geos, x, y, z) { const m = malha(juntar(geos)); m.position.set(x
 export function montarAldeao(r, oficio) {
   const pick = (l) => l[Math.floor(r() * l.length)];
   const pele = pick(PELES), cab = pick(CABELOS), roupa = pick(ROUPAS), calca = pick(CALCAS);
+  if (opcoesMundo.estilo === 'suave') return montarAldeaoRedondo({ pele, cab, roupa, calca }, r, oficio, malha); // Natural 3D: redondo
   const g = new THREE.Group();
   const corpo = [caixa(0.52, 0.62, 0.3, roupa, 0, 0.93, 0)];
   if (oficio === 'fazendeiro') corpo.push(caixa(0.46, 0.5, 0.04, 0x3f6fa0, 0, 0.88, 0.15), caixa(0.08, 0.14, 0.04, 0x3f6fa0, -0.15, 1.18, 0.15), caixa(0.08, 0.14, 0.04, 0x3f6fa0, 0.15, 1.18, 0.15));
