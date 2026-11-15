@@ -32,6 +32,8 @@ export function partida(w, b, s, agora = Date.now()) {
 }
 // categoria dos pontos pelo ritmo (cada ritmo tem a sua nota, como nos sites de xadrez)
 export const CATEGORIAS = { '1+0': 'bullet', '3+2': 'blitz', '10+0': 'rapida', teste: 'bullet' };
+// categoria de um ritmo (só as chaves da lista; qualquer outra coisa = null)
+export const categoria = (r) => (typeof r === 'string' && Object.hasOwn(CATEGORIAS, r) ? CATEGORIAS[r] : null);
 export const NOME_CATEGORIA = { bullet: 'Bullet', blitz: 'Blitz', rapida: 'Rápida' };
 export const provisorio = (x) => !x || x.rd > RD_PROVISORIO;
 export const mostrar = (x) => (x ? Math.round(x.r) : INICIAL.r) + (provisorio(x) ? '?' : '');

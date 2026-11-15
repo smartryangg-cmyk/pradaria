@@ -43,6 +43,7 @@ const chegou = (j, n) => j.p.waitForFunction((n) => (window.__xadrez.e.hist || [
   await t.clica('.nivel[data-nivel="3"]'); await t.clica('.cor-peca[data-cor="w"]'); await t.clica('#bt-computador');
   await t.p.waitForSelector('#x-jogo:not([hidden])');
   ok(/Os lances aparecem aqui/.test(await t.p.evaluate(() => getComputedStyle(document.querySelector('#x-lances'), '::before').content)), 'tablet: lista de lances vazia avisa onde eles aparecem');
+  await t.p.evaluate(() => { window.__xadrez.demoraPC = 2500; });
   await t.lance('e2', 'e4');
   // enquanto o computador pensa, marca o pré-lance d2-d4
   await t.lance('d2', 'd4');

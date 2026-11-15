@@ -39,10 +39,10 @@ export class Pontos extends DurableObject {
     if (!u || request.headers.get('upgrade') !== 'websocket') return new Response('sem dados', { status: 400 });
     const ritmo = url.searchParams.get('ritmo');
     const [cliente, servidor] = Object.values(new WebSocketPair());
-    if (!RITMOS[ritmo]) { servidor.accept(); servidor.send(JSON.stringify({ t: 'erro', msg: 'Escolha um ritmo com relógio.' })); servidor.close(4003, 'ritmo'); return new Response(null, { status: 101, webSocket: cliente }); }
+    if (!(Object.hasOwn(RITMOS, ritmo || '') || (ritmo === 'teste' && this.env.TESTE))) { servidor.accept(); servidor.send(JSON.stringify({ t: 'erro', msg: 'Escolha um ritmo com relógio.' })); servidor.close(4003, 'ritmo'); return new Response(null, { status: 101, webSocket: cliente }); }
     // a mesma pessoa só fica uma vez na fila
     for (const w of this.ctx.getWebSockets()) { const a = w.deserializeAttachment(); if (a && a.uid === u.id) { w.serializeAttachment(null); try { w.close(4001, 'outra aba'); } catch {} } }
-    const cat = P.CATEGORIAS[ritmo];
+    const cat = P.categoria(ritmo);
     const n = await this.nota(u.id, cat);
     this.ctx.acceptWebSocket(servidor);
     servidor.serializeAttachment({ uid: u.id, nome: u.nome, ritmo, cat, r: n.r, desde: Date.now() });

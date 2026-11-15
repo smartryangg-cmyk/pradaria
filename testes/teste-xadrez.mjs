@@ -45,7 +45,7 @@ async function abrir(opc, nome) {
   await t.foto('2-tablet-selecionado');
   await t.clica(`.casa[data-i="${casa('e4')}"]`);
   await t.p.waitForFunction(() => window.__xadrez && window.__xadrez.e.vez === 'w' && window.__xadrez.e.n === 2, null, { timeout: 15000 }).catch(() => {});
-  await t.p.waitForFunction(() => document.querySelector('#x-status').textContent === 'Sua vez', null, { timeout: 15000 });
+  await t.p.waitForFunction(() => /^Sua vez/.test(document.querySelector('#x-status').textContent), null, { timeout: 15000 });
   ok(await t.p.evaluate(() => window.__xadrez.e.n === 2), 'tablet: o computador respondeu e voltou a ser a sua vez');
   // lance que não vale: torre presa
   await t.clica(`.casa[data-i="${casa('a1')}"]`);
@@ -66,7 +66,7 @@ async function abrir(opc, nome) {
     await c.foto(`4-${n}-menu`);
     await c.clica('#bt-computador'); await c.p.waitForSelector('#x-jogo:not([hidden])');
     await c.lance('d2', 'd4');
-    await c.p.waitForFunction(() => document.querySelector('#x-status').textContent === 'Sua vez', null, { timeout: 15000 });
+    await c.p.waitForFunction(() => /^Sua vez/.test(document.querySelector('#x-status').textContent), null, { timeout: 15000 });
     const fora = await c.p.evaluate(() => [...document.querySelectorAll('#x-jogo button, #tabuleiro, #x-status')].filter((e) => { const r = e.getBoundingClientRect(); return r.width && (r.left < -1 || r.right > innerWidth + 1 || r.top < -1 || r.bottom > innerHeight + 1); }).map((e) => e.id || e.className));
     ok(!fora.length, `${n}: tabuleiro e botões cabem na tela (${fora.slice(0, 4)})`);
     await c.foto(`5-${n}-jogo`);
@@ -96,7 +96,7 @@ await beto.p.waitForURL(/xadrez\?sala=/);
 await beto.p.waitForFunction(() => window.__xadrez && window.__xadrez.online && window.__xadrez.online.jogadores && window.__xadrez.online.jogadores.b, null, { timeout: 15000 });
 ok(await beto.p.evaluate(() => window.__xadrez.voce) === 'b', 'Beto entrou de pretas');
 await ana.p.evaluate(() => document.querySelector('#amigos-fechar').click());
-await ana.p.waitForFunction(() => document.querySelector('#x-status').textContent === 'Sua vez', null, { timeout: 10000 });
+await ana.p.waitForFunction(() => /^Sua vez/.test(document.querySelector('#x-status').textContent), null, { timeout: 10000 });
 ok(true, 'Ana vê "Sua vez" quando o Beto chega');
 // Beto tenta jogar fora da vez
 await beto.lance('e7', 'e5');

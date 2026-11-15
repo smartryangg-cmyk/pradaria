@@ -88,6 +88,30 @@ ok(true, 'desistir antes de 2 lances: "Partida anulada", não vale pontos');
 const depoisAnulada = [(await pontos(ana)).blitz.r, (await pontos(beto)).blitz.r].sort().join();
 ok(depoisAnulada === [rVence, rPerde].sort().join(), 'pontos iguais depois da anulada (' + depoisAnulada + ')');
 
+// ---------- ninguém faz o primeiro lance: a partida é cancelada em 30 s e não vale ----------
+await menu(ana); await menu(beto);
+[w, p] = await procurarOs2(ana, beto);
+await w.p.waitForFunction(() => /faça seu primeiro lance: \d+s/.test(document.querySelector('#x-status').textContent), null, { timeout: 5000 });
+ok(/primeiro lance do adversário: \d+s/.test(await p.p.textContent('#x-status')), 'partida nova: aparece o prazo do primeiro lance (' + await w.p.textContent('#x-status') + ')');
+await w.foto('4-prazo-primeiro-lance');
+for (const j of [w, p]) await j.p.waitForFunction(() => window.__xadrez.fim && window.__xadrez.fim.tipo === 'cancelada', null, { timeout: 40000 });
+ok(/Partida cancelada/.test(await w.p.textContent('#fim-titulo')) && /Você não fez o primeiro lance/.test(await w.p.textContent('#fim-txt')) && /adversário não fez/.test(await p.p.textContent('#fim-txt')), 'sem primeiro lance em 30 s: "Partida cancelada" para os dois');
+await p.foto('5-cancelada');
+const depoisCancelada = [(await pontos(ana)).blitz.r, (await pontos(beto)).blitz.r].sort().join();
+ok(depoisCancelada === [rVence, rPerde].sort().join(), 'pontos iguais depois da cancelada (' + depoisCancelada + ')');
+
+// ---------- ritmo inventado (constructor, __proto__...) não vira relógio ----------
+await menu(ana);
+await ana.p.evaluate(() => { localStorage.setItem('pradaria.xadrez.ritmo', '__proto__'); });
+await menu(ana);
+ok(await ana.p.evaluate(() => document.querySelectorAll('.ritmo.sel').length === 1 && document.querySelector('.ritmo.sel').dataset.ritmo === '3+2'), 'ritmo "__proto__" guardado no aparelho é ignorado (fica Blitz)');
+await ana.p.evaluate(() => { window.__xadrez.ritmo = 'constructor'; });
+await ana.clica('.tipo-amigo[data-tipo=amistosa]'); await ana.clica('#bt-amigo');
+await ana.p.waitForFunction(() => window.__xadrez.online && window.__xadrez.online.jogadores, null, { timeout: 10000 });
+await ana.p.waitForSelector('#amigos:not([hidden])', { timeout: 5000 }).then(() => ana.clica('#amigos-fechar'), () => {});
+await ana.p.waitForTimeout(500);
+ok(await ana.p.evaluate(() => window.__xadrez.relogio === null && !window.__xadrez.online.ranqueada), 'partida com ritmo "constructor": o servidor não cria relógio nem pontos');
+
 // ---------- com amigo: valendo pontos conta, amistosa não ----------
 async function comAmigo(tipo) {
   await menu(ana); await menu(beto);
