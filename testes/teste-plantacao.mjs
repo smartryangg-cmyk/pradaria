@@ -155,7 +155,7 @@ if (ONLINE) {
   const ini = Date.now();
   while (Date.now() - ini < 240000) {
     const [ea, eb] = await Promise.all([a, bb].map((q) => q.evaluate(([x, y, z]) => window.__jogo.mundo.bloco(x, y, z), pos)));
-    if (ea === TRIGO && eb === TRIGO) break;
+    if ((ea === TRIGO && eb === TRIGO) || (!ea && !eb)) break; // maduro nos dois (ou nem plantou: já falhou acima)
     await a.waitForTimeout(1000);
   }
   console.log('trigo cresceu em', Math.round((Date.now() - ini) / 1000), 's');
