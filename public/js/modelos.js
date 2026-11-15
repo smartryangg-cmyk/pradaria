@@ -114,7 +114,7 @@ export function juntar(geos) {
 
 // perna/braço com pivô no topo
 function membro(w, h, d, cor, x, y, z) {
-  const m = malha(caixa(w, h, d, cor, 0, -h / 2, 0));
+  const m = malha(caixa(w, h, d, cor, 0, -h / 2, 0, opcoesMundo.estilo === 'suave' ? Math.min(w, h, d) * 0.48 : undefined)); // Natural 3D: pata redonda
   m.position.set(x, y, z);
   return m;
 }
@@ -329,6 +329,7 @@ export function montarBicho(especie, r, filhote = false) {
   g.add(malha(juntar(m.corpo)));
   const cab = malha(juntar(m.cabeca));
   cab.position.set(...m.cabecaPos);
+  if (opcoesMundo.estilo === 'suave') cab.scale.setScalar(1.2); // Natural 3D: cabeça de desenho, maior
   g.add(cab);
   const pernas = [];
   for (const [w, h, d, cor, posicoes] of m.pernas) for (const p of posicoes) {
@@ -370,7 +371,9 @@ export function cilindro(rt, rb, h, cor, ox = 0, oy = 0, oz = 0, lados = 12) {
 function membroPartes(partes, x, y, z, inicio = 0) {
   let topo = inicio;
   const geos = [];
-  for (const [w, h, d, cor, dz = 0] of partes) { geos.push(caixa(w, h, d, cor, 0, topo - h / 2, dz)); topo -= h; }
+  // Natural 3D: braço e perna em "cápsulas" (cantos com meia largura de raio), como num desenho
+  const capsula = opcoesMundo.estilo === 'suave';
+  for (const [w, h, d, cor, dz = 0] of partes) { geos.push(caixa(w, h, d, cor, 0, topo - h / 2, dz, capsula ? Math.min(w, h, d) * 0.48 : undefined)); topo -= h; }
   const m = malha(juntar(geos));
   m.position.set(x, y, z);
   return m;
@@ -406,7 +409,8 @@ function estrelaGeo(r, cor, x, y, z) {
 
 function pecasCabeca(s) {
   const C = coresDe(s), pele = C.pele, ch = C.cab, io = C.olho, hat = C.hat;
-  const g = [caixa(0.48, 0.48, 0.48, pele, 0, 0.24, 0, FORMATOS[s.formato][0])];
+  // Natural 3D: cabeça mais redondinha (raio até 0,11: o meio do rosto, onde ficam olhos e boca, continua reto)
+  const g = [caixa(0.48, 0.48, 0.48, pele, 0, 0.24, 0, opcoesMundo.estilo === 'suave' ? Math.max(0.11, FORMATOS[s.formato][0]) : FORMATOS[s.formato][0])];
   const z = 0.245; // frente do rosto
   const pelo = s.cabelo === 0 ? 0x4a3020 : ch; // sobrancelha/bigode de quem é careca
   // olhos
@@ -620,8 +624,10 @@ export function vestirBoneco(b, skin) {
   // altura e corpo: o boneco todo estica/engorda; a cabeça fica quase do mesmo tamanho (só o formato muda)
   const A = ALTURAS[s.altura], L = CORPOS[s.corpo], F = FORMATOS[s.formato], k = Math.pow(A, 0.35);
   b.raiz.scale.set(L, A, L); b.raiz.position.y = CENTRO * A;
-  cab.scale.set((F[1] * k) / L, (F[2] * k) / A, (F[3] * k) / L);
-  b.topo = 1.88 * A; // topo da cabeça (para o nome ficar logo acima)
+  // Natural 3D: proporção de desenho, cabeça um pouco maior (cresce para cima a partir do pescoço)
+  const cg = opcoesMundo.estilo === 'suave' ? 1.18 : 1;
+  cab.scale.set((F[1] * k * cg) / L, (F[2] * k * cg) / A, (F[3] * k * cg) / L);
+  b.topo = 1.88 * A + (cg - 1) * 0.5 * k; // topo da cabeça (para o nome ficar logo acima)
   for (const c of b.grupo.children) if (c.userData.etiqueta) c.position.y = b.topo + 0.37;
   return b;
 }

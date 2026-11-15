@@ -720,7 +720,9 @@ export class Mundo {
     // as cores lisas só existem nos vértices do material liso: completa com zero até o vértice atual
     const completar = () => { const n = P.length; while (CT.length < n) { CT.push(0, 0, 0); CL.push(0, 0, 0); } };
     // tronco natural vira cilindro (mais fino que o bloco); a colisão continua a do bloco
-    const cilindro = (qx, qy, qz, q) => !!liso && GRUPO_SUAVE[q] === 3 && !!PALETA[q] && liso.natural(qx, qy, qz);
+    // (só tronco de árvore: o de cima dele tem folha; poste de lampião e casa da vila feitos de tronco ficam como são)
+    const deArvore = (qx, qy, qz, q) => { let y = qy; while (y < ALT - 1 && y - qy < 14 && get(qx, y + 1, qz) === q) y++; return GRUPO_SUAVE[get(qx, y + 1, qz)] === 2; };
+    const cilindro = (qx, qy, qz, q) => !!liso && GRUPO_SUAVE[q] === 3 && !!PALETA[q] && liso.natural(qx, qy, qz) && deArvore(qx, qy, qz, q);
 
     // "luz do céu": altura do bloco opaco mais alto de cada coluna (com borda de 1 dos vizinhos).
     // Embaixo de árvore, beiral ou caverna a face fica mais escura (sombra macia, custo zero ao jogar).
