@@ -1,4 +1,4 @@
-// Partida entre amigos: xadrez e dama (dois lugares, 'w' e 'b') e truco (mesa de 2 ou 4 lugares, com o computador nas vagas).
+// Partida entre amigos: xadrez (com relógio quando tem ritmo) e dama (dois lugares, 'w' e 'b') e truco (mesa de 2 ou 4 lugares, com o computador nas vagas).
 // Uma instância por código de partida. O servidor confere cada lance com as mesmas regras do navegador
 // (public/js/xadrez-regras.js) e guarda tudo, então dá para recarregar a página e continuar.
 import { DurableObject } from 'cloudflare:workers';
@@ -27,7 +27,7 @@ export class Partida extends DurableObject {
     const jog = {};
     for (const l of LUGARES) { const j = p.lugares[l]; jog[l] = j ? { nome: j.nome, online: this.online(j.uid) } : null; }
     const voce = LUGARES.find((l) => p.lugares[l] && p.lugares[l].uid === uid) || null;
-    return { t: 'estado', jogo: p.jogo, estado: JOGOS[p.jogo].publico(p.e), jogadores: jog, voce, fim: p.fim, empate: p.empate || null, revanche: p.revanche || [], n: p.partidas };
+    return { t: 'estado', jogo: p.jogo, estado: JOGOS[p.jogo].publico(p.e), jogadores: jog, voce, fim: p.fim, empate: p.empate || null, revanche: p.revanche || [], n: p.partidas, relogio: this.relogioAgora() };
   }
   avisarTodos() { for (const w of this.conexoes()) { try { w.send(JSON.stringify(this.visao(w.deserializeAttachment().uid))); } catch {} } }
 
@@ -35,6 +35,37 @@ export class Partida extends DurableObject {
     const p = this.p;
     if (trocar) { const w = p.lugares.w; p.lugares.w = p.lugares.b; p.lugares.b = w; }
     p.e = JOGOS[p.jogo].novo(); p.fim = null; p.empate = null; p.revanche = []; p.partidas = (p.partidas || 1) + (trocar ? 1 : 0);
+    if (p.relogio) p.relogio = this.relogioNovo(p.relogio.ritmo);
+  }
+
+  // ---------- relógio (xadrez com ritmo) ----------
+  // w e b = tempo que sobra (ms); desde = quando começou a contar a vez de quem joga agora (null = parado:
+  // o relógio só anda depois que os dois fizeram o primeiro lance, e para no fim)
+  relogioNovo(ritmo) {
+    const r = ritmo === 'teste' && this.env.TESTE ? { base: 8000, inc: 1000 } : X.RITMOS[ritmo];
+    return r ? { ritmo, base: r.base, inc: r.inc, w: r.base, b: r.base, desde: null } : null;
+  }
+  relogioAgora() {
+    const r = this.p.relogio;
+    if (!r) return null;
+    const vez = this.p.e.vez, x = { ritmo: r.ritmo, base: r.base, inc: r.inc, w: r.w, b: r.b, anda: r.desde != null && !this.p.fim ? vez : null };
+    if (x.anda) x[vez] = Math.max(0, r[vez] - (Date.now() - r.desde));
+    return x;
+  }
+  // confere se o tempo de quem joga acabou (true = acabou e a partida terminou)
+  tempoAcabou() {
+    const p = this.p, r = p.relogio;
+    if (!r || p.fim || r.desde == null) return false;
+    const vez = p.e.vez;
+    if (r[vez] - (Date.now() - r.desde) > 0) return false;
+    r[vez] = 0; r.desde = null;
+    const outro = vez === 'w' ? 'b' : 'w';
+    p.fim = p.jogo === 'xadrez' && X.semMaterialParaMate(p.e.b, outro) ? { tipo: 'tempo-empate' } : { tipo: 'tempo', vencedor: outro, quem: vez };
+    return true;
+  }
+  agendarTempo() {
+    const r = this.p.relogio;
+    if (r && r.desde != null && !this.p.fim) this.ctx.storage.setAlarm(r.desde + r[this.p.e.vez] + 50);
   }
 
   async fetch(request) {
@@ -53,6 +84,7 @@ export class Partida extends DurableObject {
       else {
       // quem abre a partida joga de brancas
       this.p = { jogo, lugares: { w: { uid: u.id, nome: u.nome }, b: null }, e: JOGOS[jogo].novo(), fim: null, criado: Date.now(), partidas: 1 };
+      this.p.relogio = jogo === 'xadrez' ? this.relogioNovo(new URL(request.url).searchParams.get('ritmo')) : null;
       await this.salvar();
       }
     } else if (jogo && jogo !== this.p.jogo) return recusar('Este convite é de outro jogo.');
@@ -98,6 +130,8 @@ export class Partida extends DurableObject {
     if (!meu) return;
     const outro = meu === 'w' ? 'b' : 'w';
     const erro = (msg) => ws.send(JSON.stringify({ t: 'aviso', msg }));
+    if (this.tempoAcabou()) { await this.salvar(); this.avisarTodos(); return; }
+    if (m.t === 'tempo') return; // o navegador viu o relógio zerar: a conferência acima já resolve
     if (m.t === 'lance') {
       if (p.fim) return erro('A partida acabou.');
       if (!p.lugares[outro]) return erro('Espere seu amigo chegar.');
@@ -107,6 +141,12 @@ export class Partida extends DurableObject {
       if (!l) { ws.send(JSON.stringify(this.visao(eu.uid))); return erro('Esse lance não vale.'); }
       p.e = R.avancar(p.e, l);
       p.empate = null;
+      const r = p.relogio;
+      if (r) {
+        if (r.desde != null) { r[meu] = Math.max(0, r[meu] - (Date.now() - r.desde)) + r.inc; }
+        // o relógio começa depois do primeiro lance das pretas
+        r.desde = (p.e.hist || []).length >= 2 ? Date.now() : null;
+      }
       const f = R.fim(p.e);
       if (f) p.fim = f;
     } else if (m.t === 'desistir') {
@@ -123,7 +163,9 @@ export class Partida extends DurableObject {
       p.revanche = [...new Set([...(p.revanche || []), meu])];
       if (p.revanche.length === 2) this.novaPartida(true);
     } else return;
+    if (p.fim && p.relogio && p.relogio.desde != null) { const r = p.relogio; r[p.e.vez] = Math.max(0, r[p.e.vez] - (Date.now() - r.desde)); r.desde = null; }
     await this.salvar();
+    this.agendarTempo();
     this.avisarTodos();
   }
 
@@ -154,6 +196,11 @@ export class Partida extends DurableObject {
   }
   async alarm() {
     const p = this.p;
+    if (p && p.jogo !== 'truco') {
+      // relógio do xadrez: o tempo de quem joga acabou?
+      if (this.tempoAcabou()) { await this.salvar(); this.avisarTodos(); } else this.agendarTempo();
+      return;
+    }
     if (!p || p.jogo !== 'truco' || !p.e || p.e.fim) return;
     const quem = T.quemAge(p.e);
     if (!quem.length || !quem.every((l) => p.lugares[l] && p.lugares[l].robo)) return;
