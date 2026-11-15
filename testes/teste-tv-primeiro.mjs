@@ -129,5 +129,9 @@ await tv.waitForSelector('#tv-painel.tv-cheia:not([hidden])');
 await tv.waitForFunction(() => document.querySelector('#tv-painel').hidden, null, { timeout: 20000 });
 ok(true, 'TV recarregou: o celular religou sozinho com o mesmo código');
 
+// apaga a conta de teste (e o mundo dela), para não deixar lixo no site publicado
+const ent = await (await fetch(URL + '/api/entrar', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ nome, senha }) })).json();
+const apagou = await fetch(URL + '/api/eu', { method: 'DELETE', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + ent.token }, body: JSON.stringify({ senha }) });
+ok(apagou.ok, 'conta de teste apagada');
 console.log(erros.filter((e) => !/vibrate/.test(e)).join('\n') || 'sem erros no console');
 await b.close();
