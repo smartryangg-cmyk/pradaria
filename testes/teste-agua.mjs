@@ -50,13 +50,28 @@ const r = await p.evaluate(async () => {
   mundo.definir(X, Y + 1, Z + 4, 5);
   await espera(1500);
   const corr = mundo.correnteza(X + 2, Y + 1, Z + 4);
-  return { espalhou, secou, cachoeira, infinita, corr, edicoes: mundo.listarEdicoes().filter((e) => e[3] >= 23).length };
+  mundo.definir(X, Y + 1, Z + 4, 0);
+  // buraco perto: a água procura o buraco (até 4 blocos) e só corre para aquele lado
+  await espera(2600);
+  mundo.definir(X - 6, Y, Z + 8, 0); // buraco 3 blocos a oeste da fonte
+  mundo.definir(X - 3, Y + 1, Z + 8, 5);
+  await espera(3000);
+  const buraco = { oeste: mundo.bloco(X - 4, Y + 1, Z + 8), leste: mundo.bloco(X - 2, Y + 1, Z + 8), norte: mundo.bloco(X - 3, Y + 1, Z + 7), caiu: mundo.bloco(X - 6, Y, Z + 8) };
+  mundo.definir(X - 3, Y + 1, Z + 8, 0);
+  // fonte solta no ar: só cai (não abre para os lados)
+  mundo.definir(X + 6, Y + 6, Z - 8, 5);
+  await espera(1500);
+  const noAr = { lado: mundo.bloco(X + 7, Y + 6, Z - 8), embaixo: mundo.bloco(X + 6, Y + 5, Z - 8) };
+  mundo.definir(X + 6, Y + 6, Z - 8, 0);
+  return { espalhou, secou, cachoeira, infinita, corr, buraco, noAr, edicoes: mundo.listarEdicoes().filter((e) => e[3] >= 23).length };
 });
 console.log(JSON.stringify(r));
 await p.waitForTimeout(1500);
 await p.screenshot({ path: SAIDA + '/agua.png' });
 const ok = r.espalhou.join() === '5,23,24,25,29,0' && r.secou.every((v) => v === 0) && r.cachoeira.every((v) => v === 30 || v === 5 || (v >= 23 && v <= 29))
-  && r.infinita === 5 && r.corr[0] > 0.5 && r.edicoes === 0 && !erros.length;
+  && r.infinita === 5 && r.corr[0] > 0.5
+  && r.buraco.oeste >= 23 && r.buraco.oeste <= 30 && r.buraco.leste === 0 && r.buraco.norte === 0 && r.buraco.caiu >= 23
+  && r.noAr.lado === 0 && r.noAr.embaixo >= 23 && r.edicoes === 0 && !erros.length;
 console.log(ok ? 'OK' : 'FALHOU', erros.slice(0, 5).join('\n'));
 await b.close();
 process.exit(ok ? 0 : 1);

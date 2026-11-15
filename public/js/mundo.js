@@ -95,6 +95,7 @@ export class Mundo {
       }
     }
     this.filaAgua = new Set(); // células para reavaliar no próximo passo da água
+    this.cacheDirAgua = new Map(); // direções da água no passo atual (aguaVaiPara)
     this.ultimoPassoAgua = 0;
     this.vilas = new Vilas(this);
     // Ilha de Aventura; o mundo de Guerra usa a mesma ilha com base, forte, presídio e delegacia
@@ -343,17 +344,62 @@ export class Mundo {
     let fontes = 0, melhor = 99;
     for (const [dx, dz] of H4) {
       const n = this.bloco(x + dx, y, z + dz);
-      if (n === B.AGUA) { fontes++; melhor = 0; continue; }
+      if (n === B.AGUA) fontes++;
       if (!AGUA[n]) continue;
-      // água corrente só se espalha para o lado se não tiver como descer
+      // água (fonte ou corrente) só se espalha para o lado se não tiver como descer
       if (LIVRE[this.bloco(x + dx, y - 1, z + dz)]) continue;
-      const nv = NIVEL[n] === 8 ? 0 : NIVEL[n];
+      // e só para o lado do buraco mais perto (até 4 blocos); sem buraco perto, para todos os lados
+      if (!this.aguaVaiPara(x + dx, y, z + dz, -dx, -dz)) continue;
+      const nv = n === B.AGUA || NIVEL[n] === 8 ? 0 : NIVEL[n];
       if (nv < melhor) melhor = nv;
     }
     if (fontes >= 2 && (SOLIDO[baixo] || baixo === B.AGUA)) return B.AGUA;
     if (AGUA[cima]) return AGUA_CAINDO;
     if (melhor < 7) return AGUA_CORRENTE[melhor + 1];
     return AGUA[b] ? AR : b;
+  }
+
+  // Como nos jogos de blocos clássicos: a água no chão procura o caminho mais curto até um
+  // buraco (até 4 blocos) e só corre para esse lado. Devolve true se a água em (x,y,z) corre
+  // para a direção (dx,dz). Guarda o resultado durante um passo da água (o mundo não muda no meio).
+  aguaVaiPara(x, y, z, dx, dz) {
+    const k = pos2k(x, y, z);
+    let dirs = this.cacheDirAgua.get(k);
+    if (dirs === undefined) { dirs = this.direcoesAgua(x, y, z); this.cacheDirAgua.set(k, dirs); }
+    return !!(dirs & (1 << H4.findIndex(([a, b]) => a === dx && b === dz)));
+  }
+
+  // bits das direções de H4 que levam ao buraco mais perto (15 = todas)
+  direcoesAgua(x, y, z) {
+    let melhor = 99, bits = 0;
+    for (let i = 0; i < 4; i++) {
+      const [dx, dz] = H4[i];
+      const d = this.distBuraco(x + dx, y, z + dz, x, z);
+      if (d < melhor) { melhor = d; bits = 1 << i; } else if (d === melhor && d < 99) bits |= 1 << i;
+    }
+    return melhor === 99 ? 15 : bits;
+  }
+
+  // passos (0..4) de (x,y,z) até uma célula livre com buraco embaixo, andando por células livres
+  // no mesmo nível sem voltar para (ox,oz); 99 = nenhum buraco perto
+  distBuraco(x, y, z, ox, oz) {
+    if (!LIVRE[this.bloco(x, y, z)]) return 99;
+    const vistos = new Set([ox + ',' + oz, x + ',' + z]);
+    let fila = [[x, z]];
+    for (let d = 0; d <= 4 && fila.length; d++) {
+      const prox = [];
+      for (const [cx, cz] of fila) {
+        if (LIVRE[this.bloco(cx, y - 1, cz)]) return d;
+        if (d === 4) continue;
+        for (const [ax, az] of H4) {
+          const nx = cx + ax, nz = cz + az, kk = nx + ',' + nz;
+          if (vistos.has(kk) || !LIVRE[this.bloco(nx, y, nz)]) continue;
+          vistos.add(kk); prox.push([nx, nz]);
+        }
+      }
+      fila = prox;
+    }
+    return 99;
   }
 
   // muda um bloco por causa da água (não vira edição salva nem vai para a rede)
@@ -377,6 +423,7 @@ export class Mundo {
     if (!this.filaAgua.size) return 0;
     const fila = this.filaAgua;
     this.filaAgua = new Set();
+    this.cacheDirAgua.clear();
     const mudar = [];
     let n = 0;
     for (const k of fila) {

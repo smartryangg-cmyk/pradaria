@@ -9,8 +9,28 @@ export class Som {
     this.ctx = new AC();
     this.mestre = this.ctx.createGain();
     this.mestre.gain.value = 0.35;
-    this.mestre.connect(this.ctx.destination);
+    // filtro do "abafado" embaixo d'água (aberto = som normal)
+    this.filtro = this.ctx.createBiquadFilter();
+    this.filtro.type = 'lowpass'; this.filtro.frequency.value = 20000;
+    this.mestre.connect(this.filtro);
+    this.filtro.connect(this.ctx.destination);
+    if (this.abafado) this.abafar(true);
   }
+
+  // embaixo d'água tudo soa abafado
+  abafar(sim) {
+    this.abafado = !!sim;
+    if (!this.filtro) return;
+    this.filtro.frequency.setTargetAtTime(sim ? 650 : 20000, this.ctx.currentTime, sim ? 0.05 : 0.12);
+  }
+
+  // tchibum ao cair na água (forca 0..1)
+  splash(forca = 0.5) {
+    this.ruido(0.25 + forca * 0.35, { vol: 0.25 + forca * 0.35, freq: 900 + forca * 1400 });
+    this.tom(320, 0.18, { tipo: 'sine', vol: 0.12 + forca * 0.12, ate: 110 });
+  }
+  // blub das bolhas de ar
+  bolha() { const f = 380 + Math.random() * 260; this.tom(f, 0.09, { tipo: 'sine', vol: 0.12, ate: f * 1.9 }); }
 
   tom(freq, dur, { tipo = 'sine', vol = 0.5, ate = null, atraso = 0, vibrato = 0 } = {}) {
     if (!this.ctx || !this.ligado) return;
