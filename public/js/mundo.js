@@ -5,6 +5,7 @@ import { AR, B, E, M, SOLIDO, OPACO, PLANTA, BLOCOS, AGUA, NIVEL, AGUA_CORRENTE,
 import { criarGerador } from './gerador.js';
 import { Vilas } from './vilas.js';
 import { IlhaAventura } from './ilha-aventura.js';
+import { IlhaGuerra } from './guerra-mapa.js';
 import { opcoesMundo, limiteMundo } from './opcoes-mundo.js';
 import { Energia, desenharForma, ELETRICO } from './energia.js';
 import { ESPECIAL } from './mecanismos.js';
@@ -96,7 +97,8 @@ export class Mundo {
     this.filaAgua = new Set(); // células para reavaliar no próximo passo da água
     this.ultimoPassoAgua = 0;
     this.vilas = new Vilas(this);
-    this.aventura = opcoesMundo.tipo === 'aventura' ? new IlhaAventura(this) : null; // Ilha de Aventura
+    // Ilha de Aventura; o mundo de Guerra usa a mesma ilha com base, forte, presídio e delegacia
+    this.aventura = opcoesMundo.tipo === 'aventura' ? new IlhaAventura(this) : opcoesMundo.tipo === 'guerra' ? new IlhaGuerra(this) : null;
     this.ocultos = new Map(); // "x,y,z" -> [x,y,z]: blocos sendo escavados (desenhados à parte)
     this.energia = new Energia(this); // fios e máquinas
     // estilo Natural 3D: terreno e copas arredondados (só o desenho; os blocos são os mesmos). suave.js

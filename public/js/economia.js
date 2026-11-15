@@ -10,6 +10,8 @@ const G = 1, TE = 2, PE = 3, AR_ = 4, AG = 5, TR = 6, FO = 7, TA = 8, VI = 9, TJ
   LB = 14, LV = 15, LZ = 16, LM = 17, LG = 18, LR = 19, PD = 20, LP = 21, FZ = 22, TAR = 31, TRI = 32, FE = 33;
 // farinha e pão (blocos-mecanismos.js): saem do moinho de vento e do forno
 const FAR = 57, PAO = 58;
+// itens que caem dos bichos (blocos.js ITEM)
+const CAR = 1007, COU = 1008;
 
 // blocos que todo mundo já tem desde o começo (os outros se compram na loja da vila)
 export const LIVRES = new Set([G, TE, PE, AR_, AG, TR, FO, TA, FV, FA, CA, PD]);
@@ -29,7 +31,7 @@ export const naLoja = (b, op) => !(op && op.sobrevivencia && SO_COLHENDO.has(b))
 
 // quanto os aldeões pagam por cada coisa coletada (o que não está aqui vale 1).
 // Troncos valem 4 porque 1 tronco vira 4 tábuas (que valem 1 cada).
-const VENDA = { [TR]: 4, 71: 4, 73: 4, 131: 4, 80: 4, 81: 4, 82: 4, [FV]: 3, [FA]: 3, [FZ]: 3, [TRI]: 3, [FE]: 3, [LP]: 4, [VI]: 2, [TJ]: 2, [FAR]: 5, [PAO]: 9 };
+const VENDA = { [TR]: 4, 71: 4, 73: 4, 131: 4, 80: 4, 81: 4, 82: 4, [FV]: 3, [FA]: 3, [FZ]: 3, [TRI]: 3, [FE]: 3, [LP]: 4, [VI]: 2, [TJ]: 2, [FAR]: 5, [PAO]: 9, [CAR]: 3, [COU]: 4 };
 const precoBase = (b) => VENDA[b] || 1;
 // nenhuma receita pode dar lucro: o que sai dela vale no máximo o que ela gasta, dividido pela quantidade feita
 // (1 tronco que vendia por 2 virava 4 tábuas que vendiam por 4). Calculado das próprias receitas, então uma
@@ -91,7 +93,19 @@ export const OBJETIVOS = [
 export const ATIVOS = 3; // quantos objetivos aparecem por vez
 
 // eventos que o jogador pode contar (com o máximo aceito de uma vez)
-export const EVENTOS = { carinho: 1, conversa: 1, voar: 1, emote: 1, andar: 80, la: 1 };
+export const EVENTOS = { carinho: 1, conversa: 1, voar: 1, emote: 1, andar: 80, la: 1, caca: 1 };
+
+// o que um bicho deixa quando cai (animais.js). Filhote é pequeno: só o primeiro item, um só.
+// (o cachorro não entra: é bicho de estimação e não pode ser atacado)
+export const CAI_BICHO = {
+  ovelha: [[CAR, 1], [LB, 2]], porquinho: [[CAR, 2]], galinha: [[CAR, 1]], vaca: [[CAR, 2], [COU, 1]],
+  capivara: [[CAR, 1], [COU, 1]], coelho: [[CAR, 1]], veado: [[CAR, 2], [COU, 1]], lobo: [[COU, 1]],
+  raposa: [[COU, 1]], urso: [[CAR, 2], [COU, 2]], onca: [[COU, 1]], cobra: [[COU, 1]],
+};
+export function caiDoBicho(especie, filhote) {
+  const l = Object.prototype.hasOwnProperty.call(CAI_BICHO, especie) ? CAI_BICHO[especie] : [];
+  return filhote ? l.slice(0, 1).map(([id]) => [id, 1]) : l;
+}
 const MAX_ITEM = 9999, MAX_MOEDAS = 999999;
 
 // ---------- veículos (só valem com a opção Veículos ligada no mundo) ----------
@@ -140,6 +154,8 @@ export function opcoesEcon(op) {
   // sem construção (ou com armas, que não deixam voar) as missões impossíveis ficam de fora
   return { mercado: !!op.mercado, objetivos: !!op.objetivos, sobrevivencia: !!op.sobrevivencia, construcao: op.construcao !== false, voo: !op.armas };
 }
+// tem mochila (dá para pegar e largar coisas no chão)
+export const temMochila = (op) => !!(op && (op.mercado || op.sobrevivencia));
 export const econLigada = (op) => !!(op && (op.mercado || op.objetivos || op.sobrevivencia));
 // no "Coletar e criar", comprar na loja traz este tanto do bloco (e dá para comprar de novo)
 export const LOTE_LOJA = 4;
@@ -198,7 +214,9 @@ function contar(e, op, k, n) {
 //  { t:'vender', b, n }      vende n unidades do item b
 //  { t:'comprar', b }        libera o bloco b (no "Coletar e criar": traz LOTE_LOJA dele)
 //  { t:'criar', r, bancada } receita r (receitas.js); bancada = tem uma bancada perto (a sala confere)
-//  { t:'ev', e:'la' }        carinho na ovelha deu lã (só no "Coletar e criar")
+//  { t:'ev', e:'la', x, y, z } carinho na ovelha deu lã (só no "Coletar e criar")
+//  { t:'ev', e:'caca', b, f, x, y, z } derrubou um bicho da espécie b (f = filhote): o que cai vai para o chão (x, y, z: onde caiu)
+//  { t:'pegar', id, n } / { t:'largar', id, n }   item do chão para a mochila e vice-versa
 //  { t:'moer' }              trigo da mochila vira farinha (no moinho girando)
 //  { t:'assar' }             farinha da mochila vira pão (no forno aceso)
 //  trabalhadores (trabalho.js): contratar, demitir, obra, cancelar-obra, depositar, retirar, turno
@@ -218,9 +236,18 @@ export function aplicar(e, op, a, ctx = {}) {
     const max = Object.prototype.hasOwnProperty.call(EVENTOS, a.e) ? EVENTOS[a.e] : 0; // 'constructor' etc. não contam
     if (!max) return falha('?');
     const n = Math.max(1, Math.min(max, a.n | 0 || 1));
-    if (a.e === 'la') {
-      if (!op.sobrevivencia) return falha('?');
-      por(e.itens, LB, 1);
+    // lã e caça: com x, y, z (onde o bicho está) o que sai cai no chão (regras-chao.js); sem, vai direto para a mochila
+    const noChao = [a.x, a.y, a.z].every(Number.isFinite);
+    if (a.e === 'la' || a.e === 'caca') {
+      let cai;
+      if (a.e === 'la') { if (!op.sobrevivencia) return falha('?'); cai = [[LB, 1]]; }
+      else {
+        if (!op.sobrevivencia && !op.mercado) return falha('?');
+        cai = caiDoBicho(String(a.b), !!a.f);
+        if (!cai.length) return falha('?');
+      }
+      if (noChao) r.cai = cai.map(([id, q]) => [id, q, 0]);
+      else for (const [id, q] of cai) por(e.itens, id, q);
     } else r.feitos = contar(e, op, a.e, n);
     r.mudou = true;
   } else if (a.t === 'bloco') {
@@ -232,8 +259,9 @@ export function aplicar(e, op, a, ctx = {}) {
         if (!tirar(e.itens, g, 1)) return falha('Você não tem esse bloco.');
         if (comprado) { e.compra[g] = Math.max(0, (e.compra[g] || 0) - 1); r.marca = 1; }
       } else if (!a.b) {
-        // quebrou: o que cai de um bloco que era comprado continua marcado (senão colocar e quebrar "lavava" a marca)
-        for (const [id, n] of oQueCai(a.de, a.x, a.y, a.z, !!a.natural)) { por(e.itens, id, n); if (a.comprado) marcarCompra(e, id, n); }
+        // quebrou: o que cai vai para o chão (regras-chao.js); quem chamou põe no chão. A mochila só recebe quando
+        // alguém pega. O que cai de um bloco que era comprado continua marcado (c = quantos são comprados)
+        r.cai = oQueCai(a.de, a.x, a.y, a.z, !!a.natural).map(([id, n]) => [id, n, a.comprado ? n : 0]);
       }
     }
     if (a.b > 0) {
@@ -318,6 +346,20 @@ export function aplicar(e, op, a, ctx = {}) {
     if (faltaBancada(rc, a.bancada)) return falha('Precisa de uma Bancada perto.');
     if (!temTudo(e.itens, rc)) return falha('Faltam coisas para essa receita.');
     if (!converter(e, () => criarEm(e.itens, rc, a.bancada))) return falha('Sua mochila já está cheia disso!');
+    r.mudou = true;
+  } else if (a.t === 'pegar' || a.t === 'largar') {
+    // pegar do chão / largar no chão (quem confere se o item existe e está perto é a sala ou o jogo sem internet)
+    if (!temMochila(op)) return falha('Este mundo não tem mochila.');
+    const id = a.id | 0, n = a.n | 0;
+    if (!guardavel(id) || n < 1 || n > 64) return falha('?');
+    // c = quantos são coisa comprada (a marca vai junto para o chão e volta para quem pegar)
+    if (a.t === 'pegar') {
+      if (qtdEm(e.itens, id) + n > MAX_ITEM || !por(e.itens, id, n)) return falha('Sua mochila já está cheia disso!');
+      marcarCompra(e, id, Math.max(0, Math.min(n, a.c | 0)));
+    } else {
+      r.c = Math.max(0, n - livreDe(e, id)); // a parte comprada é a última a sair
+      if (!tirar(e.itens, id, n)) return falha('Você não tem isso.');
+    }
     r.mudou = true;
   } else if (a.t === 'moer' || a.t === 'assar') {
     if (!op.mercado && !op.sobrevivencia) return falha('Este mundo não tem mochila.');

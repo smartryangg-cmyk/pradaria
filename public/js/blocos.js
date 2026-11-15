@@ -79,6 +79,7 @@ export const ITEM = {
   PICARETA_MADEIRA: 1001, PICARETA_PEDRA: 1002,
   MACHADO_MADEIRA: 1003, MACHADO_PEDRA: 1004,
   PA_MADEIRA: 1005, PA_PEDRA: 1006,
+  CARNE: 1007, COURO: 1008, // caem dos bichos (animais.js -> economia.js CAI_BICHO)
 };
 export const ITENS = {
   [ITEM.GRAVETO]: { nome: 'Graveto', tile: 130 },
@@ -88,6 +89,8 @@ export const ITENS = {
   [ITEM.MACHADO_PEDRA]: { nome: 'Machado de pedra', tile: 134 },
   [ITEM.PA_MADEIRA]: { nome: 'Pá de madeira', tile: 135 },
   [ITEM.PA_PEDRA]: { nome: 'Pá de pedra', tile: 136 },
+  [ITEM.CARNE]: { nome: 'Carne', tile: 137 },
+  [ITEM.COURO]: { nome: 'Couro', tile: 138 },
 };
 export const ehItem = (id) => id >= 1000;
 // nome de qualquer coisa que cabe na mão (bloco ou item)
@@ -226,7 +229,7 @@ function pintarTile(img, idx, fn) {
     img.data[i] = c[0]; img.data[i + 1] = c[1]; img.data[i + 2] = c[2]; img.data[i + 3] = c[3] ?? 255;
   }
 }
-// tiles de 16px "à moda antiga": valem só onde texturas.js não pinta (ex.: itens 130..136)
+// tiles de 16px "à moda antiga": valem só onde texturas.js não pinta (ex.: itens 130..138)
 function pintarLegado(img) {
   for (const t in PINTORES) pintarTile(img, +t, PINTORES[t]); // eras (texturas.js pinta por cima)
   pintarCriacao(img);
@@ -327,7 +330,7 @@ export function criarAtlas() {
   return { tex, canvas: cv16 };
 }
 
-// bancada (128 topo, 129 lado) e itens (130..136): graveto e ferramentas, desenhados na diagonal
+// bancada (128 topo, 129 lado) e itens (130..138): graveto, ferramentas, carne e couro
 function pintarCriacao(img) {
   const mad = hex(0xc89a5a), madEsc = hex(0x7a5634), cabo = hex(0x9a7040), caboEsc = hex(0x5a3d22);
   // 128 bancada topo: tampo de tábuas com grade de trabalho no meio
@@ -387,6 +390,26 @@ function pintarCriacao(img) {
   };
   pintarTile(img, 135, ferramenta(pa(mad, madEsc)));
   pintarTile(img, 136, ferramenta(pa(pedraC, pedraE)));
+  // 137 carne: coxa de desenho animado (osso branco saindo do pedaço)
+  pintarTile(img, 137, (x, y, r) => {
+    const dx = x - 6, dy = y - 6, d = Math.hypot(dx, dy);
+    if (d < 5.4) return var_(d > 4.5 ? hex(0x8e3b2c) : (dx + dy < -3 ? hex(0xe0806a) : hex(0xc4553f)), r, 0.06);
+    const osso = x - y === 0 && x >= 10 && x <= 13;
+    const ponta = Math.hypot(x - 13.2, y - 13.2) < 1.6;
+    if (osso || ponta) return var_(hex(0xf3ead8), r, 0.04);
+    if (x - y === 1 && x >= 11 && x <= 14 || x - y === -1 && x >= 10 && x <= 13) return var_(hex(0xcfc3a8), r, 0.04);
+    return [0, 0, 0, 0];
+  });
+  // 138 couro: pele curtida esticada, com bordas onduladas e costura
+  pintarTile(img, 138, (x, y, r) => {
+    const onda = Math.sin(x * 1.3) * 0.7 + Math.sin(y * 1.1) * 0.7;
+    const dx = Math.abs(x - 7.5), dy = Math.abs(y - 7.5);
+    const borda = Math.max(dx - 1.2, dy) + onda * 0.3;
+    if (borda > 6.6) return [0, 0, 0, 0];
+    if (borda > 5.8) return var_(hex(0x6e4424), r, 0.06);
+    if (borda > 4.4 && borda < 5 && (x + y) % 2 === 0) return var_(hex(0xe9d3a6), r, 0.04);
+    return var_(hex(0xa8703f), r, 0.1);
+  });
 }
 
 // coordenadas UV de um tile (com pequena margem para evitar sangramento)

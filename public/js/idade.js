@@ -1,5 +1,5 @@
-// "Você tem 16 anos ou mais?": pergunta feita antes de ligar ou entrar num modo com temas sensíveis
-// (opção Armas). A resposta fica guardada na conta (servidor) e, sem conta, no aparelho.
+// "Você tem 16 anos ou mais?": pergunta feita antes de entrar num modo com temas sensíveis
+// (mundo de Guerra, opção Armas). A resposta fica guardada na conta (servidor) e, sem conta, no aparelho.
 // Quem respondeu "não" não consegue trocar sozinho para "sim" (o servidor só aceita a primeira resposta).
 //
 //   import { confirmarIdade16 } from './idade.js';

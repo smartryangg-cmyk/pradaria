@@ -1,8 +1,9 @@
 // Sala de um mundo: guarda as edições de blocos e repassa posições/emotes entre os jogadores.
 import { DurableObject } from 'cloudflare:workers';
 import { ARMAS, danoMaximo, VOLTA_ITEM } from '../../public/js/armas-dados.js';
-import { opcoesEcon, econLigada, normalizar, aplicar, dar, liberado, temVeiculo, estadoDaGaragem } from '../../public/js/economia.js';
-import { lugarVazio, gastoDe, ULTIMO_ITEM } from '../../public/js/receitas.js';
+import { opcoesEcon, econLigada, normalizar, aplicar, dar, liberado, temMochila, temVeiculo, estadoDaGaragem } from '../../public/js/economia.js';
+import { lugarVazio, gastoDe, oQueCai, ULTIMO_ITEM } from '../../public/js/receitas.js';
+import { Chao, publico, podePegar, pertoParaPegar, podeNoChao, MAX_LARGAR } from '../../public/js/regras-chao.js';
 import { normalizarOpcoes } from '../../public/js/opcoes-mundo.js';
 import { normalizarSkin } from '../../public/js/skin.js';
 import { filtrarChat, contarDigitos } from '../../public/js/chat-filtro.js';
@@ -25,7 +26,13 @@ const MAX_EDICOES = 200000; // por mundo
 const LONGE = 100000; // ninguém precisa ir mais longe que isso
 const MSG_POR_SEG = 30;
 // veículos: tipo -> número de lugares (igual ao public/js/veiculos.js)
-const LUGARES = { carro: 4, jipe: 4, esportivo: 2, quadriciclo: 2, moto: 2, bicicleta: 1, skate: 1, trator: 2, caminhao: 6, onibus: 9, barco: 4, submarino: 2, aviao: 2, helicoptero: 4 };
+const LUGARES = { carro: 4, jipe: 4, esportivo: 2, quadriciclo: 2, moto: 2, bicicleta: 1, skate: 1, trator: 2, caminhao: 6, onibus: 9, barco: 4, submarino: 2, aviao: 2, helicoptero: 4,
+  tanque: 2, jipeArmado: 4, helicopteroGuerra: 4, viatura: 4 };
+// mundo de Guerra (public/js/guerra.js): veículos que só existem nas vagas da base, do forte e da delegacia
+const MILITARES = new Set(['tanque', 'jipeArmado', 'helicopteroGuerra', 'viatura']);
+// armas dos veículos: alcance da metralhadora e raio da bomba do canhão (igual ao public/js/guerra-veiculos.js)
+const ARMA_VEIC = { tanque: { raio: 4.2 }, jipeArmado: { alcance: 55 }, helicopteroGuerra: { alcance: 65 } };
+const VAGA_OK = /^[a-z0-9]{1,6}$/;
 const MAX_VEICULOS = 40; // por mundo
 const MAX_VEICULOS_POR_JOGADOR = 6;
 const MAX_PARADOS = 40; // veículos que moram nas vilas/portos (aparecem quando alguém chega perto)
@@ -99,6 +106,47 @@ export class Sala extends DurableObject {
   async carregarParados() {
     if (!this.parados) this.parados = new Set((await this.ctx.storage.get('vpar')) || []);
     return this.parados;
+  }
+
+  // itens no chão (drops): ficam guardados um por chave ("d:i") e somem sozinhos depois de uns minutos
+  async carregarChao() {
+    if (this.chao) return this.chao;
+    const c = new Chao();
+    const lista = await this.ctx.storage.list({ prefix: 'd:' });
+    for (const [, d] of lista) if (d && Number.isInteger(d.i)) c.novo(d.id, d.n, d.x, d.y, d.z, d.v, d.dono, d.t, d.i, d.c);
+    this.chao = c;
+    await this.limparChao();
+    return c;
+  }
+  async limparChao() {
+    const fora = this.chao.limpar();
+    if (!fora.length) return;
+    const ks = fora.map((d) => 'd:' + d.i);
+    for (let i = 0; i < ks.length; i += 128) await this.ctx.storage.delete(ks.slice(i, i + 128));
+    for (const d of fora) this.enviarTodos({ t: 'chao-pegou', i: d.i, j: null });
+  }
+  // põe itens no chão e avisa todo mundo. itens: [[id, n, x, y, z, v?, c?]] (c = quantos são comprados)
+  async soltarNoChao(itens, dono = '') {
+    const c = await this.carregarChao();
+    const novos = [];
+    for (const [id, n, x, y, z, v, comp] of itens) {
+      const d = c.novo(id, n, x, y, z, v || [(Math.random() - 0.5) * 2.4, 3.2, (Math.random() - 0.5) * 2.4], dono, Date.now(), null, comp || 0);
+      if (d) novos.push(d);
+    }
+    if (!novos.length) return;
+    const put = {};
+    for (const d of novos) put['d:' + d.i] = d;
+    await this.ctx.storage.put(put);
+    await this.limparChao();
+    this.enviarTodos({ t: 'chao', d: novos.filter((d) => c.itens.has(d.i)).map((d) => publico(d)) });
+  }
+  // limite simples por jogador (fica na conexão)
+  balde(ws, eu, k, max, janela = 1000) {
+    const agora = Date.now();
+    if (!eu['j' + k] || agora - eu['j' + k] > janela) { eu['j' + k] = agora; eu['n' + k] = 0; }
+    if (++eu['n' + k] > max) return false;
+    ws.serializeAttachment(eu);
+    return true;
   }
 
   // quem está sentado em cada veículo (fica guardado na conexão de cada jogador)
@@ -219,7 +267,7 @@ export class Sala extends DurableObject {
     const cicloDia = opcoes.cicloDia !== false;
     if (JSON.stringify(op) !== JSON.stringify(this.info.econ) || this.info.cicloDia !== cicloDia) { this.info.econ = op; this.info.cicloDia = cicloDia; await this.ctx.storage.put('info', this.info); }
     // regras que o servidor faz valer: construção (colocar/quebrar) e armas
-    const regras = { construcao: opcoes.construcao !== false, armas: opcoes.armas === true };
+    const regras = { construcao: opcoes.construcao !== false, armas: opcoes.armas === true || opcoes.tipo === 'guerra' };
     if (JSON.stringify(regras) !== JSON.stringify(this.info.regras)) { this.info.regras = regras; await this.ctx.storage.put('info', this.info); }
     const chat = chatDe(opcoes);
     if (JSON.stringify(chat) !== JSON.stringify(this.info.chat)) await this.mudarChat(chat);
@@ -243,7 +291,7 @@ export class Sala extends DurableObject {
     }
     const id = u.id + '-' + Math.random().toString(36).slice(2, 7);
     const pos = (await this.ctx.storage.get('p:' + u.id)) || null;
-    const eu = { id, uid: u.id, nome: u.nome, cor: u.cor, skin: normalizarSkin(u.skin, u.cor), dono: !!u.dono, mais16: u.mais16 === true, p: pos || [0, 60, 0], r: [0, 0], cota: 0, janela: 0, semVeiculos: opcoes.veiculos === false };
+    const eu = { id, uid: u.id, nome: u.nome, cor: u.cor, skin: normalizarSkin(u.skin, u.cor), dono: !!u.dono, mais16: u.mais16 === true, p: pos || [0, 60, 0], r: [0, 0], cota: 0, janela: 0, semVeiculos: opcoes.veiculos === false, guerra: opcoes.tipo === 'guerra' };
     this.ctx.acceptWebSocket(servidor);
     servidor.serializeAttachment(eu);
 
@@ -259,8 +307,9 @@ export class Sala extends DurableObject {
     const vparados = await this.carregarParados();
     const lugares = (await this.ctx.storage.get('l:' + u.id)) || { casa: null, lista: [] };
     const barra = (await this.ctx.storage.get('h:' + u.id)) || null;
+    const chao = (await this.carregarChao()).lista().map((d) => publico(d));
     servidor.send(JSON.stringify({
-      t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia, dono: eu.dono, lugares, opcoes, econ, veiculos, vparados: [...vparados], barra,
+      t: 'ola', eu: id, semente: this.info.semente, edicoes, pos, dia, dono: eu.dono, lugares, opcoes, econ, veiculos, vparados: [...vparados], barra, chao,
       chat: this.chat(), historico: this.chatRecente(),
       jogadores: this.jogadores().filter((j) => j.id !== id).map(({ id, nome, cor, skin, p, r, voz }) => ({ id, nome, cor, skin, p, r, voz: !!voz })),
     }));
@@ -483,9 +532,11 @@ export class Sala extends DurableObject {
       if (econ && m.j) { // só o que o jogador fez com as mãos
         const r = await this.econAplicar(ws, eu, econ, { t: 'bloco', b, x, y, z, de, natural, comprado }, true);
         if (r && r.ok && r.marca && b > 0) await this.ctx.storage.put('c:' + k, 1);
+        // coletar e criar: quebrou com as mãos, o que tinha ali cai no chão
+        if (r && r.ok && r.cai && b === 0) await this.soltarNoChao(r.cai.map(([id, n, c]) => [id, n, x + 0.5, y + 0.3, z + 0.5, null, c]));
       }
     } else if (m.t === 'vnovo') {
-      if (eu.semVeiculos || !LUGARES[m.tipo] || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
+      if (eu.semVeiculos || !LUGARES[m.tipo] || MILITARES.has(m.tipo) || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
       const cor = Number.isInteger(m.cor) && m.cor >= 0 && m.cor < 8 ? m.cor : 0;
       // com o mercado ligado, só sai da garagem o que a pessoa comprou ou montou (e do jeito que guardou)
       const econV = await this.econDe(eu.uid);
@@ -528,7 +579,7 @@ export class Sala extends DurableObject {
       await this.ctx.storage.put('vpar', [...par]);
       const vs = await this.carregarVeiculos();
       const ocup = this.ocupacao();
-      const moram = [...vs.values()].filter((v) => v.k).sort((a, b) => a.t - b.t);
+      const moram = [...vs.values()].filter((v) => v.k && !MILITARES.has(v.tipo)).sort((a, b) => a.t - b.t);
       if (moram.length >= MAX_PARADOS) {
         const tirar = moram.find((v) => !(ocup.get(v.id) || []).some(Boolean));
         if (!tirar) return;
@@ -600,6 +651,8 @@ export class Sala extends DurableObject {
       this.enviarTodos({ t: 'vfim', id: v.id });
     } else if (m.t === 'tiro' || m.t === 'arma' || m.t === 'acerto' || m.t === 'caiu' || m.t === 'pegar' || m.t === 'pegos') {
       if (this.regras().armas) this.armas(ws, eu, m);
+    } else if (m.t === 'gveic' || m.t === 'gx' || m.t === 'gdano' || m.t === 'gexp') {
+      if (eu.guerra) await this.guerra(ws, eu, m);
     } else if (m.t === 'buzina') {
       if (!eu.v || eu.v[0] !== m.id) return;
       this.enviarTodos({ t: 'buzina', id: m.id }, ws);
@@ -658,9 +711,24 @@ export class Sala extends DurableObject {
       const agora = Date.now();
       if (!eu.jeco || agora - eu.jeco > 1000) { eu.jeco = agora; eu.neco = 0; }
       if (++eu.neco > 10) { if (eu.neco === 11) ws.send(JSON.stringify({ t: 'econ', s: await this.econDe(eu.uid) })); return; } // devolve a mochila certa
+      // lã e caça: os bichos só existem no aparelho de cada um, então a sala não vê a ovelha; o que dá para
+      // conferir é o ritmo. Derrubar um bicho leva vários golpes (mais de um a cada 1,5 s não é de verdade) e
+      // cada ovelha dá lã uma vez por minuto (mais de uma lã a cada 4 s não é de verdade).
+      if (m.t === 'ev' && (m.e === 'caca' || m.e === 'la')) {
+        const k = m.e === 'caca' ? 'cacaEm' : 'laEm', espera = m.e === 'caca' ? 1500 : 4000;
+        if (eu[k] && agora - eu[k] < espera) return;
+        eu[k] = agora;
+      }
       ws.serializeAttachment(eu);
       const econ = await this.econDe(eu.uid);
-      await this.econAplicar(ws, eu, econ, m, m.t === 'ev');
+      if (m.t === 'ev' && (m.e === 'caca' || m.e === 'la')) {
+        // cai no chão onde o bicho está (perto de quem fez; longe demais vai para os pés do jogador)
+        const onde = [m.x, m.y, m.z].every(Number.isFinite) && Math.hypot(m.x - eu.p[0], m.z - eu.p[2]) <= 12 && Math.abs(m.y - eu.p[1]) <= 12
+          ? [m.x, m.y, m.z] : [eu.p[0], eu.p[1] + 1, eu.p[2]];
+        m = { t: 'ev', e: m.e, b: m.b, f: m.f, x: onde[0], y: onde[1], z: onde[2] };
+      }
+      const r = await this.econAplicar(ws, eu, econ, m, m.t === 'ev');
+      if (r && r.ok && r.cai && m.t === 'ev') await this.soltarNoChao(r.cai.map(([id, n]) => [id, n, m.x, m.y, m.z]));
     } else if (ACOES_TRABALHO.has(m.t)) {
       const op = this.op();
       if (!op.mercado) return;
@@ -690,6 +758,37 @@ export class Sala extends DurableObject {
         }
       }
       await this.econAplicar(ws, eu, econ, m, m.t === 'turno', { pos: eu.p, agora });
+    } else if (m.t === 'chao-pegar' && Number.isInteger(m.i)) {
+      // pegou um item do chão (passou perto)
+      const op = this.op();
+      if (!temMochila(op) || !this.balde(ws, eu, 'pg', 30)) return;
+      const c = await this.carregarChao();
+      const econ = await this.econDe(eu.uid);
+      const d = c.itens.get(m.i);
+      // já foi (outro pegou ou sumiu): o aparelho tira da tela e volta a mochila certa
+      if (!d) { ws.send(JSON.stringify({ t: 'chao-pegou', i: m.i, j: null })); ws.send(JSON.stringify({ t: 'econ', s: econ })); return; }
+      if (!podePegar(d, eu.id) || !pertoParaPegar(d, eu.p)) { ws.send(JSON.stringify({ t: 'econ', s: econ })); ws.send(JSON.stringify({ t: 'chao', d: [publico(d)] })); return; }
+      const r = aplicar(econ, op, { t: 'pegar', id: d.id, n: d.n, c: d.c });
+      if (!r.ok) { ws.send(JSON.stringify({ t: 'econ', s: econ, msg: r.erro })); ws.send(JSON.stringify({ t: 'chao', d: [publico(d)] })); return; }
+      c.tirar(d.i);
+      await this.ctx.storage.delete('d:' + d.i);
+      await this.ctx.storage.put('e:' + eu.uid, econ);
+      ws.send(JSON.stringify({ t: 'econ', s: econ }));
+      this.enviarTodos({ t: 'chao-pegou', i: d.i, j: eu.id, id: d.id, n: d.n });
+    } else if (m.t === 'chao-largar') {
+      // largou da mochila no chão (para guardar depois ou passar para um amigo)
+      const op = this.op();
+      const id = m.id | 0, n = m.n | 0;
+      if (!temMochila(op) || !podeNoChao(id, n) || n > MAX_LARGAR || !this.balde(ws, eu, 'lg', 10)) return;
+      const econ = await this.econDe(eu.uid);
+      const r = aplicar(econ, op, { t: 'largar', id, n });
+      if (!r.ok) { ws.send(JSON.stringify({ t: 'econ', s: econ })); return; }
+      await this.ctx.storage.put('e:' + eu.uid, econ);
+      ws.send(JSON.stringify({ t: 'econ', s: econ }));
+      const v = Array.isArray(m.v) && m.v.length === 3 && m.v.every(Number.isFinite) ? m.v : [0, 2, 0];
+      // sai um pouco na frente do jogador (para onde foi jogado), não dentro da cabeça
+      const vh = Math.hypot(v[0], v[2]) || 1;
+      await this.soltarNoChao([[id, n, eu.p[0] + v[0] / vh * 0.6, eu.p[1] + 1.2, eu.p[2] + v[2] / vh * 0.6, v, r.c]], eu.id);
     } else if (m.t === 'dar') {
       if (!this.op().mercado) return;
       const agora = Date.now();
@@ -704,6 +803,77 @@ export class Sala extends DurableObject {
       await this.ctx.storage.put({ ['e:' + eu.uid]: de, ['e:' + ja.uid]: para });
       ws.send(JSON.stringify({ t: 'econ', s: de, msg: `Você deu ${m.n | 0} moedas para ${ja.nome}!` }));
       alvo.send(JSON.stringify({ t: 'econ', s: para, msg: `${eu.nome} te deu ${m.n | 0} moedas de presente!` }));
+    }
+  }
+
+  // ---------- mundo de Guerra ----------
+  // gveic: veículo de uma vaga (id fixo "g" + vaga); some e volta para a vaga quando fica abandonado longe dela
+  // gx: estrelas de procurado e tiros dos veículos (só o desenho, para os outros verem)
+  // gdano / gexp: metralhadora ou bomba do canhão acertando outro jogador (a sala confere e manda o dano)
+  async guerra(ws, eu, m) {
+    const agora = Date.now();
+    if (m.t === 'gveic') {
+      if (eu.semVeiculos || !VAGA_OK.test(String(m.k)) || !MILITARES.has(m.tipo) || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
+      // no máximo 6 pedidos a cada 4 s por jogador (uma base tem 3 vagas, a delegacia 2)
+      if (!eu.gvEm || agora - eu.gvEm > 4000) { eu.gvEm = agora; eu.gvN = 0; }
+      if (++eu.gvN > 6) return;
+      ws.serializeAttachment(eu);
+      if (Math.hypot(eu.p[0] - m.p[0], eu.p[2] - m.p[2]) > 120) return;
+      const vs = await this.carregarVeiculos();
+      const id = 'g' + m.k;
+      const pub = { id, tipo: m.tipo, cor: 0, p: m.p.map((x) => arrV(x)), r: arrV(m.r, 1000) };
+      const v = vs.get(id);
+      if (v) {
+        const ocupado = (this.ocupacao().get(id) || []).some(Boolean);
+        const longeDaVaga = Math.hypot(v.p[0] - pub.p[0], v.p[2] - pub.p[2]) > 30;
+        const alguemPerto = this.jogadores().some((j) => Math.hypot(j.p[0] - v.p[0], j.p[2] - v.p[2]) < 50);
+        if (ocupado || !longeDaVaga || alguemPerto) { ws.send(JSON.stringify({ t: 'vnovo', v: pubV(v) })); return; }
+        vs.delete(id);
+        this.enviarTodos({ t: 'vfim', id });
+      }
+      // mora na vaga (k): qualquer um dirige, ninguém guarda na garagem; volta para a vaga abastecido e consertado
+      const novo = { ...pub, dono: null, k: id, t: agora, c: 1, d: 0 };
+      vs.set(id, novo);
+      await this.ctx.storage.put('v:' + id, novo);
+      this.enviarTodos({ t: 'vnovo', v: pubV(novo) });
+    } else if (m.t === 'gx') {
+      const f = (a) => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite) ? a.map((x) => arrV(x)) : null;
+      if (m.k === 'estrelas') {
+        const n = Math.max(0, Math.min(5, m.n | 0));
+        eu.estrelas = n; ws.serializeAttachment(eu);
+        this.enviarTodos({ t: 'gx', k: 'estrelas', id: eu.id, n }, ws);
+      } else if ((m.k === 'tiro' || m.k === 'rajada') && eu.v) {
+        const o = f(m.o), d = f(m.k === 'tiro' ? m.d : m.f);
+        if (!o || !d) return;
+        this.enviarTodos(m.k === 'tiro' ? { t: 'gx', k: 'tiro', id: eu.id, o, d } : { t: 'gx', k: 'rajada', id: eu.id, o, f: d }, ws);
+      }
+    } else {
+      // quem atira tem que estar no lugar do atirador de um veículo armado
+      if (!eu.v || eu.v[1] !== 0) return;
+      const v = (await this.carregarVeiculos()).get(eu.v[0]);
+      const A = v && ARMA_VEIC[v.tipo];
+      if (!A) return;
+      const t = this.taxaGuerra || (this.taxaGuerra = new Map());
+      let q = t.get(eu.id);
+      if (!q || agora - q.ini > 1000) { q = { ini: agora, n: 0 }; t.set(eu.id, q); }
+      const sentadoEmTanque = (j) => { if (!j.v) return false; const w = this.veiculos.get(j.v[0]); return !!w && w.tipo === 'tanque'; };
+      if (m.t === 'gdano' && A.alcance) {
+        if (++q.n > 12) return;
+        const [wsA, alvo] = this.conexaoDe(String(m.alvo));
+        if (!alvo || alvo.id === eu.id || sentadoEmTanque(alvo)) return;
+        if (Math.hypot(alvo.p[0] - v.p[0], alvo.p[1] - v.p[1], alvo.p[2] - v.p[2]) > A.alcance + 6) return;
+        try { wsA.send(JSON.stringify({ t: 'gx', k: 'dano', n: 1, de: eu.nome })); } catch {}
+      } else if (m.t === 'gexp' && A.raio) {
+        const p = Array.isArray(m.p) && m.p.length === 3 && m.p.every(Number.isFinite) ? m.p : null;
+        if (!p || (eu.expEm && agora - eu.expEm < 1800) || Math.hypot(p[0] - v.p[0], p[2] - v.p[2]) > 140) return;
+        eu.expEm = agora; ws.serializeAttachment(eu);
+        for (const w of this.ctx.getWebSockets()) {
+          const j = w.deserializeAttachment();
+          if (!j || j.id === eu.id || sentadoEmTanque(j)) continue;
+          const d = Math.hypot(j.p[0] - p[0], j.p[1] + 0.9 - p[1], j.p[2] - p[2]);
+          if (d < A.raio) try { w.send(JSON.stringify({ t: 'gx', k: 'dano', n: Math.max(1, Math.round(5 * (1 - d / A.raio))), de: eu.nome, exp: 1 })); } catch {}
+        }
+      }
     }
   }
 

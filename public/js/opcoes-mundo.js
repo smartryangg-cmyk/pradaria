@@ -58,6 +58,9 @@ export const TIPOS = {
   historia: { icone: 'ampulheta', nome: 'Linha do Tempo', desc: 'Começa com os dinossauros e evolui pela história', semSelvagens: true, oculto: true }, // os bichos de cada era vêm de eras-regras.js; oculto até as eras ficarem prontas
   // Ilha de Aventura (ilha-aventura.js): mapa como os de jogos de ação, mas sem armas. Tamanho fixo (limite/raioExtra valem no lugar do tamanho).
   aventura: { icone: 'ilha', nome: 'Ilha de Aventura', desc: 'Cidades, estradas, porto, farol e lugares com nome', limite: 256, raioExtra: 1 },
+  // Guerra (guerra.js, guerra-mapa.js): ilha com Base Aliada, Forte Vermelho, presídio, delegacia e polícia.
+  // mais16 = pergunta a idade antes de entrar (idade.js); forca = opções que valem sempre neste tipo
+  guerra: { icone: 'tanque', nome: 'Guerra', desc: 'Base, forte inimigo, tanques, presídio e polícia. 16 anos ou mais', limite: 256, raioExtra: 1, mais16: true, forca: { armas: true } },
 };
 
 // PADRAO_MUNDO: o que vale quando falta a opção (mundos antigos); PADRAO_NOVO: o que já vem marcado ao criar
@@ -78,6 +81,7 @@ export function normalizarOpcoes(o) {
   // mundos que ligaram "Monstros machucam" antes dos monstros virarem bichos selvagens continuam com corações
   if (o && typeof o === 'object' && typeof o.selvagensMachucam !== 'boolean' && o.monstrosMachucam === true) r.selvagensMachucam = true;
   if (TIPOS[r.tipo].semSelvagens) r.selvagens = false;
+  if (TIPOS[r.tipo].forca) Object.assign(r, TIPOS[r.tipo].forca);
   if (!r.selvagens) r.selvagensMachucam = false;
   return r;
 }
@@ -98,7 +102,7 @@ export const precisaRecarregar = (mudou) => mudou.some((id) => !OPCOES_MUNDO.fin
 // (o jeito do mundo, 'estilo', só muda o desenho, então dá para trocar depois de criado)
 export const opcoesMudadas = (a, b) => { const x = normalizarOpcoes(a), y = normalizarOpcoes(b); return [...OPCOES_MUNDO.filter((o) => x[o.id] !== y[o.id]).map((o) => o.id), ...(x.estilo !== y.estilo ? ['estilo'] : [])]; };
 
-// mundos com temas sensíveis (opção Armas; tipos com mais16): precisam da resposta "tenho 16 anos ou mais" (idade.js e o servidor conferem)
+// mundos com temas sensíveis (Guerra, Armas): precisam da resposta "tenho 16 anos ou mais" (idade.js e o servidor conferem)
 export function precisa16(o) {
   const n = normalizarOpcoes(o);
   return !!(TIPOS[n.tipo].mais16 || n.armas);

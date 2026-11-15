@@ -56,7 +56,10 @@ export function marcarLista(l, escolha) {
   for (const b of l.children) {
     const id = b.dataset.opcao;
     if (sem && (id === 'selvagens' || id === 'selvagensMachucam')) escolha[id] = false;
-    b.disabled = sem && (id === 'selvagens' || id === 'selvagensMachucam');
+    // o tipo pode obrigar uma opção (Guerra: armas sempre ligadas)
+    const forca = TIPOS[escolha.tipo] && TIPOS[escolha.tipo].forca;
+    if (forca && id in forca) escolha[id] = forca[id];
+    b.disabled = (sem && (id === 'selvagens' || id === 'selvagensMachucam')) || !!(forca && id in forca);
     b.setAttribute('aria-pressed', String(!!escolha[id]));
   }
 }

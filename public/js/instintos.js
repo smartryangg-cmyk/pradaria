@@ -22,6 +22,10 @@
 //   habitat    peso de aparecer em cada lugar: prado, floresta, beira (perto d'água), praia, montanha,
 //              taiga, neve, deserto, savana, selva (biomas do mundo clássico)
 //   foge_agua  a capivara foge para dentro d'água quando assustada
+//   vida       quantos golpes aguenta (mão = 1, ferramenta de madeira = 2, de pedra = 3). 0 = não se ataca (cachorro)
+//   revida     o que faz quando apanha: 'foge' (padrão: corre e avisa o bando), 'sempre' (enfrenta: urso, onça),
+//              'bando' (com o bando por perto, todos enfrentam; sozinho foge: lobos, vacas), 'bote' (cobra: dá o
+//              bote se você estiver perto, senão vai embora). Mãe com filhotes sempre enfrenta, e ferido demais foge.
 //   nome       como aparece nos avisos ("o lobo", "a onça"); nomeMae quando está com filhotes ("a ursa")
 //
 // Fontes da pesquisa (resumo): distância de fuga de herbívoros (Hediger), rebanhos de ovinos e bovinos
@@ -32,42 +36,43 @@
 // queixadas e veados, corrida curta), cobras (de sangue frio: ativas de dia, avisam antes do bote,
 // não perseguem), capivaras (grupos perto d'água, fogem mergulhando), coelhos (congelam e depois
 // disparam em zigue-zague), galinhas (dormem no poleiro ao escurecer, galinha choca protege pintinhos),
-// e animais selvagens evitam fogo e luz forte à noite.
+// e animais selvagens evitam fogo e luz forte à noite. Quando atacados: herbívoros fogem e o bando foge junto,
+// ursos e onças encurralados enfrentam, lobos e vacas em grupo se juntam contra o perigo, cobras dão o bote.
 
 export const INSTINTOS = {
   // ---------- fazenda (mansos) ----------
-  ovelha: { selvagem: false, dieta: 'erva', atividade: 'dia', grupo: [2, 5], filhotes: [0.35, 1, 2], fuga: 3, alerta: 12, corrida: 3.6, folego: 8,
+  ovelha: { selvagem: false, vida: 4, dieta: 'erva', atividade: 'dia', grupo: [2, 5], filhotes: [0.35, 1, 2], fuga: 3, alerta: 12, corrida: 3.6, folego: 8,
     curioso: 0.05, habitat: { prado: 3, montanha: 1, taiga: 0.5 }, nome: 'a ovelha' },
-  porquinho: { selvagem: false, dieta: 'onivoro', atividade: 'dia', grupo: [1, 3], filhotes: [0.4, 2, 3], fuga: 2, alerta: 10, corrida: 3.4, folego: 6,
+  porquinho: { selvagem: false, vida: 5, dieta: 'onivoro', atividade: 'dia', grupo: [1, 3], filhotes: [0.4, 2, 3], fuga: 2, alerta: 10, corrida: 3.4, folego: 6,
     curioso: 0.35, habitat: { prado: 2, floresta: 1, selva: 0.5 }, nome: 'o porquinho' },
-  galinha: { selvagem: false, dieta: 'onivoro', atividade: 'dia', grupo: [2, 4], filhotes: [0.4, 2, 3], fuga: 2, alerta: 8, corrida: 3.2, folego: 4,
+  galinha: { selvagem: false, vida: 2, dieta: 'onivoro', atividade: 'dia', grupo: [2, 4], filhotes: [0.4, 2, 3], fuga: 2, alerta: 8, corrida: 3.2, folego: 4,
     curioso: 0.05, defende: 3, dano: 0, habitat: { prado: 3, savana: 0.5 }, nome: 'a galinha' },
-  vaca: { selvagem: false, dieta: 'erva', atividade: 'dia', grupo: [2, 3], filhotes: [0.3, 1, 1], fuga: 2, alerta: 12, corrida: 3.4, folego: 8,
+  vaca: { selvagem: false, vida: 6, revida: 'bando', dieta: 'erva', atividade: 'dia', grupo: [2, 3], filhotes: [0.3, 1, 1], fuga: 2, alerta: 12, corrida: 3.4, folego: 8,
     curioso: 0.35, defende: 5, dano: 0, habitat: { prado: 2, savana: 1 }, nome: 'a vaca' },
-  cachorro: { selvagem: false, dieta: 'onivoro', atividade: 'sempre', grupo: [1, 1], fuga: 0, alerta: 12, corrida: 5, folego: 20,
+  cachorro: { selvagem: false, vida: 0, dieta: 'onivoro', atividade: 'sempre', grupo: [1, 1], fuga: 0, alerta: 12, corrida: 5, folego: 20,
     curioso: 0.6, habitat: { prado: 1 }, nome: 'o cachorro' },
-  capivara: { selvagem: false, dieta: 'erva', atividade: 'crepusculo', grupo: [2, 5], filhotes: [0.5, 1, 3], fuga: 4, alerta: 14, corrida: 4, folego: 8,
+  capivara: { selvagem: false, vida: 5, dieta: 'erva', atividade: 'crepusculo', grupo: [2, 5], filhotes: [0.5, 1, 3], fuga: 4, alerta: 14, corrida: 4, folego: 8,
     curioso: 0.05, foge_agua: true, habitat: { beira: 4, praia: 1, selva: 1 }, nome: 'a capivara' },
-  coelho: { selvagem: false, dieta: 'erva', atividade: 'crepusculo', grupo: [1, 3], fuga: 3.5, congela: 8, alerta: 12, corrida: 5.2, folego: 5,
+  coelho: { selvagem: false, vida: 2, dieta: 'erva', atividade: 'crepusculo', grupo: [1, 3], fuga: 3.5, congela: 8, alerta: 12, corrida: 5.2, folego: 5,
     curioso: 0, habitat: { prado: 3, floresta: 1, montanha: 1, neve: 1.5, deserto: 1, taiga: 1 }, nome: 'o coelho' },
 
   // ---------- selvagens ----------
-  veado: { selvagem: true, dieta: 'erva', atividade: 'crepusculo', grupo: [2, 4], filhotes: [0.4, 1, 1], fuga: 11, alerta: 18, corrida: 6, folego: 9,
+  veado: { selvagem: true, vida: 5, dieta: 'erva', atividade: 'crepusculo', grupo: [2, 4], filhotes: [0.4, 1, 1], fuga: 11, alerta: 18, corrida: 6, folego: 9,
     curioso: 0, habitat: { floresta: 3, prado: 1, taiga: 2, savana: 1 }, nome: 'o veado' },
-  lobo: { selvagem: true, dieta: 'carne', presas: ['veado', 'ovelha', 'coelho'], atividade: 'crepusculo', grupo: [2, 4], fuga: 8, alerta: 20, corrida: 5, folego: 14,
+  lobo: { selvagem: true, vida: 6, revida: 'bando', dieta: 'carne', presas: ['veado', 'ovelha', 'coelho'], atividade: 'crepusculo', grupo: [2, 4], fuga: 8, alerta: 20, corrida: 5, folego: 14,
     curioso: 0, territorio: 0, dano: 1, cacaGente: true, sucesso: 0.25, habitat: { montanha: 2, floresta: 1, prado: 0.6, taiga: 2.5, neve: 2 }, nome: 'o lobo' },
-  raposa: { selvagem: true, dieta: 'carne', presas: ['coelho', 'galinha'], atividade: 'crepusculo', grupo: [1, 1], fuga: 5, alerta: 14, corrida: 5, folego: 6,
+  raposa: { selvagem: true, vida: 3, dieta: 'carne', presas: ['coelho', 'galinha'], atividade: 'crepusculo', grupo: [1, 1], fuga: 5, alerta: 14, corrida: 5, folego: 6,
     curioso: 0.4, dano: 0, sucesso: 0.35, habitat: { floresta: 1.5, prado: 1, neve: 1, deserto: 1, taiga: 1 }, nome: 'a raposa' },
-  urso: { selvagem: true, dieta: 'onivoro', presas: ['veado'], atividade: 'dia', grupo: [1, 1], filhotes: [0.6, 1, 2], fuga: 0, alerta: 16, corrida: 4.8, folego: 6,
+  urso: { selvagem: true, vida: 12, revida: 'sempre', dieta: 'onivoro', presas: ['veado'], atividade: 'dia', grupo: [1, 1], filhotes: [0.6, 1, 2], fuga: 0, alerta: 16, corrida: 4.8, folego: 6,
     curioso: 0.1, territorio: 3.5, defende: 9, dano: 2, sucesso: 0.15, habitat: { floresta: 1.5, montanha: 1, taiga: 2 }, nome: 'o urso', nomeMae: 'a ursa' },
-  onca: { selvagem: true, dieta: 'carne', presas: ['capivara', 'veado', 'porquinho'], atividade: 'noite', grupo: [1, 1], filhotes: [0.3, 1, 1], fuga: 11, alerta: 18,
+  onca: { selvagem: true, vida: 9, revida: 'sempre', dieta: 'carne', presas: ['capivara', 'veado', 'porquinho'], atividade: 'noite', grupo: [1, 1], filhotes: [0.3, 1, 1], fuga: 11, alerta: 18,
     corrida: 5.6, folego: 4, curioso: 0, territorio: 0, defende: 7, dano: 2, cacaGente: true, sucesso: 0.4, habitat: { floresta: 1, beira: 1.5, selva: 3, savana: 0.5 }, nome: 'a onça' },
-  cobra: { selvagem: true, dieta: 'carne', atividade: 'dia', grupo: [1, 1], fuga: 0, alerta: 4, corrida: 1.6, folego: 2, curioso: 0, territorio: 3, bote: 1.5,
+  cobra: { selvagem: true, vida: 2, revida: 'bote', dieta: 'carne', atividade: 'dia', grupo: [1, 1], fuga: 0, alerta: 4, corrida: 1.6, folego: 2, curioso: 0, territorio: 3, bote: 1.5,
     dano: 1, naoPersegue: true, habitat: { prado: 0.5, floresta: 0.6, praia: 0.8, deserto: 2, selva: 1.5, savana: 1 }, nome: 'a cobra' },
 };
 
 // bichos novos (das eras, por exemplo) entram aqui. Campos que faltarem usam o padrão abaixo.
-const PADRAO = { selvagem: false, dieta: 'erva', atividade: 'dia', grupo: [1, 1], fuga: 3, alerta: 10, corrida: 3.5, folego: 6, curioso: 0, dano: 0, habitat: { prado: 1 } };
+const PADRAO = { selvagem: false, vida: 4, revida: 'foge', dieta: 'erva', atividade: 'dia', grupo: [1, 1], fuga: 3, alerta: 10, corrida: 3.5, folego: 6, curioso: 0, dano: 0, habitat: { prado: 1 } };
 export function registrarInstinto(especie, dados) { INSTINTOS[especie] = { ...PADRAO, ...dados }; }
 export const instinto = (especie) => INSTINTOS[especie] || PADRAO;
 

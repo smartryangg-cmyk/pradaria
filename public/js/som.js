@@ -55,6 +55,9 @@ export class Som {
     this.tom(duro ? 300 : madeira ? 200 : 140, 0.06, { tipo: 'triangle', vol: 0.18, ate: duro ? 220 : 110 });
   }
   passo() { this.ruido(0.05, { vol: 0.12, freq: 500 }); }
+  // pegou um item do chão ("plop" subindo) / largou um (descendo)
+  pegar() { this.tom(700, 0.07, { tipo: 'sine', vol: 0.28, ate: 1250 }); }
+  largar() { this.tom(520, 0.09, { tipo: 'triangle', vol: 0.22, ate: 300 }); }
   clique() { this.tom(880, 0.05, { tipo: 'sine', vol: 0.25 }); }
   // sino: a nota depende da altura do bloco (escala pentatônica: sempre soa bonito)
   sino(altura = 0) {
