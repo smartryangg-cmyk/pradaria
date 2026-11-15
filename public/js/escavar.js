@@ -38,6 +38,7 @@ const DUREZA = {
   [B.CACTO]: 2, [B.CASCALHO]: 3,
   [B.FOLHAS_PINHEIRO]: 2, [B.FOLHAS_SELVA]: 2, [B.TRONCO_PINHEIRO]: 5, [B.TRONCO_BETULA]: 5,
   [B.CARVAO]: 7, [B.FERRO]: 8, [B.OURO]: 8, [B.DIAMANTE]: 10, [B.ROCHA_MAE]: 9999,
+  220: 24, // obsidiana (lava-regras.js): bem dura, com picareta de pedra são 8 toques
 };
 // formas redondas (80..99): têm dureza própria, mas não viram cubinhos (seguem redondas até quebrar)
 const DUREZA_FORMA = { 80: 5, 81: 5, 82: 5, 83: 4, 84: 3, 85: 1, 86: 3, 87: 4, 88: 4, 89: 1, 90: 4, 91: 4, 92: 4, 93: 4, 94: 4, 95: 3, 96: 3, 97: 3, 98: 3, 99: 3 };
