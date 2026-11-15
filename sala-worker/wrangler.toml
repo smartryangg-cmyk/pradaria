@@ -8,6 +8,15 @@ workers_dev = false
 name = "SALA"
 class_name = "Sala"
 
+# celular como controle da TV (public/controle.html): só repassa recados, não guarda nada
+[[durable_objects.bindings]]
+name = "CONTROLE"
+class_name = "Controle"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Sala"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["Controle"]

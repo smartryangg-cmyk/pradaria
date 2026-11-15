@@ -11,6 +11,7 @@ const BASICO = [
   '/js/formas.js', '/js/formas-defs.js',
   '/js/texturas.js', '/js/texturas-worker.js',
   '/js/guerra.js', '/js/guerra-npc.js', '/js/guerra-mapa.js', '/js/guerra-veiculos.js',
+  '/tv.css', '/js/tv.js', '/vendor/qrcode.mjs', '/controle.html', '/js/controle-celular.js',
 ];
 
 self.addEventListener('install', (e) => {
