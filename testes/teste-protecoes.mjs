@@ -16,7 +16,7 @@ async function api(caminho, corpo, token, metodo, ip) {
   return { status: r.status, ...d };
 }
 const sfx = String(Date.now() % 10000);
-const cadastrar = (nome) => api('cadastrar', { nome, senha: 'senha123' }, null, null, ipx());
+const cadastrar = (nome) => api('cadastrar', { nome, senha: 'senha123', nascimento: '2000-01-01' }, null, null, ipx());
 
 // nomes
 for (const n of ['zap11987654321', 'Pedro12345', 'insta_fulano', 'm3rda']) ok((await cadastrar(n)).status === 400, 'nome barrado: ' + n);
@@ -113,7 +113,7 @@ const ataque = {
 };
 // o arquivo liga Armas: sem ter respondido "16 anos ou mais" não importa
 ok((await api('mundos/importar', { arquivo: ataque }, dono.token)).status === 403, 'arquivo com Armas: sem a resposta "16 ou mais" não importa (403)');
-await api('eu/idade', { mais16: true }, dono.token);
+await api('eu/nascimento', { nascimento: '2000-01-01' }, dono.token);
 const imp = await api('mundos/importar', { arquivo: ataque }, dono.token);
 ok(imp.mundo && imp.mundo.codigo, 'arquivo com lixo importa só o que vale (' + imp.status + ')');
 if (imp.mundo) {
