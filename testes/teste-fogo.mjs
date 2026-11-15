@@ -36,7 +36,7 @@ ok(await p.evaluate(() => window.__jogo.opcoesMundo.sobrevivencia === true), 'mu
 // chão de pedra plano, de dia, com uma bancada do lado; parede de tábuas (5 de largura, 3 de altura) na frente
 const base = await p.evaluate(([PEDRA, TABUAS]) => {
   const J = window.__jogo, m = J.mundo, j = J.jog, x0 = Math.floor(j.pos.x), z0 = Math.floor(j.pos.z), y0 = Math.max(m.chao(x0, z0) + 1, 40);
-  for (let x = -9; x <= 9; x++) for (let z = -9; z <= 9; z++) { m.definir(x0 + x, y0 - 1, z0 + z, PEDRA); for (let y = 0; y < 8; y++) m.definir(x0 + x, y0 + y, z0 + z, 0); }
+  for (let x = -11; x <= 11; x++) for (let z = -11; z <= 11; z++) { m.definir(x0 + x, y0 - 1, z0 + z, PEDRA); for (let y = 0; y < 40; y++) m.definir(x0 + x, y0 + y, z0 + z, 0); } // nada em cima (morro, água, árvore)
   for (let x = -2; x <= 2; x++) for (let y = 0; y < 3; y++) m.definir(x0 + x, y0 + y, z0 - 4, TABUAS);
   m.definir(x0 + 3, y0, z0 + 2, 34); // bancada
   j.voando = false; j.pos.x = x0 + 0.5; j.pos.y = y0; j.pos.z = z0 + 0.5; j.vel.x = j.vel.y = j.vel.z = 0;
@@ -88,13 +88,19 @@ await p.waitForTimeout(1300);
 const depoisAgua = await bl(p, x0 - 6, y0, z0 + 6);
 ok(temFogoAgua === FOGO && depoisAgua !== FOGO, `água do lado apaga o fogo (${temFogoAgua} -> ${depoisAgua})`);
 await p.evaluate(([x0, y0, z0]) => window.__jogo.mundo.definir(x0 - 7, y0, z0 + 6, 0), base);
-// lava acende a madeira encostada
-await p.evaluate(([x0, y0, z0, T, L]) => { const m = window.__jogo.mundo; m.definir(x0 + 6, y0, z0 + 6, T); m.definir(x0 + 6, y0, z0 + 5, L); }, [x0, y0, z0, TABUAS, LAVA]);
+// lava acende a madeira do mundo original encostada nela; a tábua que alguém pôs não (só o isqueiro queima construção)
+await p.evaluate(([x0, y0, z0, T, L]) => {
+  const m = window.__jogo.mundo, x = x0 + 6, z = z0 + 6, cx = Math.floor(x / 16), cz = Math.floor(z / 16), c = m.chunks.get(cx + ',' + cz);
+  c.dados[(x - cx * 16) + (z - cz * 16) * 16 + y0 * 256] = T; m.edicoes.get(cx + ',' + cz).delete((x - cx * 16) + (z - cz * 16) * 16 + y0 * 256); c.sujo = true; // como se fosse do mundo
+  m.definir(x0 + 6, y0, z0 + 4, T); m.definir(x0 + 6, y0, z0 + 5, L);
+}, [x0, y0, z0, TABUAS, LAVA]);
 let pegou = false;
 for (let k = 0; k < 10 && !pegou; k++) { await p.waitForTimeout(400); pegou = (await bl(p, x0 + 6, y0, z0 + 6)) !== TABUAS; }
-ok(pegou, 'lava acende a tábua encostada nela');
+await p.waitForTimeout(1500);
+ok(pegou, 'lava acende a madeira do mundo encostada nela');
+ok(await bl(p, x0 + 6, y0, z0 + 4) === TABUAS, 'lava não queima a tábua que alguém pôs (construção só pega fogo do isqueiro)');
 // ficar dentro do fogo machuca; um toque apaga
-await p.evaluate(([x0, y0, z0]) => { const J = window.__jogo; J.mundo.definir(x0 + 6, y0, z0 + 5, 0); J.mundo.definir(x0 + 5, y0, z0 - 7, 222); const j = J.jog; j.pos.x = x0 + 5.5; j.pos.z = z0 - 6.5; j.pos.y = y0; j.vel.x = j.vel.z = 0; }, base);
+await p.evaluate(([x0, y0, z0]) => { const J = window.__jogo; J.mundo.definir(x0 + 6, y0, z0 + 5, 0); J.mundo.definir(x0 + 5, y0, z0 - 7, 222); J.mundo.marcarFogo(x0 + 5, y0, z0 - 7); const j = J.jog; j.pos.x = x0 + 5.5; j.pos.z = z0 - 6.5; j.pos.y = y0; j.vel.x = j.vel.z = 0; }, base);
 const v0 = await p.evaluate(() => window.__jogo.vida.atual);
 await p.waitForTimeout(1800);
 const v1 = await p.evaluate(() => window.__jogo.vida.atual);
@@ -143,6 +149,10 @@ if (ONLINE) {
   ok(await bl(bb, ax + 1, ay, az - 3) === TABUAS, 'online: Beto vê a coluna de tábuas da Ana');
   // um aparelho modificado mandando "fogo" na tábua longe de qualquer fogo: a sala recusa
   await bb.evaluate(([x, y, z]) => window.__jogo.sala.enviar({ t: 'bloco', x, y, z, b: 222, de: 8 }), [ax + 8, ay, az - 3]);
+  // o golpe da auditoria: fogo sem mão num ar do lado da tábua (mentindo "de"), depois fogo na tábua; e com isq de longe
+  await bb.evaluate(([x, y, z]) => { const s = window.__jogo.sala; s.enviar({ t: 'bloco', x: x + 1, y, z, b: 222, de: 0 }); setTimeout(() => s.enviar({ t: 'bloco', x, y, z, b: 222, de: 8 }), 300); setTimeout(() => s.enviar({ t: 'bloco', x: x - 1, y, z, b: 222, de: 0, isq: 1 }), 500); setTimeout(() => s.enviar({ t: 'bloco', x, y, z, b: 222, de: 8 }), 800); }, [ax + 8, ay, az - 3]);
+  await a.evaluate(([ax, ay, az]) => { const j = window.__jogo.jog; j.pos.x = ax + 0.5; j.pos.y = ay + 1; j.pos.z = az + 0.5; }, A);
+  await bb.evaluate(([ax, ay, az]) => { const j = window.__jogo.jog; j.pos.x = ax + 0.5; j.pos.y = ay + 1; j.pos.z = az + 30.5; }, A); // Beto longe
   await a.evaluate(() => { const J = window.__jogo; J.barra[0] = 1010; J.slot = 0; });
   await tocarEm(a, [ax + 0.5, ay, az - 2.5], false);
   const fA = await bl(a, ax, ay, az - 3);
@@ -156,7 +166,7 @@ if (ONLINE) {
   for (let k = 0; k < 40 && !queimou; k++) { await a.waitForTimeout(1000); queimou = [await bl(bb, ax + 1, ay, az - 3), await bl(bb, ax + 1, ay + 1, az - 3)].every((v) => v !== TABUAS); }
   const longe = await bl(bb, ax + 8, ay, az - 3), longeA = await bl(a, ax + 8, ay, az - 3);
   ok(queimou, 'online: a coluna de tábuas queimou para os dois');
-  ok(longe === TABUAS && longeA === TABUAS, `online: a sala recusou o "fogo" mandado longe de fogo (Ana ${longeA}, Beto ${longe})`);
+  ok(longe === TABUAS && longeA === TABUAS, `online: a sala recusou o "fogo" mentiroso do aparelho modificado (fogo longe, fogo no ar do lado, isqueiro de longe) (Ana ${longeA}, Beto ${longe})`);
   // quem entra depois vê a madeira queimada (ficou salvo)
   const c3 = await jogador('Caio' + sfx);
   await c3.click('#bt-codigo'); await c3.fill('#n-nome', codigo); await c3.click('#m-novo button[type=submit]');

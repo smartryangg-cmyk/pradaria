@@ -1460,7 +1460,8 @@ function acenderFogo(x, y, z) {
   if (atual !== AR && !(BLOCOS[atual].planta && atual !== FOGO)) return;
   const perto = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]].some(([a, b, c]) => inflamavel(mundo.bloco(x + a, y + b, z + c)));
   if (!SOLIDO[mundo.bloco(x, y - 1, z)] && !perto) { aviso('O fogo precisa de chão ou de madeira do lado', 1800, 'explosao'); return; }
-  mundo.definir(x, y, z, FOGO);
+  mundo.marcarFogo(x, y, z);
+  acendendo = true; try { mundo.definir(x, y, z, FOGO); } finally { acendendo = false; } // isq: a sala marca como fogo de verdade
   som.tom(900, 0.05, { tipo: 'square', vol: 0.15, ate: 300 });
 }
 
@@ -1469,7 +1470,7 @@ function noFogo() {
   const x = Math.floor(jog.pos.x), y = Math.floor(jog.pos.y), z = Math.floor(jog.pos.z);
   return mundo.bloco(x, y, z) === FOGO || mundo.bloco(x, y + 1, z) === FOGO;
 }
-let tempoFogo = 0, avisouFogo = 0;
+let tempoFogo = 0, avisouFogo = 0, acendendo = false;
 function queimarNoFogo(dt) {
   if (!noFogo()) { tempoFogo = 0; return; }
   if (tempoTotal - avisouFogo > 4) { avisouFogo = tempoTotal; aviso('Fogo queima! Saia de perto ou apague com água', 2000, 'explosao'); }
@@ -1652,7 +1653,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   mundo.carregarEdicoes(edicoes);
   mundo.aoMudarBloco = (x, y, z, b, de, natural) => {
     edicoesPendentes = true;
-    if (sala) sala.enviar(porJogador ? { t: 'bloco', x, y, z, b, de, j: 1, mao: b ? 0 : maoQuebrando } : { t: 'bloco', x, y, z, b, de });
+    if (sala) sala.enviar(porJogador ? { t: 'bloco', x, y, z, b, de, j: 1, mao: b ? 0 : maoQuebrando } : acendendo ? { t: 'bloco', x, y, z, b, de, isq: 1 } : { t: 'bloco', x, y, z, b, de });
     if (fisica) fisica.mudou(x, y, z, b);
     if (porJogador) mercado.bloco(b, y, de, natural, x, z, b ? 0 : maoQuebrando);
   };
@@ -1852,6 +1853,7 @@ async function jogarOnline(m, volta = null) {
     bloco: (msg) => {
       if (!mundo) return;
       const antes = mundo.bloco(msg.x, msg.y, msg.z);
+      if (msg.bom && msg.b === FOGO) mundo.marcarFogo(msg.x, msg.y, msg.z); // fogo de verdade (a sala marcou)
       mundo.definir(msg.x, msg.y, msg.z, msg.b, true);
       // o amigo quebrou/colocou: ouve de onde foi (só o que alguém fez, não a água escorrendo)
       if (msg.j && antes !== msg.b) som.em(meioDe(msg.x, msg.y, msg.z), () => (msg.b ? som.colocar(msg.b) : som.quebrar(antes)));
