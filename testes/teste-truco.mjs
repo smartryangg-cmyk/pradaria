@@ -29,7 +29,17 @@ async function abrir(opc, nome) {
   }
   return j;
 }
-const minhaVez = (j) => j.p.waitForFunction(() => { const v = window.__truco.v; return v && !v.fim && !v.aposta && !v.onze && v.vez === window.__truco.eu && document.querySelector('#t-minhas.pode'); }, null, { timeout: 20000 });
+// espera a minha vez de jogar carta; se pedirem truco para mim ou cair mão de onze, aceita/joga (pelos botões)
+async function minhaVez(j) {
+  const fim = Date.now() + 25000;
+  while (Date.now() < fim) {
+    const s = await j.p.evaluate(() => { const v = window.__truco.v, eu = window.__truco.eu, T = window.__truco.T; if (!v || v.fim) return 'nada'; if (v.onze && v.onze.time === T.time(eu)) return 'onze'; if (v.aposta && T.time(v.aposta.lugar) !== T.time(eu)) return 'aposta'; if (!v.aposta && !v.onze && v.vez === eu && document.querySelector('#t-minhas.pode')) return 'vez'; return 'nada'; });
+    if (s === 'vez') return;
+    if (s === 'onze' || s === 'aposta') await j.clica('#t-acoes .verde').catch(() => {});
+    await j.p.waitForTimeout(300);
+  }
+  throw new Error('não chegou a vez de ' + (j.nome || 'local'));
+}
 const cabe = (j, sels) => j.p.evaluate((s) => [...document.querySelectorAll(s)].filter((e) => { const r = e.getBoundingClientRect(); return r.width && (r.left < -1 || r.right > innerWidth + 1 || r.top < -1 || r.bottom > innerHeight + 1); }).map((e) => e.id || e.className), sels);
 
 // ---------- parte 1: contra o computador ----------
@@ -110,7 +120,7 @@ await beto.clica('#convite-sim');
 await beto.p.waitForURL(/truco\?sala=/);
 await beto.p.waitForSelector('#t-jogo:not([hidden])', { timeout: 15000 });
 await ana.p.waitForSelector('#t-jogo:not([hidden])', { timeout: 15000 });
-await ana.p.evaluate(() => { const f = document.querySelector('#amigos-fechar'); if (f && f.offsetParent) f.click(); });
+if (await ana.p.isVisible('#amigos')) await ana.clica('#amigos-fechar');
 ok(true, 'os dois estão na mesa');
 const ve = (j) => j.p.evaluate(() => window.__truco.v);
 let va = await ve(ana), vb = await ve(beto);
@@ -164,7 +174,7 @@ ok(beto.erros.length === 0, 'Beto sem erros no console ' + beto.erros.join(' | '
 await ana.p.goto(URL + '/truco'); await ana.p.waitForSelector('#x-menu:not([hidden])');
 await ana.clica('.qtd[data-n="4"]'); await ana.clica('#bt-amigo');
 await ana.p.waitForSelector('#t-espera:not([hidden])');
-await ana.p.evaluate(() => { const f = document.querySelector('#amigos-fechar'); if (f && f.offsetParent) f.click(); });
+await ana.p.waitForSelector('#amigos:not([hidden])', { timeout: 5000 }).then(() => ana.clica('#amigos-fechar'), () => {});
 await ana.p.waitForFunction(() => window.__truco.online && window.__truco.online.dono, null, { timeout: 10000 });
 const cod = await ana.p.evaluate(() => window.__truco.online.codigo);
 await beto.p.goto(URL + '/truco?sala=' + cod);
