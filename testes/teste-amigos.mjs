@@ -84,8 +84,10 @@ await ana.clica('#amigos-lista .chamar');
 await beto.p.waitForSelector('#convite:not([hidden])', { timeout: 10000 });
 ok(/Casa da Ana/.test(await beto.p.textContent('#convite-txt')), 'Beto recebe o convite com o nome do mundo');
 await beto.foto('7-beto-convite');
+// guarda todos os avisos da Ana (um aviso novo, como "fulano entrou", pode tomar o lugar logo depois)
+await ana.p.evaluate(() => { window.__avisos = []; new MutationObserver(() => window.__avisos.push(document.querySelector('#aviso').textContent)).observe(document.querySelector('#aviso'), { childList: true, subtree: true, characterData: true }); });
 await beto.clica('#convite-sim');
-await ana.p.waitForFunction(() => /está vindo/.test(document.querySelector('#aviso').textContent), null, { timeout: 10000 });
+await ana.p.waitForFunction(() => window.__avisos.some((t) => /está vindo/.test(t)), null, { timeout: 10000 }).catch(async (e) => { console.log('avisos da Ana:', await ana.p.evaluate(() => window.__avisos)); throw e; });
 ok(true, 'Ana vê "está vindo!"');
 await beto.p.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala && !document.querySelector('#hud').hidden, null, { timeout: 60000 });
 ok(true, 'Beto entrou no mundo da Ana pelo convite');
