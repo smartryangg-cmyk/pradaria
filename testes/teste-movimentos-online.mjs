@@ -20,7 +20,7 @@ async function jogador(nome) {
   await p.click('#bt-criar-conta');
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
   if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
-  await p.click('#c-ok');
+  if (await p.isVisible('#c-nasc .d-ano')) { await p.selectOption('#c-nasc .d-dia', '1'); await p.selectOption('#c-nasc .d-mes', '1'); await p.selectOption('#c-nasc .d-ano', '1990'); } await p.click('#c-ok');
   // depois de entrar abre "Escolha um jogo": escolhe o Pradaria
   await p.waitForSelector('#m-jogos:not([hidden]), #m-mundos:not([hidden])', { timeout: 20000 });
   if (await p.isVisible('#m-jogos')) await p.click('.jogo[data-jogo=pradaria]');

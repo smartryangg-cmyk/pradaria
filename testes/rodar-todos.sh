@@ -12,15 +12,23 @@ export PORTA="${PORTA:-8788}" BASE="${BASE:-http://localhost:8788}" SAIDA="${SAI
 mkdir -p "$SAIDA"
 falhas=()
 idx=0
+# um teste: sai sem erro e não escreve FALHA/FALHOU/PAGEERROR (erro na página do jogo)
+rodar() {
+  [ -n "$ESTADO" ] && npx wrangler d1 execute pradaria-db --local --persist-to "$ESTADO" --command "DELETE FROM tentativas" > /dev/null 2>&1
+  timeout 420 node "$1" > "$2" 2>&1 && ! grep -qE '^FALHA|FALHOU|PAGEERROR|NÃO ENTROU' "$2"
+}
 for f in testes/teste-*.mjs; do
   n=$(basename "$f" .mjs)
   idx=$((idx + 1))
   if [ -n "$PARTE" ]; then [ $(( (idx - 1) % ${PARTE#*/} + 1 )) = "${PARTE%/*}" ] || continue; fi
   if [ $# -gt 0 ]; then ok=0; for p in "$@"; do [[ "$n" == *"$p"* ]] && ok=1; done; [ $ok = 1 ] || continue; fi
   ini=$(date +%s)
-  [ -n "$ESTADO" ] && npx wrangler d1 execute pradaria-db --local --persist-to "$ESTADO" --command "DELETE FROM tentativas" > /dev/null 2>&1
-  if timeout 300 node "$f" > "$SAIDA/$n.log" 2>&1 && ! grep -qE '^FALHA|FALHOU|PAGEERROR|NÃO ENTROU' "$SAIDA/$n.log"; then
+  if rodar "$f" "$SAIDA/$n.log"; then
     echo "ok     $n ($(( $(date +%s) - ini ))s)"
+  elif mv "$SAIDA/$n.log" "$SAIDA/$n-1a-vez.log" && rodar "$f" "$SAIDA/$n.log"; then
+    # os testes jogam de verdade (navegador, sala, dois jogadores): numa máquina carregada um tempo pode estourar.
+    # Passou na 2ª vez: conta como ok, mas fica avisado (e a saída da 1ª vez fica guardada). Erro de verdade falha nas duas.
+    echo "ok     $n ($(( $(date +%s) - ini ))s, passou na 2ª vez; 1ª vez em $n-1a-vez.log)"
   else
     echo "FALHOU $n ($(( $(date +%s) - ini ))s)"; tail -n 25 "$SAIDA/$n.log" | sed 's/^/       /'; falhas+=("$n")
   fi

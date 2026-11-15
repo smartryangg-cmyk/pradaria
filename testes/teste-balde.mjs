@@ -78,7 +78,7 @@ if (ONLINE) {
     await q.goto(ONLINE + '/#teste'); await q.evaluate(() => localStorage.clear()); await q.reload();
     await q.click('#bt-criar-conta'); await q.fill('#c-nome', nome); await q.fill('#c-senha', 'senha123');
     if (await q.isVisible('#c-adulto-ok')) await q.check('#c-adulto-ok');
-    await q.click('#c-ok');
+    if (await q.isVisible('#c-nasc .d-ano')) { await q.selectOption('#c-nasc .d-dia', '1'); await q.selectOption('#c-nasc .d-mes', '1'); await q.selectOption('#c-nasc .d-ano', '1990'); } await q.click('#c-ok');
     await q.waitForSelector('#m-jogos:not([hidden]), #m-mundos:not([hidden])', { timeout: 20000 });
     if (await q.isVisible('#m-jogos')) await q.click('.jogo[data-jogo=pradaria]');
     await q.waitForSelector('#m-mundos:not([hidden])', { timeout: 20000 });

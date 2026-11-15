@@ -18,7 +18,7 @@ async function jogador(nome, tablet) {
   await p[tablet ? 'tap' : 'click']('#bt-criar-conta');
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
   if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
-  await p[tablet ? 'tap' : 'click']('#c-ok');
+  if (await p.isVisible('#c-nasc .d-ano')) { await p.selectOption('#c-nasc .d-dia', '1'); await p.selectOption('#c-nasc .d-mes', '1'); await p.selectOption('#c-nasc .d-ano', '1990'); } await p[tablet ? 'tap' : 'click']('#c-ok');
   await p.waitForSelector('#m-jogos:not([hidden]), #m-mundos:not([hidden])', { timeout: 15000 });
   if (await p.isVisible('#m-jogos')) await p[tablet ? 'tap' : 'click']('.jogo[data-jogo=pradaria]');
   await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
