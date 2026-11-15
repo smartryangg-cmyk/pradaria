@@ -120,6 +120,24 @@ await p.evaluate(() => { window.__jogo.jog.pitch = -0.55; window.__jogo.jog.yaw 
 await esperar(p, 500);
 await p.screenshot({ path: SAIDA + '/drop-agua.png' });
 
+// muitos itens no chão: tudo num desenho só (tablet fraco), e o que está longe nem é desenhado
+// o jogador fica voando um pouco de lado (perto o bastante para ver, longe para não pegar nada)
+await p.evaluate(([x, y, z]) => { const j = window.__jogo.jog; j.voando = true; j.pos.x = x + 0.5; j.pos.y = y + 8; j.pos.z = z + 16; j.vel.x = j.vel.y = j.vel.z = 0; j.yaw = 0; j.pitch = -0.5; }, [x0, y0, z0]);
+await esperar(p, 300);
+await p.evaluate(([x, y, z]) => {
+  const d = window.__jogo.drops;
+  for (let k = 0; k < 198; k++) d.novoLocal([6, 8, 3, 1007, 1001][k % 5], 1 + (k % 20), x - 5 + (k % 11), y + 2 + (k % 3), z - 6 + Math.floor(k / 11) % 12);
+  d.novoLocal(6, 1, x + 90, y + 1, z); // longe
+}, [x0, y0, z0]);
+await esperar(p, 1500);
+const custo = await p.evaluate(() => window.__jogo.drops.custo());
+const soUm = await p.evaluate(() => ({ tri: window.__jogo.drops.malha.geometry.drawRange.count / 3 }));
+const total = (await noChao(p)).length;
+conferir(custo.desenhos === 1 && total >= 199, `${total} itens no chão viram 1 desenho só (${soUm.tri} triângulos)`);
+conferir(custo.itens <= total - 1, `o item longe (90 blocos) não é desenhado (${custo.itens} de ${total} desenhados)`);
+await p.screenshot({ path: SAIDA + '/drop-muitos.png' });
+await p.evaluate(() => { window.__jogo.jog.voando = false; });
+
 // some depois de uns minutos (faz de conta que passou o tempo)
 await p.evaluate(() => { for (const e of window.__jogo.drops.vivos.values()) e.t -= 5 * 60 * 1000 + 1000; });
 await esperar(p, 300);
@@ -140,6 +158,9 @@ for (const [nome, vp] of [['celular em pé', { width: 390, height: 844 }], ['cel
   await c.waitForFunction(() => window.__jogo && window.__jogo.jog);
   await esperar(c, 2500);
   const [cx, cy, cz] = await palco(c);
+  await esperar(c, 500);
+  await palco(c, [cx, cy, cz]); // de novo: algum pedaço do mundo pode ter terminado de carregar por cima
+  await esperar(c, 300);
   await c.evaluate(([x, y, z]) => window.__jogo.mundo.definir(x, y + 1, z - 2, 6), [cx, cy, cz]);
   await esperar(c, 200);
   await bater(c, 5);
