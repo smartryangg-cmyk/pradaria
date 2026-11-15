@@ -27,3 +27,8 @@ script_name = "pradaria-sala"
 name = "PARTIDA"
 class_name = "Partida"
 script_name = "pradaria-sala"
+
+[[durable_objects.bindings]]
+name = "PONTOS"
+class_name = "Pontos"
+script_name = "pradaria-sala"

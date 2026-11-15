@@ -38,3 +38,12 @@ class_name = "Partida"
 [[migrations]]
 tag = "v4"
 new_sqlite_classes = ["Partida"]
+
+# pontos (rating) do xadrez e busca de adversário (src/pontos.js)
+[[durable_objects.bindings]]
+name = "PONTOS"
+class_name = "Pontos"
+
+[[migrations]]
+tag = "v5"
+new_sqlite_classes = ["Pontos"]

@@ -8,7 +8,7 @@
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="estilo.css?v=23">
-<link rel="stylesheet" href="tabuleiro.css?v=2">
+<link rel="stylesheet" href="tabuleiro.css?v=3">
 </head>
 <body class="pag-tabuleiro">
 <div id="fundo" aria-hidden="true"></div>
@@ -30,17 +30,33 @@
     </div>
     <button class="bt verde grande" id="bt-computador" type="button"><span data-icone="engrenagem"></span>Jogar contra o computador</button>
     <button class="bt amarelo" id="bt-continuar" type="button" hidden><span data-icone="relogio"></span>Continuar a partida</button>
-    <h3>Com um amigo</h3>
+    <h3>Online</h3>
     <div class="niveis ritmos" role="radiogroup" aria-label="Ritmo da partida">
       <button class="bt ritmo" data-ritmo="1+0" type="button" role="radio">Bullet<small>1 min</small></button>
       <button class="bt ritmo" data-ritmo="3+2" type="button" role="radio">Blitz<small>3 min +2s</small></button>
       <button class="bt ritmo" data-ritmo="10+0" type="button" role="radio">Rápida<small>10 min</small></button>
       <button class="bt ritmo" data-ritmo="" type="button" role="radio">Sem relógio<small>com calma</small></button>
     </div>
+    <p class="sub centro" id="x-meus-pontos" hidden></p>
+    <button class="bt verde grande" id="bt-procurar" type="button"><span data-icone="mira"></span>Procurar adversário</button>
+    <div class="niveis" role="radiogroup" aria-label="Partida com amigo">
+      <button class="bt tipo-amigo" data-tipo="amistosa" type="button" role="radio">Amistosa</button>
+      <button class="bt tipo-amigo" data-tipo="pontos" type="button" role="radio">Valendo pontos</button>
+    </div>
     <button class="bt verde grande" id="bt-amigo" type="button"><span data-icone="amigos"></span>Chamar um amigo</button>
     <p class="sub" id="x-sem-conta" hidden>Para jogar com amigos, <a href="/">entre na sua conta</a>.</p>
     <p id="x-erro" class="erro"></p>
     <a class="bt fraco" href="/" id="bt-jogos"><span data-icone="voltar"></span>Todos os jogos</a>
+  </div>
+</div>
+
+<!-- procurando adversário -->
+<div id="x-busca" class="janela" hidden>
+  <div class="caixa">
+    <h2>Procurando adversário…</h2>
+    <p class="sub centro" id="busca-txt"></p>
+    <p class="busca-tempo" id="busca-tempo" aria-live="off">0:00</p>
+    <button class="bt" id="bt-busca-cancelar" type="button">Cancelar</button>
   </div>
 </div>
 
@@ -75,6 +91,7 @@
   <div class="caixa">
     <h2 id="fim-titulo"></h2>
     <p class="sub centro" id="fim-txt"></p>
+    <p class="fim-pontos" id="fim-pontos" hidden></p>
     <button class="bt verde grande" id="bt-revanche" type="button">Jogar de novo</button>
     <p class="sub centro" id="fim-espera" hidden></p>
     <button class="bt" id="bt-ver" type="button">Ver o tabuleiro</button>
@@ -83,7 +100,7 @@
 </div>
 
 <div id="aviso"></div>
-<script type="module" src="js/xadrez.js?v=2"></script>
+<script type="module" src="js/xadrez.js?v=3"></script>
 <div class="marca-dagua" aria-hidden="true">Ryan Krano</div>
 </body>
 </html>
