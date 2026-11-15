@@ -128,9 +128,10 @@ jobs:
       - name: Fotos pequenas no registro (para conferir sem baixar o artefato)
         if: always()
         run: |
+          pip install -q pillow
           for f in saida-tv/*.png; do
             [ -f "$f" ] || continue
-            convert "$f" -resize 640x -quality 60 /tmp/p.jpg
+            python3 -c "import sys;from PIL import Image;i=Image.open(sys.argv[1]).convert('RGB');i.thumbnail((800,800));i.save('/tmp/p.jpg',quality=60)" "$f"
             echo "FOTO-INICIO $(basename "$f")"; base64 -w0 /tmp/p.jpg; echo; echo "FOTO-FIM"
           done
       - name: Guardar fotos e registros

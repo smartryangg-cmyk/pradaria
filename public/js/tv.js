@@ -225,7 +225,7 @@ export function iniciarTV(api) {
   function voltar() {
     if (tv.painel && !tv.painel.hidden) { fecharPainel(); return; }
     if (api.jogando()) { if (emJogo()) api.pausar(); else api.fechar(); return; }
-    const bt = focaveis().find((b) => b.matches('[data-voltar], [data-voltar-mundos], #e-cancelar'));
+    const bt = focaveis().find((b) => b.matches('[data-voltar], [data-voltar-mundos], #e-cancelar, #bt-voltar-jogos, #pers-cancelar'));
     if (bt) bt.click();
   }
   tv.navegar = navegar; tv.voltar = voltar; tv.acao = acao;
