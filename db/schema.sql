@@ -28,3 +28,6 @@ CREATE TABLE IF NOT EXISTS membros (
 CREATE INDEX IF NOT EXISTS membros_usuario ON membros (usuario_id);
 CREATE TABLE IF NOT EXISTS config (chave TEXT PRIMARY KEY, valor TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS tentativas (chave TEXT PRIMARY KEY, n INTEGER NOT NULL, ate INTEGER NOT NULL);
+-- amigos da plataforma (lib/amigos.js): "de" pediu para "para"; estado 0 = esperando resposta, 1 = amigos
+CREATE TABLE IF NOT EXISTS amizades (de INTEGER NOT NULL, para INTEGER NOT NULL, estado INTEGER NOT NULL DEFAULT 0, criado_em INTEGER NOT NULL, PRIMARY KEY (de, para));
+CREATE INDEX IF NOT EXISTS amizades_para ON amizades (para);

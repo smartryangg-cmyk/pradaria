@@ -6,6 +6,7 @@
 // 5) veículo da vila pedido longe e sem parar; tanque pedido como "veículo da vila"; vaga de guerra com outro tipo
 // 6) itens no chão: pegar dizendo que está longe de onde está; encher o chão para apagar os itens dos outros
 // 7) caça: "derrubei um urso" sem parar
+// 8) amigos: pedir de novo depois de recusado; convite com telefone no título
 const BASE = process.env.BASE || 'http://localhost:8788';
 let falhas = 0;
 const ok = (c, msg) => { console.log((c ? 'OK   ' : 'FALHA') + ' ' + msg); if (!c) falhas++; };
@@ -220,6 +221,35 @@ const tem = (eds, x, y, z) => { const e = eds.find((q) => q[0] === x && q[1] ===
   ok(quedas === 12, `caça: 19 "ursos" em 30 s dão no máximo 12 bichos por minuto (${quedas})`);
   w.close();
   await api('mundos/apagar', { codigo: mundo.codigo }, dono.token);
+}
+
+// ---------- 8) amigos ----------
+{
+  const nomeKid = crianca.usuario.nome, nomeDono = dono.usuario.nome;
+  let r = await api('amigos/pedir', { nome: nomeKid }, chato.token);
+  ok(r.ok, 'chato pede amizade para a criança');
+  const kidId = crianca.usuario.id, chatoId = chato.usuario.id;
+  r = await api('amigos/responder', { id: chatoId, aceitar: false }, crianca.token);
+  ok(r.ok, 'criança recusa');
+  r = await api('amigos/pedir', { nome: nomeKid }, chato.token);
+  ok(!r.ok, 'depois de recusado não dá para pedir de novo: ' + (r.erro || ''));
+  await api('amigos/remover', { id: kidId }, chato.token); // "cancela" o pedido para pedir de novo
+  r = await api('amigos/pedir', { nome: nomeKid }, chato.token);
+  ok(!r.ok, 'cancelar e pedir de novo também não');
+  r = await api('amigos', null, crianca.token);
+  ok(!(r.recebidos || []).some((p) => p.id === chatoId), 'a criança não vê o pedido de novo');
+  // convite entre amigos de verdade: o título passa pelo filtro do chat
+  await api('amigos/pedir', { nome: nomeKid }, dono.token);
+  await api('amigos/responder', { id: dono.usuario.id, aceitar: true }, crianca.token);
+  const lobby = (tk) => new Promise((res) => { const w = new WebSocket(`${BASE.replace('http', 'ws')}/api/lobby?jogo=hub&t=${encodeURIComponent(tk)}`); w.msgs = []; w.onmessage = (e) => { try { w.msgs.push(JSON.parse(e.data)); } catch {} }; w.onopen = () => setTimeout(() => res(w), 500); w.onerror = () => res(w); });
+  const lk = await lobby(crianca.token), ld = await lobby(dono.token);
+  mandar(ld, { t: 'convidar', para: kidId, jogo: 'pradaria', sala: 'ABCD2345', titulo: 'me chama 11 98765 4321' });
+  mandar(ld, { t: 'convidar', para: kidId, jogo: 'pradaria', sala: 'ABCD2345', titulo: 'Fazenda do Ryan' });
+  mandar(ld, { t: 'convidar', para: kidId, jogo: 'pradaria', sala: '<img src=x>', titulo: 'oi' });
+  await espera(800);
+  const cv = lk.msgs.filter((m) => m.t === 'convite');
+  ok(cv.length === 2 && cv[0].titulo === '' && cv[1].titulo === 'Fazenda do Ryan', 'convite: título com telefone chega vazio, nome normal chega, código estranho não chega (' + JSON.stringify(cv.map((c) => c.titulo)) + ')');
+  lk.close(); ld.close();
 }
 
 for (const c of [dono, chato, crianca]) await fetch(BASE + '/api/eu', { method: 'DELETE', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + c.token }, body: JSON.stringify({ senha: 'senha123' }) });
