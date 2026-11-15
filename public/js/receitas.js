@@ -110,6 +110,7 @@ const TIPO_DO_BLOCO = {};
 for (const b of [I.PEDRA, I.PEDRISCO, I.TIJOLO, I.LAMPIAO, I.VIDRO, 108, 109, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122]) TIPO_DO_BLOCO[b] = 'picareta';
 for (const b of [I.TRONCO, I.TABUAS, I.FOLHAS, I.FENO, I.BANCADA, 110, 111, 47, 48, 49, 50, 53, 54]) TIPO_DO_BLOCO[b] = 'machado';
 for (let b = 176; b <= 187; b++) TIPO_DO_BLOCO[b] = 'machado'; // móveis
+TIPO_DO_BLOCO[223] = 'machado'; // baú
 for (const b of [51, 52, 55, 56]) TIPO_DO_BLOCO[b] = 'picareta';
 for (const b of [I.TERRA, I.GRAMA, I.AREIA, I.TERRA_ARADA]) TIPO_DO_BLOCO[b] = 'pa';
 // formas (80..99): madeira com machado, pedra/vidro com picareta
@@ -177,6 +178,7 @@ export const RECEITAS = [
   { id: 'barras-ouro', faz: [I.BARRA_OURO, 9], usa: [[I.BLOCO_OURO, 1]], grupo: 'construir' },
   { id: 'bloco-diamante', faz: [I.BLOCO_DIAMANTE, 1], usa: [[I.DIAMANTE, 9]], bancada: true, grupo: 'construir', forma: ['DDD', 'DDD', 'DDD'] },
   { id: 'diamantes', faz: [I.DIAMANTE, 9], usa: [[I.BLOCO_DIAMANTE, 1]], grupo: 'construir' },
+  { id: 'bau', faz: [223, 1], usa: [[I.TABUAS, 8]], bancada: true, grupo: 'construir', forma: ['TTT', 'T.T', 'TTT'] },
   { id: 'escada-mao', faz: [211, 3], usa: [[I.GRAVETO, 7]], bancada: true, grupo: 'construir', forma: ['G.G', 'GGG', 'G.G'] },
   { id: 'lampiao', faz: [I.LAMPIAO, 1], usa: [[I.VIDRO, 1], [I.GRAVETO, 1]], bancada: true, grupo: 'construir' },
   { id: 'feno', faz: [I.FENO, 1], usa: [[I.TRIGO, 3]], grupo: 'construir', forma: ['WWW'] },
