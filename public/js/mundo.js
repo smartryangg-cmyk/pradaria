@@ -691,6 +691,8 @@ export class Mundo {
     let temEd = false;
     for (let a = -1; a <= 1; a++) for (let b2 = -1; b2 <= 1; b2++) { const m = this.edicoes.get(chave(c.cx + a, c.cz + b2)); if (m && m.size) temEd = true; }
     const sv = this.suave ? criarSuavizador(get, temEd ? (x, y, z) => this.editado(ox + x, y, oz + z) : () => false, (x, z) => this.alturaNatural(ox + x, oz + z), topo, this.suaveSimples, ox, oz) : null;
+    // gráfico Leve (arredondado simples): o lado de cada degrau ficaria listrado de terra; lá a cor é só a de cima
+    const simples = this.suaveSimples;
     const liso = sv && this.matSuave ? sv : null; // desenho de desenho animado: cores lisas, troncos redondos, capim em tufo
     // as cores lisas só existem nos vértices do material liso: completa com zero até o vértice atual
     const completar = () => { const n = P.length; while (CT.length < n) { CT.push(0, 0, 0); CL.push(0, 0, 0); } };
@@ -931,7 +933,7 @@ export class Mundo {
           let py = y + cn[1];
           if (agua && cn[1] === 1) py = y + HC[cn[0]][cn[2]];
           const s = sc && sc[ic++];
-          if (pal) { const cc = liso.corCanto(x + cn[0], y + cn[1], z + cn[2], b); CT.push(cc[0], cc[1], cc[2]); CL.push(cc[3], cc[4], cc[5]); }
+          if (pal) { const cc = liso.corCanto(x + cn[0], y + cn[1], z + cn[2], b), j = simples ? 0 : 3; CT.push(cc[0], cc[1], cc[2]); CL.push(cc[j], cc[j + 1], cc[j + 2]); }
           if (s) PP.push(x + cn[0] + s[0], py + s[1], z + cn[2] + s[2]);
           else PP.push(x + cn[0], py, z + cn[2]);
           let ao = 3;
