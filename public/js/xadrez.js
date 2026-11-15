@@ -69,6 +69,7 @@ let ritmo = '3+2'; // ritmo escolhido para jogar com amigo ('' = sem relógio)
 let relogio = null; // { w, b (ms que sobram), anda: 'w'|'b'|null, base, inc } + recebido (hora local em que chegou)
 let pre = null; // pré-lance { de, para } que vale quando chegar a minha vez
 let modoPre = false; // as casas marcadas são de pré-lance
+let preFeitos = 0; // quantos pré-lances já saíram sozinhos (para os testes)
 
 function salvarPC() {
   if (modo !== 'pc') return;
@@ -217,6 +218,7 @@ function tentarPre() {
   if (sel >= 0 && modoPre) { sel = -1; alvos = []; modoPre = false; }
   const m = X.achar(e, p.de, p.para, 'Q');
   if (!m) { aviso('Pré-lance cancelado: não vale mais', 1600, 'relogio'); desenhar(); return false; }
+  preFeitos++;
   fazer(m.de, m.para, 'Q');
   return true;
 }
@@ -421,5 +423,5 @@ if (pedida && /^[A-Za-z0-9]{10,24}$/.test(pedida) && conta.token) jogarOnline(pe
 else abrirMenu();
 
 // para os testes automáticos (testes/teste-xadrez.mjs)
-window.__xadrez = { get e() { return e; }, get voce() { return voce; }, get modo() { return modo; }, get fim() { return fimAtual; }, get online() { return online; }, get relogio() { return relogio; }, get pre() { return pre; }, set ritmo(v) { ritmo = v; }, X, set nivel(v) { nivel = v; }, fazer };
+window.__xadrez = { get e() { return e; }, get voce() { return voce; }, get modo() { return modo; }, get fim() { return fimAtual; }, get online() { return online; }, get relogio() { return relogio; }, get pre() { return pre; }, get preFeitos() { return preFeitos; }, set ritmo(v) { ritmo = v; }, X, set nivel(v) { nivel = v; }, fazer };
 void icone;
