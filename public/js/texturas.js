@@ -680,6 +680,31 @@ PINT[25] = (t) => {
   }
   t.relevo(0.6, 0.5, 0.5, (i) => t.A[i] > 0);
 };
+// trigo plantado: brotinhos verdes baixos (140) e talos verdes com espigas ainda verdes (141)
+PINT[140] = (t) => {
+  planta(t);
+  const r = rngSemente(14001);
+  for (let k = 0; k < 6; k++) {
+    const u = 1.8 + k * 2.5 + (r() - 0.5) * 0.8;
+    folhaLonga(t, u, 16, -Math.PI / 2 + (r() - 0.5) * 0.9, 3 + r() * 2.5, 0.4, 0x6fae3e, (r() - 0.5));
+    folhaLonga(t, u, 16, -Math.PI / 2 + (r() < 0.5 ? -0.7 : 0.7), 2 + r() * 2, 0.35, 0x8cc552, (r() - 0.5));
+  }
+  t.relevo(0.6, 0.5, 0.5, (i) => t.A[i] > 0);
+};
+PINT[141] = (t) => {
+  planta(t);
+  const r = rngSemente(14101);
+  for (let k = 0; k < 6; k++) {
+    const u = 1.6 + k * 2.55 + (r() - 0.5) * 0.8, topo = 5 + r() * 2.5, inc = (r() - 0.5) * 1;
+    folhaLonga(t, u, 16, -Math.PI / 2 + (r() < 0.5 ? -0.6 : 0.6), 4 + r() * 3, 0.45, 0x5f9a36, (r() - 0.5));
+    caule(t, u, 16.2, u + inc, topo + 4, 0.32, 0x6faa3e);
+    for (let g = 0; g < 5; g++) {
+      const gv = topo + g * 0.8, lado = g % 2 ? 1 : -1, gu = u + inc + lado * 0.4;
+      t.elipse(gu, gv, 0.6, 0.38, -Math.PI / 2 + lado * 0.5, (i, a, b, d) => { t.H[i] = 2 + (1 - d) * 0.5; t.set(i, esc(mix(hex(0x5f9a36), hex(0xa8d46a), 1 - d), 1 - g * 0.02), 1); });
+    }
+  }
+  t.relevo(0.6, 0.5, 0.5, (i) => t.A[i] > 0);
+};
 // feno: palha cortada (topo) e fardo amarrado (lado)
 function palhas(t, sem, n, angBase, angVar, comp) {
   const r = rngSemente(sem);
