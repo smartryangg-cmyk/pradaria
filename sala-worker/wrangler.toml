@@ -29,3 +29,12 @@ class_name = "Lobby"
 [[migrations]]
 tag = "v3"
 new_sqlite_classes = ["Lobby"]
+
+# partidas de xadrez (e depois dama e truco) entre amigos (src/partida.js)
+[[durable_objects.bindings]]
+name = "PARTIDA"
+class_name = "Partida"
+
+[[migrations]]
+tag = "v4"
+new_sqlite_classes = ["Partida"]

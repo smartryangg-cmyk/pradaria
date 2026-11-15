@@ -22,3 +22,8 @@ script_name = "pradaria-sala"
 name = "LOBBY"
 class_name = "Lobby"
 script_name = "pradaria-sala"
+
+[[durable_objects.bindings]]
+name = "PARTIDA"
+class_name = "Partida"
+script_name = "pradaria-sala"

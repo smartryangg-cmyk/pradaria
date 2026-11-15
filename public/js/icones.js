@@ -2,7 +2,10 @@
 // Cada ícone é uma lista de traços { d, f (preenchimento), s (contorno), w (largura do contorno) }.
 // 'c' = currentColor (o ícone pega a cor do texto do botão). Os mesmos dados servem para o
 // HTML (svg inline) e para o 3D (desenhados num canvas com Path2D, sem carregar nada).
-import * as THREE from '../vendor/three.module.min.js';
+// o 3D (three.js) chega por ligarThree(THREE), chamado pelo main.js: assim as páginas leves (xadrez, dama, truco)
+// usam os ícones sem baixar o three.js
+let THREE = null;
+export function ligarThree(t) { THREE = t; }
 
 const T = '#3b2f22'; // contorno marrom-escuro (mesmo tom do texto)
 const circ = (x, y, r) => `M${x - r} ${y}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0z`;

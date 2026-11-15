@@ -21,7 +21,7 @@ import { criarGraficos, QUALIDADES, PESSOAIS } from './graficos.js';
 import { MapaIlha } from './mapa-ilha.js';
 import { ICONE_LUGAR } from './ilha-aventura.js';
 import { criarPosEfeitos } from './posefeitos.js';
-import { icone, preencherIcones, comIcone, nomeEmote } from './icones.js';
+import { icone, preencherIcones, comIcone, nomeEmote, ligarThree } from './icones.js';
 import { Escavacao, toquesPara } from './escavar.js';
 import { Fisica } from './fisica.js';
 import { Agua } from './agua.js';
@@ -50,6 +50,7 @@ import { criarAmigos } from './amigos.js';
 import { jogo as dadosJogo } from './jogos.js';
 
 const $ = (s) => document.querySelector(s);
+ligarThree(THREE);
 preencherIcones();
 const CORES = [0x3f6fd9, 0xe8433f, 0x4caf50, 0xf2c72e, 0x9c5bd9, 0xf29ac2, 0xff8a3d, 0x2bb3b3];
 
@@ -1901,7 +1902,11 @@ void edicoesPendentes;
 
 // início: se já tem sessão, vai direto para a escolha do jogo
 camera.position.set(0, 40, 0);
-if (conta.token) abrirJogos(); else mostrarMenu('m-inicio');
+// convite aceito em outra página (xadrez, dama...): /?mundo=CODIGO entra direto no mundo do amigo
+const mundoPedido = new URLSearchParams(location.search).get('mundo');
+if (mundoPedido) history.replaceState(null, '', location.pathname + location.hash);
+if (conta.token) abrirJogos().then(() => { if (mundoPedido && conta.usuario) entrarPorCodigo(mundoPedido.toUpperCase()).catch((err) => aviso(err.message, 3000, 'relogio')); });
+else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
 if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv }; }
