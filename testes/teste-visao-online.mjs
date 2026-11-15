@@ -61,7 +61,8 @@ await bb.screenshot({ path: `${SAIDA}/online-beto-ve-ana-parada.png` });
 await a.keyboard.down('KeyW');
 await a.waitForTimeout(500);
 const anda = [];
-for (let i = 0; i < 6; i++) { anda.push(await bb.evaluate(() => +window.__jogo.outrosLista[0].membros[2].rotation.x.toFixed(2))); await bb.waitForTimeout(60); }
+// no CI as posições da Ana chegam atrasadas no Beto: olha por até 3 s até ver o passo
+for (let i = 0; i < 40 && !(anda.length >= 6 && anda.some((r) => Math.abs(r) > 0.3)); i++) { anda.push(await bb.evaluate(() => +window.__jogo.outrosLista[0].membros[2].rotation.x.toFixed(2))); await bb.waitForTimeout(75); }
 await bb.screenshot({ path: `${SAIDA}/online-beto-ve-ana-andando.png` });
 await a.keyboard.up('KeyW');
 ok(anda.some((r) => Math.abs(r) > 0.3), 'Beto vê as pernas da Ana andando ' + anda.join(','));

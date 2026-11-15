@@ -349,7 +349,8 @@ const rp = await sp.evaluate(() => {
 });
 await sp.waitForTimeout(300);
 await sp.evaluate(() => { const j = window.__jogo; const c = j.camera.position; j.jog.pitch = Math.atan2(70.02 - c.y, 2.2); j.slot = j.barra.indexOf(91); });
-await sp.waitForTimeout(300);
+// no CI (13 fps) a câmera demora alguns quadros para virar: espera a mira encostar no chão de pedra
+await sp.waitForFunction(() => { const { mundo, camera } = window.__jogo; const h = mundo.raycast(camera.position, camera.getWorldDirection(camera.position.clone()), 6); return h && h.y === 70; }, null, { timeout: 6000 }).catch(() => {});
 ok(await sp.evaluate(() => window.__jogo.barra.includes(91)), 'rampa criada apareceu na barra');
 console.log('mira rampa:', await sp.evaluate(() => { const { mundo, camera, barra } = window.__jogo; const d = camera.getWorldDirection(camera.position.clone()); const h = mundo.raycast(camera.position, d, 6); return JSON.stringify([h, camera.position, barra]); }));
 await sp.evaluate(() => window.__jogo.usar(null));

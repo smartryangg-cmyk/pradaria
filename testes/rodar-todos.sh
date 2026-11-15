@@ -33,7 +33,7 @@ for f in testes/teste-*.mjs; do
     # Passou na 2ª vez: conta como ok, mas fica avisado (e a saída da 1ª vez fica guardada). Erro de verdade falha nas duas.
     echo "ok     $n ($(( $(date +%s) - ini ))s, passou na 2ª vez; 1ª vez em $n-1a-vez.log)"
   else
-    echo "FALHOU $n ($(( $(date +%s) - ini ))s)"; tail -n 25 "$SAIDA/$n.log" | sed 's/^/       /'; falhas+=("$n")
+    echo "FALHOU $n ($(( $(date +%s) - ini ))s)"; { grep -E 'FALHA|PAGEERROR|NÃO ENTROU|Error' "$SAIDA/$n.log" | head -n 15; echo '       --- fim do log:'; tail -n 15 "$SAIDA/$n.log"; } | sed 's/^/       /'; falhas+=("$n")
   fi
 done
 echo "saídas em $SAIDA"

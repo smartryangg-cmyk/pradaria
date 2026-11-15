@@ -160,6 +160,9 @@ const fuga = await p.evaluate(([bx, bz]) => {
   return r;
 }, [info.base.x, info.base.z]);
 conferir(!fuga.preso && fuga.est >= 2 && fuga.m === true, 'fugiu do presídio: missão Fuga e 2 estrelas');
+// diagnóstico: quem tira vida do jogador e o que conta como polícia perto (desmaio na base virava prisão no CI)
+await p.evaluate(() => { const J = window.__jogo, v = J.vida, g = J.guerra, o = v.dano.bind(v); window.__danos = []; v.dano = function (d, ...r) { const jp = J.jog.pos; window.__danos.push({ d, p: [jp.x, jp.z].map(Math.round), t: Math.round(performance.now()), s: new Error().stack.split('\n').slice(2, 4).join(' | ') }); return o(d, ...r); };
+  window.__perto = () => { const jp = J.jog.pos; return { pol: g.pessoas.lista.filter((n) => (n.papel === 'policial' || n.papel === 'guarda') && Math.hypot(n.x - jp.x, n.z - jp.z) < 45).map((n) => [n.papel, n.estado, Math.round(n.x), Math.round(n.z)]), lug: g.ilha.lugares.filter((L) => Math.hypot(L.x - jp.x, L.z - jp.z) < 120).map((L) => [L.tipo, L.x, L.z, L.r]) }; }; });
 // despista: some de perto da polícia (os reforços que vinham atrás ficam para trás)
 // se a polícia derrubou o jogador na fuga, o desmaio se resolve antes (senão ele "acorda" preso já na base); e a vida volta cheia
 if (await p.evaluate(() => window.__jogo.vida.atual <= 0)) await p.waitForTimeout(2600);
@@ -167,10 +170,12 @@ await p.evaluate(() => window.__jogo.vida.reiniciar());
 await p.evaluate(() => { const g = window.__jogo.guerra; for (const n of g.extras) g.pessoas.remover(n); g.extras = []; g.tReforco = 999; });
 await ir(p, info.base.x, info.base.z);
 await p.evaluate(() => { const g = window.__jogo.guerra, orig = g.prender; g.prender = function () { const jp = window.__jogo.jog.pos; window.__prisao = { p: [jp.x, jp.y, jp.z].map(Math.round), vida: window.__jogo.vida.atual, stack: new Error().stack.split("\n").slice(1, 4).join(" | "), pol: g.pessoas.lista.filter((n) => n.papel === 'policial').map((n) => [n.papel, Math.round(Math.hypot(n.x - jp.x, n.z - jp.z)), n.ve, g.hostil(n, 0)]).filter((q) => q[1] < 60) }; return orig.call(this); }; });
+// os guardas do presídio que correram atrás na fuga voltam para o posto (no CI às vezes ficavam vendo e atirando na base)
+await p.evaluate(() => { const g = window.__jogo.guerra; for (const n of g.pessoas.lista) if (n.papel === 'guarda' && n.casa) { n.x = n.casa.x; n.z = n.casa.z; n.y = g.pessoas.chao(n.x, n.z, 60); n.vy = 0; n.alerta = 0; n.ultimo = null; n.ve = false; } });
 await p.evaluate(() => { const g = window.__jogo.guerra; g.procurado = 3; g.maxProcurado = 3; g.semVer = 0; for (const n of g.extras) g.pessoas.remover(n); g.extras = []; g.tReforco = 999; });
 const despistou = await esperar(p, () => window.__jogo.guerra.procurado === 0, null, 150000);
 if (!despistou) console.log(await p.evaluate(() => { const g = window.__jogo.guerra; return JSON.stringify({ e: g.procurado, sv: g.semVer, ex: g.extras.length, vendo: g.pessoas.lista.filter((n) => n.ve && g.hostil(n, 0)).map((n) => n.papel) }); }));
-if (!despistou || await p.evaluate(() => !!window.__prisao)) console.log('prisao', await p.evaluate(() => JSON.stringify(window.__prisao)));
+if (!despistou || await p.evaluate(() => !!window.__prisao)) console.log('prisao', await p.evaluate(() => JSON.stringify({ ...window.__prisao, perto: window.__perto(), danos: window.__danos.slice(-6) })));
 console.log('despiste', despistou, await p.evaluate(() => JSON.stringify({ m: window.__jogo.guerra.missoes, max: window.__jogo.guerra.maxProcurado, preso: !!window.__jogo.guerra.preso })));
 conferir(despistou && await p.evaluate(() => window.__jogo.guerra.missoes.despiste === true), 'sem ninguém da polícia ver, as estrelas caem (missão Despiste)');
 
