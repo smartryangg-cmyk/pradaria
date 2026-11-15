@@ -14,6 +14,7 @@ import { horaDe, MAX_TURNO } from '../../public/js/trabalho.js';
 import { blocosDaObra, PLANTAS, ESTILOS_OBRA } from '../../public/js/casas.js';
 import { mudancaSemMao } from '../../public/js/blocos-rede.js';
 import { podeCrescer } from '../../public/js/plantacoes-regras.js';
+import { MUDAS, MUDA_MIN, TRONCO_DA_MUDA, BLOCOS_ARVORE, podeCrescerMuda, naCaixa } from '../../public/js/arvores-regras.js';
 export { Controle } from './controle.js';
 
 // ações dos trabalhadores contratados (trabalho.js)
@@ -531,7 +532,17 @@ export class Sala extends DurableObject {
         && [31, undefined].includes(ed.get(x + ',' + (y - 1) + ',' + z)) // Terra de plantar (colocada ou da fazenda da vila)
         && podeCrescer(x, y, z, Date.now())
         && Date.now() - ((this.estagioEm && this.estagioEm.get(k)) || 0) >= ESTAGIO_MIN; // cada estágio leva um tempo
-      if (!m.j && !destruiu && !cresceu && !mudancaSemMao(ed.has(k) ? ed.get(k) : m.de, b, this.regras().construcao)) return;
+      // muda virando árvore (plantacoes.js + arvores-regras.js): primeiro o tronco no lugar da muda, no tique
+      // sorteado e depois de 1 min plantada; aí, por 20 s, folhas e tronco só dentro da caixa da árvore e
+      // só onde não tem coisa construída (a sala não conhece o mundo gerado: quem confere o espaço é o aparelho)
+      const agoraA = Date.now(), arv = (this.arvores ??= new Map());
+      const brotou = !m.j && MUDAS.has(ed.get(k)) && (TRONCO_DA_MUDA[ed.get(k)] || []).includes(b)
+        && podeCrescerMuda(x, y, z, agoraA) && agoraA - ((this.estagioEm && this.estagioEm.get(k)) || 0) >= MUDA_MIN;
+      if (brotou) { arv.set(k, { x, y, z, t: agoraA }); if (arv.size > 500) arv.clear(); }
+      const copa = !m.j && !brotou && BLOCOS_ARVORE.has(b) && (!ed.has(k) || !ed.get(k) || BLOCOS_ARVORE.has(ed.get(k)) || [11, 12, 13, 22, 75].includes(ed.get(k)))
+        && [...arv.values()].some((a) => agoraA - a.t < 20000 && naCaixa(x - a.x, y - a.y, z - a.z));
+      const arvore = brotou || copa;
+      if (!m.j && !destruiu && !cresceu && !arvore && !mudancaSemMao(ed.has(k) ? ed.get(k) : m.de, b, this.regras().construcao)) return;
       // coletar e criar: água parada só sai com balde na mão (a mira atravessa a água)
       if (econ && op.sobrevivencia && m.j && b === 0 && (m.mao | 0) !== 1009) {
         const de0 = ed.has(k) ? ed.get(k) : m.de | 0;
@@ -545,7 +556,7 @@ export class Sala extends DurableObject {
       // limite: 25 blocos por segundo por jogador
       const agora = Date.now();
       if (agora - eu.janela > 1000) { eu.janela = agora; eu.cota = 0; }
-      if (++eu.cota > 25) return;
+      if (!arvore && ++eu.cota > 25) return; // a árvore inteira (até ~60 blocos) chega de uma vez
       ws.serializeAttachment(eu);
       if (!ed.has(k) && ed.size >= MAX_EDICOES) return;
       let natural = !ed.has(k); // ninguém mexeu aqui ainda: é um bloco do mundo original
@@ -560,7 +571,7 @@ export class Sala extends DurableObject {
       }
       ed.set(k, b);
       await this.ctx.storage.put('b:' + k, b);
-      if (b === 76 || b === 77) { (this.estagioEm ??= new Map()).set(k, Date.now()); if (this.estagioEm.size > 5000) this.estagioEm.clear(); }
+      if (b === 76 || b === 77 || MUDAS.has(b)) { (this.estagioEm ??= new Map()).set(k, Date.now()); if (this.estagioEm.size > 5000) this.estagioEm.clear(); }
       // j: foi a mão de alguém (os outros ouvem o som de quebrar/colocar; água escorrendo fica quieta)
       this.enviarTodos(m.j ? { t: 'bloco', x, y, z, b, j: 1 } : { t: 'bloco', x, y, z, b }, ws);
       // "c:x,y,z" = ali está um bloco feito com coisa comprada (quebrar devolve marcado, para ninguém lucrar

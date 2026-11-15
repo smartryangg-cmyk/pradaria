@@ -46,7 +46,11 @@ export function baseDe(b) {
 const VIRA = { [I.GRAMA]: I.TERRA, [I.TERRA_ARADA]: I.TERRA, 80: I.TRONCO, 81: 71, 82: 73 };
 // extras: [chance em %, item]; sorteio fixo pela posição (o jogo e o servidor tiram o mesmo resultado)
 // trigo maduro: colher dá mais do que plantou (é assim que a plantação rende)
-const EXTRA = { [I.FOLHAS]: [35, I.GRAVETO], [I.CAPIM]: [30, I.TRIGO], [I.TRIGO]: [75, I.TRIGO] };
+// folhas: às vezes solta uma muda (planta e ela vira árvore: a madeira do mundo não acaba)
+const EXTRA = {
+  [I.FOLHAS]: [[35, I.GRAVETO], [10, 78]], [72]: [[10, 79]], [74]: [[10, 78]],
+  [I.CAPIM]: [[30, I.TRIGO]], [I.TRIGO]: [[75, I.TRIGO]],
+};
 const sorteio = (x, y, z) => (((Math.imul(x | 0, 73856093) ^ Math.imul(y | 0, 19349663) ^ Math.imul(z | 0, 83492791)) >>> 0) % 100);
 
 // natural = bloco do mundo original (o extra só vale nele; senão era só pôr e tirar folha no lugar da sorte); mao = ferramenta
@@ -55,10 +59,10 @@ export function oQueCai(b, x = 0, y = 0, z = 0, natural = true, mao = 0) {
   // vidro estilhaça: só sai inteiro com picareta na mão (com a mão vazia vira cacos)
   if (b === I.VIDRO && !(FERRAMENTAS[mao] && FERRAMENTAS[mao][0] === 'picareta')) return [];
   const r = [[VIRA[b] ?? baseDe(b), 1]];
-  const ex = EXTRA[b];
-  // o extra só vem de bloco do mundo (colocar e quebrar não multiplica nada), menos o trigo maduro: ele só existe
-  // plantado e crescido (a sala confere o crescimento), e render mais é o motivo de plantar
-  if (ex && (natural || b === I.TRIGO) && sorteio(x, y, z) < ex[0]) r.push([ex[1], 1]);
+  // o extra só vem de bloco do mundo (colocar e quebrar não multiplica nada), menos o trigo maduro e as folhas:
+  // eles também nascem crescendo (trigo plantado, muda que virou árvore; a sala confere), e render é o motivo de plantar
+  const cresce = b === I.TRIGO || b === I.FOLHAS || b === 72 || b === 74;
+  if (natural || cresce) (EXTRA[b] || []).forEach(([chance, item], i) => { if (sorteio(x + i * 31, y, z - i * 17) < chance) r.push([item, 1]); });
   return r;
 }
 
