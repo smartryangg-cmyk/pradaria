@@ -20,17 +20,34 @@ const B = { TERRA: 2, PEDRA: 3, TRONCO: 6, TABUAS: 8, GRAMA: 1, LA_BRANCA: 14, B
 const I = { GRAVETO: 1000, PICARETA_MADEIRA: 1001 };
 
 // põe um bloco bem na frente dos olhos do jogador (e limpa o caminho) e mira nele
-const alvo = (p, bloco) => p.evaluate((bloco) => {
+const alvo = async (p, bloco) => { const r = await p.evaluate((bloco) => {
   const j = window.__jogo.jog, m = window.__jogo.mundo;
-  j.voando = true; j.vel.x = j.vel.y = j.vel.z = 0;
+  // lá no alto (longe dos bichos e do terreno), com um chãozinho embaixo para o que cair
+  j.voando = true; j.vel.x = j.vel.y = j.vel.z = 0; j.pos.y = Math.max(j.pos.y, 78);
   j.yaw = 0; j.pitch = 0;
   const x = Math.floor(j.pos.x), y = Math.floor(j.pos.y + 1.6), z = Math.floor(j.pos.z);
-  for (let dz = 1; dz <= 3; dz++) for (let dy = -1; dy <= 1; dy++) m.definir(x, y + dy, z - dz, 0);
+  for (let dz = 1; dz <= 3; dz++) { for (let dy = -1; dy <= 1; dy++) m.definir(x, y + dy, z - dz, 0); m.definir(x, y - 2, z - dz, 3); }
   m.definir(x, y, z - 2, bloco);
   return [x, y, z - 2];
-}, bloco);
+}, bloco); await p.waitForTimeout(150); return r; }; // espera a câmera chegar lá
 const bater = (p, n) => p.evaluate(async (n) => { for (let i = 0; i < n; i++) { window.__jogo.quebrar(null); await new Promise((r) => setTimeout(r, 30)); } }, n);
 const qtd = (p, id) => p.evaluate((id) => window.__jogo.mercado.qtd(id), id);
+// o que quebra cai no chão: vai até cada item (voando) para pegar
+async function juntar(p) {
+  await p.waitForTimeout(700);
+  const volta = await p.evaluate(() => { const j = window.__jogo.jog; return [j.pos.x, j.pos.y, j.pos.z]; });
+  for (let k = 0; k < 12; k++) {
+    const l = await p.evaluate(() => window.__jogo.drops.lista());
+    if (!l.length) break;
+    // chega perto primeiro (online a sala precisa saber onde a pessoa está) e depois passa por cima
+    await p.evaluate((d) => { const j = window.__jogo.jog; j.voando = true; j.pos.x = d.x + 2.5; j.pos.y = d.y; j.pos.z = d.z; j.vel.x = j.vel.y = j.vel.z = 0; }, l[0]);
+    await p.waitForTimeout(400);
+    await p.evaluate((d) => { const j = window.__jogo.jog; j.voando = true; j.pos.x = d.x; j.pos.y = d.y; j.pos.z = d.z; j.vel.x = j.vel.y = j.vel.z = 0; }, l[0]);
+    await p.waitForTimeout(400);
+  }
+  await p.evaluate(([x, y, z]) => { const j = window.__jogo.jog; j.pos.x = x; j.pos.y = y; j.pos.z = z; j.vel.x = j.vel.y = j.vel.z = 0; }, volta);
+  await p.waitForTimeout(100);
+}
 const blocoEm = (p, [x, y, z]) => p.evaluate(([x, y, z]) => window.__jogo.mundo.bloco(x, y, z), [x, y, z]);
 
 // ---------- sem internet: mundo novo com "Coletar e criar" (vem ligado) ----------
@@ -48,11 +65,14 @@ let pos = await alvo(p, B.TRONCO);
 await bater(p, 4);
 conferir(await blocoEm(p, pos) === B.TRONCO && await qtd(p, B.TRONCO) === 0, 'tronco aguenta 4 toques com a mão');
 await bater(p, 1);
-conferir(await blocoEm(p, pos) === 0 && await qtd(p, B.TRONCO) === 1, 'no 5º toque o tronco quebra e vai para a mochila');
+conferir(await blocoEm(p, pos) === 0 && await p.evaluate(() => window.__jogo.drops.lista().some((d) => d.id === 6)), 'no 5º toque o tronco quebra e cai no chão');
+await juntar(p);
+conferir(await qtd(p, B.TRONCO) === 1, 'passou perto e o tronco foi para a mochila');
 conferir(await p.evaluate(() => window.__jogo.barra.includes(6)), 'tronco apareceu na barra');
 // grama vira terra
 pos = await alvo(p, B.GRAMA);
 await bater(p, 3);
+await juntar(p);
 conferir(await qtd(p, B.TERRA) === 1 && await qtd(p, B.GRAMA) === 0, 'grama dá terra');
 
 // criar: livro de receitas
@@ -93,6 +113,7 @@ pos = await alvo(p, B.PEDRA);
 await bater(p, 2);
 conferir(await blocoEm(p, pos) === B.PEDRA, 'pedra ainda inteira depois de 2 toques com picareta');
 await bater(p, 1);
+await juntar(p);
 conferir(await blocoEm(p, pos) === 0 && await qtd(p, B.PEDRA) === 1, 'picareta de madeira quebra pedra em 3 toques');
 // ferramenta na mão não coloca bloco
 pos = await alvo(p, B.PEDRA);
@@ -142,10 +163,11 @@ conferir(!(await c.isVisible('[data-aba=criar]')) && await c.isVisible('[data-ab
 await c.context().close();
 
 // ---------- online: a mochila fica guardada na sala ----------
-const nome = 'cri' + Math.random().toString(36).slice(2, 8);
+const nome = 'Crix' + Array.from({ length: 6 }, () => 'bdgkmvwxyz'[Math.floor(Math.random() * 10)]).join(''); // letras sem formar palavra (o filtro de nomes recusa números e palavrões)
 const o = await pagina(true);
 await o.click('#bt-criar-conta');
 await o.fill('#c-nome', nome); await o.fill('#c-senha', 'senha123');
+if (await o.isVisible('#c-adulto-ok')) await o.check('#c-adulto-ok');
 await o.click('#c-ok');
 await o.waitForSelector('#m-mundos:not([hidden])', { timeout: 90000 }); // o primeiro cadastro depois de ligar o servidor demora
 await o.click('#bt-novo-mundo');
@@ -156,6 +178,7 @@ await o.waitForTimeout(2000);
 conferir(await o.evaluate(() => window.__jogo.opcoesMundo.sobrevivencia === true), 'online: mundo novo com coletar e criar');
 pos = await alvo(o, B.TRONCO);
 await bater(o, 5);
+await juntar(o);
 conferir(await qtd(o, B.TRONCO) === 1, 'online: tronco na mochila');
 await o.evaluate(() => { const m = window.__jogo.mercado; m.e.itens[14] = 5; window.__jogo.sala.enviar({ t: 'ev', e: 'la' }); });
 await o.waitForTimeout(2200); // envio atrasado da mochila

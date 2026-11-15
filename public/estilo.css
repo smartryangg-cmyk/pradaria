@@ -404,6 +404,13 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 #coleta .pego.some { opacity: 0; transform: translateX(20px); }
 @keyframes pegou { from { transform: scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (max-width: 640px) { #coleta { bottom: 70px; } #coleta .pego { font-size: 14px; } }
+/* no toque o lado direito é dos botões (pular, voar, largar): o "+1 Tronco" aparece do lado esquerdo, acima da barra */
+body.toque #coleta { right: auto; left: max(12px, env(safe-area-inset-left)); bottom: 150px; align-items: flex-start; }
+body.toque #coleta .pego.some { transform: translateX(-20px); }
+/* celular deitado: pouca altura, o botão de largar fica ao lado do pular (não sobe até os emotes) */
+@media (orientation: landscape) and (max-height: 500px) {
+  body.toque #bt-largar { position: absolute; right: calc(100% + 14px); bottom: 0; }
+}
 
 /* livro de receitas */
 #grade.receitas { display: flex; flex-direction: column; gap: 8px; }
