@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1d1a16">
+<title>Pradaria - tela dividida</title>
+<link rel="icon" href="icone.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  html, body { margin: 0; height: 100%; background: #1d1a16; overflow: hidden; }
+  #metades { position: fixed; inset: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  /* TV em pé (ou tela estreita): uma metade em cima da outra */
+  @media (max-aspect-ratio: 1/1) { #metades { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; } }
+  iframe { width: 100%; height: 100%; border: 0; display: block; background: #5bb0e8; }
+</style>
+</head>
+<body>
+<div id="metades">
+  <iframe id="j1" title="Jogador 1" allow="gamepad; fullscreen; screen-wake-lock"></iframe>
+  <iframe id="j2" title="Jogador 2" allow="gamepad; fullscreen; screen-wake-lock"></iframe>
+</div>
+<script type="module" src="js/tv-dupla.js"></script>
+</body>
+</html>

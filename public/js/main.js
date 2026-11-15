@@ -77,6 +77,8 @@ if (ehToque) document.body.classList.add('toque');
 const AJ_PADRAO = { dist: ehToque ? 3 : 4, qual: ehToque ? 0.8 : 1, graf: 'auto', grafAuto: null, grafTeto: null, grafManual: false, gopc: null, ...PESSOAIS, auto: true, sens: 0.0055, som: true, ...VOL_PADRAO, fps: false, minimapa: true };
 let ajustes = { ...AJ_PADRAO };
 try { Object.assign(ajustes, JSON.parse(localStorage.getItem('pradaria.ajustes') || '{}')); } catch {}
+// tela dividida na TV: só a metade do Jogador 1 toca a música (as duas juntas embolam)
+if (window.jogadorTV === 2 && !localStorage.getItem('pradaria.ajustes')) ajustes.volMusica = 0;
 // quem nunca escolheu os gráficos à mão fica no automático (inclusive quem jogou antes desta versão)
 if (!ajustes.grafManual) ajustes.graf = 'auto';
 if (ajustes.graf !== 'auto' && !QUALIDADES[ajustes.graf] && !(ajustes.graf === 'personalizado' && ajustes.gopc)) ajustes.graf = 'auto';
@@ -2653,6 +2655,11 @@ const tv = iniciarTV({
   pausar: abrirPausa, fechar: fecharJanelas, pausarSem: (sim) => { pausado = sim; },
   inventario: () => abrirInventario(), mapa: () => mapa.abrir(), visao: alternarVisao, alternarVoo, largar: () => largarDaMao(false),
   aviso,
+  // tela dividida na TV: em que mundo online estou, e entrar no mundo do outro jogador
+  mundo: () => (jogando && modo === 'online' && mundoAtual && mundoAtual.codigo ? { codigo: mundoAtual.codigo, nome: mundoAtual.nome || '' } : null),
+  async entrarMundo(codigo) {
+    try { if (jogando) sairDoMundo({ semMenu: true }); await entrarPorCodigo(codigo); } catch (err) { aviso(err.message, 3000, 'relogio'); abrirMundos(); }
+  },
 });
 requestAnimationFrame(laco);
 addEventListener('beforeunload', () => salvarLocal());
@@ -2668,4 +2675,4 @@ if (conta.token) abrirJogos().then(() => { if (mundoPedido && conta.usuario) ent
 else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, get inv() { return inv; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; }, get escav() { return escav; }, som, fornos, get fornoAberto() { return fornoAberto; } }; }
+if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get mundoAtual() { return mundoAtual; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, get inv() { return inv; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; }, get escav() { return escav; }, som, fornos, get fornoAberto() { return fornoAberto; } }; }

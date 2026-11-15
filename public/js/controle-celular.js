@@ -77,6 +77,8 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 // ---------- a TV conta se está num menu ou jogando ----------
 let modoMenu = false;
 function mudarModo(m) {
+  // tela dividida: cada celular sabe de qual metade da TV ele é
+  if (m.j === 1 || m.j === 2) $('#estado').textContent = `Jogador ${m.j} · TV ${codigo.slice(0, 3)} ${codigo.slice(3)}`;
   if (m.menu !== modoMenu) { modoMenu = !!m.menu; soltarTudo(); vibrar(8); }
   document.body.classList.toggle('menu', modoMenu);
   const campo = m.campo;
