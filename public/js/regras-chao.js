@@ -5,7 +5,7 @@
 //   c (quantos são coisa comprada na loja: a marca vai junto, veja trabalho.js),
 //   q (quem fez cair: largou, quebrou ou caçou; só a sala usa, para um jogador não apagar os itens dos outros) }
 // A física (cair, quicar, boiar) é só desenho no aparelho; quem decide quem pegou é a sala (ou o próprio jogo, sem internet).
-import { guardavel, ULTIMO_ITEM } from './receitas.js';
+import { guardavel, ULTIMO_ITEM, desgLista } from './receitas.js';
 
 export const VIDA_CHAO = 5 * 60 * 1000;   // some depois de 5 minutos no chão
 export const MAX_CHAO = 200;              // por mundo; passando disso some o mais antigo de quem tem mais no chão
@@ -22,9 +22,11 @@ const arr = (v) => Math.round(v * 100) / 100;
 export class Chao {
   constructor() { this.itens = new Map(); this.prox = 1; }
 
-  novo(id, n, x, y, z, v = [0, 0, 0], dono = '', t = Date.now(), i = null, c = 0, q = '') {
+  // dg = desgaste das ferramentas que estão no chão (receitas.js DURA): pegar de volta não conserta
+  novo(id, n, x, y, z, v = [0, 0, 0], dono = '', t = Date.now(), i = null, c = 0, q = '', dg = null) {
     if (!podeNoChao(id, n) || ![x, y, z].every(Number.isFinite)) return null;
     const d = { i: i ?? this.prox++, id, n, x: arr(x), y: arr(y), z: arr(z), v: v.map((c) => arr(Math.max(-9, Math.min(9, Number(c) || 0)))), t, dono: String(dono || ''), c: Math.max(0, Math.min(n, c | 0)), q: String(q || '') };
+    const g = desgLista(id, dg, n); if (g.some((v) => v > 0)) d.dg = g;
     if (i != null) this.prox = Math.max(this.prox, i + 1);
     this.itens.set(d.i, d);
     return d;
@@ -57,7 +59,7 @@ export class Chao {
 }
 
 // como o item vai para os outros: com a idade em vez da hora (o relógio de cada aparelho é diferente)
-export const publico = (d, agora = Date.now()) => ({ i: d.i, id: d.id, n: d.n, x: d.x, y: d.y, z: d.z, v: d.v, idade: Math.max(0, agora - d.t), dono: d.dono, c: d.c || 0 });
+export const publico = (d, agora = Date.now()) => ({ i: d.i, id: d.id, n: d.n, x: d.x, y: d.y, z: d.z, v: d.v, idade: Math.max(0, agora - d.t), dono: d.dono, c: d.c || 0, ...(d.dg ? { dg: d.dg } : {}) });
 
 // pode pegar? (quem largou espera um pouco; ninguém pega no mesmo instante)
 export function podePegar(d, quem, agora = Date.now()) {

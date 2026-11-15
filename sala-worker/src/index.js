@@ -125,7 +125,7 @@ export class Sala extends DurableObject {
     if (this.chao) return this.chao;
     const c = new Chao();
     const lista = await this.ctx.storage.list({ prefix: 'd:' });
-    for (const [, d] of lista) if (d && Number.isInteger(d.i)) c.novo(d.id, d.n, d.x, d.y, d.z, d.v, d.dono, d.t, d.i, d.c, d.q);
+    for (const [, d] of lista) if (d && Number.isInteger(d.i)) c.novo(d.id, d.n, d.x, d.y, d.z, d.v, d.dono, d.t, d.i, d.c, d.q, d.dg);
     this.chao = c;
     await this.limparChao();
     return c;
@@ -142,8 +142,8 @@ export class Sala extends DurableObject {
   async soltarNoChao(itens, dono = '', q = '') {
     const c = await this.carregarChao();
     const novos = [];
-    for (const [id, n, x, y, z, v, comp] of itens) {
-      const d = c.novo(id, n, x, y, z, v || [(Math.random() - 0.5) * 2.4, 3.2, (Math.random() - 0.5) * 2.4], dono, Date.now(), null, comp || 0, q);
+    for (const [id, n, x, y, z, v, comp, dg] of itens) {
+      const d = c.novo(id, n, x, y, z, v || [(Math.random() - 0.5) * 2.4, 3.2, (Math.random() - 0.5) * 2.4], dono, Date.now(), null, comp || 0, q, dg);
       if (d) novos.push(d);
     }
     if (!novos.length) return;
@@ -799,7 +799,7 @@ export class Sala extends DurableObject {
       this.verSono(null, eu.nome);
     } else if (m.t === 'acordar') {
       if (eu.dorme) { eu.dorme = false; ws.serializeAttachment(eu); this.verSono(); }
-    } else if (m.t === 'ev' || m.t === 'vender' || m.t === 'comprar' || m.t === 'criar' || m.t === 'moer' || m.t === 'assar' || m.t === 'alimentar' || m.t === 'comprarV' || m.t === 'montarV' || m.t === 'chave') {
+    } else if (m.t === 'ev' || m.t === 'vender' || m.t === 'comprar' || m.t === 'criar' || m.t === 'moer' || m.t === 'assar' || m.t === 'alimentar' || m.t === 'acender' || m.t === 'comprarV' || m.t === 'montarV' || m.t === 'chave') {
       const op = this.op();
       const deVeiculo = m.t === 'comprarV' || m.t === 'montarV' || m.t === 'chave';
       if (!econLigada(op) && !deVeiculo) return; // chave de veículo vale mesmo sem mercado
@@ -874,11 +874,11 @@ export class Sala extends DurableObject {
       // já foi (outro pegou ou sumiu): o aparelho tira da tela e volta a mochila certa
       if (!d) { ws.send(JSON.stringify({ t: 'chao-pegou', i: m.i, j: null })); ws.send(JSON.stringify({ t: 'econ', s: econ })); return; }
       if (!podePegar(d, eu.id) || !pertoParaPegar(d, eu.pv || eu.p)) { ws.send(JSON.stringify({ t: 'econ', s: econ })); ws.send(JSON.stringify({ t: 'chao', d: [publico(d)] })); return; }
-      const r = aplicar(econ, op, { t: 'pegar', id: d.id, n: d.n, c: d.c });
+      const r = aplicar(econ, op, { t: 'pegar', id: d.id, n: d.n, c: d.c, d: d.dg });
       if (!r.ok) { ws.send(JSON.stringify({ t: 'econ', s: econ, msg: r.erro })); ws.send(JSON.stringify({ t: 'chao', d: [publico(d)] })); return; }
       // a mochila só tinha espaço para parte da pilha: pega o que cabe e o resto continua no chão
       if (r.pegou < d.n) {
-        d.n -= r.pegou; d.c = r.restoC;
+        d.n -= r.pegou; d.c = r.restoC; if (d.dg) { d.dg = r.restoD; if (!d.dg || !d.dg.some((v) => v > 0)) delete d.dg; }
         await this.ctx.storage.put('d:' + d.i, d);
         await this.ctx.storage.put('e:' + eu.uid, econ);
         ws.send(JSON.stringify({ t: 'econ', s: econ }));
@@ -903,7 +903,7 @@ export class Sala extends DurableObject {
       const v = Array.isArray(m.v) && m.v.length === 3 && m.v.every(Number.isFinite) ? m.v : [0, 2, 0];
       // sai um pouco na frente do jogador (para onde foi jogado), não dentro da cabeça
       const vh = Math.hypot(v[0], v[2]) || 1;
-      await this.soltarNoChao([[id, n, eu.p[0] + v[0] / vh * 0.6, eu.p[1] + 1.2, eu.p[2] + v[2] / vh * 0.6, v, r.c]], eu.id, eu.uid);
+      await this.soltarNoChao([[id, n, eu.p[0] + v[0] / vh * 0.6, eu.p[1] + 1.2, eu.p[2] + v[2] / vh * 0.6, v, r.c, r.d]], eu.id, eu.uid);
     } else if (m.t === 'dar') {
       if (!this.op().mercado) return;
       const agora = Date.now();
