@@ -1,4 +1,4 @@
-// Pontos (rating) do xadrez e a busca de adversário. Uma instância só ("geral").
+// Pontos (rating) do xadrez e da dama e a busca de adversário. Uma instância só ("geral").
 //  - guarda a nota de cada conta em cada categoria (bullet, blitz, rápida) e atualiza no fim das partidas que valem pontos
 //    (quem chama é a Partida, por dentro do worker: cabeçalho x-interno, que a API do site nunca repassa);
 //  - fila de quem está procurando partida (WebSocket da tela): junta duas pessoas do mesmo ritmo com pontos parecidos,
@@ -50,7 +50,7 @@ export class Pontos extends DurableObject {
     if (interno === 'resultado') {
       // { cat, w, b (uids), s (pontos das brancas) } -> notas antes e depois
       const d = await request.json();
-      if (!Object.hasOwn(P.NOME_CATEGORIA, d.cat || '') || !Number.isInteger(d.w) || !Number.isInteger(d.b) || d.w === d.b || ![0, 0.5, 1].includes(d.s)) return json({ erro: 'dados' }, 400);
+      if (!P.categoriaValida(d.cat) || !Number.isInteger(d.w) || !Number.isInteger(d.b) || d.w === d.b || ![0, 0.5, 1].includes(d.s)) return json({ erro: 'dados' }, 400);
       // a mesma partida só conta uma vez (id da partida)
       const chaveId = typeof d.id === 'string' && d.id ? 'r:' + d.id.slice(0, 40) : null;
       if (chaveId) { const ja = await this.ctx.storage.get(chaveId); if (ja) return json(ja); }
@@ -70,15 +70,16 @@ export class Pontos extends DurableObject {
     const u = JSON.parse(request.headers.get('x-usuario') || 'null');
     if (!u || request.headers.get('upgrade') !== 'websocket') return new Response('sem dados', { status: 400 });
     const ritmo = url.searchParams.get('ritmo');
+    const jogo = url.searchParams.get('jogo') === 'dama' ? 'dama' : 'xadrez';
     const [cliente, servidor] = Object.values(new WebSocketPair());
     if (!(Object.hasOwn(RITMOS, ritmo || '') || (ritmo === 'teste' && this.env.TESTE))) { servidor.accept(); servidor.send(JSON.stringify({ t: 'erro', msg: 'Escolha um ritmo com relógio.' })); servidor.close(4003, 'ritmo'); return new Response(null, { status: 101, webSocket: cliente }); }
     // a mesma pessoa só fica uma vez na fila
     for (const w of this.ctx.getWebSockets()) { const a = w.deserializeAttachment(); if (a && a.uid === u.id) { w.serializeAttachment(null); try { w.close(4001, 'outra aba'); } catch {} } }
-    const cat = P.categoria(ritmo);
+    const cat = P.categoria(ritmo, jogo);
     const n = await this.nota(u.id, cat);
     this.ctx.acceptWebSocket(servidor);
-    servidor.serializeAttachment({ uid: u.id, nome: u.nome, ritmo, cat, r: n.r, desde: Date.now(), rede: redeDoPedido(request, this.env) });
-    servidor.send(JSON.stringify({ t: 'fila', ritmo, pontos: P.mostrar(n) }));
+    servidor.serializeAttachment({ uid: u.id, nome: u.nome, jogo, ritmo, cat, r: n.r, desde: Date.now(), rede: redeDoPedido(request, this.env) });
+    servidor.send(JSON.stringify({ t: 'fila', jogo, ritmo, pontos: P.mostrar(n) }));
     await this.parear();
     return new Response(null, { status: 101, webSocket: cliente });
   }
@@ -92,7 +93,8 @@ export class Pontos extends DurableObject {
       if (usados.has(x.w)) continue;
       let melhor = null;
       for (const y of fila) {
-        if (y === x || usados.has(y.w) || y.a.ritmo !== x.a.ritmo || y.a.uid === x.a.uid) continue;
+        // mesmo jogo (xadrez ou dama; quem entrou antes desta versão era do xadrez) e mesmo ritmo
+        if (y === x || usados.has(y.w) || (y.a.jogo || 'xadrez') !== (x.a.jogo || 'xadrez') || y.a.ritmo !== x.a.ritmo || y.a.uid === x.a.uid) continue;
         // duas contas da mesma internet não se encontram na busca (para ninguém ganhar pontos jogando contra si mesmo)
         if (x.a.rede && x.a.rede === y.a.rede) continue;
         const dif = Math.abs(x.a.r - y.a.r);
@@ -110,7 +112,7 @@ export class Pontos extends DurableObject {
     const codigo = codigoNovo();
     const r = await this.env.PARTIDA.get(this.env.PARTIDA.idFromName(codigo)).fetch('https://partida/interno', {
       method: 'POST', headers: { 'x-interno': 'criar', 'content-type': 'application/json' },
-      body: JSON.stringify({ jogo: 'xadrez', ritmo: x.a.ritmo, ranqueada: true, w: { uid: w.a.uid, nome: w.a.nome, rede: w.a.rede }, b: { uid: b.a.uid, nome: b.a.nome, rede: b.a.rede } }),
+      body: JSON.stringify({ jogo: x.a.jogo || 'xadrez', ritmo: x.a.ritmo, ranqueada: true, w: { uid: w.a.uid, nome: w.a.nome, rede: w.a.rede }, b: { uid: b.a.uid, nome: b.a.nome, rede: b.a.rede } }),
     });
     for (const z of [x, y]) {
       z.w.serializeAttachment(null);
