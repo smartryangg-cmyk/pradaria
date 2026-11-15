@@ -203,6 +203,7 @@ if (!process.env.SO || process.env.SO === 'linda') {
   ok(corr.andou > 0.3, `correnteza leva o jogador (bloco ${corr.b}, andou ${corr.andou.toFixed(2)} na direção ${corr.c})`);
 
   // fôlego com vida desligada: fica no fundo segurando Shift até o fôlego acabar -> volta para cima sem dano
+  await p.evaluate(() => { const J = window.__jogo; J.opcoesMundo.dificuldade = 'pacifico'; J.opcoesMundo.selvagensMachucam = false; J.vida.reiniciar(); }); // Pacífico: sem corações
   await por(p, P, 0, 1, 0, Math.PI / 2, 0);
   await p.keyboard.down('Shift');
   const t0 = await p.evaluate(() => window.__tf);
@@ -223,7 +224,7 @@ if (!process.env.SO || process.env.SO === 'linda') {
   ok(r3.folego > 14 && !r3.barra, `respirou: fôlego recuperado (${r3.folego.toFixed(1)}) e a barra some`);
 
   // fôlego com vida ligada (Monstros machucam): perde coração e não é levado para cima
-  await p.evaluate(() => { const J = window.__jogo; J.opcoesMundo.selvagens = true; J.opcoesMundo.selvagensMachucam = true; J.vida.reiniciar(); });
+  await p.evaluate(() => { const J = window.__jogo; J.opcoesMundo.dificuldade = 'normal'; J.opcoesMundo.selvagens = true; J.opcoesMundo.selvagensMachucam = true; J.vida.reiniciar(); J.vida.fome.f = 17; J.vida.fome.s = 0; }); // jogo clássico: 10 corações (fome abaixo de 18: não cura no meio)
   await por(p, P, 0, 1, 0, Math.PI / 2, 0);
   await p.keyboard.down('Shift');
   await espera(p, 800);
@@ -231,9 +232,9 @@ if (!process.env.SO || process.env.SO === 'linda') {
   await espera(p, 4200);
   const v1 = await estado(p);
   await p.screenshot({ path: S + '/linda-sem-folego-vida.png' });
-  ok(v1.vida <= 8 && v1.cabeca && !v1.resgate, `com vida ligada: sem fôlego perde meio coração a cada ~1,5 s (vida ${v1.vida}/10, ainda embaixo)`);
+  ok(v1.vida <= 16 && v1.cabeca && !v1.resgate, `com vida ligada: sem fôlego perde 1 coração a cada ~1,5 s (vida ${v1.vida}/20, ainda embaixo)`);
   await p.keyboard.up('Shift');
-  await p.evaluate(() => { const J = window.__jogo; J.opcoesMundo.selvagens = false; J.opcoesMundo.selvagensMachucam = false; J.vida.reiniciar(); });
+  await p.evaluate(() => { const J = window.__jogo; J.opcoesMundo.dificuldade = 'pacifico'; J.opcoesMundo.selvagens = false; J.opcoesMundo.selvagensMachucam = false; J.vida.reiniciar(); });
   await espera(p, 2500);
   const v2 = await estado(p);
   ok(!v2.cabeca && !v2.sub && !v2.tela && !v2.nevoa, 'de volta na superfície: visão normal (sem névoa azul nem tom)');

@@ -100,5 +100,16 @@ const quase = {}; [1, 3, 4, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21
 j.ajustar({ 2: 24 }); j.clicarDireito('s', 0); j.clicarDireito('s', 0); j.clicar('s', 30); j.clicarDireito('s', 0); j.clicar('s', 31);
 j.ajustar({ 2: 24, ...quase });
 ok(!j.extra.length && j.total(2) === 24, 'pilhas de terra espalhadas se juntam quando a mochila enche (nada sobrando)');
+// morrer (jogo clássico): a mochila vira pilhas no chão; a picareta gasta leva o desgaste
+{
+  const { opcoesEcon } = await import('../public/js/economia.js');
+  const opF = opcoesEcon({ sobrevivencia: true, dificuldade: 'normal' });
+  const em = estadoNovo(); em.itens = { 3: 130, 1001: 2, 58: 1 }; em.desg = { 1001: [10, 0] };
+  const rm = aplicar(em, opF, { t: 'morrer' });
+  ok(rm.ok && !Object.keys(em.itens).length && JSON.stringify(rm.cai) === JSON.stringify([[3, 64, 0], [3, 64, 0], [3, 2, 0], [58, 1, 0], [1001, 1, 0, [10]], [1001, 1, 0, [0]]]), 'morrer: tudo vira pilhas no chão, a ferramenta gasta leva o desgaste ' + JSON.stringify(rm.cai));
+  ok(!aplicar(estadoNovo(), opcoesEcon({ sobrevivencia: true, dificuldade: 'pacifico' }), { t: 'morrer' }).ok, 'no Pacífico não existe morrer');
+  const ec2 = estadoNovo(); ec2.itens = { 58: 2, 3: 1 };
+  ok(aplicar(ec2, opF, { t: 'comer', id: 58 }).ok && ec2.itens[58] === 1 && !aplicar(ec2, opF, { t: 'comer', id: 3 }).ok, 'comer gasta 1 pão; pedra não se come');
+}
 console.log(falhas ? `FALHOU (${falhas})` : 'TUDO OK');
 process.exit(falhas ? 1 : 0);

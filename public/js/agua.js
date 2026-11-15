@@ -187,7 +187,7 @@ export class Agua {
         this.acumDano += dt;
         if (this.acumDano >= DANO_A_CADA) {
           this.acumDano = 0;
-          if (J.vida.dano(1)) { J.som.tom(200, 0.15, { tipo: 'sine', vol: 0.3, ate: 120 }); J.aviso('Sem fôlego! Suba para respirar', 1600, 'bolha'); }
+          J.vida.motivo = 'agua'; if (J.vida.dano(J.vida.escala())) { J.som.tom(200, 0.15, { tipo: 'sine', vol: 0.3, ate: 120 }); J.aviso('Sem fôlego! Suba para respirar', 1600, 'bolha'); }
         }
       } else if (!jog.resgate) {
         // mundo sem perigo: a água leva a gente de volta para cima, sem machucar

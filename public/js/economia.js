@@ -3,7 +3,8 @@
 // Não importe nada daqui que dependa do navegador (o servidor também usa este arquivo).
 
 import { aplicarTrabalho, normalizarTrabalho, negocioNovo, livreDe, marcarCompra, ajustarCompra, converter } from './trabalho.js';
-import { RECEITAS, guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm, cabe, cabeQuanto, DURA, ajustarDesg, desgastar, tirarDesg, porDesg, desgLista } from './receitas.js';
+import { RECEITAS, guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm, cabe, cabeQuanto, pilhaDe, DURA, ajustarDesg, desgastar, tirarDesg, porDesg, desgLista } from './receitas.js';
+import { ehComida } from './fome-regras.js';
 
 // ids dos blocos (iguais aos de blocos.js)
 const BALDE = 1009; // receitas.js I.BALDE
@@ -154,7 +155,11 @@ export function estadoDaGaragem(e, tipo, agora) {
 export function opcoesEcon(op) {
   op = op || {};
   // sem construção (ou com armas, que não deixam voar) as missões impossíveis ficam de fora
-  return { mercado: !!op.mercado, objetivos: !!op.objetivos, sobrevivencia: !!op.sobrevivencia, construcao: op.construcao !== false, voo: !op.armas };
+  // fome = o jogo clássico de verdade: sobrevivência fora do Pacífico (sem armas e fora da Guerra), com fome,
+  // morte (o que estava na mochila cai no chão) e cama para renascer
+  const dif = typeof op.dificuldade === 'string' ? op.dificuldade : op.selvagensMachucam ? 'normal' : 'pacifico';
+  const fome = !!op.sobrevivencia && !op.armas && op.tipo !== 'guerra' && dif !== 'pacifico';
+  return { mercado: !!op.mercado, objetivos: !!op.objetivos, sobrevivencia: !!op.sobrevivencia, construcao: op.construcao !== false, voo: !op.armas, fome };
 }
 // tem mochila (dá para pegar e largar coisas no chão)
 export const temMochila = (op) => !!(op && (op.mercado || op.sobrevivencia));
@@ -394,6 +399,34 @@ export function aplicar(e, op, a, ctx = {}) {
       if (!tirar(e.itens, id, n)) return falha('Você não tem isso.');
       r.d = tirarDesg(e, id, n); // a ferramenta largada leva o desgaste para o chão
     }
+    r.mudou = true;
+  } else if (a.t === 'comer') {
+    // comeu (fome-regras.js COMIDA): sai 1 da mochila; a barra de fome fica no aparelho
+    if (!op.fome) return falha('?');
+    const id = a.id | 0;
+    if (!ehComida(id)) return falha('Isso não se come.');
+    if (!tirar(e.itens, id, 1)) return falha('Acabou a comida.');
+    ajustarCompra(e);
+    r.mudou = true;
+  } else if (a.t === 'morrer') {
+    // morreu (sem corações): tudo o que dá para pôr no chão cai, em pilhas, onde a pessoa estava
+    if (!op.fome) return falha('?');
+    r.cai = [];
+    for (const k of Object.keys(e.itens)) {
+      const id = +k;
+      let n = e.itens[k] | 0;
+      if (!(n > 0) || !guardavel(id)) continue;
+      let c = Math.min(n, (e.compra && e.compra[k]) | 0);
+      const p = pilhaDe(id);
+      // ferramentas: cada uma leva o próprio desgaste (receitas.js DURA)
+      e.itens[k] = 0; // tirarDesg conta com a mochila já sem elas
+      const dg = DURA[id] ? tirarDesg(e, id, n) : null;
+      let di = 0;
+      while (n > 0 && r.cai.length < 60) { const q = Math.min(p, 64, n), qc = Math.min(q, c); r.cai.push(dg ? [id, q, qc, dg.slice(di, di + q)] : [id, q, qc]); di += q; n -= q; c -= qc; }
+      e.itens[k] = n;
+      if (!n) delete e.itens[k];
+    }
+    ajustarCompra(e);
     r.mudou = true;
   } else if (a.t === 'acender') {
     // acendeu fogo com o isqueiro (fogo-regras.js): gasta 1

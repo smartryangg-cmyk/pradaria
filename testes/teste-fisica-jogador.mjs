@@ -183,7 +183,7 @@ conferir(u.beiraSemAgachar.y < 0, 'sem agachar cai da beirada', u.beiraSemAgacha
 conferir(u.tetoBaixo.ficouAgachado && !u.tetoBaixo.depoisDePousar && u.tetoBaixo.y === 1, 'teto baixo: continua agachado até ter espaço', u.tetoBaixo);
 conferir(!u.desenrosca.colide, 'bloco no próprio corpo: empurra para fora', u.desenrosca);
 
-conferir(await J(() => window.__jogo.vida.atual === 10), 'testes puros não mexeram nos corações do jogador');
+conferir(await J(() => window.__jogo.vida.atual === 20), 'testes puros não mexeram nos corações do jogador');
 // --- 2. jogando de verdade com o teclado ---
 // degrau: segurando W, sobe sozinho sem pulo
 const deg = await J(async () => {
@@ -274,8 +274,8 @@ conferir(agR.menorY === 1 && agR.agachado && agR.olhos < 1.3, 'jogando: agachado
 conferir(agR2 < 0, 'jogando: soltou agachar e continuou andando: cai da beirada', agR2);
 await J(() => { const j = window.__jogo.jog; j.atualizar = j._orig; delete j._orig; });
 
-conferir(await J(() => window.__jogo.vida.atual === 10 && document.querySelector('#desmaio').hidden), 'quedas no feno do teclado não tiraram corações (sem desmaio no meio dos testes)', await J(() => window.__jogo.vida.atual));
-// queda com corações: cair 10 blocos tira 3 corações (6 meios)
+conferir(await J(() => window.__jogo.vida.atual === 20 && document.querySelector('#desmaio').hidden), 'quedas no feno do teclado não tiraram corações (sem desmaio no meio dos testes)', await J(() => window.__jogo.vida.atual));
+// queda com corações (jogo clássico, 10 corações): meio coração por bloco acima de 3
 const quedas = {};
 for (const [nome, prep] of [['pedra10', 'pedra'], ['agua10', 'agua'], ['feno10', 'feno'], ['trampolim10', 'trampolim'], ['pedra4', 'pedra4'], ['pedra14', 'pedra14'], ['pedra22', 'pedra22'], ['voando', 'voando'], ['rapida40', 'rapida']]) {
   quedas[nome] = await J(async (tipo) => {
@@ -315,17 +315,18 @@ for (const [nome, prep] of [['pedra10', 'pedra'], ['agua10', 'agua'], ['feno10',
   if (nome === 'pedra10') await p.screenshot({ path: SAIDA + '/queda-coracoes.png' });
 }
 console.log(JSON.stringify(quedas));
-conferir(quedas.pedra10.vida === 7 && quedas.pedra10.cheios === 3, 'cair 10 blocos na pedra tira 1 coração e meio (sobram 3 e meio)', quedas.pedra10);
-conferir(quedas.pedra4.vida === 10, 'cair 4 blocos não machuca', quedas.pedra4);
-conferir(quedas.pedra14.vida === 5, 'cair 14 blocos tira só 2 corações e meio (não desmaia)', quedas.pedra14);
-conferir(quedas.pedra22.vida === 1, 'cair 22 blocos ainda não desmaia (sobra meio coração; o clássico desmaia com 23)', quedas.pedra22);
-conferir(quedas.agua10.vida === 10, 'cair 10 blocos na água não machuca', quedas.agua10);
-conferir(quedas.feno10.vida === 10, 'cair 10 blocos no feno não machuca', quedas.feno10);
-conferir(quedas.trampolim10.vida === 10, 'cair 10 blocos no trampolim não machuca (quica)', quedas.trampolim10);
-conferir(quedas.voando.vida === 10, 'descer voando até o chão não machuca', quedas.voando);
+conferir(quedas.pedra10.vida === 13 && quedas.pedra10.cheios === 6, 'cair 10 blocos na pedra tira 3 corações e meio (sobram 6 e meio)', quedas.pedra10);
+conferir(quedas.pedra4.vida === 19, 'cair 4 blocos tira meio coração (como no clássico)', quedas.pedra4);
+conferir(quedas.pedra14.vida === 9, 'cair 14 blocos tira 5 corações e meio (não morre)', quedas.pedra14);
+conferir(quedas.pedra22.vida === 1, 'cair 22 blocos ainda não morre (sobra meio coração; o clássico morre com 23)', quedas.pedra22);
+conferir(quedas.agua10.vida === 20, 'cair 10 blocos na água não machuca', quedas.agua10);
+conferir(quedas.feno10.vida === 20, 'cair 10 blocos no feno não machuca', quedas.feno10);
+conferir(quedas.trampolim10.vida === 20, 'cair 10 blocos no trampolim não machuca (quica)', quedas.trampolim10);
+conferir(quedas.voando.vida === 20, 'descer voando até o chão não machuca', quedas.voando);
 conferir(quedas.rapida40.menorY >= 1 - 1e-6 && Math.abs(quedas.rapida40.y - 1) < 1e-6, 'queda rápida de 40 blocos (a -40) para no chão de 1 bloco (não atravessa)', quedas.rapida40);
-conferir(quedas.rapida40.vida === 0 || quedas.rapida40.vida === 10, '(info) queda de 40 blocos: desmaia (e acorda)', quedas.rapida40.vida);
-await p.waitForTimeout(2500); // espera o desmaio terminar
+conferir(quedas.rapida40.vida === 0 || quedas.rapida40.vida === 20, '(info) queda de 40 blocos: morre (e renasce)', quedas.rapida40.vida);
+await p.waitForTimeout(1000);
+if (await p.isVisible('#morte')) await p.click('#bt-renascer');
 
 // ===================== tablet emulado (botões de toque), mundo sem corações =====================
 const ctxTab = await b.newContext({ ...devices['iPad (gen 7) landscape'] });

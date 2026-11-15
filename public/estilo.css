@@ -35,6 +35,14 @@ body.toque #mira { display: none; }
 #recarga { position: absolute; left: 50%; top: calc(50% + 18px); width: 34px; height: 5px; transform: translateX(-50%); background: rgba(0,0,0,.45); border-radius: 3px; overflow: hidden; pointer-events: none; }
 #recarga[hidden] { display: none; }
 #recarga i { display: block; height: 100%; width: 0; background: #fff; }
+#comer { position: absolute; left: 50%; top: calc(50% + 28px); width: 60px; height: 7px; transform: translateX(-50%); background: rgba(0,0,0,.5); border-radius: 4px; overflow: hidden; pointer-events: none; }
+#comer[hidden] { display: none; }
+#comer i { display: block; height: 100%; width: 0; background: #e7a35c; }
+#morte { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(110, 12, 12, .55); }
+#morte[hidden] { display: none; }
+#morte .morte-caixa { display: grid; gap: 14px; justify-items: center; margin: 0 16px; padding: 22px 26px; text-align: center; }
+#morte h2 { margin: 0; color: #fff; font-size: 34px; font-weight: 900; text-shadow: 0 3px 0 rgba(0,0,0,.35); }
+#morte p { margin: 0; color: #ffe9e9; font-weight: 800; font-size: 17px; text-shadow: 0 2px 0 rgba(0,0,0,.3); }
 body.visao-frente #mira { display: none; }
 
 #topo { position: absolute; top: max(10px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left)); right: max(10px, env(safe-area-inset-right)); display: flex; align-items: center; gap: 10px; }
@@ -61,6 +69,7 @@ body.visao-frente #mira { display: none; }
 
 #botoes-toque { position: absolute; right: max(18px, env(safe-area-inset-right)); bottom: 108px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
 body:not(.toque) #botoes-toque, body:not(.toque) #dica-toque { display: none; }
+body.com-vida #dica-toque { margin-bottom: 28px; }
 #dica-toque { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); padding: 6px 14px; border-radius: 999px; background: var(--hud-fundo); color: #fff; font-size: 14px; font-weight: 700; white-space: nowrap; transition: opacity 1s; max-width: calc(100vw - 24px); overflow: hidden; text-overflow: ellipsis; }
 
 #joy { position: absolute; width: 124px; height: 124px; margin: -62px 0 0 -62px; border-radius: 50%; background: rgba(255,255,255,.16); border: 4px solid rgba(255,255,255,.7); display: none; }
@@ -304,10 +313,25 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 #vida .coracao { position: relative; width: 26px; height: 26px; }
 #vida .coracao .ic-svg { width: 26px; height: 26px; display: block; }
 #vida .coracao .metade { position: absolute; inset: 0; width: 50%; overflow: hidden; display: none; }
-#vida .coracao.vazio > .ic-svg, #vida .coracao.meio > .ic-svg { filter: grayscale(1) brightness(.55); opacity: .7; }
+#vida .coracao.oco > .ic-svg, #vida .coracao.meio > .ic-svg { filter: grayscale(1) brightness(.55); opacity: .7; }
 #vida .coracao.meio .metade { display: block; }
 #vida.treme { animation: treme .35s; }
 @keyframes treme { 0%, 100% { transform: translateX(-50%); } 25% { transform: translateX(calc(-50% - 5px)); } 75% { transform: translateX(calc(-50% + 5px)); } }
+/* jogo clássico: 10 corações à esquerda e 10 coxinhas de fome à direita, em cima da barra */
+#fome { position: absolute; left: 50%; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 84px); transform: translateX(6px); display: flex; flex-direction: row-reverse; gap: 2px; pointer-events: none; filter: drop-shadow(0 2px 2px rgba(0,0,0,.45)); }
+#vida.dez { transform: translateX(calc(-100% - 6px)); gap: 2px; }
+#vida.dez .coracao, #vida.dez .coracao .ic-svg, #fome .coxa, #fome .coxa .ic-svg { width: 21px; height: 21px; }
+#fome .coxa { position: relative; }
+#fome .coxa .ic-svg { display: block; }
+#fome .coxa .metade { position: absolute; inset: 0 0 0 50%; overflow: hidden; display: none; }
+#fome .coxa .metade .ic-svg { margin-left: -100%; }
+#fome .coxa.oco > .ic-svg, #fome .coxa.meio > .ic-svg { filter: grayscale(1) brightness(.55); opacity: .7; }
+#fome .coxa.meio .metade { display: block; }
+#vida.dez.treme { animation: tremeEsq .35s; }
+#fome.treme { animation: tremeDir .9s infinite; }
+@keyframes tremeEsq { 0%, 100% { transform: translateX(calc(-100% - 6px)); } 25% { transform: translateX(calc(-100% - 10px)); } 75% { transform: translateX(calc(-100% - 2px)); } }
+@keyframes tremeDir { 0%, 100% { transform: translateX(6px); } 25% { transform: translateX(4px); } 75% { transform: translateX(8px); } }
+@media (max-width: 640px) { #fome { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 64px); } #vida.dez .coracao, #vida.dez .coracao .ic-svg, #fome .coxa, #fome .coxa .ic-svg { width: 14px; height: 14px; } #vida.dez, #fome { gap: 1px; } }
 @media (max-width: 640px) { #vida { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 64px); } #vida .coracao, #vida .coracao .ic-svg { width: 20px; height: 20px; } }
 /* água: tom azulado embaixo d'água e barra de fôlego (bolhas) */
 #agua-tela { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .25s; background: radial-gradient(ellipse at 50% 45%, rgba(40,175,200,.10) 0%, rgba(10,80,120,.30) 70%, rgba(4,40,80,.48) 100%); }

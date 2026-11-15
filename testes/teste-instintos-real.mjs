@@ -58,7 +58,7 @@ const olharPara = (p, i = 0) => p.evaluate((i) => {
   await p.tap('#m-novo button[type=submit]');
   await p.waitForFunction(() => window.__jogo && window.__jogo.jog);
   await p.waitForTimeout(3000);
-  conferir(await p.locator('#vida .coracao.cheio').count() === 5, 'tablet: 5 corações na tela');
+  conferir(await p.locator('#vida .coracao.cheio').count() === 10, 'tablet: 10 corações na tela (jogo clássico)');
   await preparar(p);
   const cdp = await ctx.newCDPSession(p);
   const vp = p.viewportSize();
@@ -86,16 +86,16 @@ const olharPara = (p, i = 0) => p.evaluate((i) => {
   // 2. ursa com filhote: chegar perto do filhote dá aviso; ficar lá, ela morde (perde um coração na tela)
   await p.evaluate(() => { window.__limpar(); const u = window.__criar('urso', 2, -9, { grupo: 9 }); window.__criar('urso', 0.5, -7, { grupo: 9, filhote: true, mae: u }); });
   await olharPara(p);
-  await p.evaluate(() => { window.__vidaMin = 10; clearInterval(window.__vigia); window.__trilha = []; window.__vigia = setInterval(() => { window.__vidaMin = Math.min(window.__vidaMin, window.__jogo.vida.atual); const u = window.__jogo.bichos.lista[0]; if (u) { const t = u.estado + ':' + window.__dist(u).toFixed(1) + ':' + (u.y - window.__jogo.jog.pos.y).toFixed(1); if (window.__trilha.at(-1) !== t) window.__trilha.push(t); } }, 100); });
+  await p.evaluate(() => { window.__vidaMin = 20; clearInterval(window.__vigia); window.__trilha = []; window.__vigia = setInterval(() => { window.__vidaMin = Math.min(window.__vidaMin, window.__jogo.vida.atual); const u = window.__jogo.bichos.lista[0]; if (u) { const t = u.estado + ':' + window.__dist(u).toFixed(1) + ':' + (u.y - window.__jogo.jog.pos.y).toFixed(1); if (window.__trilha.at(-1) !== t) window.__trilha.push(t); } }, 100); });
   await andar(900);
   await p.waitForFunction(() => window.__avisos.some((t) => /filhotes/.test(t)), null, { timeout: 8000 }).catch(() => {});
   const aviso = await p.evaluate(() => window.__avisos.find((t) => /filhotes/.test(t)) || window.__avisos.join(' | '));
   conferir(/protegendo os filhotes/.test(aviso), 'tablet: aviso na tela "' + aviso + '"');
   await p.screenshot({ path: SAIDA + '/real-tablet-ursa-avisa.png' });
-  await p.waitForFunction(() => window.__vidaMin < 10, null, { timeout: 10000 }).catch(() => {});
+  await p.waitForFunction(() => window.__vidaMin < 20, null, { timeout: 10000 }).catch(() => {});
   const vmin = await p.evaluate(() => window.__vidaMin);
-  conferir(vmin === 8, 'tablet: a ursa morde e some um coração da tela (vida ' + vmin / 2 + ' de 5)');
-  if (vmin === 10) console.log('trilha da ursa:', (await p.evaluate(() => window.__trilha)).join(' '));
+  conferir(vmin === 16, 'tablet: a ursa morde e somem 2 corações da tela (vida ' + vmin / 2 + ' de 10)');
+  if (vmin === 20) console.log('trilha da ursa:', (await p.evaluate(() => window.__trilha)).join(' '));
   await p.screenshot({ path: SAIDA + '/real-tablet-mordida.png' });
 
   // 3. tocar na ursa na tela espanta: ela foge com o filhote

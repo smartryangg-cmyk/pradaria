@@ -98,8 +98,9 @@ const ursa = await J(() => window.__jogo.bichos.lista[0].estado);
 conferir(ursa === 'avisar' || ursa === 'atacar', 'ursa avisa quando chegamos perto do filhote (' + ursa + ')');
 conferir(await p.isVisible('#aviso') || true, 'aviso aparece');
 await p.screenshot({ path: SAIDA + '/ursa-avisa.png' });
-await p.waitForFunction(() => window.__jogo.vida.atual < 10, null, { timeout: 8000 }).catch(() => {});
-conferir(await J(() => window.__jogo.vida.atual) === 8, 'ursa morde: perde 1 coração (' + (await J(() => window.__jogo.vida.atual)) + ')');
+// jogo clássico (Normal): 10 corações e a mordida vale o dobro
+await p.waitForFunction(() => window.__jogo.vida.atual < 20, null, { timeout: 8000 }).catch(() => {});
+conferir(await J(() => window.__jogo.vida.atual) === 16, 'ursa morde: perde 2 corações de 10 (' + (await J(() => window.__jogo.vida.atual)) + ')');
 conferir(await J(() => window.__jogo.bichos.lista[0].estado) === 'recuar', 'depois de morder, a ursa recua');
 
 // 5. tocar no bicho selvagem espanta (faz barulho): ele foge
@@ -120,8 +121,8 @@ await p.waitForTimeout(600);
 const ce = await J(() => { const c = window.__jogo.bichos.lista[0]; return c.estado + ' ' + window.__dist(c).toFixed(2) + ' ' + (c.y - window.__jogo.jog.pos.y).toFixed(2); });
 conferir(ce.startsWith('avisar'), 'cobra avisa (chocalho) ' + ce);
 await J(() => { const c = window.__jogo.bichos.lista[0], j = window.__jogo.jog; j.pos.x = c.x - 1; j.pos.z = c.z; });
-await p.waitForFunction(() => window.__jogo.vida.atual < 10, null, { timeout: 8000 }).catch(() => {});
-conferir(await J(() => window.__jogo.vida.atual) === 9, 'cobra dá o bote (meio coração)');
+await p.waitForFunction(() => window.__jogo.vida.atual < 20, null, { timeout: 8000 }).catch(() => {});
+conferir(await J(() => window.__jogo.vida.atual) === 18, 'cobra dá o bote (1 coração de 10)');
 await J(() => { const j = window.__jogo.jog; j.pos.x -= 8; });
 const c0 = await J(() => window.__jogo.bichos.lista[0].x);
 await p.waitForTimeout(1500);
@@ -156,8 +157,8 @@ await p.waitForFunction(() => window.__dist(window.__jogo.bichos.lista[0]) < 6, 
 conferir(await J(() => window.__dist(window.__jogo.bichos.lista[0])) < 6, 'cachorro vem atrás');
 
 // 9. sem "podem machucar": nada de corações, só empurrão
-await J(() => { window.__jogo.opcoesMundo.selvagensMachucam = false; window.__jogo.vida.desenhar(); });
-conferir(!(await p.isVisible('#vida')), 'sem a opção não tem corações');
+await J(() => { window.__jogo.opcoesMundo.selvagensMachucam = false; window.__jogo.opcoesMundo.dificuldade = 'pacifico'; window.__jogo.vida.desenhar(); });
+conferir(!(await p.isVisible('#vida')), 'Pacífico (bichos não machucam): não tem corações');
 
 // 10. desempenho: 18 bichos pensando e andando
 await limpar();
