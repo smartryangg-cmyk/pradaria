@@ -68,7 +68,20 @@ export class Escavacao {
     this.parts = [];
     this.geoP = new THREE.BoxGeometry(1, 1, 1);
     this.mats = new Map();
+    // os pedacinhos usam materiais próprios: um pedacinho invisível de tão pequeno fica sempre na cena, para o
+    // programa deles já estar compilado com a sombra e a neblina do gráfico atual (no tablet, compilar na
+    // primeira batida travava ~300 ms)
+    this.matCaco = new THREE.MeshLambertMaterial({ color: 0xcfeefa, transparent: true, opacity: 0.75 });
+    this.aquecer = [new THREE.MeshLambertMaterial({ color: 0x808080 }), this.matCaco].map((m) => {
+      const q = new THREE.Mesh(this.geoP, m);
+      q.scale.setScalar(1e-4); q.frustumCulled = false;
+      cena.add(q);
+      return q;
+    });
   }
+
+  // saindo do mundo: tira da cena os pedacinhos de aquecer
+  fechar() { for (const q of this.aquecer) this.cena.remove(q); }
 
   // um toque no bloco h (do raycast). p = ponto atingido no mundo. Retorna true se o bloco quebrou de vez.
   // total = quantos toques ele aguenta (menos com a ferramenta certa na mão; veja criacao.js)
@@ -170,13 +183,27 @@ export class Escavacao {
   }
 
   // tira a malha esculpida; o bloco volta para a malha do mundo (ou já virou ar)
-  soltar(k, quebrou = false) {
+  // (sem quebrar, a malha esculpida fica no lugar até o pedaço ser montado de novo: não pisca um buraco)
+  soltar(k, quebrou = false, saindo = false) {
     const e = this.blocos.get(k);
     if (!e) return;
-    if (e.malha) { this.cena.remove(e.malha); e.malha.geometry.dispose(); }
+    if (e.malha) {
+      if (!quebrou && !saindo && this.mundo.bloco(e.x, e.y, e.z) === e.b) {
+        if (e.restam < TOTAL) { e.vivos.fill(1); e.restam = TOTAL; this.montar(e); }
+        this.mundo.provisorio(e.malha, e.x, e.z);
+      }
+      else { this.cena.remove(e.malha); e.malha.geometry.dispose(); }
+    }
     this.blocos.delete(k);
     this.mundo.esconder(e.x, e.y, e.z, false);
     if (quebrou) this.mundo.definir(e.x, e.y, e.z, AR);
+  }
+
+  // bloco inteiro solto (cubo provisório de um bloco recém-colocado, enquanto o pedaço é montado em fatias)
+  cubo(x, y, z, b) {
+    const e = { x, y, z, b, vivos: new Uint8Array(TOTAL).fill(1), malha: null };
+    this.montar(e);
+    return e.malha;
   }
 
   montar(e) {
@@ -286,7 +313,6 @@ export class Escavacao {
 
   // vidro: estilhaça em cacos finos e brilhantes que voam para todo lado
   cacos(x, y, z, b, n) {
-    if (!this.matCaco) this.matCaco = new THREE.MeshLambertMaterial({ color: 0xcfeefa, transparent: true, opacity: 0.75 });
     const nx = n ? n[0] : 0, ny = n ? n[1] : 0, nz = n ? n[2] : 0;
     for (let q = 0; q < 16 && this.parts.length < 90; q++) {
       const mesh = new THREE.Mesh(this.geoP, this.matCaco);
