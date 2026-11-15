@@ -5,6 +5,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { caixa, juntar, matModelo } from './modelos.js';
 import { SOLIDO, AGUA, B } from './blocos.js';
+import { FORMA_NOVA, colideForma } from './formas.js';
 import { BE } from './blocos-eras.js';
 import { ALT } from './mundo.js';
 
@@ -286,7 +287,7 @@ export class Veiculos {
     const [x, y, z] = dados.p;
     const v = {
       id: dados.id, tipo: dados.tipo, cor: dados.cor | 0, d, ...m,
-      x, y, z, yaw: dados.r || 0, pitch: 0, roll: 0, vel: 0, vy: 0, yVis: y, noChao: false,
+      x, y, z, yaw: dados.r || 0, pitch: 0, roll: 0, vel: 0, vy: 0, yVis: y, noChao: false, tAr: 0,
       ocup: new Array(d.assentos.length).fill(null), bonecos: new Array(d.assentos.length).fill(null),
       alvo: null, giroRoda: 0, girohelice: 0, motorLigado: 0, viraRoda: 0, salvo: 0,
       comb: Number.isFinite(dados.c) ? Math.max(0, Math.min(1, dados.c)) : 1, dano: Number.isFinite(dados.d) ? Math.max(0, Math.min(1, dados.d)) : 0,
@@ -430,20 +431,63 @@ export class Veiculos {
   }
 
   // ---------- física ----------
+  // Como nos jogos de blocos: o veículo é uma caixa que anda um eixo de cada vez (x, depois z), assim ele raspa
+  // na parede em vez de grudar; sobe sozinho o que couber no "degrau" (meio bloco, rampa, escada, 1 bloco);
+  // as formas (rampa, meio bloco, cerca, tronco redondo, bola...) colidem pelo formato de verdade.
+  // O corpo virado é coberto por caixinhas alinhadas aos eixos, uma a cada pedaço do comprimento.
   colide(v, x, y, z, yaw) {
     const d = v.d, m = this.mundo;
     const n = Math.max(1, Math.ceil(d.L / Math.max(d.W, 0.8)));
     const meia = Math.max(0.22, d.W * 0.42);
     const s = Math.sin(yaw), co = Math.cos(yaw);
-    const y0 = Math.floor(y + 0.05), y1 = Math.floor(y + Math.min(d.H, 2.6) - 0.05);
+    const ya = y + 0.001, yb = y + Math.min(d.H, 2.6) - 0.05;
+    const y0 = Math.floor(ya), y1 = Math.floor(yb);
+    const get = this._get || (this._get = (a, b, c) => m.bloco(a, b, c));
     for (let i = 0; i < n; i++) {
       const off = ((i + 0.5) / n - 0.5) * d.L * 0.9;
       const cx = x - s * off, cz = z - co * off;
-      for (let bx = Math.floor(cx - meia); bx <= Math.floor(cx + meia); bx++)
-        for (let bz = Math.floor(cz - meia); bz <= Math.floor(cz + meia); bz++)
-          for (let by = y0; by <= y1; by++) if (SOLIDO[m.bloco(bx, by, bz)]) return true;
+      const x0 = cx - meia, x1 = cx + meia, z0 = cz - meia, z1 = cz + meia;
+      for (let bx = Math.floor(x0); bx <= Math.floor(x1); bx++)
+        for (let bz = Math.floor(z0); bz <= Math.floor(z1); bz++)
+          // começa 1 abaixo: a cerca tem 1,5 de altura e encosta vindo da célula de baixo
+          for (let by = y0 - 1; by <= y1; by++) {
+            const b = m.bloco(bx, by, bz);
+            if (!SOLIDO[b]) continue;
+            if (FORMA_NOVA[b]) { if (colideForma(b, get, bx, by, bz, x0, ya, z0, x1, yb, z1)) return true; } else if (by >= y0) return true;
+          }
     }
     return false;
+  }
+
+  // degrau: a menor subida (até d.degrau) que deixa o veículo passar para (nx, nz), com espaço em cima de onde está
+  degrau(v, nx, nz) {
+    const max = v.d.degrau ?? (v.d.meio === 'agua' || v.d.meio === 'sub' ? 0.3 : 1.05);
+    for (let s = 0.0625; s <= max + 1e-6; s += 0.0625) {
+      if (this.colide(v, v.x, v.y + s, v.z, v.yaw)) return 0; // bateu a cabeça: não sobe
+      if (!this.colide(v, nx, v.y + s, nz, v.yaw)) return s;
+    }
+    return 0;
+  }
+
+  // anda (dx, dz) eixo a eixo; devolve quanto andou e o que bloqueou cada eixo
+  moverPlano(v, dx, dz, podeSubir) {
+    const r = { x: 0, z: 0, bx: false, bz: false, outro: null, subiu: 0 };
+    const eixos = Math.abs(dx) >= Math.abs(dz) ? ['x', 'z'] : ['z', 'x'];
+    for (const e of eixos) {
+      const q = e === 'x' ? dx : dz;
+      if (Math.abs(q) < 1e-9) continue;
+      const nx = e === 'x' ? v.x + q : v.x, nz = e === 'z' ? v.z + q : v.z;
+      const outro = this.colideVeiculo(v, nx, v.y, nz, v.yaw);
+      let anda = false;
+      if (outro) r.outro = outro;
+      else if (!this.colide(v, nx, v.y, nz, v.yaw)) anda = true;
+      else if (podeSubir) {
+        const s = this.degrau(v, nx, nz);
+        if (s > 0) { v.y += s; r.subiu += s; anda = true; }
+      }
+      if (anda) { v.x = nx; v.z = nz; r[e] = q; } else r['b' + e] = true;
+    }
+    return r;
   }
 
   // outro veículo no caminho (batida de verdade: para e amassa)
@@ -486,10 +530,22 @@ export class Veiculos {
     v.vy *= Math.max(0, 1 - 3 * dt);
   }
 
-  // altura do chão perto de y (para inclinar o corpo)
+  // altura do chão perto de y (para inclinar o corpo): segue meio bloco, rampa e as outras formas
   chaoPerto(x, y, z) {
-    const bx = Math.floor(x), bz = Math.floor(z);
-    for (let by = Math.floor(y) + 1; by > y - 3; by--) { const b = this.mundo.bloco(bx, by - 1, bz); if (SOLIDO[b] || AGUA[b]) return by; }
+    const bx = Math.floor(x), bz = Math.floor(z), m = this.mundo;
+    const get = this._get || (this._get = (a, b, c) => m.bloco(a, b, c));
+    for (let by = Math.floor(y) + 1; by > y - 3; by--) {
+      const b = m.bloco(bx, by - 1, bz);
+      if (AGUA[b]) return by;
+      if (!SOLIDO[b]) continue;
+      if (!FORMA_NOVA[b]) return by;
+      // forma: procura a altura do topo bem neste ponto
+      const t = (h) => colideForma(b, get, bx, by - 1, bz, x - 0.05, h, z - 0.05, x + 0.05, h + 0.02, z + 0.05);
+      if (!t(by - 1)) continue; // passa ao lado (cerca, tronco): olha o de baixo
+      let lo = by - 1, hi = by + 0.5;
+      for (let i = 0; i < 8; i++) { const md = (lo + hi) / 2; if (t(md)) lo = md; else hi = md; }
+      return hi;
+    }
     return y - 3;
   }
 
@@ -538,21 +594,30 @@ export class Veiculos {
 
     // anda (frente = -z)
     const fx = -Math.sin(v.yaw), fz = -Math.cos(v.yaw);
-    const nx = v.x + fx * v.vel * dt, nz = v.z + fz * v.vel * dt;
+    const ix = fx * v.vel * dt, iz = fz * v.vel * dt;
     const antesX = v.x, antesZ = v.z;
-    const outro = this.colideVeiculo(v, nx, v.y, nz, v.yaw);
-    if (!outro && !this.colide(v, nx, v.y, nz, v.yaw)) { v.x = nx; v.z = nz; }
-    else if (!outro && v.noChao && !this.colide(v, nx, v.y + 1.02, nz, v.yaw) && !this.colide(v, v.x, v.y + 1.02, v.z, v.yaw)) {
-      // sobe degrau de 1 bloco (o corpo sobe suave pelo yVis)
-      v.y = Math.floor(v.y + 0.05) + 1; v.x = nx; v.z = nz; v.vy = 0;
-    } else {
-      // batida: acima de 5 m/s amassa (mais forte, mais dano)
-      const forte = Math.abs(v.vel);
-      if (forte > 4) this.som.ruido(0.12 + Math.min(0.25, forte / 60), { vol: Math.min(0.6, 0.15 + forte / 40), freq: 380 });
-      if (forte > 5) this.bater(v, (forte - 5) * 0.03);
-      if (outro && forte > 5 && this.aoBaterOutro) this.aoBaterOutro(v, outro, (forte - 5) * 0.02);
-      v.vel *= -0.2;
-    }
+    // pode subir degrau no chão (ou logo depois de sair dele: quina, quique); avião só taxiando
+    const podeSubir = (v.noChao || v.tAr < 0.2) && !(voa && !v.noChao);
+    const mv = this.moverPlano(v, ix, iz, podeSubir);
+    if (mv.subiu > 0) { v.vy = Math.max(0, v.vy); v.noChao = true; v.tAr = 0; if (mv.subiu > 0.6) v.vel *= 0.94; } // degrau alto tira um pouco do embalo
+    if (mv.bx || mv.bz) {
+      const quer = Math.hypot(ix, iz) || 1;
+      // velocidade contra o que bloqueou (de frente = tudo; raspando de lado = só um pouco)
+      const contra = Math.abs(v.vel) * Math.hypot(mv.bx ? ix : 0, mv.bz ? iz : 0) / quer;
+      const andou = Math.hypot(mv.x, mv.z) / quer; // o que sobra ao longo da parede
+      if (contra > 4) this.som.ruido(0.12 + Math.min(0.25, contra / 60), { vol: Math.min(0.6, 0.15 + contra / 40), freq: 380 });
+      if (contra > 5) this.bater(v, (contra - 5) * 0.03); // acima de 5 m/s contra a parede amassa
+      if (mv.outro && contra > 5 && this.aoBaterOutro) this.aoBaterOutro(v, mv.outro, (contra - 5) * 0.02);
+      if (andou < 0.15) v.vel *= -0.2; // de frente: para e volta um tiquinho
+      else {
+        // de lado: na hora da batida perde o que ia contra a parede; depois segue raspando (o atrito segura um pouco)
+        if (!v.raspando) v.vel *= Math.max(0.3, andou);
+        v.vel -= Math.sign(v.vel) * Math.min(Math.abs(v.vel), 2 * dt);
+        const lim = vmax * Math.max(0.3, andou) * 0.8;
+        if (Math.abs(v.vel) > lim) v.vel = Math.sign(v.vel) * lim;
+      }
+      v.raspando = andou >= 0.15;
+    } else v.raspando = false;
     // gasta combustível/bateria conforme anda (e o helicóptero, só de ficar no ar)
     if (d.energia) {
       let gasto = Math.hypot(v.x - antesX, v.z - antesZ) / d.autonomia;
@@ -585,7 +650,10 @@ export class Veiculos {
       else v.vy += (quer * 3.5 - v.vy) * Math.min(1, dt * 3);
     } else if (agua) this.boiar(v, dt);
     else v.vy = Math.max(-30, v.vy - g * dt);
-    this.moverVertical(v, dt);
+    // em terra (e o avião taxiando) desce degrau e ladeira colado no chão
+    const colar = !agua && (d.meio === 'terra' || (d.meio === 'ar' && v.vel < d.decola)) && !ent.subir;
+    this.moverVertical(v, dt, colar);
+    v.tAr = v.noChao ? 0 : (v.tAr || 0) + dt;
     if (v.y > ALT + 40) { v.y = ALT + 40; v.vy = Math.min(0, v.vy); }
 
     // inclinação
@@ -599,6 +667,12 @@ export class Veiculos {
       const hf = this.chaoPerto(v.x - s * off, v.y, v.z - co * off), hb = this.chaoPerto(v.x + s * off, v.y, v.z + co * off);
       pitchAlvo = THREE.MathUtils.clamp(Math.atan2(hf - hb, d.L * 0.8), -0.45, 0.45);
       if (d.inclina) rollAlvo = -ent.lado * Math.min(1, Math.abs(v.vel) / 6) * 0.35;
+      else if (d.W > 1) {
+        // terreno torto de lado: o carro inclina para o lado mais baixo
+        const ow = d.W * 0.4;
+        const he = this.chaoPerto(v.x - co * ow, v.y, v.z + s * ow), hd = this.chaoPerto(v.x + co * ow, v.y, v.z - s * ow);
+        rollAlvo = THREE.MathUtils.clamp(Math.atan2(hd - he, d.W * 0.8), -0.3, 0.3);
+      }
     } else {
       pitchAlvo = d.meio === 'sub' ? THREE.MathUtils.clamp(v.vy * 0.08, -0.3, 0.3) : Math.min(0.12, v.vel * 0.01); // nariz do barco levanta
       rollAlvo = Math.sin(performance.now() / 700) * 0.03;
@@ -608,17 +682,39 @@ export class Veiculos {
     this.posicionar(v, dt);
   }
 
-  moverVertical(v, dt) {
+  moverVertical(v, dt, colar = false) {
     const ny = v.y + v.vy * dt;
-    if (!this.colide(v, v.x, ny, v.z, v.yaw)) { v.y = ny; v.noChao = false; return; }
+    if (this.colide(v, v.x, v.y, v.z, v.yaw)) { this.desentalar(v); return; } // entalado (bloco posto em cima): sai por cima
+    if (!this.colide(v, v.x, ny, v.z, v.yaw)) {
+      // descendo degrau ou ladeira no chão: fica colado (não sai voando a cada bloco)
+      if (colar && v.noChao && v.vy <= 0) {
+        const fundo = v.y - (v.d.degrau ?? 1.05);
+        if (this.colide(v, v.x, fundo, v.z, v.yaw)) { v.y = this.encostar(v, fundo, v.y); v.vy = 0; v.noChao = true; return; }
+      }
+      v.y = ny; v.noChao = false; return;
+    }
     if (v.vy < 0) {
       if (v.vy < -13 && v.ocup[0] !== null) this.bater(v, (-v.vy - 13) * 0.04); // caiu de muito alto
-      const base = Math.floor(ny);
-      v.y = base + (this.colide(v, v.x, base, v.z, v.yaw) ? 1 : 0);
-      if (this.colide(v, v.x, v.y, v.z, v.yaw)) v.y = Math.floor(v.y) + 1;
+      v.y = this.encostar(v, ny, v.y);
       v.noChao = true;
-    }
+    } else v.y = this.encostarTeto(v, v.y, ny);
     v.vy = 0;
+  }
+
+  // pousa certinho em cima do que tem embaixo (bloco cheio, meio bloco, rampa, bola): entre lo (encosta) e hi (livre)
+  encostar(v, lo, hi) {
+    const inteiro = Math.floor(hi);
+    if (inteiro >= lo && !this.colide(v, v.x, inteiro, v.z, v.yaw) && this.colide(v, v.x, inteiro - 0.002, v.z, v.yaw)) return inteiro;
+    for (let i = 0; i < 12; i++) { const m = (lo + hi) / 2; if (this.colide(v, v.x, m, v.z, v.yaw)) lo = m; else hi = m; }
+    return hi;
+  }
+  encostarTeto(v, lo, hi) {
+    for (let i = 0; i < 10; i++) { const m = (lo + hi) / 2; if (this.colide(v, v.x, m, v.z, v.yaw)) hi = m; else lo = m; }
+    return lo;
+  }
+  desentalar(v) {
+    const y0 = v.y;
+    for (let s = 0.0625; s <= 3; s += 0.0625) if (!this.colide(v, v.x, y0 + s, v.z, v.yaw)) { v.y = y0 + s; v.vy = 0; v.noChao = true; return; }
   }
 
   // veículo sem motorista: só cai/boia até parar
