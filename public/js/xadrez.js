@@ -176,6 +176,8 @@ function mostrarRelogios() {
   if (relogio.anda && !fimAtual && tempoDe(relogio.anda) <= 0 && performance.now() - pediuTempo > 1500 && online && online.ws && online.ws.readyState === 1) { pediuTempo = performance.now(); online.ws.send(JSON.stringify({ t: 'tempo' })); }
 }
 setInterval(() => { if (modo === 'online' && relogio && relogio.anda && !fimAtual) mostrarRelogios(); }, 100);
+function prazoFalta() { return modo === 'online' && relogio && relogio.prazo != null ? Math.max(0, relogio.prazo - (performance.now() - relogio.recebido)) : null; }
+setInterval(() => { if (prazoFalta() != null && !fimAtual) status(); }, 500);
 
 function status() {
   const s = $('#x-status');
@@ -186,6 +188,9 @@ function status() {
   else if (e.vez === meuLado()) { t = X.emXeque(e) ? 'Xeque! Sua vez' : 'Sua vez'; minha = true; }
   else t = modo === 'pc' ? 'Vez do computador' : X.emXeque(e) ? 'Xeque! Vez do amigo' : 'Vez do seu amigo';
   if (modo === 'online' && online.empate && !fimAtual) t = online.empate === voce ? 'Você propôs empate' : 'Seu amigo propôs empate';
+  // partida com relógio: prazo para o primeiro lance
+  const prazo = prazoFalta();
+  if (prazo != null && !fimAtual && !(modo === 'online' && online.empate)) t += (e.vez === meuLado() ? ' · faça seu primeiro lance: ' : ' · primeiro lance do adversário: ') + Math.ceil(prazo / 1000) + 's';
   s.textContent = t; s.classList.toggle('minha', minha);
   const esperando = modo === 'online' && online.jogadores && !online.jogadores[voce === 'w' ? 'b' : 'w'];
   $('#bt-chamar').hidden = !(modo === 'online' && esperando);
@@ -265,6 +270,7 @@ function fazer(de, para, promo) {
   if (fimAtual) mostrarFim();
   else vezDoComputador();
 }
+let demoraPC = 450; // os testes podem aumentar (para marcar o pré-lance com calma)
 function vezDoComputador() {
   if (modo !== 'pc' || fimAtual || e.vez === voce) return;
   pensando = true; status();
@@ -279,16 +285,17 @@ function vezDoComputador() {
     desenhar();
     if (fimAtual) mostrarFim();
     else tentarPre();
-  }, 450);
+  }, demoraPC);
 }
 
 function mostrarFim() {
   const f = fimAtual;
   const venci = f.vencedor && f.vencedor === meuLado();
   som.fim(!f.vencedor ? 'empate' : venci ? 'ganhou' : 'perdeu');
-  $('#fim-titulo').textContent = !f.vencedor ? 'Empate!' : venci ? 'Você ganhou!' : 'Você perdeu';
+  $('#fim-titulo').textContent = f.tipo === 'cancelada' ? 'Partida cancelada' : !f.vencedor ? 'Empate!' : venci ? 'Você ganhou!' : 'Você perdeu';
   let txt = X.TEXTO_FIM[f.tipo] || '';
   if (f.tipo === 'desistiu') txt = f.quem === meuLado() ? 'Você desistiu.' : (modo === 'pc' ? 'O computador desistiu.' : 'Seu amigo desistiu.');
+  if (f.tipo === 'cancelada') txt = (f.quem === meuLado() ? 'Você não fez o primeiro lance a tempo.' : 'O adversário não fez o primeiro lance a tempo.') + ' Não vale pontos.';
   if (f.tipo === 'tempo') txt = f.quem === meuLado() ? 'Seu tempo acabou.' : 'O tempo do seu amigo acabou.';
   $('#fim-txt').textContent = txt;
   $('#bt-revanche').textContent = modo === 'online' ? 'Jogar de novo (trocando de cor)' : 'Jogar de novo';
@@ -321,7 +328,7 @@ async function lerMeusPontos() {
 }
 function mostrarMeusPontos() {
   const el = $('#x-meus-pontos');
-  const cat = P.CATEGORIAS[ritmo];
+  const cat = P.categoria(ritmo);
   el.hidden = !conta.token;
   if (!conta.token) return;
   if (!cat) el.textContent = 'Sem relógio: a partida não vale pontos.';
@@ -331,12 +338,12 @@ function mostrarMeusPontos() {
   if (!cat && tipoAmigo === 'pontos') { tipoAmigo = 'amistosa'; marcar('.tipo-amigo', 'tipo', tipoAmigo); }
 }
 function procurar() {
-  if (!conta.token || !P.CATEGORIAS[ritmo] || busca) return;
+  if (!conta.token || !P.categoria(ritmo) || busca) return;
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const ws = new WebSocket(`${proto}//${location.host}/api/xadrez/busca?ritmo=${encodeURIComponent(ritmo)}&t=${encodeURIComponent(conta.token)}`);
   busca = { ws, desde: Date.now(), timer: 0 };
-  const r = X.RITMOS[ritmo];
-  $('#busca-txt').textContent = `${r.nome} ${r.base / 60000} min${r.inc ? ' +' + r.inc / 1000 + 's' : ''} · seus pontos ${meusPontos ? meusPontos[P.CATEGORIAS[ritmo]].mostrar : '…'}`;
+  const r = X.RITMOS[ritmo] || { nome: 'Teste', base: 8000, inc: 1000 };
+  $('#busca-txt').textContent = `${r.nome} ${r.base / 60000} min${r.inc ? ' +' + r.inc / 1000 + 's' : ''} · seus pontos ${meusPontos ? meusPontos[P.categoria(ritmo)].mostrar : '…'}`;
   $('#x-busca').hidden = false;
   const tique = () => { const s = Math.floor((Date.now() - busca.desde) / 1000); $('#busca-tempo').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
   tique(); busca.timer = setInterval(tique, 500);
@@ -363,7 +370,7 @@ document.querySelectorAll('.nivel').forEach((b) => b.addEventListener('click', (
 document.querySelectorAll('.cor-peca').forEach((b) => b.addEventListener('click', () => { voce = b.dataset.cor; marcar('.cor-peca', 'cor', voce); }));
 document.querySelectorAll('.ritmo').forEach((b) => b.addEventListener('click', () => { ritmo = b.dataset.ritmo; marcar('.ritmo', 'ritmo', ritmo); try { localStorage.setItem('pradaria.xadrez.ritmo', ritmo); } catch {} mostrarMeusPontos(); }));
 document.querySelectorAll('.tipo-amigo').forEach((b) => b.addEventListener('click', () => { tipoAmigo = b.dataset.tipo; marcar('.tipo-amigo', 'tipo', tipoAmigo); }));
-try { const r = localStorage.getItem('pradaria.xadrez.ritmo'); if (r !== null && (r === '' || X.RITMOS[r])) ritmo = r; } catch {}
+try { const r = localStorage.getItem('pradaria.xadrez.ritmo'); if (r === '' || X.ritmoValido(r)) ritmo = r; } catch {}
 marcar('.nivel', 'nivel', nivel); marcar('.cor-peca', 'cor', voce); marcar('.ritmo', 'ritmo', ritmo); marcar('.tipo-amigo', 'tipo', tipoAmigo);
 
 function abrirMenu() {
@@ -417,7 +424,7 @@ function jogarOnline(codigo, chamar = false, criar = false) {
   if (!conta.token) { $('#x-erro').textContent = 'Entre na sua conta para jogar com amigos.'; return; }
   fecharOnline();
   modo = 'online'; e = X.novo(); voce = 'w'; fimAtual = null; fimVisto = null; sel = -1; alvos = []; girado = false;
-  online = { codigo, jogadores: null, tentativas: 0, ritmo: criar ? ritmo : '', ranqueada: criar && tipoAmigo === 'pontos' && !!P.CATEGORIAS[ritmo] };
+  online = { codigo, jogadores: null, tentativas: 0, ritmo: criar ? ritmo : '', ranqueada: criar && tipoAmigo === 'pontos' && !!P.categoria(ritmo) };
   relogio = null; pre = null; modoPre = false; lancesVistos = -1;
   history.replaceState(null, '', '?sala=' + codigo);
   $('#x-menu').hidden = true; $('#x-jogo').hidden = false; $('#x-fim').hidden = true;
@@ -495,5 +502,5 @@ if (pedida && /^[A-Za-z0-9]{10,24}$/.test(pedida) && conta.token) jogarOnline(pe
 else abrirMenu();
 
 // para os testes automáticos (testes/teste-xadrez.mjs)
-window.__xadrez = { get e() { return e; }, get voce() { return voce; }, get modo() { return modo; }, get fim() { return fimAtual; }, get online() { return online; }, get relogio() { return relogio; }, get pre() { return pre; }, get preFeitos() { return preFeitos; }, get busca() { return busca; }, set ritmo(v) { ritmo = v; }, X, set nivel(v) { nivel = v; }, fazer };
+window.__xadrez = { get e() { return e; }, get voce() { return voce; }, get modo() { return modo; }, get fim() { return fimAtual; }, get online() { return online; }, get relogio() { return relogio; }, get pre() { return pre; }, get preFeitos() { return preFeitos; }, get busca() { return busca; }, set ritmo(v) { ritmo = v; }, X, set nivel(v) { nivel = v; }, set demoraPC(v) { demoraPC = v; }, fazer };
 void icone;

@@ -10,6 +10,7 @@ import * as P from '../../public/js/pontos-regras.js';
 // cada jogo: novo, validar(estado, mensagem), avancar, fim, publico (as regras ficam em public/js)
 const JOGOS = { xadrez: X, dama: D };
 const LUGARES = ['w', 'b'];
+const PRAZO_PRIMEIRO = 30000; // tempo para fazer o primeiro lance (partida com relógio)
 
 export class Partida extends DurableObject {
   constructor(ctx, env) {
@@ -41,7 +42,7 @@ export class Partida extends DurableObject {
   }
 
   // ---------- pontos (partidas que valem pontos) ----------
-  categoria() { return this.p.relogio ? P.CATEGORIAS[this.p.relogio.ritmo] : null; }
+  categoria() { return this.p.relogio ? P.categoria(this.p.relogio.ritmo) : null; }
   async lerPontos() {
     const p = this.p, cat = this.categoria();
     if (!p.ranqueada || !cat || !this.env.PONTOS || !p.lugares.w || !p.lugares.b) return;
@@ -74,14 +75,29 @@ export class Partida extends DurableObject {
   // w e b = tempo que sobra (ms); desde = quando começou a contar a vez de quem joga agora (null = parado:
   // o relógio só anda depois que os dois fizeram o primeiro lance, e para no fim)
   relogioNovo(ritmo) {
-    const r = ritmo === 'teste' && this.env.TESTE ? { base: 8000, inc: 1000 } : X.RITMOS[ritmo];
-    return r ? { ritmo, base: r.base, inc: r.inc, w: r.base, b: r.base, desde: null } : null;
+    // só os ritmos da lista (Object.hasOwn: "constructor", "__proto__" e afins não viram ritmo)
+    const r = ritmo === 'teste' && this.env.TESTE ? { base: 8000, inc: 1000 } : X.ritmoValido(ritmo) ? X.RITMOS[ritmo] : null;
+    return r ? { ritmo, base: r.base, inc: r.inc, w: r.base, b: r.base, desde: null, prazo: null } : null;
+  }
+  // primeiro lance: com os dois na mesa, cada um tem um prazo para fazer o primeiro lance; se não fizer, a partida é cancelada
+  marcarPrazo() {
+    const p = this.p, r = p.relogio;
+    if (!r) return;
+    r.prazo = !p.fim && p.lugares.w && p.lugares.b && (p.e.hist || []).length < 2 ? Date.now() + PRAZO_PRIMEIRO : null;
+  }
+  prazoAcabou() {
+    const p = this.p, r = p.relogio;
+    if (!r || p.fim || !r.prazo || Date.now() < r.prazo) return false;
+    r.prazo = null;
+    p.fim = { tipo: 'cancelada', quem: p.e.vez };
+    return true;
   }
   relogioAgora() {
     const r = this.p.relogio;
     if (!r) return null;
     const vez = this.p.e.vez, x = { ritmo: r.ritmo, base: r.base, inc: r.inc, w: r.w, b: r.b, anda: r.desde != null && !this.p.fim ? vez : null };
     if (x.anda) x[vez] = Math.max(0, r[vez] - (Date.now() - r.desde));
+    if (r.prazo && !this.p.fim) x.prazo = Math.max(0, r.prazo - Date.now());
     return x;
   }
   // confere se o tempo de quem joga acabou (true = acabou e a partida terminou)
@@ -97,7 +113,9 @@ export class Partida extends DurableObject {
   }
   agendarTempo() {
     const r = this.p.relogio;
-    if (r && r.desde != null && !this.p.fim) this.ctx.storage.setAlarm(r.desde + r[this.p.e.vez] + 50);
+    if (!r || this.p.fim) return;
+    if (r.prazo) this.ctx.storage.setAlarm(r.prazo + 50);
+    else if (r.desde != null) this.ctx.storage.setAlarm(r.desde + r[this.p.e.vez] + 50);
   }
 
   async fetch(request) {
@@ -107,8 +125,11 @@ export class Partida extends DurableObject {
       const d = await request.json();
       this.p = { jogo: 'xadrez', lugares: { w: d.w, b: d.b }, e: X.novo(), fim: null, criado: Date.now(), partidas: 1, ranqueada: true };
       this.p.relogio = this.relogioNovo(d.ritmo);
+      if (!this.p.relogio) { this.p = null; return new Response('ritmo', { status: 400 }); }
+      this.marcarPrazo();
       await this.lerPontos();
       await this.salvar();
+      this.agendarTempo();
       return new Response('ok');
     }
     const u = JSON.parse(request.headers.get('x-usuario') || 'null');
@@ -148,8 +169,10 @@ export class Partida extends DurableObject {
       meu = LUGARES.find((l) => !p.lugares[l]);
       if (!meu) return recusar('Esta partida já tem dois jogadores.');
       p.lugares[meu] = { uid: u.id, nome: u.nome };
+      this.marcarPrazo();
       await this.lerPontos();
       await this.salvar();
+      this.agendarTempo();
     }
     }
     // a mesma pessoa em outra aba: a antiga sai
@@ -175,7 +198,7 @@ export class Partida extends DurableObject {
     if (!meu) return;
     const outro = meu === 'w' ? 'b' : 'w';
     const erro = (msg) => ws.send(JSON.stringify({ t: 'aviso', msg }));
-    if (this.tempoAcabou()) { await this.registrar(); await this.salvar(); this.avisarTodos(); return; }
+    if (this.tempoAcabou() || this.prazoAcabou()) { await this.registrar(); await this.salvar(); this.avisarTodos(); return; }
     if (m.t === 'tempo') return; // o navegador viu o relógio zerar: a conferência acima já resolve
     if (m.t === 'lance') {
       if (p.fim) return erro('A partida acabou.');
@@ -191,6 +214,7 @@ export class Partida extends DurableObject {
         if (r.desde != null) { r[meu] = Math.max(0, r[meu] - (Date.now() - r.desde)) + r.inc; }
         // o relógio começa depois do primeiro lance das pretas
         r.desde = (p.e.hist || []).length >= 2 ? Date.now() : null;
+        this.marcarPrazo();
       }
       const f = R.fim(p.e);
       if (f) p.fim = f;
@@ -206,8 +230,9 @@ export class Partida extends DurableObject {
     } else if (m.t === 'revanche') {
       if (!p.fim) return;
       p.revanche = [...new Set([...(p.revanche || []), meu])];
-      if (p.revanche.length === 2) { this.novaPartida(true); await this.lerPontos(); }
+      if (p.revanche.length === 2) { this.novaPartida(true); this.marcarPrazo(); await this.lerPontos(); }
     } else return;
+    if (p.fim && p.relogio) p.relogio.prazo = null;
     if (p.fim && p.relogio && p.relogio.desde != null) { const r = p.relogio; r[p.e.vez] = Math.max(0, r[p.e.vez] - (Date.now() - r.desde)); r.desde = null; }
     await this.registrar();
     await this.salvar();
@@ -244,7 +269,7 @@ export class Partida extends DurableObject {
     const p = this.p;
     if (p && p.jogo !== 'truco') {
       // relógio do xadrez: o tempo de quem joga acabou?
-      if (this.tempoAcabou()) { await this.registrar(); await this.salvar(); this.avisarTodos(); } else this.agendarTempo();
+      if (this.tempoAcabou() || this.prazoAcabou()) { await this.registrar(); await this.salvar(); this.avisarTodos(); } else this.agendarTempo();
       return;
     }
     if (!p || p.jogo !== 'truco' || !p.e || p.e.fim) return;
