@@ -60,6 +60,8 @@ await p.waitForFunction(() => window.__jogo && window.__jogo.jog);
 await esperar(p, 2500);
 let [x0, y0, z0] = await palco(p);
 await esperar(p, 500);
+await palco(p, [x0, y0, z0]); // de novo: algum pedaço do mundo pode ter terminado de carregar por cima
+await esperar(p, 300);
 conferir(await p.isVisible('#bt-largar') === false, 'computador: botão de largar só aparece no tablet (aqui é a tecla Q)');
 
 // quebra um tronco: ele cai no chão, não vai direto para a mochila
@@ -124,6 +126,48 @@ await esperar(p, 300);
 conferir((await noChao(p)).length === 0, 'itens velhos somem do chão');
 
 await p.context().close();
+
+// ================= celular (em pé e deitado): o botão de largar cabe na tela e funciona =================
+for (const [nome, vp] of [['celular em pé', { width: 390, height: 844 }], ['celular deitado', { width: 844, height: 390 }]]) {
+  const ctx = await b.newContext({ viewport: vp, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+  const c = await ctx.newPage();
+  c.on('pageerror', (e) => erros.push(nome + ' PAGEERROR ' + e.message));
+  c.on('console', (m) => { if (m.type() === 'error' && !/WebSocket|404|Bad Request/.test(m.text())) erros.push(nome + ' ' + m.text()); });
+  await c.goto(BASE + '/#teste');
+  await c.tap('#bt-sozinho');
+  await c.waitForSelector('#m-novo:not([hidden]) #n-opcoes:not([hidden])');
+  await c.tap('#m-novo button[type=submit]');
+  await c.waitForFunction(() => window.__jogo && window.__jogo.jog);
+  await esperar(c, 2500);
+  const [cx, cy, cz] = await palco(c);
+  await c.evaluate(([x, y, z]) => window.__jogo.mundo.definir(x, y + 1, z - 2, 6), [cx, cy, cz]);
+  await esperar(c, 200);
+  await bater(c, 5);
+  await ate(c, () => window.__jogo.drops.lista()[0]?.parado, null, 3000);
+  // vai até o tronco (encosta nele) e ele vai para a mochila
+  const d = (await noChao(c))[0];
+  await ir(c, d.x, d.z + 0.4);
+  conferir(await ate(c, () => window.__jogo.mercado.qtd(6) === 1), nome + ': pegou o tronco do chão');
+  await c.evaluate(() => { const j = window.__jogo; j.slot = j.barra.indexOf(6); });
+  await esperar(c, 300);
+  // o botão aparece inteiro na tela, grande o bastante para o dedo e sem cobrir os outros botões
+  const caixa = await c.evaluate(() => {
+    const r = (el) => { const q = el.getBoundingClientRect(); return { x: q.x, y: q.y, w: q.width, h: q.height }; };
+    const bt = document.querySelector('#bt-largar');
+    const outros = [...document.querySelectorAll('#botoes-toque > *, #joystick, #barra')].filter((e) => e !== bt && e.offsetParent).map(r);
+    return { bt: r(bt), outros, W: innerWidth, H: innerHeight };
+  });
+  const B_ = caixa.bt;
+  const dentro = B_.x >= 0 && B_.y >= 0 && B_.x + B_.w <= caixa.W && B_.y + B_.h <= caixa.H;
+  const cobre = caixa.outros.some((o) => B_.x < o.x + o.w - 1 && o.x < B_.x + B_.w - 1 && B_.y < o.y + o.h - 1 && o.y < B_.y + B_.h - 1);
+  conferir(await c.isVisible('#bt-largar') && dentro && B_.w >= 40 && B_.h >= 40 && !cobre,
+    `${nome}: botão de largar inteiro na tela, ${Math.round(B_.w)}x${Math.round(B_.h)} px, sem cobrir outros botões`);
+  await c.screenshot({ path: SAIDA + '/drop-' + (vp.width < vp.height ? 'celular-em-pe' : 'celular-deitado') + '.png' });
+  await c.tap('#bt-largar');
+  await esperar(c, 600);
+  conferir(await qtd(c, T.TRONCO) === 0 && (await noChao(c)).some((x) => x.id === T.TRONCO), nome + ': tocou em largar e o tronco foi para o chão');
+  await ctx.close();
+}
 
 // ================= online: dois jogadores (computador + tablet) =================
 const sfx = letras();

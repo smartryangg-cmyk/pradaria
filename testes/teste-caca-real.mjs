@@ -131,6 +131,7 @@ if (!process.env.SO_ONLINE) {
   await p.screenshot({ path: SAIDA + '/caca-tablet-ovelha-foge.png' });
 
   // 3. ovelha no buraco: segurando até ela cair. Tomba de lado, some num brilho e cai carne e lã na mochila
+  await juntarChao(p); // a lã do carinho lá de cima ficou no chão: junta antes de contar
   const antes = { c: await qtd(p, CARNE), l: await qtd(p, LA) };
   await p.evaluate(() => { window.__limpar(); window.__buraco(0, -3); const o = window.__criar('ovelha', 0, -3); o.calmo = 99; o.estado = 'parar'; o.timer = 99; window.__ov = o; window.__tombou = false; window.__vig2 = setInterval(() => { if (window.__ov.caindo > 0 && Math.abs(window.__ov.grupo.rotation.z) > 1) window.__tombou = true; }, 50); });
   await segurarNoBicho(p, cdp, () => (window.__ov.caindo || !window.__jogo.bichos.lista.includes(window.__ov) ? null : window.__ov), 20000, () => !!window.__ov.caindo);
