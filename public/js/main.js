@@ -2080,7 +2080,13 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
       rolar: (d) => { slotSel = (slotSel + d + barra.length) % barra.length; desenharBarra(); },
       primeiroToque: () => som.iniciar(),
       mira: (p) => { miraToque = p; },
-      travaMudou: () => {},
+      // como no clássico: Esc no meio do jogo abre o menu (o navegador usa o Esc para soltar o mouse, então o menu
+      // abre quando o mouse solta sem nenhuma janela pedindo isso)
+      travaMudou: (travado) => {
+        if (travado || !jogando || pausado || morto || personagem.aberto || !$('#chat-caixa').hidden) return;
+        if ([...document.querySelectorAll('.janela')].some((e) => !e.hidden)) return;
+        abrirPausa();
+      },
     });
   }
   ctrl.jog = jog;

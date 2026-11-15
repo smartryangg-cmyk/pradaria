@@ -112,20 +112,25 @@ export default async function fisica(j) {
     const camDepois = await j.p.evaluate(() => window.__jogo.visao && (window.__jogo.visao.modo ?? window.__jogo.visao.atual));
     await j.espera(camAntes !== camDepois, 'F5 troca a câmera (primeira/terceira pessoa)', { tipo: 'clássico', visto: `${camAntes} -> ${camDepois}` });
     await j.tecla('F5'); await j.tecla('F5');
-    await j.tecla('KeyT', 'T (chat)');
-    const chat = await j.p.isVisible('#chat-caixa');
-    await j.espera(chat, 'T abre o chat como no clássico', { tipo: 'clássico', visto: chat ? 'abriu' : 'não abriu (chat só existe online?)' });
-    if (chat) { await j.tecla('Escape'); await j.travarMouse(); }
+    // (T abre o chat: conferido no roteiro online; sem internet não há chat)
     const antes = (await itens(j))[2] || 0;
     await j.tecla('KeyQ', 'Q (largar item)');
     await j.p.waitForTimeout(400);
     const depois = (await itens(j))[2] || 0;
     await j.espera(depois === antes - 1, 'Q larga 1 item da mão, como no clássico', { tipo: 'clássico', esperado: `${antes - 1}`, visto: `${depois}` });
-    const slotA = await j.p.evaluate(() => window.__jogo.barra ?? null);
+    const sel = () => j.p.evaluate(() => [...document.querySelectorAll('#barra .slot:not(.mais)')].findIndex((e) => e.classList.contains('sel')));
+    const slotA = await sel();
     await j.p.evaluate(() => dispatchEvent(new WheelEvent('wheel', { deltaY: 120 }))); await j.p.waitForTimeout(200);
-    const slotB = await j.p.evaluate(() => window.__jogo.barra ?? null);
+    const slotB = await sel();
     j.passo('rolou a roda do mouse');
-    await j.espera(JSON.stringify(slotA) !== JSON.stringify(slotB), 'a roda do mouse troca o espaço da barra', { tipo: 'clássico' });
+    await j.espera(slotA !== slotB, 'a roda do mouse troca o espaço da barra', { tipo: 'clássico', visto: `${slotA} -> ${slotB}` });
+  }
+  if (!j.toque) {
+    if (!(await j.p.evaluate(() => !!document.pointerLockElement))) await j.travarMouse();
+    await j.esc();
+    await j.espera(await j.ve('#pausa:not([hidden])', 2000), 'Esc no meio do jogo abre o menu do jogo, como no clássico', { tipo: 'clássico', visto: 'o Esc só soltou o mouse' });
+    await j.p.keyboard.press('Escape'); await j.p.waitForTimeout(300);
+    await j.espera(!(await j.p.isVisible('#pausa')), 'Esc de novo fecha o menu e volta ao jogo', { tipo: 'clássico' });
   }
   await j.semErros('na física');
 }

@@ -3,21 +3,22 @@
 // coisas (uma pessoa enxerga a árvore; o robô procura no mapa) e para conferir o resultado.
 
 // procura o bloco mais perto (ids) num raio, que tenha ar em volta (dá para ver e chegar)
-export function acharBloco(j, ids, raio = 24, { acimaDoChao = true, fora = [] } = {}) {
-  return j.p.evaluate(([ids, raio, acima, fora]) => {
+export function acharBloco(j, ids, raio = 24, { acimaDoChao = true, fora = [], base = false } = {}) {
+  return j.p.evaluate(([ids, raio, acima, fora, base]) => {
     const g = window.__jogo, m = g.mundo, p = g.jog.pos;
     const px = Math.floor(p.x), py = Math.floor(p.y), pz = Math.floor(p.z);
     let melhor = null, dm = 1e9;
-    for (let dx = -raio; dx <= raio; dx++) for (let dz = -raio; dz <= raio; dz++) for (let dy = -6; dy <= 8; dy++) {
+    for (let dx = -raio; dx <= raio; dx++) for (let dz = -raio; dz <= raio; dz++) for (let dy = -10; dy <= 12; dy++) {
       const x = px + dx, y = py + dy, z = pz + dz, b = m.bloco(x, y, z);
       if (!ids.includes(b) || fora.includes(x + ',' + y + ',' + z)) continue;
-      if (dy > 2 || dy < -2) continue; // alcançável de pé (sem escalar)
+      // base: o pé do tronco (o de baixo), em qualquer altura (anda até lá); senão, só o que alcança de pé
+      if (base ? ids.includes(m.bloco(x, y - 1, z)) : (dy > 2 || dy < -2)) continue;
       if (acima && !(m.bloco(x + 1, y, z) === 0 || m.bloco(x - 1, y, z) === 0 || m.bloco(x, y, z + 1) === 0 || m.bloco(x, y, z - 1) === 0)) continue;
       const d = Math.hypot(dx, dz) + Math.abs(dy) * 1.5;
       if (d < dm) { dm = d; melhor = { x, y, z, b, d: +d.toFixed(1) }; }
     }
     return melhor;
-  }, [ids, raio, acimaDoChao, fora]);
+  }, [ids, raio, acimaDoChao, fora, base]);
 }
 
 export const bloco = (j, x, y, z) => j.p.evaluate(([x, y, z]) => window.__jogo.mundo.bloco(x, y, z), [x, y, z]);
@@ -150,4 +151,24 @@ export async function craftar(j, id, casas, vezes = 1) {
     await clicar(j, SLOT(vazio >= 0 ? vazio : 0));
   }
   return true;
+}
+
+// chão firme perto (1 a 3 blocos), com ar em cima e sem água: onde uma pessoa colocaria um bloco
+export function lugarParaPor(j) {
+  return j.p.evaluate(() => {
+    const g = window.__jogo, m = g.mundo, p = g.jog.pos, px = Math.floor(p.x), py = Math.floor(p.y), pz = Math.floor(p.z);
+    let melhor = null;
+    for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) for (let dy = -2; dy <= 0; dy++) {
+      const d = Math.hypot(dx, dz);
+      if (d < 1.5 || d > 3.2) continue;
+      const x = px + dx, y = py + dy, z = pz + dz, b = m.bloco(x, y, z);
+      if (!b || b === 5 || (b >= 215 && b <= 219) || m.bloco(x, y + 1, z) || m.bloco(x, y + 2, z)) continue;
+      if (!melhor || Math.abs(dy + 1) < Math.abs(melhor.dy + 1)) melhor = { x, y, z, dy };
+    }
+    return melhor;
+  });
+}
+// mira no meio da face de cima do bloco
+export async function mirarEmCima(j, x, y, z) {
+  return mirarBloco(j, x, y + 0.45, z);
 }

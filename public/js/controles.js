@@ -43,10 +43,16 @@ export class Controles {
       if (k === 'KeyR' && this.cb.recarregar) this.cb.recarregar();
       if (k === 'KeyQ' && !e.repeat && this.cb.trocar) this.cb.trocar();
       if (k === 'KeyF') this.cb.alternarVoo();
+      // como no clássico: W duas vezes rápido corre (até soltar o W)
+      if ((k === 'KeyW' || k === 'ArrowUp') && !e.repeat) {
+        const ag = performance.now();
+        if (ag - (this.ultimoW || 0) < 300) this.correndoW = true;
+        this.ultimoW = ag;
+      }
       this.teclas.add(k);
     });
-    addEventListener('keyup', (e) => this.teclas.delete(e.code));
-    addEventListener('blur', () => this.teclas.clear());
+    addEventListener('keyup', (e) => { this.teclas.delete(e.code); if (e.code === 'KeyW' || e.code === 'ArrowUp') this.correndoW = false; });
+    addEventListener('blur', () => { this.teclas.clear(); this.correndoW = false; });
   }
 
   mouse() {
@@ -213,13 +219,14 @@ export class Controles {
     if (this.joy) { f -= this.joy.dy; l += this.joy.dx; }
     s.pular = t.has('Space') || this.botaoPular || this.puloPendente;
     this.puloPendente = false;
-    // Shift: voando ou nadando desce; no chão corre (no ar continua valendo "descer": trampolim e planar)
+    // teclas do clássico: Shift agacha (voando ou nadando, desce); Ctrl ou W duas vezes corre
+    // (no ar o Shift continua valendo "descer": trampolim e planar)
     const j = this.jog, shift = t.has('ShiftLeft') || t.has('ShiftRight');
     const soltoNoAr = !!j && (j.voando || j.naAgua || !j.noChao);
     s.descer = (shift && soltoNoAr) || this.botaoDescer;
-    s.correr = !!((shift && !(j && (j.voando || j.naAgua))) || t.has('ControlLeft') || t.has('ControlRight')
+    s.correr = !!(((t.has('ControlLeft') || t.has('ControlRight') || this.correndoW) && !shift)
       || (this.joy && (this.joy.correr || Math.hypot(this.joy.dx, this.joy.dy) > 0.97)));
-    s.agachar = t.has('KeyZ') || this.agacharToque;
+    s.agachar = t.has('KeyZ') || this.agacharToque || (shift && !(j && (j.voando || j.naAgua)));
     // outras fontes (controle de videogame, celular como controle na TV)
     for (const k in this.fontes) {
       const o = this.fontes[k];

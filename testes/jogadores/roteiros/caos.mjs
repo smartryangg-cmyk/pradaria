@@ -25,7 +25,7 @@ export default async function caos(j, { acoes = +process.env.ACOES || 120 } = {}
     [10, () => j.quebrar(300 + rnd() * 1500)],
     [8, () => j.usar()],
     [5, async () => { await j.abrirInventario(); await j.apertarAoAcaso(3, rnd); await j.fecharInventario(); }],
-    [4, async () => { j.passo('abriu o menu'); if (j.toque) await j.tocar('#bt-menu'); else await j.p.keyboard.press('Escape'); await j.p.waitForTimeout(300); await j.apertarAoAcaso(2, rnd); await j.p.keyboard.press('Escape'); await j.p.waitForTimeout(200); if (!j.toque) await j.travarMouse(); }],
+    [4, async () => { j.passo('abriu o menu'); if (j.toque) await j.tocar('#bt-menu'); else await j.esc(); await j.p.waitForTimeout(300); await j.apertarAoAcaso(2, rnd); await j.esc(); await j.p.waitForTimeout(200); if (!j.toque) await j.travarMouse(); }],
     [5, () => j.apertarAoAcaso(1 + Math.floor(rnd() * 3), rnd)],
     [3, () => j.escolherSlot(Math.floor(rnd() * 9))],
     [2, () => j.semInternet(2000 + rnd() * 6000)],
@@ -45,13 +45,13 @@ export default async function caos(j, { acoes = +process.env.ACOES || 120 } = {}
       const t = await telaPresa(j);
       if (!t.jogando && !t.menus.includes('#menu')) { await j.bug('ficou numa tela sem jogo e sem menu', { visto: JSON.stringify(t) }); return; }
       // tenta sair de qualquer janela com Esc/voltar, como uma pessoa faria
-      if (t.menus.length && t.jogando) { await j.p.keyboard.press('Escape'); await j.p.waitForTimeout(300); }
+      if (t.menus.length && t.jogando) { await j.esc(); await j.p.waitForTimeout(300); }
     }
   }
   // no fim, precisa conseguir voltar a jogar: fecha tudo e anda
-  for (let k = 0; k < 3; k++) { await j.p.keyboard.press('Escape'); await j.p.waitForTimeout(250); }
+  for (let k = 0; k < 3; k++) { await j.esc(); await j.p.waitForTimeout(250); }
   const t = await telaPresa(j);
-  if (t.menus.includes('#pausa')) { j.passo('fechou o menu'); await j.p.keyboard.press('Escape'); }
+  if (t.menus.includes('#pausa')) { j.passo('fechou o menu'); await j.esc(); }
   const a = await j.estado;
   if (a) {
     if (!j.toque) await j.travarMouse();

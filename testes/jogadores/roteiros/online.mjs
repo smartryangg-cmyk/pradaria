@@ -14,13 +14,14 @@ export default async function online(prefixo, perfis = ['pc', 'tablet']) {
     if (!(await ana.criarMundo({ nome: 'Fazenda da Ana' }))) return;
     // Ana abre o menu (Esc) e lê o código
     ana.passo('abriu o menu do jogo');
-    if (ana.toque) await ana.aperta('#bt-menu', 'menu'); else await ana.p.keyboard.press('Escape');
+    if (ana.toque) await ana.aperta('#bt-menu', 'menu'); else await ana.esc();
     await ana.p.waitForTimeout(500);
     if (!(await ana.p.isVisible('#pausa'))) await ana.aperta('#bt-menu', 'menu');
-    const codigo = (await ana.p.locator('#dono-codigo').innerText().catch(() => '')).trim();
-    if (!(await ana.espera(/^\w{4,}$/.test(codigo), 'o menu mostra o código do mundo para chamar amigos', { visto: JSON.stringify(codigo) }))) return;
+    const txtMenu = await ana.p.locator('#pausa-mundo').innerText().catch(() => '');
+    const codigo = ((txtMenu.match(/código\s+(\w+)/) || [])[1] || (await ana.p.locator('#dono-codigo').textContent().catch(() => '')) || '').trim();
+    if (!(await ana.espera(/^\w{4,}$/.test(codigo), 'o menu mostra o código do mundo para chamar amigos', { visto: JSON.stringify(txtMenu) }))) return;
     ana.passo('leu o código ' + codigo + ' e fechou o menu');
-    await ana.p.keyboard.press('Escape'); await ana.p.waitForTimeout(300);
+    await ana.esc(); await ana.p.waitForTimeout(300);
     if (await ana.p.isVisible('#pausa')) await ana.aperta('#pausa button:has-text("Voltar"), #pausa .fechar', 'voltar ao jogo').catch(() => {});
     if (!ana.toque) await ana.travarMouse();
 
@@ -42,7 +43,8 @@ export default async function online(prefixo, perfis = ['pc', 'tablet']) {
       ana.passo(`vai quebrar o bloco ${alvo.b} em ${alvo.x},${alvo.y},${alvo.z}`);
       await irAte(ana, alvo.x, alvo.z, { perto: 2.5, ms: 10000 });
       const ms = await quebrarBloco(ana, alvo.x, alvo.y, alvo.z, { max: 9000 });
-      if (await ana.espera(ms >= 0, 'Ana quebra o bloco no mundo online')) {
+      if (ms === -2) ana.passo('não conseguiu mirar no bloco; pula esta parte');
+      else if (await ana.espera(ms >= 0, 'Ana quebra o bloco no mundo online')) {
         await beto.p.waitForTimeout(1500);
         await beto.espera((await bloco(beto, alvo.x, alvo.y, alvo.z)) === 0, 'o bloco que a Ana quebrou some para o Beto', { visto: 'bloco ' + (await bloco(beto, alvo.x, alvo.y, alvo.z)) });
         await juntar(ana, alvo.x, alvo.z);
@@ -57,7 +59,7 @@ export default async function online(prefixo, perfis = ['pc', 'tablet']) {
       await beto.p.waitForTimeout(1500);
       const log = await beto.p.locator('#chat-log').innerText().catch(() => '');
       await beto.espera(/oi beto vem aqui/.test(log), 'Beto recebe a mensagem do chat da Ana', { visto: log.slice(-120) });
-      await ana.tecla('Escape'); if (!ana.toque) await ana.travarMouse();
+      await ana.esc(); if (!ana.toque) await ana.travarMouse();
     }
 
     // Beto fica sem internet; Ana mexe no mundo enquanto isso

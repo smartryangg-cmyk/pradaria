@@ -209,6 +209,14 @@ export class Jogador {
       alvo.dispatchEvent(new MouseEvent(tipo, { button: botao, buttons: tipo === 'mousedown' ? 1 << botao : 0, bubbles: true, clientX: innerWidth / 2, clientY: innerHeight / 2 }));
     }, [tipo, botao]);
   }
+  // Esc: no navegador de verdade, com o mouse travado, o Esc só solta o mouse (o jogo abre o menu por isso);
+  // o Chromium sem tela não solta sozinho, então o robô solta como o navegador faria
+  async esc() {
+    this.passo('apertou Esc');
+    const solto = await this.p.evaluate(() => { if (document.pointerLockElement) { document.exitPointerLock(); return true; } return false; });
+    if (!solto) await this.p.keyboard.press('Escape');
+    await this.p.waitForTimeout(300);
+  }
   async dedoNaTela() {
     const { width: w, height: h } = this.p.viewportSize();
     await this.dedos('touchStart', [[w * 0.7, h * 0.3, 9]]); await this.p.waitForTimeout(40); await this.dedos('touchEnd', []);
@@ -315,7 +323,7 @@ export class Jogador {
     }
     return this.ve('#inventario:not([hidden])', 4000);
   }
-  async fecharInventario() { this.passo('fechou a mochila'); await this.p.keyboard.press('Escape'); await this.p.waitForTimeout(200); if (!this.toque) await this.travarMouse(); }
+  async fecharInventario() { this.passo('fechou a mochila'); await this.esc(); await this.p.waitForTimeout(200); if (!this.toque) await this.travarMouse(); }
 
   // ---------- caos ----------
   async semInternet(ms) { this.passo(`ficou sem internet por ${ms} ms`); await this.ctx.setOffline(true); await this.p.waitForTimeout(ms); await this.ctx.setOffline(false); }

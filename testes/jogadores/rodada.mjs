@@ -2,9 +2,10 @@
 // Uso: node testes/jogadores/rodada.mjs [roteiro[:aparelho,aparelho]] ...
 //   ex.: node testes/jogadores/rodada.mjs sobrevivente:pc,tablet caos:tablet-lento online
 // Variáveis: BASE (site; padrão localhost:8788), SAIDA (pasta dos prints e do bugs.md), JUNTOS (quantos ao mesmo
-// tempo, padrão 2), SEMENTE (repete a mesma bagunça do caos).
+// tempo, padrão 2), SEMENTE (repete a mesma bagunça do caos), ESTADO (pasta --persist-to do servidor local).
 import { Jogador, fecharNavegador, salvarRelatorio, bugsAchados, SAIDA } from './base.mjs';
 import fs from 'fs';
+import { execSync } from 'child_process';
 const PADRAO = { sobrevivente: ['pc', 'tablet'], fisica: ['pc', 'tablet'], online: ['multi'], caos: ['tablet-lento', 'celular'], tabuleiros: ['multi'] };
 const pedidos = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(PADRAO);
 const tarefas = [];
@@ -21,6 +22,8 @@ async function trabalhador() {
     const t = tarefas[i++];
     const quem = nomes[i % nomes.length] + i;
     const ini = Date.now();
+    // servidor local: zera o limite de contas por hora (como o rodar-todos.sh), senão os jogadores não criam conta
+    if (process.env.ESTADO) try { execSync(`npx wrangler d1 execute pradaria-db --local --persist-to ${process.env.ESTADO} --command "DELETE FROM tentativas"`, { stdio: 'ignore' }); } catch {}
     console.log(`>>> ${t.nome} no ${t.a} (${quem})`);
     let j = null;
     try {

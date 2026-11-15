@@ -1,7 +1,7 @@
 // Roteiro "primeiro dia" do clássico, jogado pela tela: mundo novo de sobrevivência, socar árvore, juntar troncos,
 // tábuas na grade 2x2, bancada, gravetos, colocar a bancada, abrir a bancada (3x3), picareta de madeira, minerar
 // pedra. Cada diferença com o clássico vira bug do tipo "clássico".
-import { acharBloco, irAte, quebrarBloco, juntar, itens, craftar, inv, mirarBloco, bloco, pos, mirando } from '../acoes.mjs';
+import { acharBloco, irAte, quebrarBloco, juntar, itens, craftar, inv, mirarBloco, bloco, pos, mirando, lugarParaPor, mirarEmCima } from '../acoes.mjs';
 const TRONCOS = [6, 71, 73], PEDRA = 3, TABUAS = 8, BANCADA = 34, GRAVETO = 1000, PICARETA = 1001;
 const soma = (it, ids) => ids.reduce((s, i) => s + (it[i] || 0), 0);
 
@@ -18,8 +18,8 @@ export default async function sobrevivente(j) {
   // ---- madeira: soca 4 troncos ----
   let troncos = 0; const ruins = [];
   for (let n = 0; n < 10 && troncos < 4; n++) {
-    const t = await acharBloco(j, TRONCOS, 40, { fora: ruins });
-    if (!t) { await j.bug('não há árvore a até 40 blocos de onde o jogador nasce', { tipo: 'clássico', esperado: 'árvores perto do começo' }); break; }
+    const t = await acharBloco(j, TRONCOS, 48, { fora: ruins, base: true });
+    if (!t) { await j.bug('não há árvore a até 48 blocos de onde o jogador nasce', { tipo: 'clássico', esperado: 'árvores perto do começo' }); break; }
     j.passo(`viu um tronco em ${t.x},${t.y},${t.z}`);
     if (!(await irAte(j, t.x, t.z, { perto: 2.4 }))) { j.passo('não conseguiu chegar na árvore'); continue; }
     const ms = await quebrarBloco(j, t.x, t.y, t.z, { max: 12000 });
@@ -57,9 +57,11 @@ export default async function sobrevivente(j) {
   const sBancada = (await inv(j)).s.findIndex((x) => x && x[0] === BANCADA);
   if (sBancada < 0 || sBancada > 8) { await j.bug('a bancada criada não foi para a barra de baixo', { tipo: 'clássico', visto: 'espaço ' + sBancada }); return; }
   await j.escolherSlot(sBancada);
-  const p = await pos(j);
-  const chao = { x: Math.floor(p.x) + 2, y: Math.floor(p.y) - 1, z: Math.floor(p.z) };
-  await mirarBloco(j, chao.x, chao.y, chao.z);
+  let chao = await lugarParaPor(j);
+  for (let t = 0; t < 4 && !chao; t++) { await j.andar(['frente', 'direita', 'tras', 'esquerda'][t], 1500, { pular: true }); chao = await lugarParaPor(j); }
+  if (!chao) return j.passo('não achou chão firme para pôr a bancada');
+  j.passo(`vai pôr a bancada em cima de ${chao.x},${chao.y},${chao.z}`);
+  await mirarEmCima(j, chao.x, chao.y, chao.z);
   await j.usar(); await j.p.waitForTimeout(700);
   const colocou = (await bloco(j, chao.x, chao.y + 1, chao.z)) === BANCADA || (await acharBloco(j, [BANCADA], 5, { acimaDoChao: false }));
   if (!(await j.espera(!!colocou, 'botão direito / toque põe a bancada no chão'))) return;
@@ -84,10 +86,27 @@ export default async function sobrevivente(j) {
   if (!pedra) { j.passo('não achou pedra exposta perto'); return; }
   j.passo(`viu pedra em ${pedra.x},${pedra.y},${pedra.z}`);
   if (!(await irAte(j, pedra.x, pedra.z, { perto: 2.6 }))) return;
+  // no clássico, pedra com a mão (sem picareta) quebra devagar e não dá nada
+  const sVazio = (await inv(j)).s.findIndex((x, i) => i < 9 && !x);
+  if (sVazio >= 0) {
+    await j.escolherSlot(sVazio);
+    const outra = await acharBloco(j, [PEDRA], 5);
+    if (outra) {
+      const a0 = await itens(j);
+      const tm = await quebrarBloco(j, outra.x, outra.y, outra.z, { max: 25000 });
+      if (tm >= 0) {
+        await juntar(j, outra.x, outra.z);
+        const a1 = await itens(j);
+        const ganhou = Object.keys(a1).filter((k) => (a1[k] || 0) > (a0[k] || 0)).map((k) => k + ' +' + (a1[k] - (a0[k] || 0)));
+        await j.espera(!ganhou.length, 'pedra quebrada com a mão não dá nada (precisa de picareta)', { tipo: 'clássico', esperado: 'nada', visto: ganhou.join(', ') });
+      }
+    }
+  }
   const antes = (await itens(j))[PEDRA] || 0;
   const sPic = (await inv(j)).s.findIndex((x) => x && x[0] === PICARETA);
   if (sPic >= 0 && sPic < 9) await j.escolherSlot(sPic);
   const ms = await quebrarBloco(j, pedra.x, pedra.y, pedra.z, { max: 15000 });
+  if (ms === -2) return j.passo('não conseguiu mirar na pedra');
   if (ms < 0) return j.bug('picareta de madeira não quebrou pedra em 15 s', { tipo: 'jogo' });
   await juntar(j, pedra.x, pedra.z);
   const depois = (await itens(j))[PEDRA] || 0;
