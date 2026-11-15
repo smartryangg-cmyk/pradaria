@@ -108,7 +108,10 @@ export class Jogador {
 
   // ---------- toque: vários dedos ao mesmo tempo, como uma pessoa ----------
   async dedos(tipo, pontos) {
+    // o navegador guarda os dedos na tela: soltar/mexer sem ter encostado é erro do robô, não do jogo
+    if (tipo !== 'touchStart' && !this.dedosNaTela) return;
     await this.cdp.send('Input.dispatchTouchEvent', { type: tipo, touchPoints: pontos.map(([x, y, id]) => ({ x, y, id, radiusX: 8, radiusY: 8, force: 1 })) });
+    this.dedosNaTela = tipo === 'touchEnd' || tipo === 'touchCancel' ? 0 : pontos.length;
   }
   async tocar(sel) {
     const r = await this.p.locator(sel).first().boundingBox();
@@ -173,8 +176,15 @@ export class Jogador {
     return this.esperarMundo();
   }
   async esperarMundo() {
-    const ok = await this.p.waitForFunction(() => window.__jogo && window.__jogo.jog && !document.querySelector('#m-carregando:not([hidden])'), null, { timeout: this.cfg.lento ? 90000 : 40000 }).then(() => true, () => false);
-    if (!ok) { await this.bug('o mundo não abriu', { visto: await this.p.locator('#carregando-txt').innerText().catch(() => '') }); return false; }
+    const aberto = () => { const c = document.querySelector('#m-carregando'); return window.__jogo && window.__jogo.jog && !(c && c.getClientRects().length); };
+    const t0 = Date.now(), limite = this.cfg.lento ? 90000 : 40000;
+    let ok = await this.p.waitForFunction(aberto, null, { timeout: limite }).then(() => true, () => false);
+    if (!ok) {
+      const txt = await this.p.locator('#carregando-txt').innerText().catch(() => '');
+      ok = await this.p.waitForFunction(aberto, null, { timeout: 80000 }).then(() => true, () => false);
+      if (!ok) { await this.bug('o mundo não abriu em 2 minutos', { visto: txt }); return false; }
+      await this.bug(`o mundo demorou ${Math.round((Date.now() - t0) / 1000)} s para abrir`, { tipo: 'lento', visto: txt + ' (o Chromium do teste não tem placa de vídeo)' });
+    }
     await this.p.waitForTimeout(this.cfg.lento ? 5000 : 2500);
     this.passo('entrou no mundo');
     if (!this.toque) await this.travarMouse();
@@ -189,6 +199,15 @@ export class Jogador {
     this.mx = c.x + c.width / 2; this.my = c.y + c.height / 2;
     await this.p.waitForTimeout(250);
     this.travado = await this.p.evaluate(() => !!document.pointerLockElement);
+  }
+  // botão do mouse com o mouse travado. O Chromium sem tela manda junto um mousemove falso (-640, -400) que gira a
+  // câmera; uma pessoa com mouse de verdade não tem isso. Então o robô manda o mesmo mousedown/mouseup que o mouse
+  // mandaria, direto no jogo.
+  async botaoMouse(tipo, botao = 0) {
+    await this.p.evaluate(([tipo, botao]) => {
+      const alvo = tipo === 'mousedown' ? document.getElementById('tela') : window;
+      alvo.dispatchEvent(new MouseEvent(tipo, { button: botao, buttons: tipo === 'mousedown' ? 1 << botao : 0, bubbles: true, clientX: innerWidth / 2, clientY: innerHeight / 2 }));
+    }, [tipo, botao]);
   }
   async dedoNaTela() {
     const { width: w, height: h } = this.p.viewportSize();
@@ -265,7 +284,7 @@ export class Jogador {
     this.passo(`segurou para quebrar por ${ms} ms`);
     if (!this.toque) {
       if (!this.travado) await this.travarMouse();
-      await this.p.mouse.down({ button: 'left' }); await this.p.waitForTimeout(ms); await this.p.mouse.up({ button: 'left' });
+      await this.botaoMouse('mousedown', 0); await this.p.waitForTimeout(ms); await this.botaoMouse('mouseup', 0);
       return;
     }
     const { width: w, height: h } = this.p.viewportSize();
@@ -276,7 +295,7 @@ export class Jogador {
     this.passo('usou/colocou (botão direito ou toque rápido)');
     if (!this.toque) {
       if (!this.travado) await this.travarMouse();
-      await this.p.mouse.down({ button: 'right' }); await this.p.waitForTimeout(60); await this.p.mouse.up({ button: 'right' });
+      await this.botaoMouse('mousedown', 2); await this.p.waitForTimeout(60); await this.botaoMouse('mouseup', 2);
       return;
     }
     const { width: w, height: h } = this.p.viewportSize();

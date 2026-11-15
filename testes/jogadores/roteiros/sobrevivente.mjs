@@ -16,14 +16,15 @@ export default async function sobrevivente(j) {
   await j.espera(hud.fome, 'a barra de fome aparece na sobrevivência', { tipo: 'clássico' });
 
   // ---- madeira: soca 4 troncos ----
-  let troncos = 0;
-  for (let n = 0; n < 6 && troncos < 4; n++) {
-    const t = await acharBloco(j, TRONCOS, 40);
+  let troncos = 0; const ruins = [];
+  for (let n = 0; n < 10 && troncos < 4; n++) {
+    const t = await acharBloco(j, TRONCOS, 40, { fora: ruins });
     if (!t) { await j.bug('não há árvore a até 40 blocos de onde o jogador nasce', { tipo: 'clássico', esperado: 'árvores perto do começo' }); break; }
     j.passo(`viu um tronco em ${t.x},${t.y},${t.z}`);
     if (!(await irAte(j, t.x, t.z, { perto: 2.4 }))) { j.passo('não conseguiu chegar na árvore'); continue; }
     const ms = await quebrarBloco(j, t.x, t.y, t.z, { max: 12000 });
-    if (ms < 0) { await j.bug('segurar para quebrar não quebrou o tronco em 12 s', { tipo: 'jogo', esperado: 'tronco quebra com a mão em ~3 s', visto: 'bloco ' + (await bloco(j, t.x, t.y, t.z)) + ', mira: ' + JSON.stringify(await mirando(j)) }); continue; }
+    if (ms === -2) { ruins.push(t.x + ',' + t.y + ',' + t.z); continue; }
+    if (ms < 0) { await j.bug('segurar para quebrar não quebrou o tronco em 12 s', { tipo: 'jogo', esperado: 'tronco quebra com a mão em ~3 s', visto: 'bloco ' + (await bloco(j, t.x, t.y, t.z)) + ', mira: ' + JSON.stringify(await mirando(j)) + ', jogo: ' + JSON.stringify(j.diag) }); continue; }
     j.passo(`quebrou o tronco em ${(ms / 1000).toFixed(1)} s`);
     if (n === 0) await j.espera(ms < 6500, 'tronco com a mão quebra em uns 3 s, como no clássico', { tipo: 'clássico', esperado: '~3 s', visto: (ms / 1000).toFixed(1) + ' s (com o jogo lento do teste)' });
     await juntar(j, t.x, t.z);

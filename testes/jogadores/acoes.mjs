@@ -3,20 +3,21 @@
 // coisas (uma pessoa enxerga a árvore; o robô procura no mapa) e para conferir o resultado.
 
 // procura o bloco mais perto (ids) num raio, que tenha ar em volta (dá para ver e chegar)
-export function acharBloco(j, ids, raio = 24, { acimaDoChao = true } = {}) {
-  return j.p.evaluate(([ids, raio, acima]) => {
+export function acharBloco(j, ids, raio = 24, { acimaDoChao = true, fora = [] } = {}) {
+  return j.p.evaluate(([ids, raio, acima, fora]) => {
     const g = window.__jogo, m = g.mundo, p = g.jog.pos;
     const px = Math.floor(p.x), py = Math.floor(p.y), pz = Math.floor(p.z);
     let melhor = null, dm = 1e9;
     for (let dx = -raio; dx <= raio; dx++) for (let dz = -raio; dz <= raio; dz++) for (let dy = -6; dy <= 8; dy++) {
       const x = px + dx, y = py + dy, z = pz + dz, b = m.bloco(x, y, z);
-      if (!ids.includes(b)) continue;
+      if (!ids.includes(b) || fora.includes(x + ',' + y + ',' + z)) continue;
+      if (dy > 2 || dy < -2) continue; // alcançável de pé (sem escalar)
       if (acima && !(m.bloco(x + 1, y, z) === 0 || m.bloco(x - 1, y, z) === 0 || m.bloco(x, y, z + 1) === 0 || m.bloco(x, y, z - 1) === 0)) continue;
       const d = Math.hypot(dx, dz) + Math.abs(dy) * 1.5;
       if (d < dm) { dm = d; melhor = { x, y, z, b, d: +d.toFixed(1) }; }
     }
     return melhor;
-  }, [ids, raio, acimaDoChao]);
+  }, [ids, raio, acimaDoChao, fora]);
 }
 
 export const bloco = (j, x, y, z) => j.p.evaluate(([x, y, z]) => window.__jogo.mundo.bloco(x, y, z), [x, y, z]);
@@ -69,13 +70,27 @@ export async function mirarBloco(j, x, y, z) {
 // o que a mira está apontando agora (para conferir antes de bater)
 export const mirando = (j) => j.p.evaluate(() => { const g = window.__jogo, c = g.camera; const v = c.getWorldDirection(c.position.clone()); const h = g.mundo.raycast(c.position, v, 6); const p = g.jog.pos; return { bloco: h ? [h.x, h.y, h.z, h.b, +h.t.toFixed(2)] : null, pe: [+p.x.toFixed(1), +p.y.toFixed(1), +p.z.toFixed(1)], aldeoes: g.aldeoes ? g.aldeoes.lista?.length : null }; });
 
-// segura (sem soltar) até o bloco sumir; devolve quanto tempo levou (ms) ou -1
+// segura (sem soltar) até o bloco sumir; devolve quanto tempo levou (ms), -1 se o jogo não quebrou com a mira
+// certa em cima do bloco (isso é bug) ou -2 se o robô não conseguiu mirar (longe, atrás de algo: não é bug)
 export async function quebrarBloco(j, x, y, z, { max = 15000 } = {}) {
-  await mirarBloco(j, x, y, z);
+  // como uma pessoa: se tem capim, flor ou outro bloco na frente, tira primeiro
+  let certo = false;
+  for (let t = 0; t < 4; t++) {
+    await mirarBloco(j, x, y, z);
+    const m = await mirando(j);
+    if (m.bloco && m.bloco[0] === x && m.bloco[1] === y && m.bloco[2] === z) { certo = true; break; }
+    if (!m.bloco || m.bloco[4] > 4.6) { j.passo('a mira não alcança o bloco; chega mais perto'); await virarPara(j, x + 0.5, z + 0.5); await j.andar('frente', 350); continue; }
+    j.passo(`tem o bloco ${m.bloco[3]} na frente; tira primeiro`);
+    await segurarAte(j, m.bloco[0], m.bloco[1], m.bloco[2], 6000);
+  }
+  if (!certo) { j.passo('não conseguiu mirar no bloco'); return -2; }
+  return segurarAte(j, x, y, z, max);
+}
+async function segurarAte(j, x, y, z, max) {
   j.passo(`segurou para quebrar o bloco em ${x},${y},${z}`);
   const { width: w, height: h } = j.p.viewportSize();
   if (j.toque) await j.dedos('touchStart', [[w / 2, h / 2, 6]]);
-  else { if (!j.travado) await j.travarMouse(); await j.p.mouse.down({ button: 'left' }); }
+  else { if (!j.travado) await j.travarMouse(); await j.botaoMouse('mousedown', 0); }
   const t0 = Date.now();
   let ms = -1;
   while (Date.now() - t0 < max) {
@@ -83,7 +98,8 @@ export async function quebrarBloco(j, x, y, z, { max = 15000 } = {}) {
     if (!b || b === 5) { ms = Date.now() - t0; break; }
     await j.p.waitForTimeout(80);
   }
-  if (j.toque) await j.dedos('touchEnd', []); else await j.p.mouse.up({ button: 'left' });
+  if (j.toque) await j.dedos('touchEnd', []); else await j.botaoMouse('mouseup', 0);
+  if (ms < 0) j.diag = await j.p.evaluate(() => { const g = window.__jogo, c = g.ctrl; const vis = [...document.querySelectorAll('#pausa,#inventario,#comandos,#mapa,#aviso,#morte,#comer')].filter((e) => !e.hidden).map((e) => e.id + ':' + (e.textContent || '').trim().slice(0, 60)); return { lock: !!document.pointerLockElement, travado: c.travado, ativo: c.ativo, pausado: g.pausado, quebrando: g.escav ? [...g.escav.blocos.values()].map((e) => [e.b, e.toques, e.total]) : null, telas: vis }; });
   return ms;
 }
 

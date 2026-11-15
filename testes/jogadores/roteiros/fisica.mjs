@@ -13,22 +13,54 @@ async function velocidade(j, como) {
   return +amostras[amostras.length - 2].toFixed(2);
 }
 
+// vira para a direção mais aberta e plana (8 blocos sem parede nem buraco), como uma pessoa escolheria
+async function virarParaOAberto(j) {
+  const r = await j.p.evaluate(() => {
+    const g = window.__jogo, m = g.mundo, p = g.jog.pos, x0 = Math.floor(p.x), y0 = Math.floor(p.y), z0 = Math.floor(p.z);
+    let melhor = null;
+    for (let k = 0; k < 16; k++) {
+      const a = k * Math.PI / 8, dx = -Math.sin(a), dz = -Math.cos(a);
+      let livre = 0;
+      for (let d = 1; d <= 14; d++) {
+        const x = Math.floor(p.x + dx * d), z = Math.floor(p.z + dz * d);
+        if (m.bloco(x, y0, z) || m.bloco(x, y0 + 1, z) || !m.bloco(x, y0 - 1, z)) break;
+        livre = d;
+      }
+      if (!melhor || livre > melhor.livre) melhor = { livre, a };
+    }
+    return melhor;
+  });
+  if (r.livre < 10) {
+    j.passo('aqui é muito fechado; anda um pouco procurando lugar aberto');
+    return r.livre;
+  }
+  const d = await j.p.evaluate((a) => { let d = a - window.__jogo.jog.yaw; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; }, r.a);
+  const k = j.toque ? await j.p.evaluate(() => window.__jogo.ctrl.sensToque) : 0.0024;
+  await j.olhar(-d / k, 0);
+  return r.livre;
+}
+
 export default async function fisica(j) {
   if (!(await j.jogarSozinho())) return;
   if (!(await j.criarMundo({ nome: 'Física' }))) return;
-  // anda num lugar aberto: procura grama com ar em volta
+  // anda num lugar aberto (14 blocos planos na frente)
+  for (let t = 0; t < 4 && (await virarParaOAberto(j)) < 10; t++) await j.andar(['frente', 'direita', 'tras', 'esquerda'][t], 2500, { pular: true });
   const anda = await velocidade(j, () => j.andar('frente', 1800));
   await j.espera(Math.abs(anda - 4.32) < 0.35, 'andar: ~4,3 blocos por segundo como no clássico', { tipo: 'clássico', esperado: '4,3 b/s', visto: anda + ' b/s' });
   if (!j.toque) {
+    await virarParaOAberto(j);
     const corre = await velocidade(j, async () => { await j.p.keyboard.down('ControlLeft'); await j.andar('frente', 1800); await j.p.keyboard.up('ControlLeft'); });
     await j.espera(Math.abs(corre - 5.61) < 0.4, 'Ctrl + W corre a ~5,6 blocos por segundo como no clássico', { tipo: 'clássico', esperado: '5,6 b/s', visto: corre + ' b/s' });
     // W duas vezes rápido também corre no clássico
+    await virarParaOAberto(j);
     const duplo = await velocidade(j, async () => { await j.p.keyboard.press('KeyW'); await j.p.waitForTimeout(80); await j.andar('frente', 1800); });
     await j.espera(duplo > 5, 'apertar W duas vezes rápido corre, como no clássico', { tipo: 'clássico', esperado: '> 5 b/s', visto: duplo + ' b/s' });
     // Shift no clássico agacha (anda devagar ~1,3 b/s)
+    await virarParaOAberto(j);
     const shift = await velocidade(j, async () => { await j.p.keyboard.down('ShiftLeft'); await j.andar('frente', 1800); await j.p.keyboard.up('ShiftLeft'); });
-    await j.espera(shift < 2, 'Shift agacha (anda devagar), como no clássico', { tipo: 'clássico', esperado: '~1,3 b/s agachado', visto: shift + ' b/s (Shift fez correr)' });
+    await j.espera(shift < 2, 'Shift agacha (anda devagar), como no clássico', { tipo: 'clássico', esperado: '~1,3 b/s agachado', visto: shift + ' b/s' });
   } else {
+    await virarParaOAberto(j);
     const corre = await velocidade(j, () => j.andar('frente', 1800, { correr: true }));
     await j.espera(Math.abs(corre - 5.61) < 0.4, 'toque duplo no joystick corre a ~5,6 b/s como no clássico', { tipo: 'clássico', esperado: '5,6 b/s', visto: corre + ' b/s' });
   }
@@ -90,7 +122,7 @@ export default async function fisica(j) {
     const depois = (await itens(j))[2] || 0;
     await j.espera(depois === antes - 1, 'Q larga 1 item da mão, como no clássico', { tipo: 'clássico', esperado: `${antes - 1}`, visto: `${depois}` });
     const slotA = await j.p.evaluate(() => window.__jogo.barra ?? null);
-    await j.p.mouse.wheel(0, 120); await j.p.waitForTimeout(200);
+    await j.p.evaluate(() => dispatchEvent(new WheelEvent('wheel', { deltaY: 120 }))); await j.p.waitForTimeout(200);
     const slotB = await j.p.evaluate(() => window.__jogo.barra ?? null);
     j.passo('rolou a roda do mouse');
     await j.espera(JSON.stringify(slotA) !== JSON.stringify(slotB), 'a roda do mouse troca o espaço da barra', { tipo: 'clássico' });
