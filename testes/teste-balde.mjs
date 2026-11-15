@@ -97,16 +97,24 @@ if (ONLINE) {
   await bb.click('#bt-codigo'); await bb.fill('#n-nome', codigo); await bb.click('#m-novo button[type=submit]');
   await bb.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.outros > 0, null, { timeout: 30000 });
   await bb.waitForTimeout(1500);
-  // poucas mudanças (a sala aceita 25 por segundo): um poço de 1 bloco no chão à frente da Ana
+  // a sala só aceita mudança feita pela mão (e coletando, só com o que se tem): usa um lago do próprio mundo.
+  // Ana voa parada 3 blocos acima de uma água parada e olha para baixo
   const pos = await a.evaluate(async () => {
-    const J = window.__jogo, m = J.mundo, j = J.jog, x0 = Math.floor(j.pos.x), z0 = Math.floor(j.pos.z), y0 = m.chao(x0, z0) + 1;
-    const x = x0, y = y0 - 1, z = z0 - 2;
-    for (const [dx, dy, dz] of [[0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]]) m.definir(x + dx, y + dy, z + dz, 3);
-    for (const [dz, dy] of [[0, 1], [0, 2], [1, 1], [1, 2], [2, 1], [2, 2]]) m.definir(x, y + dy, z + dz, 0);
-    m.definir(x, y, z, 5);
-    j.pos.x = x0 + 0.5; j.pos.z = z0 + 0.5; j.pos.y = y0; j.vel.x = j.vel.y = j.vel.z = 0; j.yaw = 0; j.pitch = -0.62;
-    return [x, y, z];
+    const J = window.__jogo, m = J.mundo, j = J.jog, x0 = Math.floor(j.pos.x), z0 = Math.floor(j.pos.z);
+    let achou = null;
+    for (let r = 0; r <= 120 && !achou; r += 2) for (let dx = -r; dx <= r && !achou; dx += 2) for (const dz of [-r, r]) {
+      const x = x0 + dx, z = z0 + dz;
+      for (let y = 70; y > 20; y--) { const k = m.bloco(x, y, z); if (!k) continue; if (k === 5 && m.bloco(x, y + 1, z) === 0) achou = [x, y, z]; break; }
+      if (achou) break;
+    }
+    if (!achou) return null;
+    const [x, y, z] = achou;
+    j.voando = true; j.pos.x = x + 0.5; j.pos.z = z + 0.5; j.pos.y = y + 3; j.vel.x = j.vel.y = j.vel.z = 0; j.yaw = 0; j.pitch = -1.55;
+    return achou;
   });
+  ok(!!pos, 'online: achou um lago perto');
+  await bb.evaluate((p) => { if (!p) return; const j = window.__jogo.jog; j.voando = true; j.pos.x = p[0] + 3.5; j.pos.z = p[2] + 0.5; j.pos.y = p[1] + 4; }, pos);
+  await a.waitForTimeout(2500);
   await a.waitForTimeout(1500);
   ok(await bb.evaluate(([x, y, z]) => window.__jogo.mundo.bloco(x, y, z), pos) === AGUA, 'online: Beto vê a água da Ana');
   // Ana com a mão vazia bate na água: nada muda para ninguém
