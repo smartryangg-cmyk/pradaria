@@ -24,6 +24,7 @@ async function abrir(opc, nome) {
     await j.clica('#bt-criar-conta');
     await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
     if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
+    if (!(await p.inputValue('#c-nasc .d-ano'))) { await p.selectOption('#c-nasc .d-dia', '1'); await p.selectOption('#c-nasc .d-mes', '1'); await p.selectOption('#c-nasc .d-ano', '2000'); }
     await j.clica('#c-ok');
     await p.waitForSelector('#m-jogos:not([hidden])', { timeout: 15000 });
   }
