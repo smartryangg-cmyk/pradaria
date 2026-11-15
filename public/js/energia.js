@@ -79,8 +79,10 @@ export class Energia {
     const c = m.chunks.get(cx + ',' + cz);
     if (!c) return;
     const lx = x - cx * 16, lz = z - cz * 16;
+    const antes = c.dados[lx + lz * 16 + y * 256];
     c.dados[lx + lz * 16 + y * 256] = b;
     m.marcarSujo(cx, cz);
+    if (m.sujarLuz) m.sujarLuz(x, z, antes, b); // lâmpada acendeu/apagou: a luz em volta muda
     if (lx === 0) m.marcarSujo(cx - 1, cz);
     if (lx === 15) m.marcarSujo(cx + 1, cz);
     if (lz === 0) m.marcarSujo(cx, cz - 1);
