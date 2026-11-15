@@ -21,6 +21,7 @@ await p.waitForTimeout(400);
 await tocar('#bt-sozinho');
 await p.waitForSelector('#m-novo:not([hidden])');
 await tocar('#m-novo summary'); await p.fill('#n-semente', 'estrada');
+await tocar('[data-opcao=veiculos]'); // mod (desligado nos mundos novos)
 await tocar('#m-novo button[type=submit]');
 await p.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.garagem.veic, null, { timeout: 20000 });
 await p.waitForTimeout(2500);
