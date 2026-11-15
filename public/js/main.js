@@ -202,9 +202,12 @@ function aplicarGraficos() {
 aplicarGraficos();
 
 // contorno do bloco mirado
-const contorno = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1.004, 1.004, 1.004)), new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.55 }));
-contorno.visible = false;
+// Fica sempre na cena (desenhado transparente quando não tem bloco mirado): assim o programa dele já está
+// compilado com a sombra e a neblina atuais (no tablet a primeira mira num bloco travava ~300 ms compilando)
+const contorno = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1.004, 1.004, 1.004)), new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false }));
+contorno.frustumCulled = false;
 cena.add(contorno);
+const mostrarContorno = (sim) => { contorno.material.opacity = sim ? 0.55 : 0; };
 
 // ---------- estado do jogo ----------
 const som = new Som();
@@ -1871,10 +1874,11 @@ function limparMundo() {
   mapa.fechar();
   if (mundo) {
     for (const c of mundo.chunks.values()) for (const m of [c.malha, c.agua]) if (m) { cena.remove(m); m.geometry.dispose(); }
+    for (const q of mundo.provisorios) mundo.soltarProvisorio(q.malha);
   }
   if (fisica) fisica.limpar();
   drops.usarMundo(null);
-  if (escav) { for (const k of [...escav.blocos.keys()]) escav.soltar(k); escav.atualizar(10, 0, 0); }
+  if (escav) { for (const k of [...escav.blocos.keys()]) escav.soltar(k, false, true); escav.atualizar(10, 0, 0); escav.fechar(); }
   if (bichos) for (let i = bichos.lista.length - 1; i >= 0; i--) bichos.remover(i);
   if (aldeoes) aldeoes.limpar();
   negocios.limpar();
@@ -1901,6 +1905,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   mundo.suaveSimples = opcoesGraficas().sombra === 0; // gráfico Leve: arredondado simples (monta mais rápido)
   mundo.matSuave = mundo.suave ? graf.matSuave : null; // Natural 3D: chão e árvores com cor lisa de desenho (graficos.js)
   escav = new Escavacao(cena, mundo, matBlocos, atlasCanvas);
+  mundo.cuboProvisorio = (x, y, z, b) => escav.cubo(x, y, z, b);
   // rachadura: os amigos veem o bloco rachando (no máximo 1 aviso a cada 0,15 s)
   let ultimaRacha = 0;
   escav.aoRachar = (x, y, z, b, toques, total) => {
@@ -2488,12 +2493,12 @@ function laco(agora) {
   passoAntes.x = jog.pos.x; passoAntes.z = jog.pos.z;
 
   // contorno do bloco mirado
-  if (garagem.dentro) contorno.visible = false;
+  if (garagem.dentro) mostrarContorno(false);
   else if (!ehToque || miraToque) {
     const dir = direcaoDe(miraToque);
     const h = mundo.raycast(raio.ray.origin, dir, 6);
-    if (h && h.t > 0.05) { contorno.visible = true; contorno.position.set(h.x + 0.5, h.y + 0.5, h.z + 0.5); } else contorno.visible = false;
-  } else contorno.visible = false;
+    if (h && h.t > 0.05) { mostrarContorno(true); contorno.position.set(h.x + 0.5, h.y + 0.5, h.z + 0.5); } else mostrarContorno(false);
+  } else mostrarContorno(false);
 
   escav.atualizar(dt, jog.pos.x, jog.pos.z);
   fisica.atualizar(dt);

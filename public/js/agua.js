@@ -83,7 +83,9 @@ export class Agua {
     geo.setAttribute('position', new THREE.BufferAttribute(this.posB, 3));
     this.bolhas = new THREE.Points(geo, new THREE.PointsMaterial({ map: texturaBolha(), size: 0.11, transparent: true, depthWrite: false, fog: false, sizeAttenuation: true }));
     this.bolhas.frustumCulled = false;
-    this.bolhas.visible = false;
+    // sempre "visível" com zero bolhas fora d'água: o programa dele já fica compilado (no tablet, compilar no
+    // primeiro mergulho travava ~200 ms)
+    geo.setDrawRange(0, 0);
     this.bolhas.renderOrder = 5;
     J.cena.add(this.bolhas);
     this.bolhasProntas = false;
@@ -117,7 +119,7 @@ export class Agua {
     if (sub !== this.submerso) {
       this.submerso = sub;
       this.tela.classList.toggle('ligada', sub);
-      this.bolhas.visible = sub;
+      if (!sub) this.bolhas.geometry.setDrawRange(0, 0);
       J.som.abafar(sub);
       if (!sub) {
         graf.submerso(null);
