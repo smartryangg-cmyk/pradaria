@@ -1,7 +1,7 @@
 // Tela "Escolha um mundo" (logado) no celular: a caixa não pode passar da largura da tela.
 // Simula a conta e a lista de mundos (com todos os ícones de opções ligados, como no print do Ryan).
 // Larguras 240/280 = celular de 360 com letra/zoom grande do Android. SAIDA=pasta das fotos.
-import { createRequire } from 'module'; const { chromium } = createRequire('/opt/')('playwright');
+import { createRequire } from 'module'; const { chromium } = createRequire(import.meta.url)('playwright');
 const SAIDA = process.env.SAIDA || '/tmp';
 const URL = process.env.URL || 'http://localhost:8788';
 const ops = { tipo: 'normal', estilo: 'blocos', tamanho: 'medio', sobrevivencia: true, animais: true, vilas: true, veiculos: true, maquinas: true, aguaCorre: true, cicloDia: true, mercado: true, objetivos: true, chatTexto: true, chatVoz: true, selvagens: true, construcao: true };
