@@ -11,7 +11,9 @@ export const VIDA_CHAO = 5 * 60 * 1000;   // some depois de 5 minutos no chão
 export const MAX_CHAO = 200;              // por mundo; passando disso some o mais antigo de quem tem mais no chão
 export const MAX_POR_JOGADOR = 60;        // por jogador: passando disso some o mais antigo DELE (não o dos outros)
 export const ESPERA_DONO = 1500;          // quem largou só pega de volta depois disso (dá tempo de o amigo pegar)
-export const ESPERA_MORTE = 30000;        // a mochila de quem morreu: só ele pega nos primeiros 30 s (res = quem morreu)
+export const ESPERA_MORTE = 30000;        // a mochila de quem morreu: só ele pega nos primeiros 30 s (res = a conta de quem morreu)
+// a conta de uma conexão da sala (o id da conexão é "conta-xxxxx"): recarregar a página muda a conexão, não a conta
+export const contaDe = (id) => { const s = String(id || ''), i = s.lastIndexOf('-'); return i > 0 ? s.slice(0, i) : s; };
 export const ESPERA_PEGAR = 350;          // ninguém pega no mesmo instante em que caiu (dá para ver pular)
 export const MAX_LARGAR = 64;             // de uma vez
 export const PERTO_SALA = 7;              // a sala aceita pegar até esta distância (a posição chega atrasada)
@@ -68,7 +70,7 @@ export function podePegar(d, quem, agora = Date.now()) {
   const idade = agora - d.t;
   if (idade < ESPERA_PEGAR) return false;
   if (d.dono && d.dono === quem && idade < ESPERA_DONO) return false;
-  if (d.res && d.res !== quem && idade < ESPERA_MORTE) return false;
+  if (d.res && d.res !== contaDe(quem) && idade < ESPERA_MORTE) return false;
   return idade <= VIDA_CHAO;
 }
 
