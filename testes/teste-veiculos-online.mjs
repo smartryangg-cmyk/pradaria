@@ -15,7 +15,7 @@ async function jogador(nome, toque) {
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
   if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
   await p.click('#c-ok');
-  await p.waitForSelector('#m-jogos:not([hidden])', { timeout: 15000 }); await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
+  await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
   return p;
 }
 const ok = (c, msg) => { console.log((c ? 'OK   ' : 'FALHA') + ' ' + msg); if (!c) process.exitCode = 1; };
@@ -94,7 +94,7 @@ ok(await a.evaluate((id) => window.__jogo.garagem.veic.mapa.get(id).ocup[1] === 
 ok(await bb.evaluate(() => !window.__jogo.garagem.dentro), 'B fora do carro');
 // B recarrega: o carro continua lá, com A ao volante
 await bb.reload();
-await bb.waitForSelector('#m-jogos:not([hidden])', { timeout: 15000 }); await bb.click('.jogo[data-jogo=pradaria]'); await bb.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
+await bb.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
 await bb.click('#lista-mundos .mundo');
 await bb.waitForFunction((id) => window.__jogo && window.__jogo.garagem.veic && window.__jogo.garagem.veic.mapa.has(id), vid, { timeout: 20000 });
 ok(await bb.evaluate((id) => window.__jogo.garagem.veic.mapa.get(id).ocup[0] !== null, vid), 'depois de recarregar, B vê A dirigindo');

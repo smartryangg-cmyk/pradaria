@@ -113,7 +113,7 @@ await p.click('#c-ok');
 await espera(500);
 ok(await p.isVisible('#m-conta'), 'sem a caixa marcada não cria');
 await p.check('#c-adulto-ok'); await p.click('#c-ok');
-await p.waitForSelector('#m-jogos:not([hidden])', { timeout: 15000 }); await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
+await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
 await p.evaluate(() => { location.hash = '#teste'; });
 await p.reload();
 await espera(1500);

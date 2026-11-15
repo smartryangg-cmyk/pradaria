@@ -21,8 +21,7 @@ for (const [nome, [w, h, dpr]] of Object.entries(TAM)) {
   await p.route('**/api/mundos', (r) => r.fulfill({ json: { mundos } }));
   await p.goto(URL + '/'); await p.evaluate(() => localStorage.setItem('pradaria.token', 'teste')); await p.reload();
   await p.waitForTimeout(800);
-  if (await p.isVisible('#m-jogos')) await p.tap('.jogo[data-jogo=pradaria]');
-  else if (!(await p.isVisible('#m-mundos'))) { await p.tap('#bt-entrar'); }
+  if (!(await p.isVisible('#m-mundos'))) { await p.tap('#bt-entrar'); }
   await p.waitForSelector('#m-mundos', { state: 'visible', timeout: 10000 });
   await p.waitForTimeout(400);
   const fora = await p.evaluate(() => {

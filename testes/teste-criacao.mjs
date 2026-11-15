@@ -169,7 +169,7 @@ await o.click('#bt-criar-conta');
 await o.fill('#c-nome', nome); await o.fill('#c-senha', 'senha123');
 if (await o.isVisible('#c-adulto-ok')) await o.check('#c-adulto-ok');
 await o.click('#c-ok');
-await o.waitForSelector('#m-jogos:not([hidden])', { timeout: 90000 }); await o.click('.jogo[data-jogo=pradaria]'); await o.waitForSelector('#m-mundos:not([hidden])', { timeout: 90000 }); // o primeiro cadastro depois de ligar o servidor demora
+await o.waitForSelector('#m-mundos:not([hidden])', { timeout: 90000 }); // o primeiro cadastro depois de ligar o servidor demora
 await o.click('#bt-novo-mundo');
 await o.fill('#n-nome', 'Mundo de criar');
 await o.click('#m-novo button[type=submit]');
@@ -190,7 +190,7 @@ await o.waitForTimeout(800);
 conferir(await qtd(o, B.TABUAS) === 4, 'online: a sala confirmou as tábuas');
 await o.screenshot({ path: SAIDA + '/criar-tablet.png' });
 await o.reload();
-await o.waitForSelector('#m-jogos:not([hidden])', { timeout: 15000 }); await o.click('.jogo[data-jogo=pradaria]'); await o.waitForSelector('#m-mundos:not([hidden])');
+await o.waitForSelector('#m-mundos:not([hidden])');
 await o.click('#lista-mundos .mundo');
 await o.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala);
 await o.waitForTimeout(1000);

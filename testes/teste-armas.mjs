@@ -183,7 +183,7 @@ const disparar = async (p, vezes = 1, espera = 360) => { for (let i = 0; i < vez
 async function jogador(nome) {
   const p = await pagina(nome);
   await p.click('#bt-criar-conta'); await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123'); if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok'); await p.click('#c-ok');
-  await p.waitForSelector('#m-jogos:not([hidden])'); await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])');
+  await p.waitForSelector('#m-mundos:not([hidden])');
   return p;
 }
 {
@@ -250,7 +250,7 @@ async function jogador(nome) {
   } else conferir(false, 'achou item no mapa online');
   // quem entra depois sabe o que já foi pego
   await bb.evaluate(() => window.__jogo.sala.fechar());
-  await bb.reload(); await bb.waitForSelector('#m-jogos:not([hidden])'); await bb.click('.jogo[data-jogo=pradaria]'); await bb.waitForSelector('#m-mundos:not([hidden])');
+  await bb.reload(); await bb.waitForSelector('#m-mundos:not([hidden])');
   await bb.click('#lista-mundos .mundo');
   await bb.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 20000 });
   await esperar(bb, 1500);
