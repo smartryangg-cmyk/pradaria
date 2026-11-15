@@ -15,7 +15,7 @@ async function api(caminho, corpo, token, metodo, ip) {
   let d = null; try { d = await r.json(); } catch {}
   return { status: r.status, ...d };
 }
-const sfx = String(Date.now() % 10000);
+const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join('');
 const cadastrar = (nome) => api('cadastrar', { nome, senha: 'senha123', nascimento: '2000-01-01' }, null, null, ipx());
 
 // nomes

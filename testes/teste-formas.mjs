@@ -288,6 +288,14 @@ ok(t.erros.length === 0, 'sem erros no console (tablet)' + (t.erros.length ? ': 
 const s = await abrir({ viewport: { width: 1280, height: 760 } }, false);
 const sp = s.p;
 const qtd = (id) => sp.evaluate((id) => window.__jogo.mercado.e.itens[id] || 0, id);
+// o que quebra cai no chão (#47) e só vai para a mochila quando o jogador passa por cima: vai até cada item
+const pegarDoChao = async (p) => {
+  await p.waitForTimeout(1200);
+  for (const d of await p.evaluate(() => window.__jogo.drops.lista())) {
+    await p.evaluate((d) => { const j = window.__jogo.jog; j.pos.x = d.x; j.pos.z = d.z; j.pos.y = d.y + 0.1; j.vel.x = j.vel.y = j.vel.z = 0; }, d);
+    await p.waitForTimeout(400);
+  }
+};
 ok(await sp.evaluate(() => window.__jogo.opcoesMundo.sobrevivencia === true), 'mundo novo no modo Coletar e criar');
 // quebra um tronco redondo de árvore com a mão: cai um Tronco comum na mochila
 const arv = await sp.evaluate(() => {
@@ -312,6 +320,7 @@ if (arv) {
   let n = 0;
   for (; n < 10 && await sp.evaluate((a) => window.__jogo.mundo.bloco(a.x, a.y, a.z), arv) === arv.tb; n++) { await sp.evaluate(() => window.__jogo.quebrar(null)); await sp.waitForTimeout(150); }
   ok(n === 5, `tronco redondo aguenta 5 toques com a mão (${n})`);
+  await pegarDoChao(sp);
   const comum = { 80: 6, 81: 71, 82: 73 }[arv.tb];
   ok(await qtd(comum) === 1, `quebrar o tronco redondo (${arv.tb}) dá 1 tronco comum (${comum}) na mochila`);
 }
@@ -345,6 +354,7 @@ const onde = await sp.evaluate(({ X, Y, Z }) => { const m = window.__jogo.mundo;
 ok(onde && onde.b >= 91 && onde.b <= 94 && await qtd(91) === 1, 'colocou a rampa e gastou 1 da mochila (' + JSON.stringify(onde) + ')');
 if (onde) {
   for (let k = 0; k < 6 && await sp.evaluate(({ X, Y, z }) => window.__jogo.mundo.bloco(X, Y + 1, z), { ...rp, z: onde.z }); k++) { await sp.evaluate(() => window.__jogo.quebrar(null)); await sp.waitForTimeout(150); }
+  await pegarDoChao(sp);
   ok(await qtd(91) === 2, 'quebrou a rampa virada e voltou "Rampa" para a mochila');
 }
 ok(s.erros.length === 0, 'sem erros no console (Coletar e criar)' + (s.erros.length ? ': ' + s.erros.slice(0, 5).join(' | ') : ''));

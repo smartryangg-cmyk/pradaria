@@ -114,7 +114,7 @@ if (ONLINE) {
     await q.waitForSelector('#m-mundos:not([hidden])', { timeout: 20000 });
     return q;
   }
-  const sfx = Date.now() % 10000;
+  const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join(''); // letras: com 4 algarismos do relógio o nome repetia entre testes e a conta não era criada
   const a = await jogador('Ana' + sfx);
   await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Fazenda');
   // modo criativo (a mochila do servidor não tem trigo; o custo de plantar já foi testado acima)

@@ -25,7 +25,7 @@ async function jogador(nome, toque) {
 }
 const ultimas = (p) => p.$$eval('#chat-log .chat-msg', (l) => l.map((e) => e.textContent));
 
-const sfx = Date.now() % 10000;
+const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join(''); // letras: com 4 algarismos do relógio o nome repetia entre testes e a conta não era criada
 const a = await jogador('Ana' + sfx, false);
 await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Conversa');
 // as duas opções aparecem na criação: texto ligado, voz desligada (o dono liga se quiser)
