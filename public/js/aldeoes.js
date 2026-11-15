@@ -1,7 +1,7 @@
 // Aldeões: moradores das vilas. Passeiam pelas ruas e pela praça, cuidam das plantações,
 // acenam para quem chega e conversam com um toque. À noite voltam para casa e dormem.
 import * as THREE from '../vendor/three.module.min.js';
-import { caixa, juntar, matModelo } from './modelos.js';
+import { caixa, juntar, matModelo, contornar } from './modelos.js';
 import { SOLIDO, AGUA, M } from './blocos.js';
 import { ANEL } from './vilas.js';
 import { ALT } from './mundo.js';
@@ -28,7 +28,7 @@ const FALAS = {
 };
 const PRESENTES = ['maca', 'milho', 'cenoura', 'pao', 'flor', 'morango', 'ovo', 'bolo']; // nomes de ícones (icones.js)
 
-function malha(geo) { const m = new THREE.Mesh(geo, matModelo); m.castShadow = true; return m; }
+function malha(geo) { const m = new THREE.Mesh(geo, matModelo); m.castShadow = true; return contornar(m); }
 function membro(geos, x, y, z) { const m = malha(juntar(geos)); m.position.set(x, y, z); return m; }
 
 // bonequinho de aldeão (frente = +z, pés em y=0)

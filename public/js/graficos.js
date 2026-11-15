@@ -5,12 +5,13 @@ import * as THREE from '../vendor/three.module.min.js';
 // sombra: tamanho do mapa de sombra · area: metros cobertos · luzes: lampiões acesos · pular: quadros entre atualizações da sombra
 // vento: folhas balançando · ondas: água com ondinhas e reflexo · nuvens · vinheta · fov: campo de visão
 // brilho: exposição · teto: milhões de pixels no máximo · fpsMax: 0 = sem limite
+// contorno: linha escura em volta de bichos, bonecos e veículos (estilo desenho)
 // pos: efeitos de cinema (posefeitos.js) · nativo: resolução nativa da tela, sem teto · visao: distância de visão mínima
 export const QUALIDADES = {
-  baixa: { nome: 'Leve', sombra: 0, area: 0, luzes: 0, pular: 0, vento: false, ondas: false, nuvens: true, vinheta: false, teto: 0.8, pos: false },
-  media: { nome: 'Bonita', sombra: 1024, area: 30, luzes: 2, pular: 1, vento: true, ondas: true, nuvens: true, vinheta: true, teto: 1.3, pos: false },
-  alta: { nome: 'Linda', sombra: 2048, area: 44, luzes: 4, pular: 0, vento: true, ondas: true, nuvens: true, vinheta: true, teto: 2.4, pos: false },
-  ultra: { nome: 'Ultra', sombra: 4096, area: 64, luzes: 4, pular: 0, vento: true, ondas: true, nuvens: true, vinheta: true, teto: 4, pos: true, nativo: true, visao: 8 },
+  baixa: { nome: 'Leve', contorno: false, sombra: 0, area: 0, luzes: 0, pular: 0, vento: false, ondas: false, nuvens: true, vinheta: false, teto: 0.8, pos: false },
+  media: { nome: 'Bonita', contorno: true, sombra: 1024, area: 30, luzes: 2, pular: 1, vento: true, ondas: true, nuvens: true, vinheta: true, teto: 1.3, pos: false },
+  alta: { nome: 'Linda', contorno: true, sombra: 2048, area: 44, luzes: 4, pular: 0, vento: true, ondas: true, nuvens: true, vinheta: true, teto: 2.4, pos: false },
+  ultra: { nome: 'Ultra', contorno: true, sombra: 4096, area: 64, luzes: 4, pular: 0, vento: true, ondas: true, nuvens: true, vinheta: true, teto: 4, pos: true, nativo: true, visao: 8 },
 };
 // opções que não mudam com o preset (preferência pessoal)
 export const PESSOAIS = { fov: 72, brilho: 1, fpsMax: 0 };
@@ -21,16 +22,16 @@ const tmp = new THREE.Color(), tmp2 = new THREE.Color();
 const C = (h) => new THREE.Color(h);
 // cores do céu ao longo do dia: [zênite, horizonte]
 const CEU = {
-  dia: [C(0x2a78dc), C(0x9fd2ff)],
-  por: [C(0x4a5fa8), C(0xffa463)],
-  noite: [C(0x0d1838), C(0x2a3d6e)],
+  dia: [C(0x1a6ff2), C(0x88cdff)],
+  por: [C(0x5a4cc0), C(0xff9a5c)],
+  noite: [C(0x101a4e), C(0x34488a)],
 };
 
 // ---------- gradação de cor + névoa que casa com o céu (vale para todos os materiais) ----------
 // O three aplica a névoa DEPOIS do tone mapping, então o chão longe sumia numa cor diferente do céu.
 // A cor da névoa agora é calculada no JS já "como aparece na tela" (mesmo tone mapping + gradação do céu),
 // sem nenhuma conta extra por pixel. Nos blocos (FOG_SOL) a névoa fica dourada na direção do sol.
-const SATURACAO = 1.12;
+const SATURACAO = 1.2; // estilo desenho: cores vivas
 let chunksProntos = false;
 function prepararChunks() {
   if (chunksProntos) return;
@@ -39,6 +40,20 @@ function prepararChunks() {
   SC.tonemapping_fragment = `#if defined( TONE_MAPPING )
 	gl_FragColor.rgb = toneMapping( gl_FragColor.rgb );
 	gl_FragColor.rgb = max( mix( vec3( dot( gl_FragColor.rgb, vec3( 0.2126, 0.7152, 0.0722 ) ) ), gl_FragColor.rgb, ${SATURACAO.toFixed(2)} ), 0.0 );
+#endif`;
+  // ---------- luz em faixas (estilo desenho) ----------
+  // A luz do sol vira 3 tons com transição macia (sombra / meia-luz / luz). O que fica na sombra recebe só a
+  // luz do céu (azulada/lilás, ver hemi em atualizar): sombras coloridas, nunca pretas. Vale para todo
+  // material Lambert (blocos, bichos, bonecos, veículos). Só contas no fragment shader.
+  SC.lights_lambert_pars_fragment = SC.lights_lambert_pars_fragment.replace(
+    'float dotNL = saturate( dot( geometryNormal, directLight.direction ) );',
+    `float dotNL = saturate( dot( geometryNormal, directLight.direction ) );
+	dotNL = smoothstep( 0.0, 0.14, dotNL ) * 0.5 + smoothstep( 0.28, 0.5, dotNL ) * 0.5;`);
+  // luz de borda (rim) nos modelos (define RIM): a borda da silhueta acende com a cor do próprio objeto
+  SC.lights_fragment_end += `
+#ifdef RIM
+	float rimB = 1.0 - saturate( dot( geometryNormal, geometryViewDir ) );
+	reflectedLight.indirectDiffuse += reflectedLight.indirectDiffuse * smoothstep( 0.55, 0.9, rimB ) * 0.9;
 #endif`;
   SC.fog_pars_vertex += '\n#if defined( USE_FOG ) && defined( FOG_SOL )\nvarying vec3 vFogVista;\n#endif';
   SC.fog_vertex += '\n#if defined( USE_FOG ) && defined( FOG_SOL )\nvFogVista = mvPosition.xyz;\n#endif';
@@ -253,9 +268,9 @@ vec3 gDirBorda = vec3(0.0);`)
         float raso = 1.0 - vAgua.x;
         raso *= raso;
         float longe = smoothstep(10.0, 45.0, dist);
-        vec3 cFunda = mix(vec3(0.015, 0.13, 0.32), vec3(0.004, 0.015, 0.05), uNoite);
-        vec3 cTurq = mix(vec3(0.03, 0.42, 0.48), vec3(0.008, 0.035, 0.07), uNoite);
-        vec3 cRasa = mix(vec3(0.22, 0.80, 0.70), vec3(0.02, 0.07, 0.10), uNoite);
+        vec3 cFunda = mix(vec3(0.02, 0.2, 0.48), vec3(0.004, 0.015, 0.05), uNoite);
+        vec3 cTurq = mix(vec3(0.02, 0.55, 0.64), vec3(0.008, 0.035, 0.07), uNoite);
+        vec3 cRasa = mix(vec3(0.3, 0.92, 0.82), vec3(0.02, 0.07, 0.10), uNoite);
         vec3 agua = mix(cTurq, cRasa, raso);
         agua = mix(agua, cFunda, longe * (1.0 - raso * 0.6) * 0.85);
         agua = mix(agua, cFunda, (1.0 - raso) * vAgua.x * 0.35);
@@ -430,7 +445,7 @@ vec3 gDirBorda = vec3(0.0);`)
     // céu
     U.uZenite.value.copy(CEU.noite[0]).lerp(CEU.dia[0], dia).lerp(CEU.por[0], por * 0.5);
     U.uHorizonte.value.copy(CEU.noite[1]).lerp(CEU.dia[1], dia).lerp(CEU.por[1], por * 0.75);
-    U.uSolCor.value.setRGB(1, 0.95, 0.85).lerp(tmp.setRGB(1, 0.55, 0.25), por);
+    U.uSolCor.value.setRGB(1, 0.93, 0.78).lerp(tmp.setRGB(1, 0.5, 0.22), por);
     nev.h.copy(U.uHorizonte.value);
     nev.sol.copy(U.uSolCor.value).multiplyScalar(1 - noite);
     nev.dir.copy(solDir);
@@ -440,14 +455,15 @@ vec3 gDirBorda = vec3(0.0);`)
     // sol durante o dia, lua à noite (a noite é clarinha: sem medo!)
     const fonte = s > -0.05 ? solDir : alvo.copy(solDir).negate();
     sol.color.copy(U.uSolCor.value).lerp(tmp2.setRGB(0.55, 0.65, 1), noite);
-    sol.intensity = s > -0.05 ? 0.4 + 2.4 * THREE.MathUtils.smoothstep(s, -0.05, 0.35) : 0.5 * noite;
+    sol.intensity = s > -0.05 ? 0.4 + 2.0 * THREE.MathUtils.smoothstep(s, -0.05, 0.35) : 0.5 * noite;
     // luz ambiente: de dia branca-azulada, no pôr do sol puxa para o horizonte (quente),
     // de noite um azul de luar mais clarinho (a noite não é assustadora)
-    hemi.color.copy(U.uZenite.value).lerp(U.uHorizonte.value, por * 0.45).lerp(tmp.setRGB(1, 1, 1), 0.3 + dia * 0.25)
+    // estilo desenho: a sombra é azul-lilás (céu), não cinza
+    hemi.color.copy(U.uZenite.value).lerp(U.uHorizonte.value, por * 0.45).lerp(tmp.setRGB(0.8, 0.84, 1), 0.35 + dia * 0.25)
       .lerp(tmp.setRGB(0.45, 0.55, 0.85), noite * 0.35);
-    hemi.groundColor.setRGB(0.42, 0.36, 0.28).multiplyScalar(0.5 + dia * 0.5);
-    hemi.intensity = 0.55 + dia * 0.4 + por * 0.2 + noite * 0.15;
-    renderer.toneMappingExposure = (0.95 + noite * 0.2) * brilhoUsuario;
+    hemi.groundColor.setRGB(0.5, 0.4, 0.52).multiplyScalar(0.5 + dia * 0.5);
+    hemi.intensity = 0.5 + dia * 0.8 + por * 0.2 + noite * 0.15; // sombra clarinha e colorida (desenho)
+    renderer.toneMappingExposure = (0.9 + noite * 0.22) * brilhoUsuario;
 
     // a luz que faz sombra nunca fica rasante: com o sol quase no horizonte cada degrau do morro
     // jogava uma faixa escura comprida no chão. O disco do sol no céu continua no lugar certo.
@@ -502,7 +518,7 @@ vec3 gDirBorda = vec3(0.0);`)
         if (p) l.position.set(p[1][0], p[1][1], p[1][2]);
       });
     }
-    for (const l of lampioes) l.intensity = l.userData.ligada ? 1.5 + noite * 5 : 0;
+    for (const l of lampioes) l.intensity = l.userData.ligada ? 0.9 + noite * 2.3 : 0;
 
     return U.uHorizonte.value;
   }

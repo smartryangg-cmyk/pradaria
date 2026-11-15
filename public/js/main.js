@@ -11,7 +11,7 @@ import { Bichos } from './animais.js';
 import { Aldeoes } from './aldeoes.js';
 import { Garagem } from './garagem.js';
 import { Som } from './som.js';
-import { montarBoneco, vestirBoneco, etiqueta, matModelo, caixa, juntar, animarBoneco, poseNeutra } from './modelos.js';
+import { montarBoneco, vestirBoneco, etiqueta, matModelo, matContorno, caixa, juntar, bola, animarBoneco, poseNeutra } from './modelos.js';
 import { normalizarSkin, skinDeCor, skinIgual, CORES_ROUPA } from './skin.js';
 import { Personagem } from './personagem.js';
 import { Visao } from './visao.js';
@@ -21,9 +21,10 @@ import { criarGraficos, QUALIDADES, PESSOAIS } from './graficos.js';
 import { MapaIlha } from './mapa-ilha.js';
 import { ICONE_LUGAR } from './ilha-aventura.js';
 import { criarPosEfeitos } from './posefeitos.js';
-import { icone, preencherIcones, comIcone, nomeEmote } from './icones.js';
+import { icone, preencherIcones, comIcone, nomeEmote, ligarThree } from './icones.js';
 import { Escavacao, toquesPara } from './escavar.js';
 import { Fisica } from './fisica.js';
+import { Plantacoes } from './plantacoes.js';
 import { Agua } from './agua.js';
 import { criarComandos } from './comandos.js';
 import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, ESTILOS, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto, raioExtraMundo, precisa16 } from './opcoes-mundo.js';
@@ -50,6 +51,7 @@ import { criarAmigos } from './amigos.js';
 import { jogo as dadosJogo } from './jogos.js';
 
 const $ = (s) => document.querySelector(s);
+ligarThree(THREE);
 preencherIcones();
 const CORES = [0x3f6fd9, 0xe8433f, 0x4caf50, 0xf2c72e, 0x9c5bd9, 0xf29ac2, 0xff8a3d, 0x2bb3b3];
 
@@ -149,18 +151,25 @@ const mapa = new Mapa({
 });
 function aplicarMinimapa() { mapa.ligado = !!ajustes.minimapa; $('#minimapa').hidden = !ajustes.minimapa; }
 
-// nuvens
+// nuvens fofas (estilo desenho): cachos de bolas achatadas, brancas em cima e lilás-azuladas embaixo
 const nuvens = (() => {
   const g = [];
   const r = Math.random;
-  for (let i = 0; i < 26; i++) {
+  const baixo = new THREE.Color(0.74, 0.8, 0.96);
+  for (let i = 0; i < 24; i++) {
     const x = (r() - 0.5) * 360, z = (r() - 0.5) * 360;
-    const w = 12 + r() * 20, d = 8 + r() * 14;
-    g.push(caixa(w, 3, d, 0xffffff, x, 0, z));
-    if (r() < 0.6) g.push(caixa(w * 0.6, 3, d * 0.6, 0xffffff, x + w * 0.3, 1.5, z + d * 0.2));
+    const w = 10 + r() * 14, n = 3 + Math.floor(r() * 3);
+    for (let k = 0; k < n; k++) {
+      const t = n > 1 ? k / (n - 1) - 0.5 : 0, rb = w * (0.32 + (0.5 - Math.abs(t)) * 0.3) * (0.8 + r() * 0.4);
+      const bg = bola(1, 0xffffff, x + t * w * 1.3, rb * 0.25, z + (r() - 0.5) * w * 0.5, rb, rb * 0.62, rb * 0.8);
+      // sombreado de desenho embutido: faixa de baixo um tom mais escuro
+      const p = bg.attributes.position, c = bg.attributes.color, y0 = rb * 0.25;
+      for (let v = 0; v < p.count; v++) if (p.getY(v) < y0 - rb * 0.12) c.setXYZ(v, baixo.r, baixo.g, baixo.b);
+      g.push(bg);
+    }
   }
-  const m = new THREE.Mesh(juntar(g), new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.8, fog: false, depthWrite: false }));
-  m.position.y = ALT + 20;
+  const m = new THREE.Mesh(juntar(g), new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.94, fog: false, depthWrite: false }));
+  m.position.y = ALT + 22;
   cena.add(m);
   return m;
 })();
@@ -168,6 +177,7 @@ const nuvens = (() => {
 function aplicarGraficos() {
   const o = graf.aplicar(opcoesGraficas());
   nuvens.visible = o.nuvens;
+  matContorno.visible = !!o.contorno;
   $('#vinheta').hidden = !o.vinheta;
   pos.ligar(!!o.pos);
   redimensionar();
@@ -185,7 +195,7 @@ const som = new Som();
 // água: fôlego e a visão embaixo d'água
 const agua = new Agua({ cena, graf, som, aviso: (t, ms, ic) => aviso(t, ms, ic), vida, esconder: () => [nuvens] });
 
-let mundo = null, jog = null, ctrl = null, bichos = null, aldeoes = null, sala = null, escav = null, fisica = null;
+let mundo = null, jog = null, ctrl = null, bichos = null, aldeoes = null, sala = null, escav = null, fisica = null, plantacoes = null;
 let jogando = false, pausado = false;
 let modo = 'local', mundoAtual = null;
 const BARRA_CRIATIVO = [B.GRAMA, B.TERRA, B.PEDRA, B.TABUAS, B.TRONCO, B.VIDRO, B.TIJOLO, B.LA_VERMELHA, B.FLOR_AMARELA];
@@ -948,6 +958,11 @@ function usar(ponto) {
   if (novo === B.AGUA && atual === B.AGUA) return;
   if (SOLIDO[novo] && jog.ocupa(x, y, z)) return;
   if (PRECISA_CHAO[novo] && !SOLIDO[mundo.bloco(x, y - 1, z)]) return;
+  // trigo: na Terra de plantar vira broto e cresce sozinho; coletando, só dá para plantar nela
+  if (novo === B.TRIGO) {
+    if (mundo.bloco(x, y - 1, z) === B.TERRA_ARADA) novo = B.TRIGO_BROTO;
+    else if (sobrev()) { aviso('Plante o trigo na Terra de plantar (crie com Terra na Mochila). Perto da água cresce mais rápido', 3200, 'milho'); return; }
+  }
   // esteira: anda para onde o jogador está olhando
   if (novo === E.ESTEIRA) {
     const fx = -Math.sin(jog.yaw), fz = -Math.cos(jog.yaw);
@@ -1141,7 +1156,7 @@ function removerOutro(id) {
   if (!o) return;
   garagem.esquecer(id);
   cena.remove(o.grupo);
-  o.grupo.traverse((x) => { if (x.geometry) x.geometry.dispose(); if (x.material && x.material !== matModelo) { x.material.map && x.material.map.dispose(); x.material.dispose(); } });
+  o.grupo.traverse((x) => { if (x.geometry) x.geometry.dispose(); if (x.material && x.material !== matModelo && !x.material.userData.compartilhado) { x.material.map && x.material.map.dispose(); x.material.dispose(); } });
   outros.delete(id);
 }
 
@@ -1217,6 +1232,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   escav = new Escavacao(cena, mundo, matBlocos, atlasCanvas);
   drops.usarMundo(mundo);
   fisica = new Fisica(cena, mundo, matBlocos);
+  plantacoes = new Plantacoes(mundo);
   fisica.aoCair = (x, y, z) => { if (Math.abs(x - jog.pos.x) + Math.abs(z - jog.pos.z) < 24) som.passo(); };
   fisica.aoFolha = (x, y, z, b) => escav.estilhacar(x, y, z, b, null, null);
   mundo.carregarEdicoes(edicoes);
@@ -1770,6 +1786,7 @@ function laco(agora) {
 
   escav.atualizar(dt, jog.pos.x, jog.pos.z);
   fisica.atualizar(dt);
+  plantacoes.atualizar(jog.pos.x, jog.pos.z);
   drops.quadro(dt, jog, !pausado && !garagem.dentro);
   if (mundo.aventura) verLugar();
   guerra.quadro(dt, pausado);
@@ -1920,7 +1937,11 @@ void edicoesPendentes;
 
 // início: se já tem sessão, vai direto para a escolha do jogo
 camera.position.set(0, 40, 0);
-if (conta.token) abrirJogos(); else mostrarMenu('m-inicio');
+// convite aceito em outra página (xadrez, dama...): /?mundo=CODIGO entra direto no mundo do amigo
+const mundoPedido = new URLSearchParams(location.search).get('mundo');
+if (mundoPedido) history.replaceState(null, '', location.pathname + location.hash);
+if (conta.token) abrirJogos().then(() => { if (mundoPedido && conta.usuario) entrarPorCodigo(mundoPedido.toUpperCase()).catch((err) => aviso(err.message, 3000, 'relogio')); });
+else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv }; }
+if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; } }; }

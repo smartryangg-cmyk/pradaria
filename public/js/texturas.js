@@ -1,4 +1,5 @@
-// Arte procedural dos blocos (original, feita em código): visual "pacote HD" realista-estilizado.
+// Arte procedural dos blocos (original, feita em código): estilo DESENHO (cartoon), cores chapadas e vivas.
+// Os blocos principais têm desenho próprio (seção "estilo DESENHO"); os outros passam pelo filtroDesenho.
 // Cada tile é pintado em "unidades de 16" (u,v = 0..16), com cor + altura (relevo). Depois a altura
 // vira luz (de cima/esquerda) e oclusão nas fendas. Assim o mesmo desenho sai em 32px e 64px;
 // o 16px é a versão de 32px reduzida (média 2x2) e com um pouco de nitidez.
@@ -370,7 +371,7 @@ function la(t, cor, sem = 1500) {
 
 // minério: cristais/pepitas facetados sobre a pedra
 function minerio(t, sem, cores, o = {}) {
-  pedra(t, 400, o.tomPedra || 1);
+  pedraD(t, 400, o.tomPedra || 1);
   const r = rngSemente(sem);
   const [c1, c2, c3] = cores.map(hex);
   const grupos = o.grupos || 4;
@@ -607,6 +608,14 @@ function capim(t, sem, n, cor, alt = [6, 14.5]) {
 const corCapim = (q) => (q < 0.08 ? 0x9e9a58 : [0x3f6626, 0x4c7430, 0x5c8236, 0x6b8e3e][Math.floor(q * 4) % 4]);
 PINT[14] = (t) => capim(t, 1401, 26, corCapim);
 // lãs (cores naturais, de tingimento)
+// lã no estilo desenho: cor lisa com pontinhos de tricô de um tom só
+function laD(t, cor) {
+  const c0 = hex(cor), c1 = esc(c0, 0.94);
+  t.cada((u, v) => {
+    const lv = fr(v / 4), lu = fr(u / 4 + (Math.floor(v / 4) % 2) * 0.5);
+    return Math.abs(lu - 0.5) < 0.1 && Math.abs(lv - 0.5) < 0.22 ? c1 : c0;
+  });
+}
 PINT[15] = (t) => la(t, 0xe2ded4);
 PINT[16] = (t) => la(t, 0xa33a30);
 PINT[17] = (t) => la(t, 0x3d5c98);
@@ -667,6 +676,31 @@ PINT[25] = (t) => {
       const gv = topo + g * 0.85, lado = g % 2 ? 1 : -1, gu = u + inc + lado * 0.45;
       t.elipse(gu, gv, 0.7, 0.42, -Math.PI / 2 + lado * 0.5, (i, a, b, d) => { t.H[i] = 2 + (1 - d) * 0.5; t.set(i, esc(mix(hex(0xb8903c), hex(0xe2c066), 1 - d), 1 - g * 0.02), 1); });
       t.traco(gu, gv - 0.5, gu + lado * 0.5, gv - 2.2, 0.08, 0.04, (i) => { t.H[i] = 2.5; t.set(i, hex(0xd8c27c), 1); });
+    }
+  }
+  t.relevo(0.6, 0.5, 0.5, (i) => t.A[i] > 0);
+};
+// trigo plantado: brotinhos verdes baixos (140) e talos verdes com espigas ainda verdes (141)
+PINT[140] = (t) => {
+  planta(t);
+  const r = rngSemente(14001);
+  for (let k = 0; k < 6; k++) {
+    const u = 1.8 + k * 2.5 + (r() - 0.5) * 0.8;
+    folhaLonga(t, u, 16, -Math.PI / 2 + (r() - 0.5) * 0.9, 3 + r() * 2.5, 0.4, 0x6fae3e, (r() - 0.5));
+    folhaLonga(t, u, 16, -Math.PI / 2 + (r() < 0.5 ? -0.7 : 0.7), 2 + r() * 2, 0.35, 0x8cc552, (r() - 0.5));
+  }
+  t.relevo(0.6, 0.5, 0.5, (i) => t.A[i] > 0);
+};
+PINT[141] = (t) => {
+  planta(t);
+  const r = rngSemente(14101);
+  for (let k = 0; k < 6; k++) {
+    const u = 1.6 + k * 2.55 + (r() - 0.5) * 0.8, topo = 5 + r() * 2.5, inc = (r() - 0.5) * 1;
+    folhaLonga(t, u, 16, -Math.PI / 2 + (r() < 0.5 ? -0.6 : 0.6), 4 + r() * 3, 0.45, 0x5f9a36, (r() - 0.5));
+    caule(t, u, 16.2, u + inc, topo + 4, 0.32, 0x6faa3e);
+    for (let g = 0; g < 5; g++) {
+      const gv = topo + g * 0.8, lado = g % 2 ? 1 : -1, gu = u + inc + lado * 0.4;
+      t.elipse(gu, gv, 0.6, 0.38, -Math.PI / 2 + lado * 0.5, (i, a, b, d) => { t.H[i] = 2 + (1 - d) * 0.5; t.set(i, esc(mix(hex(0x5f9a36), hex(0xa8d46a), 1 - d), 1 - g * 0.02), 1); });
     }
   }
   t.relevo(0.6, 0.5, 0.5, (i) => t.A[i] > 0);
@@ -750,7 +784,7 @@ PINT[30] = (t) => {
   t.relevo(0.85, 1.2, 0.7); t.grao(0.05);
 };
 // minérios
-PINT[31] = (t) => minerio(t, 3101, [0x141414, 0x2e2d2c, 0x5a5856], { tam: 1.5 });
+PINT[31] = (t) => minerio(t, 3101, [0x2c2c34, 0x45444c, 0x6a6872], { tam: 1.5 });
 PINT[32] = (t) => minerio(t, 3201, [0xa0684a, 0xd4a07a, 0xf0ccaa]);
 PINT[33] = (t) => minerio(t, 3301, [0xb07e22, 0xe8bc44, 0xfff0b0], { tam: 1.2 });
 PINT[34] = (t) => minerio(t, 3401, [0x2a9aa8, 0x6ae0e4, 0xe0ffff], { tam: 1.1, grupos: 4 });
@@ -1759,6 +1793,237 @@ PINT[129] = (t) => {
   t.relevo(0.7, 0.9, 0.6);
 };
 
+// ---------- estilo DESENHO (cartoon): blocos principais redesenhados ----------
+// Cores chapadas e vivas, poucos tons por bloco, quase nenhum ruído, formas arredondadas com contorno
+// escuro suave e brilho no canto de cima. Estes tiles não passam pelo filtro "desenho" geral (abaixo).
+const DESENHADOS = new Set();
+// pinta formas a partir de células: dentro (cor), borda escura (contorno) e brilho em cima/esquerda
+// cel: voronoi; cores: lista de cores; o.junta: largura do vão, o.contorno: largura do contorno
+function pedrinhas(t, cel, cores, o = {}) {
+  const junta = o.junta ?? 0.22, cont = o.contorno ?? 0.45, fundo = hex(o.fundo ?? 0x55585e);
+  const escuro = o.escuro ?? 0.72, brilho = o.brilho ?? 1.14, torto = o.torto;
+  t.cada((u, v, i) => {
+    let uu = u, vv = v;
+    if (torto) { uu += (torto(u, v) - 0.5) * 1.2; vv += (torto(v, u) - 0.5) * 1.2; }
+    const q = cel(uu, vv);
+    const e = q.borda - junta;
+    if (e < 0) return fundo;
+    const c = cores[q.id % cores.length];
+    // brilho no lado de cima/esquerda da pedra, contorno escuro no lado de baixo/direita
+    const lado = (q.dx + q.dy) / (q.d1 + 1e-3);
+    if (e < cont) return esc(c, lado > 0 ? escuro : 0.86);
+    if (e < cont + 0.5 && lado < -0.4) return esc(c, brilho);
+    return c;
+  });
+}
+// tufinho de grama em "V" (3 folhinhas)
+function tufo(t, u, v, alt, cor, w = 0.32) {
+  t.traco(u, v, u - alt * 0.45, v - alt, w, w * 0.4, (i) => t.set(i, cor, 1));
+  t.traco(u, v, u, v - alt * 1.15, w, w * 0.4, (i) => t.set(i, cor, 1));
+  t.traco(u, v, u + alt * 0.45, v - alt, w, w * 0.4, (i) => t.set(i, cor, 1));
+}
+const G_BASE = hex(0x54a83c), G_CLARO = hex(0x74bf4a), G_ESC = hex(0x438f30);
+function gramaD(t, sem) {
+  const n = fbm(sem, 2, 2, 2), r = rngSemente(sem + 1);
+  t.cada((u, v) => esc(G_BASE, 0.97 + (n(u, v) - 0.5) * 0.1));
+  // manchas grandes e suaves de outro verde (bem poucas)
+  for (let k = 0; k < 3; k++) {
+    const cu = r() * 16, cv = r() * 16, ra = 2 + r() * 2;
+    t.carimbo(cu, cv, ra, (i, dx, dy) => { if (Math.hypot(dx, dy) < ra) t.set(i, mix(t.cor(i), G_CLARO, 0.18)); });
+  }
+  for (let k = 0; k < 8; k++) tufo(t, 1 + r() * 14, 2.5 + r() * 12.5, 1.6 + r() * 0.9, r() < 0.55 ? G_CLARO : G_ESC, 0.42);
+}
+const T_BASE = hex(0x8f5f3c), T_ESC = hex(0x70472c), T_CLARO = hex(0xa9764c);
+function terraD(t, sem, umida = 0) {
+  const n = fbm(sem, 2, 2, 2), r = rngSemente(sem + 1);
+  const base = esc(T_BASE, 1 - umida * 0.3);
+  t.cada((u, v) => esc(base, 0.97 + (n(u, v) - 0.5) * 0.1));
+  // pedrinhas arredondadas com sombrinha embaixo e pontinhos claros
+  for (let k = 0; k < 7; k++) {
+    const cu = r() * 16, cv = r() * 16, ra = 0.7 + r() * 0.6;
+    t.carimbo(cu, cv, ra + 0.6, (i, dx, dy) => {
+      const d = Math.hypot(dx / 1.3, dy);
+      if (d < ra) t.set(i, esc(T_ESC, dy < -ra * 0.3 ? 1.12 : 1)); else if (d < ra + 0.35 && dy > 0) t.set(i, esc(base, 0.85));
+    });
+  }
+  for (let k = 0; k < 6; k++) { const cu = r() * 16, cv = r() * 16; t.carimbo(cu, cv, 0.5, (i, dx, dy) => { if (Math.hypot(dx, dy) < 0.35) t.set(i, T_CLARO); }); }
+}
+// franja de cima (grama, musgo, neve) com pontas arredondadas e sombrinha embaixo
+function franjaD(t, sem, cor, claro, alt = 3.2) {
+  const r = rngSemente(sem);
+  const pontas = Array.from({ length: 6 }, (_, k) => [k * 16 / 6 + r() * 1.5, alt + 0.5 + r() * 2.2, 0.9 + r() * 0.5]);
+  t.wrapY = false;
+  t.cada((u, v, i) => {
+    let lim = alt + Math.sin(u * 1.2 + 1) * 0.35;
+    for (const [pu, pv, pr] of pontas) {
+      const du = Math.min(Math.abs(u - pu), 16 - Math.abs(u - pu));
+      if (du < pr) lim = Math.max(lim, pv - (1 - Math.sqrt(1 - (du / pr) ** 2)) * pr * 1.2);
+    }
+    if (v < lim) return v < 1.1 ? claro : cor;
+    if (v < lim + 0.6) return esc(t.cor(i), 0.78);
+    return null;
+  });
+  t.wrapY = true;
+}
+const P_BASE = hex(0x8f949c), P_ESC = hex(0x777c85), P_CLARO = hex(0xa9aeb5);
+function pedraD(t, sem, tom = 1) {
+  const n = fbm(sem, 2, 2, 2), r = rngSemente(sem + 1);
+  t.cada((u, v) => esc(P_BASE, (0.97 + (n(u, v) - 0.5) * 0.08) * tom));
+  // manchas arredondadas (um tom mais escuro, com brilho em cima) e duas rachadinhas
+  for (let k = 0; k < 5; k++) {
+    const cu = r() * 16, cv = r() * 16, ra = 1.4 + r() * 1.6, rb = ra * (0.5 + r() * 0.3);
+    const claro = k % 2 === 0;
+    t.elipse(cu, cv, ra, rb, r() * 0.6 - 0.3, (i, a, b, d) => {
+      // pedra "estufada": miolo de outro tom, contorno escuro embaixo e brilho em cima
+      const c = !claro ? esc(P_BASE, 0.92) : d > 0.74 && b > 0 ? P_ESC : P_CLARO;
+      t.set(i, esc(c, tom));
+    });
+  }
+  for (let k = 0; k < 2; k++) {
+    let u = r() * 16, v = r() * 16, ang = r() * TAU;
+    for (let s = 0; s < 3; s++) {
+      const u1 = u + Math.cos(ang) * 1.6, v1 = v + Math.sin(ang) * 1.6;
+      t.traco(u, v, u1, v1, 0.22, 0.18, (i) => t.set(i, esc(hex(0x5f636b), tom)));
+      u = u1; v = v1; ang += (r() - 0.5) * 1.6;
+    }
+  }
+}
+PINT[0] = (t) => gramaD(t, 100);
+PINT[1] = (t) => { terraD(t, 200); franjaD(t, 101, G_BASE, G_CLARO); };
+PINT[2] = (t) => terraD(t, 200);
+PINT[3] = (t) => pedraD(t, 400);
+PINT[65] = (t) => { terraD(t, 200); franjaD(t, 6501, hex(0x4f8a2c), hex(0x6aa83a), 2.8); };
+PINT[76] = (t) => { terraD(t, 200); franjaD(t, 7601, hex(0xf2f6fb), hex(0xffffff), 3.6); };
+// areia: amarelo clarinho com pontinhos e uma ondinha
+PINT[4] = (t) => {
+  const r = rngSemente(401), n = fbm(402, 2, 2, 2);
+  const base = hex(0xe0c47c);
+  t.cada((u, v) => esc(base, 0.98 + (n(u, v) - 0.5) * 0.06));
+  for (let k = 0; k < 2; k++) { const v0 = 4 + k * 8 + r() * 2; t.cada((u, v, i) => (Math.abs(v - v0 - Math.sin(u * 0.8 + k) * 0.7) < 0.28 ? hex(0xe2c986) : null)); }
+  for (let k = 0; k < 12; k++) { const cu = r() * 16, cv = r() * 16, c = r() < 0.6 ? hex(0xd9bd7c) : hex(0xfff1c8); t.carimbo(cu, cv, 0.5, (i, dx, dy) => { if (Math.hypot(dx, dy) < 0.32) t.set(i, c); }); }
+};
+// tronco visto de cima: anéis simples e casca
+PINT[6] = (t) => {
+  const w = fbm(601, 2, 2, 2);
+  t.cada((u, v) => {
+    const b = Math.min(u, v, 16 - u, 16 - v);
+    if (b < 1.3) return hex(0x6e4a2c);
+    if (b < 1.8) return hex(0x56391f);
+    const d = Math.hypot(u - 8, v - 8) + (w(u, v) - 0.5) * 1.0;
+    const anel = fr(d / 1.9);
+    if (d < 0.8) return hex(0xb98a52);
+    return anel > 0.78 ? hex(0xc49460) : hex(0xe0b878);
+  });
+};
+// casca: faixas verticais onduladas, dois tons
+PINT[7] = (t) => {
+  const w = fbm(701, 2, 3, 2);
+  t.cada((u, v) => {
+    const f = fr(u / 3.2 + (w(u, v) - 0.5) * 0.7);
+    if (f < 0.18) return hex(0x5a3a22);
+    if (f < 0.3) return hex(0x6e4a2c);
+    return f > 0.85 ? hex(0x9a6c42) : hex(0x84593a);
+  });
+};
+// folhas: cachos redondos de folhas, 3 tons, poucos buracos
+PINT[8] = (t) => {
+  const r = rngSemente(801);
+  const fundo = hex(0x2f7a2a);
+  t.cada(() => [...fundo, 1]);
+  const cores = [hex(0x3f9a34), hex(0x4fae3c), hex(0x3a8e30)];
+  for (let k = 0; k < 26; k++) {
+    const cu = r() * 16, cv = r() * 16, ra = 1.3 + r() * 1.0, c = cores[k % 3];
+    t.carimbo(cu, cv, ra + 0.2, (i, dx, dy) => {
+      const d = Math.hypot(dx, dy);
+      if (d < ra) t.set(i, d < ra * 0.55 && dx + dy < 0 ? esc(c, 1.25) : c, 1);
+    });
+  }
+  // vãozinhos escuros entre os cachos (o bloco de folhas é opaco: sem furos)
+  for (let k = 0; k < 5; k++) { const cu = r() * 16, cv = r() * 16; t.carimbo(cu, cv, 0.8, (i, dx, dy) => { if (Math.hypot(dx, dy) < 0.6) t.set(i, esc(fundo, 0.7), 1); }); }
+};
+// tábuas: 4 tábuas de tom igual, frestas escuras, um veio e pregos
+PINT[9] = (t) => {
+  const r = rngSemente(901);
+  const junta = [0, 1, 2, 3].map(() => 3 + r() * 10), veio = [0, 1, 2, 3].map(() => 1 + r() * 2);
+  const base = hex(0xd09a5c), esc1 = hex(0x8c5a30), claro = hex(0xe2b47a), veioC = hex(0xb9824a);
+  t.cada((u, v) => {
+    const b = Math.floor(v / 4), lv = v - b * 4;
+    if (lv < 0.45) return esc1;
+    if (lv < 0.9) return claro;
+    if (Math.abs(u - junta[b]) < 0.25) return esc1;
+    if (Math.abs(lv - veio[b] - Math.sin(u * 0.7 + b) * 0.35) < 0.2 && Math.abs(u - 8) < 5.5) return veioC;
+    for (const pu of [junta[b] - 0.9, junta[b] + 0.9]) if (Math.hypot(u - pu, lv - 2.3) < 0.32) return hex(0x6e5a48);
+    return base;
+  });
+};
+// tijolo: tijolos vermelhos lisos, rejunte claro, brilho no alto do tijolo
+PINT[11] = (t) => {
+  const r = rngSemente(1101);
+  const tons = Array.from({ length: 8 }, () => 0.94 + r() * 0.1);
+  t.cada((u, v) => {
+    const lin = Math.floor(v / 4), desl = lin % 2 ? 4 : 0;
+    const uu = (u + desl) % 16, col = Math.floor(uu / 8), lu = uu - col * 8, lv = v - lin * 4;
+    if (lv < 0.55 || lu < 0.55) return hex(0xe6d8c0);
+    const c = esc(hex(0xc8543a), tons[lin * 2 + col]);
+    if (lv < 1.1) return esc(c, 1.15);
+    if (lv > 3.5) return esc(c, 0.82);
+    return c;
+  });
+};
+// pedregulho: pedras redondas com contorno
+PINT[21] = (t) => pedrinhas(t, voronoi(2101, 4, 4, 0.75), [0x8f949c, 0x9ea3aa, 0x80858e, 0x979b9f].map(hex), { torto: fbm(2102, 3, 3, 2), fundo: 0x5c6068 });
+// cascalho: pedrinhas menores de cores variadas
+PINT[30] = (t) => pedrinhas(t, voronoi(3001, 7, 7, 0.95), [0x9a958e, 0x857f78, 0xaaa49a, 0x8e8478, 0x9d958a].map(hex), { junta: 0.12, contorno: 0.3, fundo: 0x5e5852 });
+[[15, 0xf0ece4], [16, 0xd8443a], [17, 0x3e6cc8], [18, 0xf2c23a], [19, 0x6cb83e], [20, 0xf09ab8]].forEach(([k, c]) => { PINT[k] = (t) => laD(t, c); });
+for (const k of [0, 1, 2, 3, 4, 6, 7, 8, 9, 11, 15, 16, 17, 18, 19, 20, 21, 30, 65, 76]) DESENHADOS.add(k);
+
+// ---------- filtro "desenho" para os outros tiles ----------
+// Achata o ruído (filtro de Kuwahara: média do quadrante mais liso, mantém as bordas), junta os tons em
+// poucas faixas (posterização suave) e deixa as cores mais vivas. Barato: só roda ao gerar o atlas.
+function filtroDesenho(t) {
+  const { T, n, R, G, B, A } = t;
+  let opaco = true;
+  for (let i = 0; i < n; i++) if (A[i] < 0.99) { opaco = false; break; }
+  const rr = Math.max(1, Math.round(t.S * 0.5));
+  if (opaco) {
+    const oR = new Float32Array(R), oG = new Float32Array(G), oB = new Float32Array(B);
+    const L = new Float32Array(n);
+    for (let i = 0; i < n; i++) L[i] = oR[i] * 0.3 + oG[i] * 0.59 + oB[i] * 0.11;
+    for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+      let melhor = 1e18, mr = 0, mg = 0, mb = 0;
+      for (let q = 0; q < 4; q++) {
+        const sx = q & 1 ? 1 : -1, sy = q & 2 ? 1 : -1;
+        let s = 0, s2 = 0, ar = 0, ag = 0, ab = 0, c = 0;
+        for (let dy = 0; dy <= rr; dy++) for (let dx = 0; dx <= rr; dx++) {
+          const j = ((y + sy * dy + T) % T) * T + (x + sx * dx + T) % T;
+          const l = L[j]; s += l; s2 += l * l; ar += oR[j]; ag += oG[j]; ab += oB[j]; c++;
+        }
+        const vr = s2 / c - (s / c) ** 2;
+        if (vr < melhor) { melhor = vr; mr = ar / c; mg = ag / c; mb = ab / c; }
+      }
+      const i = y * T + x;
+      R[i] = mr; G[i] = mg; B[i] = mb;
+    }
+  }
+  // luminância média do tile (partes visíveis)
+  let m = 0, c = 0;
+  for (let i = 0; i < n; i++) if (A[i] >= 0.5) { m += R[i] * 0.3 + G[i] * 0.59 + B[i] * 0.11; c++; }
+  m = c ? m / c : 128;
+  const passo = 0.16;
+  for (let i = 0; i < n; i++) {
+    const l = R[i] * 0.3 + G[i] * 0.59 + B[i] * 0.11 + 1e-3;
+    // posterização suave em volta da média do tile
+    const d = l / m - 1, f = d / passo, k = Math.round(f);
+    const dq = (k + sst(0.3, 0.7, f - k + 0.5) - 0.5) * passo;
+    const lq = m * (1 + d * 0.35 + dq * 0.65);
+    let r = R[i] * lq / l, g = G[i] * lq / l, b = B[i] * lq / l;
+    // cores mais vivas e um tiquinho mais claras
+    const l2 = r * 0.3 + g * 0.59 + b * 0.11;
+    r = (l2 + (r - l2) * 1.32) * 1.05; g = (l2 + (g - l2) * 1.32) * 1.05; b = (l2 + (b - l2) * 1.32) * 1.05;
+    R[i] = r; G[i] = g; B[i] = b;
+  }
+}
+
 // ---------- gera o atlas ----------
 export const TILES_PINTADOS = Object.keys(PINT).map(Number);
 export const TEMPOS = {}; // ms por tile na última geração (para medir)
@@ -1775,6 +2040,7 @@ export function pintarAtlas(T, lista = null) {
     const t0 = performance.now();
     t.reset(idx * 7919 + 13);
     PINT[idx](t);
+    if (!DESENHADOS.has(idx)) filtroDesenho(t);
     TEMPOS[idx] = performance.now() - t0;
     const ox = (idx % COLS_ATLAS) * T, oy = Math.floor(idx / COLS_ATLAS) * T;
     const parcial = PARCIAL.has(idx);

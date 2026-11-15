@@ -39,12 +39,14 @@ export function baseDe(b) {
   if (b >= 91 && b <= 94) return 91;
   if (b >= 95 && b <= 98) return 95;
   if (b >= 176 && b <= 183) return b - ((b - 176) % 4); // cama e cadeira viradas (moveis.js)
+  if (b === 76 || b === 77) return I.TRIGO; // trigo plantado ainda crescendo: é o mesmo trigo
   return b;
 }
 // o tronco redondo das árvores dá o tronco comum (dá para refazer o redondo no livro, 1 por 1)
 const VIRA = { [I.GRAMA]: I.TERRA, [I.TERRA_ARADA]: I.TERRA, 80: I.TRONCO, 81: 71, 82: 73 };
 // extras: [chance em %, item]; sorteio fixo pela posição (o jogo e o servidor tiram o mesmo resultado)
-const EXTRA = { [I.FOLHAS]: [35, I.GRAVETO], [I.CAPIM]: [30, I.TRIGO] };
+// trigo maduro: colher dá mais do que plantou (é assim que a plantação rende)
+const EXTRA = { [I.FOLHAS]: [35, I.GRAVETO], [I.CAPIM]: [30, I.TRIGO], [I.TRIGO]: [75, I.TRIGO] };
 const sorteio = (x, y, z) => (((Math.imul(x | 0, 73856093) ^ Math.imul(y | 0, 19349663) ^ Math.imul(z | 0, 83492791)) >>> 0) % 100);
 
 // natural = bloco do mundo original (o extra só vale nele; senão era só pôr e tirar folha no lugar da sorte)
@@ -52,12 +54,14 @@ export function oQueCai(b, x = 0, y = 0, z = 0, natural = true) {
   if (!Number.isInteger(b) || b <= 0 || (b >= 23 && b <= 30) || b > MAX_BLOCO) return [];
   const r = [[VIRA[b] ?? baseDe(b), 1]];
   const ex = EXTRA[b];
-  if (ex && natural && sorteio(x, y, z) < ex[0]) r.push([ex[1], 1]);
+  // o extra só vem de bloco do mundo (colocar e quebrar não multiplica nada), menos o trigo maduro: ele só existe
+  // plantado e crescido (a sala confere o crescimento), e render mais é o motivo de plantar
+  if (ex && (natural || b === I.TRIGO) && sorteio(x, y, z) < ex[0]) r.push([ex[1], 1]);
   return r;
 }
 
 // colocar só gasta quando o lugar estava vazio (ar, água ou plantinha); ligar uma alavanca não gasta
-const PLANTAS = new Set([11, 12, 13, 22, 32, 75, 129, 130, 135]); // 75 = arbusto seco
+const PLANTAS = new Set([11, 12, 13, 22, 32, 75, 76, 77, 129, 130, 135]); // 75 = arbusto seco; 76, 77 = trigo crescendo
 export const lugarVazio = (de) => !de || de === 5 || (de >= 23 && de <= 30) || PLANTAS.has(de);
 export const gastoDe = (b) => baseDe(b);
 

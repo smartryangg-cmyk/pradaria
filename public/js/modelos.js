@@ -4,7 +4,51 @@ import { PELES, CORES_CABELO, CORES_OLHOS, CORES_ROUPA, PADRAO, normalizarSkin, 
 import { opcoesMundo } from './opcoes-mundo.js';
 
 export const matModelo = new THREE.MeshLambertMaterial({ vertexColors: true });
-function malha(geo) { const m = new THREE.Mesh(geo, matModelo); m.castShadow = true; return m; }
+matModelo.defines = { RIM: '' }; // luz de borda (graficos.js)
+matModelo.userData.compartilhado = true;
+
+// Contorno de desenho: uma "casca" por fora do modelo, virada do avesso, com a cor do próprio modelo bem
+// escura. Usa normais suavizadas (as caixas não abrem nos cantos) e cresce com a distância (largura quase
+// constante na tela). matContorno.visible = false desliga tudo de uma vez (nível Leve).
+export const matContorno = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide });
+matContorno.userData.compartilhado = true;
+matContorno.onBeforeCompile = (sh) => {
+  sh.vertexShader = sh.vertexShader
+    .replace('#include <common>', '#include <common>\nattribute vec3 normalC;')
+    .replace('#include <project_vertex>', `vec4 mvPosition = modelViewMatrix * vec4( transformed, 1.0 );
+  vec3 nC = normalize( normalMatrix * normalC );
+  mvPosition.xyz += nC * 0.0068 * clamp( -mvPosition.z, 1.2, 14.0 );
+  gl_Position = projectionMatrix * mvPosition;`);
+  sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb *= vec3(0.16, 0.13, 0.2);');
+};
+// normal média de todos os vértices na mesma posição (cantos da caixa apontam na diagonal)
+function normaisContorno(g) {
+  if (g.attributes.normalC) return;
+  const p = g.attributes.position, n = g.attributes.normal;
+  if (!n) g.computeVertexNormals();
+  const N = g.attributes.normal, mapa = new Map(), out = new Float32Array(p.count * 3);
+  const chave = (i) => `${Math.round(p.getX(i) * 500)},${Math.round(p.getY(i) * 500)},${Math.round(p.getZ(i) * 500)}`;
+  for (let i = 0; i < p.count; i++) {
+    const k = chave(i); let a = mapa.get(k);
+    if (!a) mapa.set(k, a = [0, 0, 0]);
+    a[0] += N.getX(i); a[1] += N.getY(i); a[2] += N.getZ(i);
+  }
+  for (let i = 0; i < p.count; i++) {
+    const a = mapa.get(chave(i)), l = Math.hypot(a[0], a[1], a[2]) || 1;
+    out[i * 3] = a[0] / l; out[i * 3 + 1] = a[1] / l; out[i * 3 + 2] = a[2] / l;
+  }
+  g.setAttribute('normalC', new THREE.BufferAttribute(out, 3));
+}
+export function contornar(m) {
+  if (!m.geometry || !m.geometry.attributes.color) return m;
+  normaisContorno(m.geometry);
+  const c = new THREE.Mesh(m.geometry, matContorno);
+  c.userData.contorno = true;
+  c.raycast = () => {};
+  m.add(c);
+  return m;
+}
+function malha(geo) { const m = new THREE.Mesh(geo, matModelo); m.castShadow = true; return contornar(m); }
 // a luz do sol já faz o sombreado; aqui só um toque leve para o desenho ficar nítido
 const SOMBRA = [0.95, 0.95, 1, 0.85, 0.92, 0.92];
 

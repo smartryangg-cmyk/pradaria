@@ -1,6 +1,7 @@
 // Sala de um mundo: guarda as edições de blocos e repassa posições/emotes entre os jogadores.
 import { DurableObject } from 'cloudflare:workers';
 export { Lobby } from './lobby.js';
+export { Partida } from './partida.js';
 import { ARMAS, danoMaximo, VOLTA_ITEM } from '../../public/js/armas-dados.js';
 import { opcoesEcon, econLigada, normalizar, aplicar, dar, liberado, temMochila, temVeiculo, estadoDaGaragem } from '../../public/js/economia.js';
 import { lugarVazio, gastoDe, oQueCai, ULTIMO_ITEM } from '../../public/js/receitas.js';
@@ -12,6 +13,7 @@ import { candidatoSeguro, sdpSemIp } from '../../public/js/voz-filtro.js';
 import { horaDe, MAX_TURNO } from '../../public/js/trabalho.js';
 import { blocosDaObra, PLANTAS, ESTILOS_OBRA } from '../../public/js/casas.js';
 import { mudancaSemMao } from '../../public/js/blocos-rede.js';
+import { podeCrescer } from '../../public/js/plantacoes-regras.js';
 export { Controle } from './controle.js';
 
 // ações dos trabalhadores contratados (trabalho.js)
@@ -37,7 +39,8 @@ const ARMA_VEIC = { tanque: { raio: 4.2 }, jipeArmado: { alcance: 55 }, helicopt
 // vagas dos veículos de guerra (guerra-mapa.js): cada vaga tem um tipo só
 const VAGAS_GUERRA = { bt: 'tanque', bj: 'jipeArmado', bh: 'helicopteroGuerra', ft: 'tanque', dv1: 'viatura', dv2: 'viatura' };
 const MAX_CACA_MIN = 12, MAX_LA_MIN = 10; // bichos derrubados e lã tirada por conta, por minuto
-const ANDA_MAX = 40; // blocos por segundo (veja pv no 'pos')
+const ANDA_MAX = 40;
+const ESTAGIO_MIN = 20000; // trigo: no mínimo 20 s em cada estágio (com água perto a média é 30 s) // blocos por segundo (veja pv no 'pos')
 const MAX_VEICULOS = 40; // por mundo
 const MAX_VEICULOS_POR_JOGADOR = 6;
 const MAX_PARADOS = 40; // veículos que moram nas vilas/portos (aparecem quando alguém chega perto)
@@ -512,14 +515,23 @@ export class Sala extends DurableObject {
       const op = this.op();
       const econ = econLigada(op) ? await this.econDe(eu.uid) : null;
       // com o mercado, só dá para colocar os blocos que a pessoa já tem
-      if (econ && b > 0 && !liberado(econ, b, op)) return;
+      if (econ && b > 0 && (!liberado(econ, b, op) || !liberado(econ, gastoDe(b), op))) return;
+      // coletar e criar: trigo se planta na Terra de plantar e nasce broto (76); maduro só cresce sozinho
+      if (econ && op.sobrevivencia && m.j && b === 32) return;
       const ed = await this.carregarEdicoes();
       const k = x + ',' + y + ',' + z;
       // sem "j" (não foi a mão do jogador): só toques (porta, forno, alavanca...) e a física (areia caindo, folhas...)
       // no mundo de Guerra o forte inimigo (radar, canhões) é destruído pelos tiros: some bloco do mundo original
       // sem a mão do jogador. O que alguém construiu (já está nas edições) continua protegido.
       const destruiu = eu.guerra && b === 0 && !ed.has(k);
-      if (!m.j && !destruiu && !mudancaSemMao(ed.has(k) ? ed.get(k) : m.de, b, this.regras().construcao)) return;
+      // trigo plantado crescendo (plantacoes.js): broto -> verde -> maduro, mandado sem "j" por quem está perto.
+      // Só vale na Terra de plantar e no tique em que o sorteio do crescimento deixa (o mesmo que os aparelhos
+      // usam): crescer na hora que quiser não dá (senão colhia trigo maduro, que rende mais, sem esperar).
+      const cresceu = !m.j && ed.has(k) && ((ed.get(k) === 76 && b === 77) || (ed.get(k) === 77 && b === 32))
+        && [31, undefined].includes(ed.get(x + ',' + (y - 1) + ',' + z)) // Terra de plantar (colocada ou da fazenda da vila)
+        && podeCrescer(x, y, z, Date.now())
+        && Date.now() - ((this.estagioEm && this.estagioEm.get(k)) || 0) >= ESTAGIO_MIN; // cada estágio leva um tempo
+      if (!m.j && !destruiu && !cresceu && !mudancaSemMao(ed.has(k) ? ed.get(k) : m.de, b, this.regras().construcao)) return;
       // coletar e criar: só coloca o que tem na mochila
       if (econ && op.sobrevivencia && m.j && b > 0 && lugarVazio(ed.has(k) ? ed.get(k) | 0 : m.de | 0) && !((econ.itens[gastoDe(b)] || 0) > 0)) {
         ws.send(JSON.stringify({ t: 'econ', s: econ })); // devolve a mochila certa para o aparelho
@@ -543,6 +555,7 @@ export class Sala extends DurableObject {
       }
       ed.set(k, b);
       await this.ctx.storage.put('b:' + k, b);
+      if (b === 76 || b === 77) { (this.estagioEm ??= new Map()).set(k, Date.now()); if (this.estagioEm.size > 5000) this.estagioEm.clear(); }
       this.enviarTodos({ t: 'bloco', x, y, z, b }, ws);
       // "c:x,y,z" = ali está um bloco feito com coisa comprada (quebrar devolve marcado, para ninguém lucrar
       // colocando e quebrando, nem passando para um amigo quebrar). Mudou o bloco, a marca sai.

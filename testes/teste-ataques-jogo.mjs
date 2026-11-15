@@ -223,6 +223,21 @@ const tem = (eds, x, y, z) => { const e = eds.find((q) => q[0] === x && q[1] ===
   await api('mundos/apagar', { codigo: mundo.codigo }, dono.token);
 }
 
+// ---------- 7b) trigo crescendo na hora ----------
+{
+  const { mundo } = await api('mundos', { nome: 'Roca', opcoes: { sobrevivencia: false } }, dono.token);
+  const w = await conectar(mundo.codigo, dono.token);
+  mandar(w, { t: 'pos', p: [30, 41, 30], r: [0, 0] });
+  mandar(w, { t: 'bloco', x: 30, y: 39, z: 30, b: 31, de: 2, j: 1 }); // terra de plantar
+  mandar(w, { t: 'bloco', x: 30, y: 40, z: 30, b: 76, de: 0, j: 1 }); // broto
+  await espera(400);
+  for (const b of [77, 32]) mandar(w, { t: 'bloco', x: 30, y: 40, z: 30, b, de: b === 77 ? 76 : 77 }); // "cresceu" já
+  await espera(600);
+  ok(tem(await blocos(mundo.codigo), 30, 40, 30) === 76, 'trigo não amadurece na hora (a sala confere o tempo de crescer)');
+  w.close();
+  await api('mundos/apagar', { codigo: mundo.codigo }, dono.token);
+}
+
 // ---------- 8) amigos ----------
 {
   const nomeKid = crianca.usuario.nome, nomeDono = dono.usuario.nome;

@@ -11,7 +11,7 @@ PARES_TOQUE.forEach(([a, b], i) => { PAR.set(a, i); PAR.set(b, i); });
 export const CAI = new Set([4, 20, 65]);
 export const FOLHA = new Set([7, 72, 74, 132]);
 // some quando tiram o bloco de baixo (blocos.js PRECISA_CHAO: plantas, fios, alavanca, botão, placa)
-export const PRECISA_CHAO = new Set([11, 12, 13, 22, 32, 75, 100, 101, 102, 103, 104, 105, 106, 107, 129, 130, 135]);
+export const PRECISA_CHAO = new Set([11, 12, 13, 22, 32, 75, 76, 77, 100, 101, 102, 103, 104, 105, 106, 107, 129, 130, 135]);
 const vazio = (b) => !b || b === 5 || (b >= 23 && b <= 30); // ar ou água
 
 // atual = o que está no lugar (o servidor sabe se alguém já mexeu; se não, é o que o aparelho diz)
