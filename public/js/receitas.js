@@ -49,8 +49,10 @@ const VIRA = { [I.GRAMA]: I.TERRA, [I.TERRA_ARADA]: I.TERRA, 80: I.TRONCO, 81: 7
 const EXTRA = { [I.FOLHAS]: [35, I.GRAVETO], [I.CAPIM]: [30, I.TRIGO], [I.TRIGO]: [75, I.TRIGO] };
 const sorteio = (x, y, z) => (((Math.imul(x | 0, 73856093) ^ Math.imul(y | 0, 19349663) ^ Math.imul(z | 0, 83492791)) >>> 0) % 100);
 
-export function oQueCai(b, x = 0, y = 0, z = 0) {
+export function oQueCai(b, x = 0, y = 0, z = 0, mao = 0) {
   if (!Number.isInteger(b) || b <= 0 || (b >= 23 && b <= 30) || b > MAX_BLOCO) return [];
+  // vidro estilhaça: só sai inteiro com picareta na mão (com a mão vazia vira cacos)
+  if (b === I.VIDRO && !(FERRAMENTAS[mao] && FERRAMENTAS[mao][0] === 'picareta')) return [];
   const r = [[VIRA[b] ?? baseDe(b), 1]];
   const ex = EXTRA[b];
   if (ex && sorteio(x, y, z) < ex[0]) r.push([ex[1], 1]);
