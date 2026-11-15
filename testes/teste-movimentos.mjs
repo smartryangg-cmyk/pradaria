@@ -37,6 +37,7 @@ async function abrir(ctxOpc, nome) {
     }
     j.pos.x = x0 + 0.5; j.pos.z = z0 + 0.5; j.pos.y = y0; j.vel.x = j.vel.y = j.vel.z = 0; j.yaw = 0; j.pitch = 0; J.dia = 0.3;
     window.__base = [x0, y0, z0];
+    J.vida.protegido = 9999; // o mundo novo tem corações (Normal): a queda longa do teste não pode matar o boneco
   });
   await p.waitForTimeout(700);
   return { p, ctx };
