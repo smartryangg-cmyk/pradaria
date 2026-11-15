@@ -102,8 +102,10 @@ try {
   await tecla('KEYCODE_BACK', 1500);
   ok(await tv.evaluate(() => !document.querySelector('#m-jogos').hidden && document.querySelector('#m-mundos').hidden), 'Voltar do controle remoto volta uma tela (e não fecha o app)');
   ok(adb('shell', 'dumpsys', 'activity', 'activities').includes('dev.pradaria.tv/.Principal'), 'o app continua aberto');
-  ok(await irAte('#lista-jogos .jogo[data-jogo=pradaria]'), 'escolhido o Pradaria de novo');
-  await tecla('KEYCODE_DPAD_CENTER', 1500);
+  if (await tv.evaluate(() => document.querySelector('#m-mundos').hidden)) {
+    ok(await irAte('#lista-jogos .jogo[data-jogo=pradaria]'), 'escolhido o Pradaria de novo');
+    await tecla('KEYCODE_DPAD_CENTER', 1500);
+  }
   await tv.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
 
   ok(await irAte('#bt-novo-mundo'), 'chega em "Novo mundo"');
