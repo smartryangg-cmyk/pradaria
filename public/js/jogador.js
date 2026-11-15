@@ -16,7 +16,8 @@ const BUFFER_PULO = 0.13; // apertou pular um pouquinho antes de pousar: pula ao
 const PASSO_FIXO = 1 / 60; // a física anda em passos pequenos, mesmo se o tablet estiver lento
 const SUB = 0.4; // nunca anda mais que isso de uma vez (não atravessa bloco nem quina)
 const FOLGA = 1e-4; // encosta na parede sem entrar nela
-const QUEDA_SEGURA = 4; // cair até 4 blocos não machuca; cada bloco a mais tira meio coração
+// cair até 4 blocos não machuca; depois, cada 2 blocos tiram meio coração (como no clássico: ~23 blocos para desmaiar)
+const QUEDA_SEGURA = 3;
 
 export class Jogador {
   constructor(mundo) {
@@ -322,7 +323,7 @@ export class Jogador {
       || this.pisaEm(B.FENO) || this.pisaEm(E.TRAMPOLIM);
     if (macio) return;
     this.baqueY = Math.min(this.baqueY, -Math.min(0.4, (queda - 1.5) * 0.05));
-    const n = Math.floor(queda - QUEDA_SEGURA + 1e-6);
+    const n = Math.floor((queda - QUEDA_SEGURA) / 2 + 1e-6);
     const machucou = n > 0 && vida.dano(n);
     if (this.aoQueda && (machucou || queda > 3)) this.aoQueda(queda, machucou ? n : 0, machucou);
   }

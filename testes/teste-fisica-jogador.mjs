@@ -255,7 +255,7 @@ conferir(!(await J(() => window.__jogo.jog.voando)), 'F desliga o voo');
 const agReal = await J(async () => {
   const { X, Y, Z, cubo, por, B, calmo, espera, ate } = window.__t; const g = window.__jogo, j = g.jog;
   calmo();
-  cubo(X - 4, X + 4, Y - 8, Y + 14, Z - 20, Z + 4, 0);
+  cubo(X - 4, X + 4, Y - 8, Y + 26, Z - 20, Z + 4, 0);
   cubo(X - 4, X + 4, Y, Y, Z - 3, Z + 4, B.PEDRA); cubo(X - 4, X + 4, Y - 8, Y - 8, Z - 20, Z - 4, B.FENO);
   por(X + 0.5, Y + 1, Z + 2.5, 0);
   if (!j._orig) { j._orig = j.atualizar; j.atualizar = function (dt, ent) { return j._orig.call(this, dt, { ...ent, agachar: !!window.__agachar }); }; }
@@ -277,12 +277,12 @@ await J(() => { const j = window.__jogo.jog; j.atualizar = j._orig; delete j._or
 conferir(await J(() => window.__jogo.vida.atual === 10 && document.querySelector('#desmaio').hidden), 'quedas no feno do teclado não tiraram corações (sem desmaio no meio dos testes)', await J(() => window.__jogo.vida.atual));
 // queda com corações: cair 10 blocos tira 3 corações (6 meios)
 const quedas = {};
-for (const [nome, prep] of [['pedra10', 'pedra'], ['agua10', 'agua'], ['feno10', 'feno'], ['trampolim10', 'trampolim'], ['pedra4', 'pedra4'], ['voando', 'voando'], ['rapida40', 'rapida']]) {
+for (const [nome, prep] of [['pedra10', 'pedra'], ['agua10', 'agua'], ['feno10', 'feno'], ['trampolim10', 'trampolim'], ['pedra4', 'pedra4'], ['pedra14', 'pedra14'], ['pedra22', 'pedra22'], ['voando', 'voando'], ['rapida40', 'rapida']]) {
   quedas[nome] = await J(async (tipo) => {
     const { X, Y, Z, cubo, por, B, E, calmo, espera } = window.__t; const g = window.__jogo;
     calmo();
     por(X + 0.5, Y + 1, Z - 0.5, 0); // parado no chão antes de trocar a arena (ex.: ainda quicando no trampolim)
-    cubo(X - 4, X + 4, Y - 8, Y + 14, Z - 20, Z + 4, 0);
+    cubo(X - 4, X + 4, Y - 8, Y + 26, Z - 20, Z + 4, 0);
     cubo(X - 4, X + 4, Y, Y, Z - 6, Z + 4, B.PEDRA);
     if (tipo === 'agua') { cubo(X - 3, X + 3, Y - 3, Y - 3, Z - 5, Z + 3, B.PEDRA); cubo(X - 2, X + 2, Y - 2, Y, Z - 4, Z + 2, B.PEDRA); cubo(X - 1, X + 1, Y - 2, Y, Z - 3, Z + 1, B.AGUA); }
     if (tipo === 'feno') cubo(X - 1, X + 1, Y, Y, Z - 1, Z + 1, B.FENO);
@@ -293,7 +293,7 @@ for (const [nome, prep] of [['pedra10', 'pedra'], ['agua10', 'agua'], ['feno10',
     await espera(200);
     const pousos = []; const pousouOrig = g.jog.pousou.bind(g.jog);
     g.jog.pousou = (q) => { pousos.push({ pico: +(g.jog.pico - Y).toFixed(2), y: +(g.jog.pos.y - Y).toFixed(2), prot: g.vida.protegido, lig: g.vida.ligada() }); return pousouOrig(q); };
-    const alt = tipo === 'pedra4' ? 4 : tipo === 'rapida' ? 40 : 10;
+    const alt = tipo === 'pedra4' ? 4 : tipo === 'pedra14' ? 14 : tipo === 'pedra22' ? 22 : tipo === 'rapida' ? 40 : 10;
     por(X + 0.5, Y + 1 + alt, Z - 0.5, 0);
     if (tipo === 'voando') { g.jog.voando = true; }
     if (tipo === 'rapida') g.jog.vel.y = -40;
@@ -315,8 +315,10 @@ for (const [nome, prep] of [['pedra10', 'pedra'], ['agua10', 'agua'], ['feno10',
   if (nome === 'pedra10') await p.screenshot({ path: SAIDA + '/queda-coracoes.png' });
 }
 console.log(JSON.stringify(quedas));
-conferir(quedas.pedra10.vida === 4 && quedas.pedra10.cheios === 2, 'cair 10 blocos na pedra tira 3 corações (sobram 2)', quedas.pedra10);
+conferir(quedas.pedra10.vida === 7 && quedas.pedra10.cheios === 3, 'cair 10 blocos na pedra tira 1 coração e meio (sobram 3 e meio)', quedas.pedra10);
 conferir(quedas.pedra4.vida === 10, 'cair 4 blocos não machuca', quedas.pedra4);
+conferir(quedas.pedra14.vida === 5, 'cair 14 blocos tira só 2 corações e meio (não desmaia)', quedas.pedra14);
+conferir(quedas.pedra22.vida === 1, 'cair 22 blocos ainda não desmaia (sobra meio coração; o clássico desmaia com 23)', quedas.pedra22);
 conferir(quedas.agua10.vida === 10, 'cair 10 blocos na água não machuca', quedas.agua10);
 conferir(quedas.feno10.vida === 10, 'cair 10 blocos no feno não machuca', quedas.feno10);
 conferir(quedas.trampolim10.vida === 10, 'cair 10 blocos no trampolim não machuca (quica)', quedas.trampolim10);
