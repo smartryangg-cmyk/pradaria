@@ -17,7 +17,7 @@ let falhou = 0;
 for (const [nome, [w, h, dpr]] of Object.entries(TAM)) {
   const ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: dpr, isMobile: true, hasTouch: true });
   const p = await ctx.newPage(); const erros = []; p.on('pageerror', (e) => erros.push(e.message));
-  await p.route('**/api/eu', (r) => r.fulfill({ json: { usuario: { id: 1, nome: 'ryankrano', idade16: 1 } } }));
+  await p.route('**/api/eu', (r) => r.fulfill({ json: { usuario: { id: 1, nome: 'ryankrano', idade16: true, temNascimento: true } } }));
   await p.route('**/api/mundos', (r) => r.fulfill({ json: { mundos } }));
   await p.goto(URL + '/'); await p.evaluate(() => localStorage.setItem('pradaria.token', 'teste')); await p.reload();
   await p.waitForTimeout(800);
