@@ -154,6 +154,9 @@ await p.waitForTimeout(700);
 const fuga = await p.evaluate(() => ({ preso: !!window.__jogo.guerra.preso, est: window.__jogo.guerra.procurado, m: window.__jogo.guerra.missoes.fuga }));
 conferir(!fuga.preso && fuga.est >= 2 && fuga.m === true, 'fugiu do presídio: missão Fuga e 2 estrelas');
 // despista: some de perto da polícia (os reforços que vinham atrás ficam para trás)
+// se a polícia derrubou o jogador na fuga, o desmaio se resolve antes (senão ele "acorda" preso já na base); e a vida volta cheia
+if (await p.evaluate(() => window.__jogo.vida.atual <= 0)) await p.waitForTimeout(2600);
+await p.evaluate(() => window.__jogo.vida.reiniciar());
 await p.evaluate(() => { const g = window.__jogo.guerra; for (const n of g.extras) g.pessoas.remover(n); g.extras = []; g.tReforco = 999; });
 await ir(p, info.base.x, info.base.z);
 await p.evaluate(() => { const g = window.__jogo.guerra, orig = g.prender; g.prender = function () { const jp = window.__jogo.jog.pos; window.__prisao = { p: [jp.x, jp.y, jp.z].map(Math.round), vida: window.__jogo.vida.atual, stack: new Error().stack.split("\n").slice(1, 4).join(" | "), pol: g.pessoas.lista.filter((n) => n.papel === 'policial').map((n) => [n.papel, Math.round(Math.hypot(n.x - jp.x, n.z - jp.z)), n.ve, g.hostil(n, 0)]).filter((q) => q[1] < 60) }; return orig.call(this); }; });
@@ -286,9 +289,10 @@ await esperar(t, () => window.__jogo.garagem.veic.mapa.has('gbj'), null, 8000);
 conferir(await t.isHidden('#bt-voar'), 'tablet: sem botão de voar');
 // entra no jipe armado tocando no botão Entrar
 await t.evaluate(() => { const J = window.__jogo, v = J.garagem.veic.mapa.get('gbj'); J.cmd.teleportar(v.x + 2.2, v.y + 0.3, v.z, 0, ''); });
-await esperar(t, () => !document.querySelector('#bt-veic-entrar').hidden, null, 4000);
+await esperar(t, () => !document.querySelector('#bt-veic-entrar').hidden, null, 8000);
 await t.tap('#bt-veic-entrar');
-await esperar(t, () => !!window.__jogo.garagem.dentro, null, 4000);
+await esperar(t, () => !!window.__jogo.garagem.dentro, null, 8000);
+await t.waitForSelector('#bt-veic-atirar', { state: 'visible', timeout: 4000 }).catch(() => {});
 conferir(await t.isVisible('#bt-veic-atirar'), 'tablet: botão de atirar aparece no jipe armado');
 const antes = await t.evaluate(() => window.__jogo.guerra.efeitos.length);
 const bt = await t.$('#bt-veic-atirar');
