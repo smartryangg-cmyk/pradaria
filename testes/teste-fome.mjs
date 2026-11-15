@@ -263,11 +263,17 @@ for (const [nome, disp] of [['celular', devices['Pixel 7']], ['tablet', devices[
   ok(await J(a, () => window.__jogo.mercado.qtd(6)) === 0, 'online: a sala confirmou: a mochila da Ana ficou vazia');
   await a.screenshot({ path: SAIDA + '/fome-online-morreu.png' });
   await a.click('#bt-renascer'); await esperar(a, 1000);
-  // Beto vai lá e pega
+  // Beto vai lá: nos primeiros 30 s a mochila é só da Ana (o amigo não pega antes dela)
   const tr = (await J(bt, () => window.__jogo.drops.lista())).find((d) => d.id === 6);
   await J(bt, ([x, z]) => { const j = window.__jogo.jog; j.pos.x = x; j.pos.z = z; }, [tr.x, tr.z]);
-  ok(await ate(bt, () => window.__jogo.mercado.qtd(6) === 1, null, 5000), 'online: o Beto pegou o tronco');
+  await esperar(bt, 3000);
+  ok(await J(bt, () => window.__jogo.mercado.qtd(6)) === 0, 'online: o Beto em cima do tronco da Ana não pega (30 s só dela)');
   await bt.screenshot({ path: SAIDA + '/fome-online-beto.png' });
+  // a Ana volta lá e pega a própria mochila
+  await J(a, ([x, y, z]) => { const j = window.__jogo.jog; j.pos.x = x; j.pos.y = y; j.pos.z = z; }, [tr.x, tr.y, tr.z]);
+  ok(await ate(a, () => window.__jogo.mercado.qtd(6) === 1, null, 6000), 'online: a Ana voltou e pegou o próprio tronco (' + JSON.stringify(await J(a, () => [window.__jogo.drops.eu, window.__jogo.drops.lista().map((d) => [d.id, d.res, d.x, d.y, d.z]), window.__jogo.jog.pos])) + ')');
+  ok(await ate(bt, () => !window.__jogo.drops.lista().some((d) => d.id === 6), null, 4000), 'online: o tronco sumiu da tela do Beto');
+  await a.screenshot({ path: SAIDA + '/fome-online-ana-pegou.png' });
   // comer online: a sala tira o pão
   await a.context().close(); await bt.context().close();
 }

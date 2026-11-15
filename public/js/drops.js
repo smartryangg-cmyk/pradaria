@@ -148,7 +148,7 @@ export class Drops {
     if (velho) { if (velho.n !== p.n) this.diminuir(velho, p.n, p.c, null); return; }
     const e = {
       i: p.i, id: p.id, n: p.n, x: p.x, y: p.y, z: p.z, v: [...(p.v || [0, 0, 0])],
-      t: Date.now() - (p.idade || 0), dono: p.dono || '', c: p.c || 0, dg: p.dg || null, fase: Math.random() * 6, parado: false,
+      t: Date.now() - (p.idade || 0), dono: p.dono || '', res: p.res || '', c: p.c || 0, dg: p.dg || null, fase: Math.random() * 6, parado: false,
       g: this.geo(p.id), copias: p.n >= 16 ? 3 : p.n > 1 ? 2 : 1, // pilha: mostra 1, 2 ou 3 cópias
       giro: 0, bob: 0, visivel: true,
     };

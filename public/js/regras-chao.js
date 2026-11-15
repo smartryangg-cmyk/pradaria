@@ -11,6 +11,7 @@ export const VIDA_CHAO = 5 * 60 * 1000;   // some depois de 5 minutos no chão
 export const MAX_CHAO = 200;              // por mundo; passando disso some o mais antigo de quem tem mais no chão
 export const MAX_POR_JOGADOR = 60;        // por jogador: passando disso some o mais antigo DELE (não o dos outros)
 export const ESPERA_DONO = 1500;          // quem largou só pega de volta depois disso (dá tempo de o amigo pegar)
+export const ESPERA_MORTE = 30000;        // a mochila de quem morreu: só ele pega nos primeiros 30 s (res = quem morreu)
 export const ESPERA_PEGAR = 350;          // ninguém pega no mesmo instante em que caiu (dá para ver pular)
 export const MAX_LARGAR = 64;             // de uma vez
 export const PERTO_SALA = 7;              // a sala aceita pegar até esta distância (a posição chega atrasada)
@@ -23,10 +24,11 @@ export class Chao {
   constructor() { this.itens = new Map(); this.prox = 1; }
 
   // dg = desgaste das ferramentas que estão no chão (receitas.js DURA): pegar de volta não conserta
-  novo(id, n, x, y, z, v = [0, 0, 0], dono = '', t = Date.now(), i = null, c = 0, q = '', dg = null) {
+  novo(id, n, x, y, z, v = [0, 0, 0], dono = '', t = Date.now(), i = null, c = 0, q = '', dg = null, res = '') {
     if (!podeNoChao(id, n) || ![x, y, z].every(Number.isFinite)) return null;
     const d = { i: i ?? this.prox++, id, n, x: arr(x), y: arr(y), z: arr(z), v: v.map((c) => arr(Math.max(-9, Math.min(9, Number(c) || 0)))), t, dono: String(dono || ''), c: Math.max(0, Math.min(n, c | 0)), q: String(q || '') };
     const g = desgLista(id, dg, n); if (g.some((v) => v > 0)) d.dg = g;
+    if (res) d.res = String(res);
     if (i != null) this.prox = Math.max(this.prox, i + 1);
     this.itens.set(d.i, d);
     return d;
@@ -59,13 +61,14 @@ export class Chao {
 }
 
 // como o item vai para os outros: com a idade em vez da hora (o relógio de cada aparelho é diferente)
-export const publico = (d, agora = Date.now()) => ({ i: d.i, id: d.id, n: d.n, x: d.x, y: d.y, z: d.z, v: d.v, idade: Math.max(0, agora - d.t), dono: d.dono, c: d.c || 0, ...(d.dg ? { dg: d.dg } : {}) });
+export const publico = (d, agora = Date.now()) => ({ i: d.i, id: d.id, n: d.n, x: d.x, y: d.y, z: d.z, v: d.v, idade: Math.max(0, agora - d.t), dono: d.dono, c: d.c || 0, ...(d.dg ? { dg: d.dg } : {}), ...(d.res ? { res: d.res } : {}) });
 
-// pode pegar? (quem largou espera um pouco; ninguém pega no mesmo instante)
+// pode pegar? (quem largou espera um pouco; ninguém pega no mesmo instante; a mochila de quem morreu é dele por 30 s)
 export function podePegar(d, quem, agora = Date.now()) {
   const idade = agora - d.t;
   if (idade < ESPERA_PEGAR) return false;
   if (d.dono && d.dono === quem && idade < ESPERA_DONO) return false;
+  if (d.res && d.res !== quem && idade < ESPERA_MORTE) return false;
   return idade <= VIDA_CHAO;
 }
 
