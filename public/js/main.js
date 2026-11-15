@@ -44,13 +44,16 @@ import { Mecanismos } from './mecanismos.js';
 import { Guerra } from './guerra.js';
 import { confirmarIdade16 } from './idade.js';
 import { ligarHub, abrirJogos } from './hub.js';
+import { modoTV, iniciarTV } from './tv.js';
 
 const $ = (s) => document.querySelector(s);
 preencherIcones();
 const CORES = [0x3f6fd9, 0xe8433f, 0x4caf50, 0xf2c72e, 0x9c5bd9, 0xf29ac2, 0xff8a3d, 0x2bb3b3];
 
 // ---------- ajustes salvos ----------
-const ehToque = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+// na TV (navegador de Smart TV, ou Modo TV ligado) não tem toque: controle remoto, videogame ou celular
+const naTV = modoTV();
+const ehToque = !naTV && (matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window);
 if (ehToque) document.body.classList.add('toque');
 const AJ_PADRAO = { dist: ehToque ? 3 : 4, qual: ehToque ? 0.8 : 1, graf: 'auto', grafAuto: null, grafTeto: null, grafManual: false, gopc: null, ...PESSOAIS, auto: true, sens: 0.0055, som: true, fps: false, minimapa: true };
 let ajustes = { ...AJ_PADRAO };
@@ -1251,6 +1254,8 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   }
   ctrl.jog = jog;
   ctrl.sensToque = ajustes.sens;
+  if (naTV) ctrl.toque = false;
+  ctrl.tv = tv.ligado;
   bichos = new Bichos(cena, mundo, som);
   aldeoes = new Aldeoes(cena, mundo, som, (...a) => bichos.icone(...a));
   aldeoes.aoEntrarVila = (v) => aviso(v.nome, 2600, 'vila');
@@ -1839,6 +1844,15 @@ function vigiarDesempenho(fps) {
     }
   }
 }
+// TV: navegar nos menus com o controle remoto, controle de videogame e o celular como controle
+const tv = iniciarTV({
+  ctrl: () => ctrl,
+  jogando: () => jogando,
+  emJogo: () => jogando && !pausado && !personagem.aberto,
+  pausar: abrirPausa, fechar: fecharJanelas, pausarSem: (sim) => { pausado = sim; },
+  inventario: () => abrirInventario(), mapa: () => mapa.abrir(), visao: alternarVisao, alternarVoo, largar: () => largarDaMao(false),
+  aviso,
+});
 requestAnimationFrame(laco);
 addEventListener('beforeunload', () => salvarLocal());
 document.addEventListener('visibilitychange', () => { if (document.hidden) { salvarLocal(); if (jogando) enviarBarra(); } });
@@ -1849,4 +1863,4 @@ camera.position.set(0, 40, 0);
 if (conta.token) abrirJogos(); else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao }; }
+if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv }; }

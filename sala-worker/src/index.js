@@ -9,6 +9,7 @@ import { normalizarSkin } from '../../public/js/skin.js';
 import { filtrarChat } from '../../public/js/chat-filtro.js';
 import { horaDe, MAX_TURNO } from '../../public/js/trabalho.js';
 import { blocosDaObra, PLANTAS, ESTILOS_OBRA } from '../../public/js/casas.js';
+export { Controle } from './controle.js';
 
 // ações dos trabalhadores contratados (trabalho.js)
 const ACOES_TRABALHO = new Set(['contratar', 'demitir', 'obra', 'cancelar-obra', 'depositar', 'retirar', 'turno']);

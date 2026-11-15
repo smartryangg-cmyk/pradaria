@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#3b2f22">
+<title>Pradaria - controle</title>
+<link rel="icon" href="icone.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="estilo.css?v=22">
+<style>
+  html, body { background: #2a231b; color: #fff; }
+  body { position: fixed; inset: 0; overflow: hidden; }
+  #ligar { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: var(--ceu); overflow-y: auto; touch-action: pan-y; }
+  #ligar .caixa { color: var(--txt); }
+  #codigo { font-size: 34px; text-align: center; letter-spacing: 6px; text-transform: uppercase; font-weight: 900; }
+  #ctl { position: fixed; inset: 0; display: none; user-select: none; -webkit-user-select: none; }
+  body.ligado #ctl { display: block; }
+  body.ligado #ligar { display: none; }
+  .topo { position: absolute; top: max(8px, env(safe-area-inset-top)); left: 12px; right: 12px; display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 14px; color: #f6ead0; z-index: 2; pointer-events: none; }
+  .topo .ic-svg { width: 20px; height: 20px; }
+  .topo button { pointer-events: auto; margin-left: auto; }
+  .bc { display: grid; place-items: center; border: 3px solid #f6ead0; border-radius: 18px; background: rgba(255,255,255,.1); color: #fff; font: inherit; font-weight: 900; font-size: 13px; padding: 4px; touch-action: none; gap: 2px; }
+  .bc .ic-svg { width: 30px; height: 30px; }
+  .bc.ativo { background: rgba(255, 210, 63, .55); transform: scale(.96); }
+  .bc.pequeno { padding: 4px 10px; min-height: 40px; border-radius: 12px; grid-auto-flow: column; }
+  .bc.pequeno .ic-svg { width: 22px; height: 22px; }
+
+  /* jogando: alavanca à esquerda, área de olhar à direita e botões */
+  #jogo { position: absolute; inset: 0; }
+  #area-andar { position: absolute; left: 0; top: 44px; bottom: 0; width: 42%; }
+  #area-olhar { position: absolute; right: 0; top: 44px; bottom: 0; left: 42%; background: repeating-linear-gradient(45deg, rgba(255,255,255,.03) 0 14px, transparent 14px 28px); border-left: 2px dashed rgba(246,234,208,.25); }
+  #area-olhar .dica { position: absolute; top: 10px; left: 0; right: 0; text-align: center; font-size: 13px; font-weight: 700; color: rgba(246,234,208,.7); pointer-events: none; }
+  #joy-base { position: absolute; width: 130px; height: 130px; border-radius: 50%; border: 3px solid rgba(246,234,208,.7); background: rgba(255,255,255,.08); transform: translate(-50%,-50%); left: 50%; top: 48%; pointer-events: none; }
+  #joy-pino2 { position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; border-radius: 50%; background: #f6ead0; transform: translate(-50%,-50%); }
+  #botoes { position: absolute; right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(3, 66px); grid-auto-rows: 62px; gap: 8px; }
+  #botoes .grande { grid-column: span 2; }
+  #fila { position: absolute; left: max(12px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom)); display: flex; gap: 8px; }
+  #fila .bc { width: 60px; height: 52px; }
+
+  /* menus da TV: setas, OK e voltar */
+  #menu-ctl { position: absolute; inset: 44px 0 0 0; display: none; align-items: center; justify-content: center; gap: 28px; flex-wrap: wrap; padding: 12px; }
+  body.menu #menu-ctl { display: flex; }
+  body.menu #jogo { display: none; }
+  #cruz { display: grid; grid-template-columns: repeat(3, 84px); grid-template-rows: repeat(3, 84px); gap: 6px; }
+  #cruz .bc .ic-svg { width: 38px; height: 38px; }
+  #b-ok { background: var(--verde); border-color: #fff; font-size: 22px; }
+  .lado-menu { display: flex; flex-direction: column; gap: 12px; min-width: 180px; }
+  .lado-menu .bc { min-height: 64px; grid-auto-flow: column; gap: 8px; font-size: 17px; }
+  #campo-cel { display: none; flex-direction: column; gap: 8px; width: min(320px, 90vw); }
+  body.com-campo #campo-cel { display: flex; }
+  #campo-cel label { font-weight: 800; color: #f6ead0; }
+  #campo-cel input { font: inherit; font-size: 20px; padding: 10px 12px; border-radius: 12px; border: 3px solid #f6ead0; }
+  #aviso-ctl { position: absolute; left: 50%; top: 52px; transform: translateX(-50%); background: rgba(0,0,0,.6); padding: 6px 14px; border-radius: 12px; font-weight: 800; font-size: 14px; opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; z-index: 3; }
+  #aviso-ctl.mostra { opacity: 1; }
+  #girar-aviso { display: none; }
+  @media (orientation: portrait) {
+    #area-andar { top: 44px; bottom: 45%; width: 100%; }
+    #area-olhar { left: 0; top: 55%; bottom: 0; border-left: 0; border-top: 2px dashed rgba(246,234,208,.25); }
+    #joy-base { top: 50%; }
+    #botoes { grid-template-columns: repeat(3, 58px); grid-auto-rows: 54px; bottom: auto; top: 50px; }
+    #fila { bottom: auto; top: 50px; flex-direction: column; }
+    #fila .bc { width: 54px; height: 46px; }
+    #girar-aviso { display: block; position: absolute; left: 0; right: 0; bottom: 10px; text-align: center; font-size: 12px; color: rgba(246,234,208,.6); pointer-events: none; }
+  }
+</style>
+</head>
+<body>
+<div id="ligar">
+  <form class="caixa" id="f-ligar">
+    <h2 class="com-ic"><span data-icone="tv"></span> <span>Controlar a TV</span></h2>
+    <p class="sub centro">Na TV, abra o jogo e escolha <b>Celular como controle</b>. Digite aqui o código que aparecer lá:</p>
+    <label class="campo">Código da TV<input id="codigo" maxlength="7" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" required></label>
+    <p class="erro" id="erro-ligar"></p>
+    <button class="bt verde grande" type="submit"><span data-icone="controle"></span>Ligar</button>
+    <a class="bt" href="./"><span data-icone="voltar"></span>Jogar neste aparelho</a>
+  </form>
+</div>
+
+<div id="ctl">
+  <div class="topo"><span data-icone="tv"></span><span id="estado">Ligado na TV</span><button class="bc pequeno" type="button" id="b-desligar"><span data-icone="sair"></span>Sair</button></div>
+  <div id="aviso-ctl"></div>
+
+  <div id="jogo">
+    <div id="area-andar"><div id="joy-base"><div id="joy-pino2"></div></div></div>
+    <div id="area-olhar"><div class="dica">Arraste para olhar · Toque: usar · Segure: quebrar</div><div id="girar-aviso">Deite o celular para ficar mais fácil</div></div>
+    <div id="fila">
+      <button class="bc" type="button" data-acao="pausa" aria-label="Pausa"><span data-icone="menu"></span></button>
+      <button class="bc" type="button" data-acao="mochila" aria-label="Mochila"><span data-icone="mochila"></span></button>
+      <button class="bc" type="button" data-acao="mapa" aria-label="Mapa"><span data-icone="mapa"></span></button>
+      <button class="bc" type="button" data-acao="visao" aria-label="Câmera"><span data-icone="camera"></span></button>
+    </div>
+    <div id="botoes">
+      <button class="bc" type="button" data-acao="slot" data-v="-1" aria-label="Item anterior"><span data-icone="voltar"></span></button>
+      <button class="bc" type="button" data-acao="voar" aria-label="Voar"><span data-icone="voar"></span>Voar</button>
+      <button class="bc" type="button" data-acao="slot" data-v="1" aria-label="Próximo item"><span data-icone="voltar" style="transform: scaleX(-1)"></span></button>
+      <button class="bc" type="button" data-segurar="descer" aria-label="Descer"><span data-icone="descer"></span>Descer</button>
+      <button class="bc grande" type="button" data-segurar="pular" aria-label="Pular"><span data-icone="pular"></span>Pular</button>
+    </div>
+  </div>
+
+  <div id="menu-ctl">
+    <div id="cruz">
+      <span></span><button class="bc" type="button" data-nav="cima" aria-label="Cima"><span data-icone="pular"></span></button><span></span>
+      <button class="bc" type="button" data-nav="esq" aria-label="Esquerda"><span data-icone="pular" style="transform: rotate(-90deg)"></span></button>
+      <button class="bc" type="button" data-nav="ok" id="b-ok">OK</button>
+      <button class="bc" type="button" data-nav="dir" aria-label="Direita"><span data-icone="pular" style="transform: rotate(90deg)"></span></button>
+      <span></span><button class="bc" type="button" data-nav="baixo" aria-label="Baixo"><span data-icone="pular" style="transform: rotate(180deg)"></span></button><span></span>
+    </div>
+    <div class="lado-menu">
+      <form id="campo-cel"><label for="txt-cel" id="campo-nome">Escrever</label><input id="txt-cel" autocomplete="off" maxlength="60"><button class="bc" type="submit"><span data-icone="entrar"></span>Enviar para a TV</button></form>
+      <button class="bc" type="button" data-nav="voltar"><span data-icone="voltar"></span>Voltar</button>
+      <button class="bc" type="button" data-acao="pausa"><span data-icone="menu"></span>Pausa / continuar</button>
+    </div>
+  </div>
+</div>
+<script type="module" src="js/controle-celular.js"></script>
+</body>
+</html>
