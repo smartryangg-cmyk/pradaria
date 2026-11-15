@@ -203,6 +203,7 @@ def(LAVA_CAINDO, 'Lava', 150, { solido: false, opaco: false, brilho: 1 });
 def(OBSIDIANA, 'Obsidiana', 151);
 def(FOGO, 'Fogo', 152, { solido: false, opaco: false, planta: true, brilho: 1 }); // fogo-regras.js (não vai para a mochila)
 def(TOCHA, 'Tocha', [150, 9, 9], { solido: false, opaco: false, forma: 'tocha', chao: true, brilho: 0.6 });
+def(223, 'Baú', [154, 154, 155]); // bau-regras.js: guarda 27 pilhas
 // escada de mão (escada-mao.js): 4 giros, de madeira, presa na parede
 for (let d = 0; d < 4; d++) def(ESCADA_MAO + d, 'Escada de mão', 9, { solido: false, opaco: false, forma: 'escadamao' });
 
@@ -437,6 +438,17 @@ function pintarCriacao(img) {
     if (x >= 6 && x <= 9 && y >= 3 && y <= 5) return var_(hex(0x3a3a3a), r, 0.05);
     if ((x === 11 && y === 2) || (x === 12 && y === 3) || (x === 13 && y === 1)) return [255, 210, 80, 255];
     return [0, 0, 0, 0];
+  });
+  // 154 baú (tampa e fundo): tábuas com borda escura
+  pintarTile(img, 154, (x, y, r) => {
+    if (x === 0 || y === 0 || x === 15 || y === 15) return var_(madEsc, r, 0.05);
+    return var_(y % 5 === 2 ? madEsc : mad, r, 0.1);
+  });
+  // 155 baú (lados): tábuas, faixa da tampa e o fecho de ferro no meio
+  pintarTile(img, 155, (x, y, r) => {
+    if (x === 0 || y === 0 || x === 15 || y === 15 || y === 5) return var_(madEsc, r, 0.05);
+    if (x >= 6 && x <= 9 && y >= 4 && y <= 8) return var_(x === 6 || x === 9 || y === 8 ? hex(0x4b4f55) : hex(0xb8bec6), r, 0.05);
+    return var_(y % 5 === 2 ? madEsc : mad, r, 0.1);
   });
   // 142 balde: de tábuas, com aros escuros e alça
   pintarTile(img, 142, (x, y, r) => {

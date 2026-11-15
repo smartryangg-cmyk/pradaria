@@ -7,6 +7,7 @@ import { ARMAS, danoMaximo, VOLTA_ITEM } from '../../public/js/armas-dados.js';
 import { opcoesEcon, econLigada, normalizar, aplicar, dar, liberado, temMochila, temVeiculo, estadoDaGaragem } from '../../public/js/economia.js';
 import { lugarVazio, gastoDe, oQueCai, MAIOR_ITEM } from '../../public/js/receitas.js';
 import { normalizarForno, avancar, conteudo, fornoPublico } from '../../public/js/fornalha-regras.js';
+import { BAU, normalizarBau, conteudoBau, vazioBau } from '../../public/js/bau-regras.js';
 const FORNALHA = 188;
 import { Chao, publico, podePegar, pertoParaPegar, podeNoChao, MAX_LARGAR } from '../../public/js/regras-chao.js';
 import { normalizarOpcoes } from '../../public/js/opcoes-mundo.js';
@@ -171,6 +172,22 @@ export class Sala extends DurableObject {
     await this.ctx.storage.delete('f:' + k);
     this.enviarTodos({ t: 'forno', x, y, z, f: null });
     if (tem.length && temMochila(this.op())) await this.soltarNoChao(tem.map(([id, n]) => [id, n, x + 0.5, y + 0.4, z + 0.5]), '', q);
+  }
+  // baús: carrega quando alguém abre (fica guardado em "k:x,y,z")
+  async bauDe(k) {
+    this.baus ??= new Map();
+    let b = this.baus.get(k);
+    if (!b) { b = normalizarBau(await this.ctx.storage.get('k:' + k)); this.baus.set(k, b); if (this.baus.size > 500) this.baus.clear(); }
+    return b;
+  }
+  // o baú saiu dali: o que estava dentro cai no chão (com a marca de comprado e o desgaste)
+  async bauSumiu(x, y, z, q) {
+    const k = x + ',' + y + ',' + z, b = await this.bauDe(k);
+    const tem = conteudoBau(b);
+    this.baus.delete(k);
+    await this.ctx.storage.delete('k:' + k);
+    this.enviarTodos({ t: 'bau', x, y, z, b: null });
+    if (tem.length && temMochila(this.op())) await this.soltarNoChao(tem.map(([id, n, c, d]) => [id, n, x + 0.5, y + 0.4, z + 0.5, null, c, d ? [d] : undefined]), '', q);
   }
   // limite simples por jogador (fica na conexão)
   balde(ws, eu, k, max, janela = 1000) {
@@ -618,6 +635,7 @@ export class Sala extends DurableObject {
         this.coleta.set(eu.uid, c);
       }
       const eraForno = ed.get(k) === FORNALHA && b !== FORNALHA;
+      const eraBau = ed.get(k) === BAU && b !== BAU;
       ed.set(k, b);
       await this.ctx.storage.put('b:' + k, b);
       if (b === 76 || b === 77 || MUDAS.has(b)) { (this.estagioEm ??= new Map()).set(k, Date.now()); if (this.estagioEm.size > 5000) this.estagioEm.clear(); }
@@ -634,6 +652,7 @@ export class Sala extends DurableObject {
         if (r && r.ok && r.cai && b === 0) await this.soltarNoChao(r.cai.map(([id, n, c]) => [id, n, x + 0.5, y + 0.3, z + 0.5, null, c]), '', eu.uid);
       }
       if (eraForno) await this.fornoSumiu(x, y, z, eu.uid); // quebrou a fornalha: o que tinha dentro cai no chão
+      if (eraBau) await this.bauSumiu(x, y, z, eu.uid); // quebrou o baú: o que tinha dentro cai no chão
     } else if (m.t === 'vnovo') {
       if (eu.semVeiculos || !LUGARES[m.tipo] || MILITARES.has(m.tipo) || !posOk(m.p) || m.p.length !== 3 || !Number.isFinite(m.r)) return;
       const cor = Number.isInteger(m.cor) && m.cor >= 0 && m.cor < 8 ? m.cor : 0;
@@ -945,6 +964,28 @@ export class Sala extends DurableObject {
       } else avancar(f, agora);
       const msg = { t: 'forno', x: m.x, y: m.y, z: m.z, f: fornoPublico(f, agora) };
       if (m.t === 'forno-ver') ws.send(JSON.stringify(msg)); else this.enviarTodos(msg);
+    } else if (m.t === 'bau-ver' || m.t === 'bau-por' || m.t === 'bau-tirar') {
+      // baú (bau-regras.js): o que tem dentro é do mundo (todos usam o mesmo) e fica na sala
+      const op = this.op();
+      if (!op.sobrevivencia || ![m.x, m.y, m.z].every(Number.isInteger)) return;
+      const k = m.x + ',' + m.y + ',' + m.z, ed = await this.carregarEdicoes();
+      // recusou: devolve a mochila certa e o baú certo (o aparelho já tinha mexido nos dois)
+      const recusar = async (b) => { if (m.t !== 'bau-ver') ws.send(JSON.stringify({ t: 'econ', s: await this.econDe(eu.uid) })); if (b !== undefined) ws.send(JSON.stringify({ t: 'bau', x: m.x, y: m.y, z: m.z, b })); };
+      if (ed.get(k) !== BAU) { await recusar(null); return; }
+      if (!eu.p || Math.hypot(eu.p[0] - m.x - 0.5, eu.p[1] - m.y, eu.p[2] - m.z - 0.5) > 9 || !this.balde(ws, eu, 'ba', 15, 1000)) { await recusar(await this.bauDe(k)); return; }
+      const b = await this.bauDe(k);
+      if (m.t !== 'bau-ver') {
+        const econ = await this.econDe(eu.uid);
+        const kk = Number.isInteger(m.k) && m.k >= -1 && m.k < 27 ? m.k : -1;
+        const a = m.t === 'bau-por'
+          ? { t: m.t, k: kk, id: m.id | 0, n: Math.max(1, Math.min(64, m.n | 0)), b }
+          : { t: m.t, k: kk, n: Math.max(1, Math.min(64, m.n | 0 || 64)), b };
+        const r = await this.econAplicar(ws, eu, econ, a, true);
+        if (r && r.ok) { if (vazioBau(b)) await this.ctx.storage.delete('k:' + k); else await this.ctx.storage.put('k:' + k, b); }
+        else { await recusar(b); return; }
+      }
+      const msg = { t: 'bau', x: m.x, y: m.y, z: m.z, b };
+      if (m.t === 'bau-ver') ws.send(JSON.stringify(msg)); else this.enviarTodos(msg);
     } else if (m.t === 'chao-largar') {
       // largou da mochila no chão (para guardar depois ou passar para um amigo)
       const op = this.op();

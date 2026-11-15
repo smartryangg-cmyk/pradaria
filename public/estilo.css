@@ -960,6 +960,8 @@ body.modo-tv .marca-dagua { font-size: 14px; }
 .slot .desg i, .slot-inv .desg i { display: block; height: 100%; }
 /* fornalha (fornalha-regras.js): o que assa em cima, a chama, o combustível embaixo, a seta e o pronto */
 .inv-criar.forno { gap: 12px; }
+/* baú: 3 fileiras de 9 em cima da mochila (bau-regras.js) */
+.inv-bau { flex: 1 1 100%; display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 4px; padding-bottom: 8px; border-bottom: 2px dashed #c9b48a; }
 .forno-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .forno-col .slot-inv, .inv-criar.forno .slot-inv { width: 48px; }
 #grade .slot-inv.forno-s { width: 58px; border-width: 3px; background: #f5ecd9; }

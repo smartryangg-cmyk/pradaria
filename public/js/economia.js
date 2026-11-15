@@ -2,6 +2,7 @@
 // A sala online roda estas mesmas regras e é ela quem decide as moedas de cada jogador.
 // Não importe nada daqui que dependa do navegador (o servidor também usa este arquivo).
 
+import { caberNoBau, porNoBau, tirarDoBau, ESPACOS_BAU } from './bau-regras.js';
 import { avancar, caberNoForno, porNoForno, tirarDoForno, PILHA_FORNO } from './fornalha-regras.js';
 import { aplicarTrabalho, normalizarTrabalho, negocioNovo, livreDe, marcarCompra, ajustarCompra, converter } from './trabalho.js';
 import { RECEITAS, guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm, cabe, cabeQuanto, pilhaDe, DURA, ajustarDesg, desgastar, tirarDesg, porDesg, desgLista, receitaNoMundo } from './receitas.js';
@@ -465,6 +466,39 @@ export function aplicar(e, op, a, ctx = {}) {
       tirarDoForno(f, k, q); por(e.itens, id, q);
       r.veio = [id, q];
       if (k === 's') r.feitos = contar(e, op, 'forno', q);
+    }
+    r.mudou = true;
+  } else if (a.t === 'bau-por' || a.t === 'bau-tirar') {
+    // baú (bau-regras.js). a.b = os 27 espaços do baú: quem chama (a sala, ou o jogo sem internet) põe,
+    // nunca o que veio do aparelho. A marca de comprado e o desgaste vão junto com a coisa.
+    if (!op.sobrevivencia) return falha('?');
+    const b = a.b;
+    if (!Array.isArray(b) || b.length !== ESPACOS_BAU) return falha('?');
+    const k = Number.isInteger(a.k) && a.k >= -1 && a.k < ESPACOS_BAU ? a.k : -1;
+    if (a.t === 'bau-por') {
+      const id = a.id | 0;
+      let n = Math.min(Math.max(1, a.n | 0), qtdEm(e.itens, id));
+      if (DURA[id]) n = Math.min(n, 1); // ferramenta vai uma por vez (cada uma com o seu desgaste)
+      if (!guardavel(id) || n < 1) return falha('Você não tem isso.');
+      const q = caberNoBau(b, k, id, n);
+      if (!q) return falha('O baú está cheio!');
+      const c = Math.max(0, q - livreDe(e, id)); // a parte comprada é a última a sair
+      tirar(e.itens, id, q);
+      const d = DURA[id] ? ((tirarDesg(e, id, 1) || [0])[0] | 0) : 0;
+      ajustarCompra(e);
+      porNoBau(b, k, id, q, c, d);
+      r.foi = q;
+    } else {
+      const p = b[k];
+      if (!p) return falha('?');
+      const id = p[0];
+      const q = Math.min(Math.max(1, a.n | 0 || 64), p[1], op.sobrevivencia ? cabeQuanto(e.itens, id) : p[1]);
+      if (q < 1) return falha('A mochila está cheia! Largue ou use alguma coisa.');
+      const t = tirarDoBau(b, k, q);
+      por(e.itens, id, t.n);
+      marcarCompra(e, id, t.c);
+      if (DURA[id]) porDesg(e, id, [t.d], 1);
+      r.veio = [id, t.n];
     }
     r.mudou = true;
   } else if (a.t === 'moer' || a.t === 'assar') {
