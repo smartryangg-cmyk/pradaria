@@ -192,7 +192,7 @@ public class Principal extends Activity {
                     perguntouSair = false;
                     if (semInternet) { finish(); return true; }
                     voltarNoJogo();
-                } else if (!perguntouSair && e.getEventTime() - e.getDownTime() > 900) {
+                } else if (!perguntouSair && ((e.getFlags() & KeyEvent.FLAG_LONG_PRESS) != 0 || e.getEventTime() - e.getDownTime() > 800)) {
                     perguntouSair = true;
                     perguntarSair();
                 }
