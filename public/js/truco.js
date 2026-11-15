@@ -362,4 +362,4 @@ if (pedida && /^[A-Za-z0-9]{10,24}$/.test(pedida) && conta.token) jogarOnline(pe
 else abrirMenu();
 
 // para os testes automáticos (testes/teste-truco.mjs)
-window.__truco = { get e() { return e; }, get v() { return v; }, get eu() { return eu; }, get modo() { return modo; }, get online() { return online; }, T, agir };
+window.__truco = { get e() { return e; }, get v() { return v; }, get eu() { return eu; }, get modo() { return modo; }, get online() { return online; }, T, agir, atualizar: () => atualizarPC() };
