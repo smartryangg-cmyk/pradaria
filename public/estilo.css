@@ -696,7 +696,7 @@ body.chat-aberto #botoes-toque, body.chat-aberto #dica-toque, body.chat-aberto #
   #veic-botoes { bottom: max(10px, env(safe-area-inset-bottom)); right: calc(max(16px, env(safe-area-inset-right)) + 92px); }
   #pena { bottom: calc(max(6px, env(safe-area-inset-bottom)) + 84px); }
   /* aviso abaixo das moedas e missões (não cobre os botões da esquerda) */
-  #aviso { top: calc(var(--topo-fim) + 96px); }
+  #aviso { top: calc(var(--topo-fim) + 96px); max-width: min(560px, calc(100vw - 340px)); }
 }
 
 /* janelas em tela baixa (celular deitado): aproveitam a largura e a lista rola por dentro */
@@ -736,9 +736,10 @@ body.chat-aberto #botoes-toque, body.chat-aberto #dica-toque, body.chat-aberto #
 
 /* armas no celular: botões da arma não podem cobrir a barra de blocos nem os slots das armas */
 @media (max-width: 640px) and (orientation: portrait) {
-  /* em pé: os botões da arma sobem para a coluna da direita, em cima do pular */
-  #botoes-armas { right: max(18px, env(safe-area-inset-right)); bottom: 184px; }
-  body.com-armas #armas-hud { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 92px); }
+  /* em pé: botões da arma num quadradinho ao lado do pular (atirar embaixo, perto do dedão);
+     os slots das armas sobem para cima dele, à esquerda */
+  #botoes-armas { right: calc(max(18px, env(safe-area-inset-right)) + 90px); bottom: 92px; display: grid; grid-template-columns: 46px 80px; grid-template-rows: 46px 80px; gap: 8px; place-items: center; }
+  body.com-armas #hud #armas-hud { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 236px); }
   #hud #armas-slots .aslot { min-width: 54px; height: 42px; padding: 3px 8px 3px 20px; font-size: 12px; }
   #armas-slots .aslot.maos { min-width: 42px; }
   #armas-municao { font-size: 14px; padding: 3px 12px; }
@@ -754,3 +755,5 @@ body.chat-aberto #botoes-toque, body.chat-aberto #dica-toque, body.chat-aberto #
   #hud #armas-slots .aslot { height: 40px; }
 }
 @media (max-width: 640px), (max-height: 480px) { body.com-armas #dica-toque { display: none; } }
+/* deitado com arma: o lugar ao lado do pular é do atirar, então o largar volta para cima do pular */
+@media (max-height: 500px) and (orientation: landscape) { body.toque.com-armas #bt-largar { position: static; } }
