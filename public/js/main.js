@@ -36,6 +36,7 @@ import { criarCama } from './cama.js';
 import { ehCama } from './dormir-regras.js';
 import { ESCADA_MAO, PAREDE } from './escada-mao.js';
 import { LAVA, ehLava, DANO_LAVA } from './lava-regras.js';
+import { FOGO, ISQUEIRO, DANO_FOGO, inflamavel } from './fogo-regras.js';
 import { FORMA_NOVA } from './formas.js';
 import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, ESTILOS, MODOS_JOGO, DIFICULDADES, modoJogoDe, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto, raioExtraMundo, precisa16 } from './opcoes-mundo.js';
 import { vida } from './vida.js';
@@ -449,7 +450,7 @@ function desenharBarra() {
 let abaInv = 'blocos';
 const maquinasLigadas = () => opcoesMundo.maquinas !== false;
 // ferramentas também no modo criativo (quebram mais rápido)
-const FERRAMENTAS_CRIATIVO = [ITEM.PICARETA_PEDRA, ITEM.MACHADO_PEDRA, ITEM.PA_PEDRA, ITEM.BALDE];
+const FERRAMENTAS_CRIATIVO = [ITEM.PICARETA_PEDRA, ITEM.MACHADO_PEDRA, ITEM.PA_PEDRA, ITEM.BALDE, ISQUEIRO];
 function abasDoMundo() {
   if (sobrev()) return [['mochila', 'mochila', 'Mochila'], ['criar', 'martelo', 'Criar']];
   const abas = [['blocos', 'tijolos', 'Blocos']];
@@ -1017,6 +1018,7 @@ function usar(ponto) {
   if (armas.empunhando || !podeConstruir()) return; // com arma na mão (ou sem construção) não coloca bloco
   const x = h.x + h.n[0], y = h.y + h.n[1], z = h.z + h.n[2];
   let novo = naMao();
+  if (novo === ISQUEIRO) { acenderFogo(x, y, z); return; }
   if (!novo || ehItem(novo)) return; // mão vazia ou ferramenta: não coloca nada
   if (sobrev() && qtd(gastoDe(novo)) < 1) { aviso(`Acabou ${nomeDe(novo)}! Quebre mais ou crie`, 1500, 'mochila'); return; }
   if (y < 1 || y >= ALT) return;
@@ -1216,6 +1218,30 @@ function quebrar(ponto) {
 
 // dentro da lava queima (com os corações ligados): DANO_LAVA por segundo
 let tempoLava = 0, avisouLava = 0;
+// isqueiro: acende fogo no lado do bloco tocado (precisa de chão firme ou de algo que pegue fogo do lado)
+function acenderFogo(x, y, z) {
+  if (y < 1 || y >= ALT) return;
+  const atual = mundo.bloco(x, y, z);
+  if (atual !== AR && !(BLOCOS[atual].planta && atual !== FOGO)) return;
+  const perto = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]].some(([a, b, c]) => inflamavel(mundo.bloco(x + a, y + b, z + c)));
+  if (!SOLIDO[mundo.bloco(x, y - 1, z)] && !perto) { aviso('O fogo precisa de chão ou de madeira do lado', 1800, 'explosao'); return; }
+  mundo.definir(x, y, z, FOGO);
+  som.tom(900, 0.05, { tipo: 'square', vol: 0.15, ate: 300 });
+}
+
+// dentro do fogo (pés ou cabeça) machuca
+function noFogo() {
+  const x = Math.floor(jog.pos.x), y = Math.floor(jog.pos.y), z = Math.floor(jog.pos.z);
+  return mundo.bloco(x, y, z) === FOGO || mundo.bloco(x, y + 1, z) === FOGO;
+}
+let tempoFogo = 0, avisouFogo = 0;
+function queimarNoFogo(dt) {
+  if (!noFogo()) { tempoFogo = 0; return; }
+  if (tempoTotal - avisouFogo > 4) { avisouFogo = tempoTotal; aviso('Fogo queima! Saia de perto ou apague com água', 2000, 'explosao'); }
+  tempoFogo += dt;
+  if (tempoFogo >= 1 / DANO_FOGO) { tempoFogo = 0; if (vida.dano(1)) som.tom(160, 0.15, { tipo: 'square', vol: 0.25, ate: 90 }); }
+}
+
 function queimarNaLava(dt) {
   if (!jog.naLava) { tempoLava = 0; return; }
   if (tempoTotal - avisouLava > 4) { avisouLava = tempoTotal; aviso('A lava queima! Saia rápido (pule)', 2000, 'explosao'); }
@@ -1919,6 +1945,7 @@ function laco(agora) {
     if (!garagem.quadro(dt, ent, false) && !cama.quadro(dt, ent)) {
       jog.atualizar(dt, ent);
       queimarNaLava(dt);
+      queimarNoFogo(dt);
       if ((jog.noChao || jog.naAgua) && Math.floor(jog.passo / 1.8) !== ultimoPasso) { ultimoPasso = Math.floor(jog.passo / 1.8); som.passo(jog.naAgua ? 'agua' : chaoDe(jog.pos.x, jog.pos.y, jog.pos.z), visao.agachado ? 0.18 : visao.correndo ? 0.45 : 0.35); }
     }
   }

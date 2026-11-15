@@ -15,6 +15,7 @@ for (let b = 1; b < 256; b++) ELET[b] = ELETRICO(b) ? 1 : 0;
 import { criarSuavizador } from './suave.js';
 import { calcularLuz, EMITE, RAIO_LUZ } from './luz-blocos.js';
 import { LAVA, LAVA_CORRENTE, LAVA_CAINDO, OBSIDIANA, ehLava, NIVEL_LAVA, TICK_LAVA } from './lava-regras.js';
+import { FOGO, TICK_FOGO, MAX_FOGOS, QUEIMA, inflamavel, sorteioFogo, vidaFogo } from './fogo-regras.js';
 
 export const CX = 16, CZ = 16, ALT = 96;
 export const NIVEL_AGUA = 20; // mar do terreno de antes (o clássico usa mundo.nivelAgua = 40)
@@ -103,6 +104,7 @@ export class Mundo {
     this.filaAgua = new Set(); // células para reavaliar no próximo passo da água
     this.cacheDirAgua = new Map(); // direções da água no passo atual (aguaVaiPara)
     this.ultimoPassoAgua = 0;
+    this.fogos = new Map(); this.ultimoPassoFogo = 0; // fogo aceso: posição -> idade (fogo-regras.js)
     this.filaLava = new Set(); this.ultimoPassoLava = 0; // a lava usa as mesmas células, num passo mais lento
     this.vilas = new Vilas(this);
     // Ilha de Aventura; o mundo de Guerra usa a mesma ilha com base, forte, presídio e delegacia
@@ -318,6 +320,7 @@ export class Mundo {
     if (lz === 0) this.marcarSujo(cx, cz - 1);
     if (lz === CZ - 1) this.marcarSujo(cx, cz + 1);
     this.sujarLuz(x, z, antes, b);
+    if (b === FOGO) this.acender(x, y, z);
     // planta (ou fio, botão...) sem chão some
     if (!SOLIDO[b] && PRECISA_CHAO[this.bloco(x, y + 1, z)]) this.definir(x, y + 1, z, AR, daRede);
     this.agendarAgua(x, y, z);
@@ -386,15 +389,50 @@ export class Mundo {
       if (!ehLava(atual) && !LIVRE_L[atual] && !AGUA[atual]) continue;
       const novo = this.lavaDesejada(x, y, z);
       if (novo !== atual) mudar.push(x, y, z, novo);
+      // lava acende o que pega fogo encostado nela
+      if (ehLava(novo)) for (const [dx, dy, dz] of V6) if (inflamavel(this.bloco(x + dx, y + dy, z + dz))) mudar.push(x + dx, y + dy, z + dz, FOGO);
     }
     for (let i = 0; i < mudar.length; i += 4) {
       const [x, y, z, b] = [mudar[i], mudar[i + 1], mudar[i + 2], mudar[i + 3]];
       // virou pedra/obsidiana: fica salvo e vai para a rede (todos os aparelhos chegam no mesmo)
-      if (b === OBSIDIANA || b === B.PEDRA || b === B.PEDRISCO) { this.definir(x, y, z, b); continue; }
+      if (b === OBSIDIANA || b === B.PEDRA || b === B.PEDRISCO || b === FOGO) { this.definir(x, y, z, b); continue; }
       this.definirAgua(x, y, z, b);
       this.sujarLuz(x, z, 0, b);
     }
     return mudar.length / 4;
+  }
+
+  // ---------- fogo (fogo-regras.js) ----------
+  acender(x, y, z) {
+    const k = pos2k(x, y, z);
+    if (!this.fogos.has(k) && this.fogos.size < MAX_FOGOS) this.fogos.set(k, 0);
+  }
+
+  // cada fogo envelhece; queima os vizinhos que pegam fogo (eles viram fogo); apaga com água, sem chão
+  // nem combustível, ou quando a vida acaba. Calcula tudo olhando o mundo antigo e depois aplica.
+  passoFogo() {
+    const acende = [], apaga = [];
+    for (const [k, a0] of this.fogos) {
+      const y = k % 128, r = Math.floor(k / 128);
+      const z = (r % 65536) - 32768, x = Math.floor(r / 65536) - 32768;
+      if (this.bloco(x, y, z) !== FOGO) { this.fogos.delete(k); continue; }
+      if (!this.chunks.has(chave(Math.floor(x / CX), Math.floor(z / CZ)))) continue; // longe: espera
+      const a = a0 + 1;
+      this.fogos.set(k, a);
+      let comb = 0, agua = false;
+      for (const [dx, dy, dz] of V6) {
+        const n = this.bloco(x + dx, y + dy, z + dz);
+        if (AGUA[n]) agua = true;
+        if (!QUEIMA[n]) continue;
+        comb++;
+        if (sorteioFogo(x + dx, y + dy, z + dz, a) < QUEIMA[n]) acende.push(x + dx, y + dy, z + dz);
+      }
+      if (agua || (!comb && !SOLIDO[this.bloco(x, y - 1, z)]) || a >= vidaFogo(x, y, z, comb > 0)) apaga.push(x, y, z);
+    }
+    // primeiro acende (a sala confere que tem fogo do lado), depois apaga
+    for (let i = 0; i < acende.length; i += 3) if (inflamavel(this.bloco(acende[i], acende[i + 1], acende[i + 2]))) this.definir(acende[i], acende[i + 1], acende[i + 2], FOGO);
+    for (let i = 0; i < apaga.length; i += 3) { if (this.bloco(apaga[i], apaga[i + 1], apaga[i + 2]) === FOGO) this.definir(apaga[i], apaga[i + 1], apaga[i + 2], AR); this.fogos.delete(pos2k(apaga[i], apaga[i + 1], apaga[i + 2])); }
+    return acende.length / 3;
   }
 
   // o que deveria existir nesta célula, de acordo com a água em volta
@@ -546,6 +584,7 @@ export class Mundo {
     for (let [x, y, z, b] of lista) {
       if (b !== AR && !BLOCOS[b]) continue;
       if (b === E.BOTAO_LIGADO) b = E.BOTAO; // salvou com o botão apertado: ele volta solto
+      if (b === FOGO) this.acender(x, y, z); // fogo salvo continua queimando (e apaga)
       const cx = Math.floor(x / CX), cz = Math.floor(z / CZ);
       const k = chave(cx, cz);
       if (!this.edicoes.has(k)) this.edicoes.set(k, new Map());
@@ -860,6 +899,7 @@ export class Mundo {
     const ini = performance.now();
     if (opcoesMundo.aguaCorre && ini - this.ultimoPassoAgua >= TICK_AGUA) { this.ultimoPassoAgua = ini; this.passoAgua(); }
     if (opcoesMundo.aguaCorre && ini - this.ultimoPassoLava >= TICK_LAVA) { this.ultimoPassoLava = ini; this.passoLava(); }
+    if (this.fogos.size && ini - this.ultimoPassoFogo >= TICK_FOGO) { this.ultimoPassoFogo = ini; this.passoFogo(); }
     if (opcoesMundo.maquinas !== false) this.energia.atualizar(ini);
     // primeiro os pedaços editados (resposta imediata ao colocar/quebrar)
     for (const c of this.chunks.values()) {

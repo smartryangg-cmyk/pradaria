@@ -8,6 +8,7 @@ import { MV, DEFS_MOVEIS, PINTORES_MOVEIS } from './moveis.js';
 export { M };
 import { DEFS_FORMAS, INVENTARIO_FORMAS } from './formas-defs.js';
 import { ESCADA_MAO, TOCHA } from './escada-mao.js';
+import { FOGO, ISQUEIRO } from './fogo-regras.js';
 import { LAVA, LAVA_CORRENTE, LAVA_CAINDO, OBSIDIANA } from './lava-regras.js';
 export { INVENTARIO_FORMAS };
 
@@ -90,6 +91,7 @@ export const ITEM = {
   MACHADO_MADEIRA: 1003, MACHADO_PEDRA: 1004,
   PA_MADEIRA: 1005, PA_PEDRA: 1006,
   CARNE: 1007, COURO: 1008, // caem dos bichos (animais.js -> economia.js CAI_BICHO)
+  ISQUEIRO, // 1010: acende fogo (fogo-regras.js)
   BALDE: 1009, // balde vazio: pega a água parada (fonte). Cheio, é a Água na mão; colocar a água devolve o balde
 };
 export const ITENS = {
@@ -103,6 +105,7 @@ export const ITENS = {
   [ITEM.CARNE]: { nome: 'Carne', tile: 137 },
   [ITEM.COURO]: { nome: 'Couro', tile: 138 },
   [ITEM.BALDE]: { nome: 'Balde', tile: 142 },
+  [ISQUEIRO]: { nome: 'Isqueiro', tile: 153 },
 };
 export const ehItem = (id) => id >= 1000;
 // nome de qualquer coisa que cabe na mão (bloco ou item)
@@ -178,6 +181,7 @@ def(LAVA, 'Lava', 150, { solido: false, opaco: false, brilho: 1 });
 for (let n = 1; n <= 3; n++) def(LAVA_CORRENTE[n], 'Lava', 150, { solido: false, opaco: false, brilho: 1 });
 def(LAVA_CAINDO, 'Lava', 150, { solido: false, opaco: false, brilho: 1 });
 def(OBSIDIANA, 'Obsidiana', 151);
+def(FOGO, 'Fogo', 152, { solido: false, opaco: false, planta: true, brilho: 1 }); // fogo-regras.js (não vai para a mochila)
 def(TOCHA, 'Tocha', [150, 9, 9], { solido: false, opaco: false, forma: 'tocha', chao: true, brilho: 0.6 });
 // escada de mão (escada-mao.js): 4 giros, de madeira, presa na parede
 for (let d = 0; d < 4; d++) def(ESCADA_MAO + d, 'Escada de mão', 9, { solido: false, opaco: false, forma: 'escadamao' });
@@ -398,6 +402,21 @@ function pintarCriacao(img) {
   pintarTile(img, 151, (x, y, r) => {
     if ((x * 3 + y * 5) % 17 === 0 || (x * 7 + y * 2) % 23 === 0) return var_(hex(0x6b4fa0), r, 0.1);
     return var_(((x >> 2) + (y >> 2)) % 3 ? hex(0x1c1430) : hex(0x2a1d45), r, 0.12);
+  });
+  // 152 fogo: chamas amarelas e laranjas subindo, fundo transparente (desenhado em cruz como as plantas)
+  pintarTile(img, 152, (x, y, r) => {
+    const larg = 7.5 - Math.abs(Math.sin(x * 1.3) * 2.5) - (15 - y) * 0.05;
+    const topo = 3 + Math.abs(Math.sin(x * 0.9 + 1) * 5) + (Math.abs(x - 7.5) > 5 ? 3 : 0);
+    if (y < topo || Math.abs(x - 7.5) > larg) return [0, 0, 0, 0];
+    const meio = Math.abs(x - 7.5) < 3 && y > topo + 3;
+    return var_(meio ? hex(0xffe066) : y > 11 ? hex(0xe8561a) : hex(0xff9a1f), r, 0.08);
+  });
+  // 153 isqueiro: corpo de ferro com pedra e faísca
+  pintarTile(img, 153, (x, y, r) => {
+    if (x >= 4 && x <= 11 && y >= 6 && y <= 14) return var_(x < 6 ? hex(0x5d6670) : hex(0x8a949e), r, 0.06);
+    if (x >= 6 && x <= 9 && y >= 3 && y <= 5) return var_(hex(0x3a3a3a), r, 0.05);
+    if ((x === 11 && y === 2) || (x === 12 && y === 3) || (x === 13 && y === 1)) return [255, 210, 80, 255];
+    return [0, 0, 0, 0];
   });
   // 142 balde: de tábuas, com aros escuros e alça
   pintarTile(img, 142, (x, y, r) => {
