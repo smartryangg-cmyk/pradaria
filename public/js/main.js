@@ -828,8 +828,19 @@ $('#bt-voar').addEventListener('click', () => alternarVoo());
   bt.addEventListener('pointerleave', () => { clearTimeout(timer); segurou = true; });
   bt.addEventListener('contextmenu', (e) => e.preventDefault());
 }
+// celular: os emotes ficam guardados atrás de um botão só (não cabem na linha de cima)
+function emotesAbertos(v) { $('#emotes').classList.toggle('aberto', v); $('#bt-emotes').setAttribute('aria-expanded', String(v)); }
+$('#bt-emotes').addEventListener('click', () => { som.clique(); emotesAbertos(!$('#emotes').classList.contains('aberto')); });
+// altura real da linha de cima (os botões quebram linha em tela estreita): o resto do HUD se posiciona por ela
+{
+  const topo = $('#topo');
+  const medir = () => { const r = topo.getBoundingClientRect(); if (r.height) document.documentElement.style.setProperty('--topo-fim', Math.round(r.bottom) + 'px'); };
+  if (window.ResizeObserver) new ResizeObserver(medir).observe(topo);
+  addEventListener('resize', medir); medir();
+}
 document.querySelectorAll('[data-emote]').forEach((b) => b.addEventListener('click', () => {
   const e = b.dataset.emote; // nome do ícone: 'acenar', 'coracao', 'sorriso', 'estrela'
+  emotesAbertos(false);
   som.oi();
   if (sala) sala.enviar({ t: 'emote', e });
   mercado.evento('emote');

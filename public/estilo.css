@@ -9,6 +9,9 @@
   --ceu: #6cc0f0;
   --hud-fundo: rgba(28, 22, 16, .62);
   --raio: 18px;
+  /* fim da linha de cima do HUD (main.js mede a altura real) e tamanho do minimapa */
+  --topo-fim: calc(max(10px, env(safe-area-inset-top)) + 56px);
+  --mm: 124px;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--ceu); font-family: "Nunito", "Trebuchet MS", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--txt); }
@@ -45,7 +48,9 @@ body.visao-frente #mira { display: none; }
 #bt-menu { width: 50px; height: 50px; border-radius: 16px; font-size: 26px; }
 #bt-voar.ligado { background: var(--amarelo); }
 
-#emotes { display: flex; gap: 6px; padding: 5px; border-radius: 16px; background: var(--hud-fundo); }
+#emotes { position: relative; display: flex; gap: 6px; padding: 5px; border-radius: 16px; background: var(--hud-fundo); }
+#emotes-lista { display: flex; gap: 6px; }
+#emotes #bt-emotes { display: none; }
 #emotes button { width: 44px; height: 44px; border-radius: 12px; border: 0; background: #fff8e8; font-size: 30px; display: grid; place-items: center; padding: 0; box-shadow: 0 3px 0 #c9b68f; cursor: pointer; }
 #emotes button:active { transform: translateY(3px); box-shadow: none; }
 
@@ -77,7 +82,6 @@ body:not(.toque) #botoes-toque, body:not(.toque) #dica-toque { display: none; }
 @media (max-width: 640px) and (orientation: portrait) {
   #dica-toque { left: 12px; right: 118px; transform: none; white-space: normal; text-align: center; border-radius: 16px; }
 }
-@media (max-width: 420px) { #emotes { gap: 4px; padding: 4px; } #emotes button { width: 34px; height: 34px; font-size: 22px; } }
 
 #aviso { position: absolute; left: 50%; top: 20%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px); padding: 10px 20px; border-radius: 999px; background: var(--hud-fundo); color: #fff; font-weight: 900; font-size: 20px; opacity: 0; transition: opacity .3s; text-align: center; }
 #aviso:empty { display: none; }
@@ -209,7 +213,7 @@ details.mais[open] { display: flex; flex-direction: column; gap: 10px; padding-b
 #cmd-amigos { display: flex; flex-direction: column; gap: 8px; }
 .amigo { display: flex; align-items: center; gap: 8px; background: #fff; border-radius: 14px; padding: 8px 10px; box-shadow: 0 4px 0 #e2d6bf; }
 .amigo > span { flex: 1; min-width: 0; } .amigo b { display: block; font-size: 17px; overflow: hidden; text-overflow: ellipsis; } .amigo small { opacity: .65; }
-#pedido-tp { position: absolute; left: 50%; top: max(76px, calc(env(safe-area-inset-top) + 66px)); transform: translateX(-50%); width: min(400px, 92vw); background: var(--creme); border-radius: 20px; padding: 14px; box-shadow: 0 8px 0 rgba(0,0,0,.15), 0 14px 30px rgba(0,0,0,.25); display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; pointer-events: auto; font-weight: 800; font-size: 17px; animation: chega .3s ease-out; }
+#pedido-tp { position: absolute; left: 50%; top: calc(var(--topo-fim) + 12px); transform: translateX(-50%); width: min(400px, 92vw); background: var(--creme); border-radius: 20px; padding: 14px; box-shadow: 0 8px 0 rgba(0,0,0,.15), 0 14px 30px rgba(0,0,0,.25); display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; pointer-events: auto; font-weight: 800; font-size: 17px; animation: chega .3s ease-out; }
 #pedido-tp #pedido-ic { font-size: 34px; }
 #pedido-tp .linha-bts { grid-column: 1 / -1; }
 @keyframes chega { from { transform: translate(-50%, -20px); opacity: 0; } }
@@ -289,13 +293,13 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 
 
 /* minimapa e mapa grande */
-#minimapa { position: absolute; top: calc(max(10px, env(safe-area-inset-top)) + 70px); right: max(10px, env(safe-area-inset-right)); width: 124px; height: 124px; padding: 0; border-radius: 50%; border: 3px solid var(--txt); background: #26394d; box-shadow: 0 4px 0 var(--txt); overflow: hidden; cursor: pointer; }
+#minimapa { position: absolute; top: calc(var(--topo-fim) + 10px); right: max(10px, env(safe-area-inset-right)); width: var(--mm); height: var(--mm); padding: 0; border-radius: 50%; border: 3px solid var(--txt); background: #26394d; box-shadow: 0 4px 0 var(--txt); overflow: hidden; cursor: pointer; }
 #minimapa canvas { width: 100%; height: 100%; display: block; border-radius: 50%; }
 #minimapa:active { transform: translateY(2px); }
 .norte { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); font: 900 11px system-ui, sans-serif; color: #fff; text-shadow: 0 1px 2px #000; pointer-events: none; }
-@media (max-width: 640px) { #minimapa { width: 96px; height: 96px; } }
-/* celular deitado: os botões de pular/voar ocupam a direita, então o minimapa vai para a esquerda */
-@media (max-height: 480px) { #minimapa { width: 84px; height: 84px; right: auto; left: max(10px, env(safe-area-inset-left)); top: calc(max(10px, env(safe-area-inset-top)) + 72px); } }
+@media (max-width: 640px) { :root { --mm: 96px; } }
+/* celular deitado: minimapa menor, continua na direita (pular/voar descem para o canto de baixo) */
+@media (max-height: 480px) { :root { --mm: 84px; } }
 .mapa-caixa { width: min(900px, 100%); height: min(92vh, 900px); padding: 14px; gap: 8px; }
 .mapa-topo { display: flex; align-items: center; justify-content: space-between; }
 .mapa-topo .bt { padding: 9px 16px; }
@@ -307,7 +311,7 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 #mapa-coords { margin: 0; font-weight: 700; }
 .mapa-dica { margin: 0; font-size: 13px; }
 /* ---------- mercado e objetivos ---------- */
-#econ { position: absolute; top: calc(max(10px, env(safe-area-inset-top)) + 64px); left: 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; max-width: min(300px, 60vw); }
+#econ { position: absolute; top: calc(var(--topo-fim) + 8px); left: 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; max-width: min(300px, 60vw); }
 .econ-chip { border: 0; border-radius: 16px; padding: 7px 12px; background: rgba(255,248,232,.92); font: inherit; font-weight: 900; font-size: 18px; color: var(--txt); box-shadow: var(--sombra); }
 .econ-chip.pula { animation: econPula .5s; }
 @keyframes econPula { 40% { transform: scale(1.25); background: #ffe066; } }
@@ -350,7 +354,7 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 .festa-card b.com-ic { gap: 6px; } .festa-card b .ic-svg { width: 26px; height: 26px; }
 .festa-card em { display: flex; align-items: center; gap: 4px; } .festa-card em .ic-svg { font-size: 22px; }
 .econ-dir .ic-svg { font-size: 18px; }
-@media (max-width: 640px) { #econ { top: calc(max(10px, env(safe-area-inset-top)) + 58px); } .econ-alvo { font-size: 12px; } }
+@media (max-width: 640px) { .econ-alvo { font-size: 12px; } }
 #mapa-ilha canvas { width: 100%; height: auto; aspect-ratio: 1; border: 3px solid var(--txt); border-radius: 16px; background: #2f6fb0; image-rendering: pixelated; }
 /* dono do mundo e conta */
 #pausa-dono #dono-membros { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 10px; font-weight: 700; }
@@ -476,7 +480,7 @@ body.toque #coleta .pego.some { transform: translateX(-20px); }
 /* ---------- chat de texto e de voz (online) ---------- */
 #conversa { position: absolute; inset: 0; pointer-events: none; }
 /* à direita, embaixo do minimapa (à esquerda ficam moedas e missões) */
-#conversa-botoes { position: absolute; right: max(10px, env(safe-area-inset-right)); top: calc(max(10px, env(safe-area-inset-top)) + 210px); display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+#conversa-botoes { position: absolute; right: max(10px, env(safe-area-inset-right)); top: calc(var(--topo-fim) + var(--mm) + 22px); display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 .linha-conv { display: flex; gap: 10px; }
 #conversa-botoes .redondo { width: 50px; height: 50px; font-size: 26px; }
 #conversa-botoes .redondo.grande { width: 84px; height: 84px; font-size: 38px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
@@ -508,7 +512,7 @@ body.toque #coleta .pego.some { transform: translateX(-20px); }
 #pausa-chat { margin: 10px 0; }
 #pausa-chat[hidden] { display: none; }
 @media (max-width: 640px) {
-  #conversa-botoes { top: calc(max(10px, env(safe-area-inset-top)) + 190px); gap: 8px; }
+  #conversa-botoes { gap: 8px; }
   .linha-conv { gap: 8px; }
   #conversa-botoes .redondo { width: 44px; height: 44px; font-size: 22px; }
   #conversa-botoes .redondo.grande { width: 72px; height: 72px; font-size: 32px; }
@@ -579,19 +583,19 @@ body.mirando #mira::before { left: 4px; top: 4px; }
 #luneta::before, #luneta::after { content: ""; position: absolute; background: rgba(0,0,0,.7); }
 #luneta::before { left: 50%; top: 14%; bottom: 14%; width: 2px; transform: translateX(-1px); }
 #luneta::after { top: 50%; left: 30%; right: 30%; height: 2px; transform: translateY(-1px); }
-#feed { position: absolute; right: max(10px, env(safe-area-inset-right)); top: calc(max(10px, env(safe-area-inset-top)) + 204px); display: flex; flex-direction: column; align-items: flex-end; gap: 4px; pointer-events: none; }
+#feed { position: absolute; right: max(10px, env(safe-area-inset-right)); top: calc(var(--topo-fim) + var(--mm) + 22px); display: flex; flex-direction: column; align-items: flex-end; gap: 4px; pointer-events: none; }
 .noticia { display: flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; background: var(--hud-fundo); color: #fff; font-weight: 700; font-size: 14px; animation: noticia 6s forwards; }
 .noticia.eu { background: rgba(122, 42, 20, .85); }
 .noticia .ic-svg { width: 18px; height: 18px; }
 @keyframes noticia { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
-@media (max-width: 640px), (max-height: 480px) { #feed { top: calc(max(10px, env(safe-area-inset-top)) + 160px); } .noticia { font-size: 12px; } }
+@media (max-width: 640px), (max-height: 480px) { .noticia { font-size: 12px; } }
 #armas-slots .aslot.maos .ic-svg { width: 28px; height: 28px; }
 
 /* ---------- pergunta "Você tem 16 anos ou mais?" (idade.js) ---------- */
 #idade { z-index: 40; }
 .idade-txt { font-size: 18px; text-align: center; margin: 8px 0 14px; }
 /* ---------- mundo de Guerra (guerra.js) ---------- */
-#procurado { position: absolute; top: calc(max(10px, env(safe-area-inset-top)) + 64px); left: 50%; transform: translateX(-50%); display: flex; gap: 4px; padding: 4px 10px; border-radius: 999px; background: var(--hud-fundo); pointer-events: none; }
+#procurado { position: absolute; top: calc(var(--topo-fim) + 8px); left: 50%; transform: translateX(-50%); display: flex; gap: 4px; padding: 4px 10px; border-radius: 999px; background: var(--hud-fundo); pointer-events: none; }
 #procurado .est .ic-svg { width: 26px; height: 26px; display: block; filter: grayscale(1) brightness(.5); opacity: .45; transition: filter .2s, opacity .2s; }
 #procurado .est.cheia .ic-svg { filter: none; opacity: 1; }
 #procurado.vista .est.cheia { animation: pisca-estrela .6s infinite alternate; }
@@ -618,4 +622,138 @@ body.guerra #bt-voar { display: none; }
 .missao .estado { font-weight: 900; } .missao .estado .ic-svg { width: 28px; height: 28px; display: block; }
 .missao.feita { background: #e7f7dc; }
 .missao.feita .txt b { text-decoration: line-through; text-decoration-thickness: 2px; }
-@media (max-width: 640px) { #procurado .est .ic-svg { width: 20px; height: 20px; } #procurado { top: calc(max(10px, env(safe-area-inset-top)) + 56px); } #pena { font-size: 16px; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 100px); } }
+@media (max-width: 640px) { #procurado .est .ic-svg { width: 20px; height: 20px; } #pena { font-size: 16px; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 100px); } }
+
+/* ================= celular (retrato e deitado) =================
+   Medido em 360x740, 740x360 e 320x568: nada pode sair da tela nem ficar por cima de outro botão. */
+
+/* aviso: largura do texto, não uma coluna fininha */
+#aviso { width: max-content; max-width: min(560px, calc(100vw - 32px)); top: max(20%, calc(var(--topo-fim) + 14px)); }
+
+@media (max-width: 640px), (max-height: 480px) {
+  /* linha de cima: botões menores; se ainda não couber, quebra para a linha de baixo (o resto do HUD acompanha por --topo-fim) */
+  #topo { gap: 6px; flex-wrap: wrap; }
+  #topo .redondo, #topo #bt-menu { width: 44px; height: 44px; font-size: 22px; box-shadow: 0 3px 0 var(--txt); }
+  #topo #bt-menu { border-radius: 13px; }
+  #status-linha { flex: 1 1 0; overflow: hidden; }
+  #status { font-size: 13px; padding: 5px 10px 5px 7px; }
+  #status .ic-svg { font-size: 18px; }
+  /* emotes guardados atrás de um botão só */
+  #emotes { padding: 0; background: none; }
+  #emotes #bt-emotes { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 13px; border: 3px solid var(--txt); background: #fff8e8; font-size: 26px; box-shadow: 0 3px 0 var(--txt); cursor: pointer; }
+  #emotes.aberto #bt-emotes { background: var(--amarelo); }
+  #emotes-lista { display: none; }
+  #emotes.aberto #emotes-lista { display: flex; flex-direction: column; position: absolute; top: calc(100% + 8px); right: 0; padding: 5px; border-radius: 16px; background: var(--hud-fundo); z-index: 5; }
+  #emotes-lista button { width: 44px; height: 44px; font-size: 28px; }
+  #aviso { font-size: 16px; padding: 8px 14px; border-radius: 18px; gap: 8px; }
+  #aviso .ic-svg { font-size: 24px; }
+  .econ-chip { font-size: 16px; padding: 5px 10px; }
+  .econ-chip .ic-svg { font-size: 18px; }
+  .econ-alvo { padding: 5px 8px 8px; }
+}
+/* celular bem estreito (320-360): botões da linha de cima e barra de blocos ainda menores */
+@media (max-width: 380px) {
+  #topo { gap: 5px; }
+  #topo .redondo, #topo #bt-menu, #emotes #bt-emotes { width: 40px; height: 40px; font-size: 20px; }
+}
+@media (max-width: 340px) {
+  #topo .redondo, #topo #bt-menu, #emotes #bt-emotes { width: 37px; height: 37px; font-size: 19px; border-width: 2px; }
+}
+@media (max-width: 400px) {
+  #barra .slot { width: 38px; height: 38px; }
+  #barra .slot canvas { width: 28px; height: 28px; }
+  #barra .slot .qtd { font-size: 12px; }
+}
+@media (max-width: 350px) { #barra .slot:nth-child(n+7):not(.mais) { display: none; } }
+
+/* chat aberto: a caixa de escrever fica embaixo, então somem pular/voar/armas e a dica */
+body.chat-aberto #botoes-toque, body.chat-aberto #dica-toque, body.chat-aberto #botoes-armas { display: none; }
+
+/* celular deitado (pouca altura): tudo que fica embaixo desce e encolhe */
+@media (max-height: 480px) {
+  /* barra um pouco para a esquerda: à direita ficam pular, largar e atirar */
+  #barra { gap: 3px; padding: 4px; border-radius: 14px; bottom: max(6px, env(safe-area-inset-bottom)); left: calc(50% - 44px); }
+  #barra .slot { width: 42px; height: 42px; border-radius: 10px; }
+  #barra .slot canvas { width: 30px; height: 30px; }
+  #barra .slot.mais { font-size: 22px; }
+  #botoes-toque { bottom: max(10px, env(safe-area-inset-bottom)); gap: 10px; }
+  #botoes-toque .redondo { width: 50px; height: 50px; font-size: 24px; }
+  #botoes-toque .redondo.grande { width: 76px; height: 76px; font-size: 36px; }
+  body.dirigindo #botoes-toque { bottom: max(10px, env(safe-area-inset-bottom)); }
+  #botoes-armas { bottom: max(10px, env(safe-area-inset-bottom)); right: calc(max(14px, env(safe-area-inset-right)) + 88px); }
+  #dica-toque { bottom: 88px; font-size: 12px; padding: 4px 12px; max-width: calc(100vw - 260px); }
+  #vida { bottom: calc(max(6px, env(safe-area-inset-bottom)) + 58px); }
+  #vida .coracao, #vida .coracao .ic-svg { width: 20px; height: 20px; }
+  /* chat: botões ao lado do minimapa, não em cima de pular/voar */
+  #conversa-botoes { top: calc(var(--topo-fim) + 10px); right: calc(max(10px, env(safe-area-inset-right)) + var(--mm) + 10px); }
+  #conversa-botoes .redondo { width: 44px; height: 44px; font-size: 22px; }
+  #conversa-botoes .redondo.grande { width: 68px; height: 68px; font-size: 30px; }
+  #chat-log { bottom: 64px; width: min(380px, 50vw); max-height: 30vh; }
+  #conversa.aberto #chat-log { bottom: 118px; max-height: calc(100vh - var(--topo-fim) - 130px); }
+  #chat-caixa { bottom: 60px; padding: 6px; }
+  #chat-caixa input, #chat-caixa .bt { height: 40px; min-height: 40px; }
+  #feed { top: calc(var(--topo-fim) + var(--mm) + 16px); }
+  #veic-botoes { bottom: max(10px, env(safe-area-inset-bottom)); right: calc(max(16px, env(safe-area-inset-right)) + 92px); }
+  #pena { bottom: calc(max(6px, env(safe-area-inset-bottom)) + 84px); }
+  /* aviso abaixo das moedas e missões (não cobre os botões da esquerda) */
+  #aviso { top: calc(var(--topo-fim) + 96px); max-width: min(560px, calc(100vw - 340px)); }
+}
+
+/* janelas em tela baixa (celular deitado): aproveitam a largura e a lista rola por dentro */
+@media (max-height: 560px) {
+  .janela { padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 8px max(10px, env(safe-area-inset-left)); }
+  .caixa h2 { font-size: 22px; }
+  #inventario .caixa { width: min(760px, 100%); }
+  #inventario .caixa:has(#abas-inv button) #inv-titulo { display: none; }
+  #grade { max-height: max(120px, calc(100vh - 210px)); max-height: max(120px, calc(100dvh - 210px)); grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 8px; padding: 8px; }
+  #pausa .caixa { width: min(560px, 100%); max-height: calc(100vh - 16px); max-height: calc(100dvh - 16px); }
+  #editar-mundo .caixa { max-height: calc(100vh - 16px); max-height: calc(100dvh - 16px); }
+  #m-novo { width: min(680px, 100%); }
+  .mapa-caixa { height: calc(100vh - 16px); height: calc(100dvh - 16px); }
+  #missoes-lista { max-height: calc(100dvh - 150px); }
+  .econ-lista { max-height: calc(100dvh - 190px); }
+}
+@media (max-height: 560px) and (min-width: 700px) {
+  #pers-canvas { height: calc(100vh - 150px); height: calc(100dvh - 150px); max-height: 300px; min-height: 160px; }
+  #pers-painel { max-height: calc(100dvh - 150px); }
+}
+
+/* celular em pé estreito: menus mais justos (o logo não estoura em 320px) */
+@media (max-width: 400px) {
+  .janela { padding-left: 10px; padding-right: 10px; }
+  .caixa { padding: 16px 14px; gap: 10px; border-radius: 22px; }
+  .logo-txt { font-size: clamp(32px, 12vw, 50px); }
+  .logo-bloco { font-size: clamp(40px, 14vw, 62px); }
+  .bt { font-size: 17px; padding: 10px 12px; }
+  .bt.grande { font-size: 20px; }
+  .tamanhos-mundo { gap: 6px; }
+  .opcao-mundo { padding: 8px 7px; }
+  .opcao-mundo small { font-size: 11px; }
+  .cmds { grid-template-columns: repeat(2, 1fr); }
+  .linha-bts .bt { font-size: 15px; padding: 8px; }
+  #pers-canvas { height: 200px; }
+}
+
+/* armas no celular: botões da arma não podem cobrir a barra de blocos nem os slots das armas */
+@media (max-width: 640px) and (orientation: portrait) {
+  /* em pé: botões da arma num quadradinho ao lado do pular (atirar embaixo, perto do dedão);
+     os slots das armas sobem para cima dele, à esquerda */
+  #botoes-armas { right: calc(max(18px, env(safe-area-inset-right)) + 90px); bottom: 92px; display: grid; grid-template-columns: 46px 80px; grid-template-rows: 46px 80px; gap: 8px; place-items: center; }
+  body.com-armas #hud #armas-hud { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 236px); }
+  #hud #armas-slots .aslot { min-width: 54px; height: 42px; padding: 3px 8px 3px 20px; font-size: 12px; }
+  #armas-slots .aslot.maos { min-width: 42px; }
+  #armas-municao { font-size: 14px; padding: 3px 12px; }
+  #am-pente { font-size: 22px; }
+}
+@media (max-height: 480px) {
+  /* deitado: barra com menos casas quando tem arma, e o botão de atirar ao lado do pular */
+  body.com-armas #barra .slot:nth-child(n+6):not(.mais) { display: none; }
+  #botoes-armas { right: calc(max(14px, env(safe-area-inset-right)) + 86px); gap: 8px; }
+  #botoes-armas .redondo:not(.grande) { width: 44px; height: 44px; font-size: 22px; }
+  #botoes-armas .redondo.grande { width: 76px; height: 76px; font-size: 36px; }
+  body.com-armas #armas-hud { bottom: calc(max(6px, env(safe-area-inset-bottom)) + 62px); }
+  #hud #armas-slots .aslot { height: 40px; }
+}
+@media (max-width: 640px), (max-height: 480px) { body.com-armas #dica-toque { display: none; } }
+/* deitado com arma: o lugar ao lado do pular é do atirar, então o largar volta para cima do pular */
+@media (max-height: 500px) and (orientation: landscape) { body.toque.com-armas #bt-largar { position: static; } }
