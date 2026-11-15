@@ -6,6 +6,7 @@ import { conta } from './rede.js';
 import { icone, preencherIcones, comIcone } from './icones.js';
 import { Lobby } from './lobby.js';
 import { somDaPagina } from './som.js';
+import { criarAnalise, criarPerfil, guardarLocal } from './xadrez-analise.js';
 
 // sons: peça de madeira na casa, "toc-toc" ao comer, aviso de xeque e o fim da partida
 const som = somDaPagina();
@@ -73,6 +74,7 @@ let modoPre = false; // as casas marcadas são de pré-lance
 let tipoAmigo = 'amistosa'; // partida com amigo: 'amistosa' ou 'pontos'
 let meusPontos = null; // { bullet: { mostrar, ... }, ... } da conta
 let busca = null; // procurando adversário: { ws, desde }
+let pcGuardada = false; // a partida contra o computador já foi para o perfil
 let preFeitos = 0; // quantos pré-lances já saíram sozinhos (para os testes)
 
 function salvarPC() {
@@ -315,6 +317,12 @@ function mostrarFim() {
   $('#fim-txt').textContent = txt;
   $('#bt-revanche').textContent = modo === 'online' ? 'Jogar de novo (trocando de cor)' : 'Jogar de novo';
   mostrarPontosFim();
+  // partida contra o computador: fica guardada no aparelho (perfil e análise)
+  if (modo === 'pc' && (e.hist || []).length >= 2 && !pcGuardada) {
+    pcGuardada = true;
+    guardarLocal({ id: 'pc' + Date.now().toString(36), local: true, quando: Date.now(), cor: voce, contra: 'Computador (' + ['', 'fácil', 'médio', 'difícil'][nivel] + ')', res: !f.vencedor ? 'e' : venci ? 'v' : 'd', tipo: f.tipo, hist: e.hist });
+  }
+  $('#bt-analisar').hidden = (e.hist || []).length < 1;
   $('#fim-espera').hidden = true;
   $('#x-fim').hidden = false;
 }
@@ -399,7 +407,7 @@ marcar('.nivel', 'nivel', nivel); marcar('.cor-peca', 'cor', voce); marcar('.rit
 function abrirMenu() {
   fecharOnline();
   modo = null;
-  $('#x-jogo').hidden = true; $('#x-fim').hidden = true; $('#promo').hidden = true;
+  $('#x-jogo').hidden = true; $('#x-fim').hidden = true; $('#promo').hidden = true; $('#x-analise').hidden = true; $('#x-perfil').hidden = true;
   $('#x-menu').hidden = false;
   $('#bt-continuar').hidden = !lerPC();
   $('#x-sem-conta').hidden = !!conta.token;
@@ -411,6 +419,7 @@ function abrirMenu() {
 }
 function comecarPC(guardado = null) {
   modo = 'pc'; girado = false; sel = -1; alvos = []; pre = null; modoPre = false; relogio = null; lancesVistos = -1;
+  pcGuardada = false;
   if (guardado) { e = X.deJson(guardado.e); voce = guardado.voce; nivel = guardado.nivel; fimAtual = null; }
   else { e = X.novo(); fimAtual = null; }
   $('#x-menu').hidden = true; $('#x-jogo').hidden = false;
@@ -439,6 +448,17 @@ $('#bt-revanche').addEventListener('click', () => {
   $('#fim-espera').hidden = false; $('#fim-espera').textContent = 'Esperando seu amigo topar…';
 });
 $('#bt-ver').addEventListener('click', () => { $('#x-fim').hidden = true; });
+
+// ---------- análise e perfil ----------
+const analise = criarAnalise({ svgPeca, aoVoltar: () => abrirMenu() });
+const perfil = criarPerfil({ analise, aoVoltar: () => abrirMenu() });
+$('#bt-perfil').addEventListener('click', () => { $('#x-erro').textContent = ''; perfil.abrir(); });
+$('#bt-analisar').addEventListener('click', () => {
+  const lado = meuLado(), outro = lado === 'w' ? 'b' : 'w';
+  const nomeOutro = modo === 'pc' ? 'Computador' : (online && online.jogadores && online.jogadores[outro] ? online.jogadores[outro].nome : 'Adversário');
+  // ao sair da análise volta para a tela do fim da partida
+  analise.abrir({ hist: e.hist || [], cor: lado, nomes: { [lado]: 'Você', [outro]: nomeOutro } }, () => { $('#x-jogo').hidden = false; $('#x-fim').hidden = false; });
+});
 $('#bt-menu-fim').addEventListener('click', () => abrirMenu());
 
 // ---------- online ----------
@@ -527,5 +547,5 @@ if (pedida && /^[A-Za-z0-9]{10,24}$/.test(pedida) && conta.token) jogarOnline(pe
 else abrirMenu();
 
 // para os testes automáticos (testes/teste-xadrez.mjs)
-window.__xadrez = { get e() { return e; }, get voce() { return voce; }, get modo() { return modo; }, get fim() { return fimAtual; }, get online() { return online; }, get relogio() { return relogio; }, get pre() { return pre; }, get preFeitos() { return preFeitos; }, get busca() { return busca; }, set ritmo(v) { ritmo = v; }, X, set nivel(v) { nivel = v; }, set demoraPC(v) { demoraPC = v; }, fazer };
+window.__xadrez = { get e() { return e; }, get voce() { return voce; }, get modo() { return modo; }, get fim() { return fimAtual; }, get online() { return online; }, get relogio() { return relogio; }, get pre() { return pre; }, get preFeitos() { return preFeitos; }, get busca() { return busca; }, set ritmo(v) { ritmo = v; }, X, set nivel(v) { nivel = v; }, set demoraPC(v) { demoraPC = v; }, fazer, analise };
 void icone;

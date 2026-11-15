@@ -45,7 +45,7 @@ export class Partida extends DurableObject {
     if (trocar) { const w = p.lugares.w; p.lugares.w = p.lugares.b; p.lugares.b = w; }
     p.e = JOGOS[p.jogo].novo(); p.fim = null; p.empate = null; p.revanche = []; p.partidas = (p.partidas || 1) + (trocar ? 1 : 0);
     if (p.relogio) p.relogio = this.relogioNovo(p.relogio.ritmo);
-    p.registrado = null; p.idJogo = crypto.randomUUID(); p.fora = null;
+    p.registrado = null; p.idJogo = crypto.randomUUID(); p.fora = null; p.guardado = false;
   }
 
   // ---------- pontos (partidas que valem pontos) ----------
@@ -64,6 +64,23 @@ export class Partida extends DurableObject {
   //  Não contam: menos de 2 lances; desistir/sair antes de 10 lances de cada lado; as duas contas na mesma internet;
   //  e (no Pontos) mais de 3 partidas valendo pontos entre as mesmas contas no dia.
   async registrar() {
+    await this.registrarPontos();
+    await this.guardarHistorico();
+  }
+  // no fim de uma partida de xadrez com 2 lances ou mais: vai para o histórico dos dois (perfil e análise)
+  async guardarHistorico() {
+    const p = this.p;
+    if (p.jogo !== 'xadrez' || !p.fim || p.guardado || !this.env.PONTOS || !p.lugares.w || !p.lugares.b || (p.e.hist || []).length < 2) return;
+    p.guardado = true;
+    const r = p.registrado && !p.registrado.anulada ? p.registrado : null;
+    try {
+      await this.env.PONTOS.get(this.env.PONTOS.idFromName('geral')).fetch('https://pontos/interno', {
+        method: 'POST', headers: { 'x-interno': 'historico', 'content-type': 'application/json' },
+        body: JSON.stringify({ w: { uid: p.lugares.w.uid, nome: p.lugares.w.nome }, b: { uid: p.lugares.b.uid, nome: p.lugares.b.nome }, ritmo: p.relogio ? p.relogio.ritmo : '', ranqueada: !!r, fim: p.fim, hist: p.e.hist, pontos: r }),
+      });
+    } catch {}
+  }
+  async registrarPontos() {
     const p = this.p, cat = this.categoria();
     if (!p.ranqueada || !p.fim || p.registrado || !cat || !this.env.PONTOS || !p.lugares.w || !p.lugares.b) return;
     const n = (p.e.hist || []).length;

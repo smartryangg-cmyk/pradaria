@@ -79,14 +79,16 @@ let ra = await relogios(ana), rb = await relogios(beto);
 ok(ra.w.t === '3:00' && ra.b.t === '3:00' && rb.w.t === '3:00' && rb.b.t === '3:00' && !ra.w.anda && !ra.b.anda, 'os dois veem 3:00 nos dois relógios, parados antes do primeiro lance');
 await esperaVez(ana, 'w'); await ana.lance('e2', 'e4'); await chegou(beto, 1);
 ok(!(await relogios(beto)).b.anda, 'depois do primeiro lance das brancas o relógio ainda não anda');
-await esperaVez(beto, 'b'); await beto.lance('e7', 'e5'); await chegou(ana, 2);
+await esperaVez(beto, 'b'); const t0 = Date.now(); await beto.lance('e7', 'e5'); await chegou(ana, 2);
 await ana.p.waitForTimeout(1600);
 ra = await relogios(ana);
 ok(ra.w.anda && !ra.b.anda && /^2:5[789]$/.test(ra.w.t) && ra.b.t === '3:00', 'depois do e5 anda só o relógio da Ana (' + ra.w.t + ' x ' + ra.b.t + ')');
 await ana.foto('2-ana-relogio-andando');
 await ana.lance('g1', 'f3'); await chegou(beto, 3);
 const srv = await beto.p.evaluate(() => window.__xadrez.relogio);
-ok(srv.w > 178000 && srv.w <= 181000 && srv.anda === 'b', 'Ana jogou e ganhou 2 s: ficou com ' + (srv.w / 1000).toFixed(1) + ' s; agora anda o do Beto');
+// a Ana gastou no máximo (agora - t0); com o incremento de 2 s ela fica com pelo menos 182 s - isso (a rede do site publicado é mais lenta)
+const gastoMax = Date.now() - t0;
+ok(srv.w >= 182000 - gastoMax - 300 && srv.w <= 182000 && srv.anda === 'b', `Ana jogou e ganhou 2 s: ficou com ${(srv.w / 1000).toFixed(1)} s (gastou no máximo ${(gastoMax / 1000).toFixed(1)} s); agora anda o do Beto`);
 await beto.p.waitForTimeout(1200);
 rb = await relogios(beto);
 ok(rb.b.anda && rb.b.t !== '3:00', 'no celular do Beto o relógio dele anda (' + rb.b.t + ')');
