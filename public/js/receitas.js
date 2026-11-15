@@ -1,5 +1,5 @@
 // Coletar e criar: o que cada bloco dá ao quebrar, o que se gasta ao colocar, as receitas
-// (livro de receitas: toca e cria, sem decorar grade) e as ferramentas.
+// (grade de criar 2x2/3x3 com desenho, como no clássico, e o livro de receitas que arruma a grade) e as ferramentas.
 // Regras puras, sem tela: o jogo sem internet e a sala online (economia.js) usam as mesmas.
 // Não importe nada daqui que dependa do navegador.
 //
@@ -115,33 +115,33 @@ export const RECEITAS = [
   { id: 'tabuas-pinheiro', faz: [I.TABUAS, 4], usa: [[71, 1]], grupo: 'basico' },
   { id: 'tabuas-betula', faz: [I.TABUAS, 4], usa: [[73, 1]], grupo: 'basico' },
   { id: 'tabuas-palmeira', faz: [I.TABUAS, 4], usa: [[131, 1]], grupo: 'basico' },
-  { id: 'graveto', faz: [I.GRAVETO, 4], usa: [[I.TABUAS, 2]], grupo: 'basico' },
-  { id: 'bancada', faz: [I.BANCADA, 1], usa: [[I.TABUAS, 4]], grupo: 'basico' },
+  { id: 'graveto', faz: [I.GRAVETO, 4], usa: [[I.TABUAS, 2]], grupo: 'basico', forma: ['T', 'T'] },
+  { id: 'bancada', faz: [I.BANCADA, 1], usa: [[I.TABUAS, 4]], grupo: 'basico', forma: ['TT', 'TT'] },
   // ferramentas (bancada)
-  { id: 'picareta-madeira', faz: [I.PICARETA_MADEIRA, 1], usa: [[I.TABUAS, 3], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas' },
-  { id: 'machado-madeira', faz: [I.MACHADO_MADEIRA, 1], usa: [[I.TABUAS, 3], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas' },
-  { id: 'pa-madeira', faz: [I.PA_MADEIRA, 1], usa: [[I.TABUAS, 1], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas' },
-  { id: 'picareta-pedra', faz: [I.PICARETA_PEDRA, 1], usa: [[I.PEDRA, 3], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas' },
-  { id: 'machado-pedra', faz: [I.MACHADO_PEDRA, 1], usa: [[I.PEDRA, 3], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas' },
-  { id: 'pa-pedra', faz: [I.PA_PEDRA, 1], usa: [[I.PEDRA, 1], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas' },
-  { id: 'balde', faz: [I.BALDE, 1], usa: [[I.TABUAS, 3]], bancada: true, grupo: 'ferramentas' },
+  { id: 'picareta-madeira', faz: [I.PICARETA_MADEIRA, 1], usa: [[I.TABUAS, 3], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas', forma: ['TTT', '.G.', '.G.'] },
+  { id: 'machado-madeira', faz: [I.MACHADO_MADEIRA, 1], usa: [[I.TABUAS, 3], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas', forma: ['TT', 'TG', '.G'] },
+  { id: 'pa-madeira', faz: [I.PA_MADEIRA, 1], usa: [[I.TABUAS, 1], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas', forma: ['T', 'G', 'G'] },
+  { id: 'picareta-pedra', faz: [I.PICARETA_PEDRA, 1], usa: [[I.PEDRA, 3], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas', forma: ['PPP', '.G.', '.G.'] },
+  { id: 'machado-pedra', faz: [I.MACHADO_PEDRA, 1], usa: [[I.PEDRA, 3], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas', forma: ['PP', 'PG', '.G'] },
+  { id: 'pa-pedra', faz: [I.PA_PEDRA, 1], usa: [[I.PEDRA, 1], [I.GRAVETO, 2]], bancada: true, grupo: 'ferramentas', forma: ['P', 'G', 'G'] },
+  { id: 'balde', faz: [I.BALDE, 1], usa: [[I.TABUAS, 3]], bancada: true, grupo: 'ferramentas', forma: ['T.T', '.T.'] },
   // construção
-  { id: 'pedrisco', faz: [I.PEDRISCO, 2], usa: [[I.PEDRA, 2]], grupo: 'construir' },
+  { id: 'pedrisco', faz: [I.PEDRISCO, 2], usa: [[I.PEDRA, 2]], grupo: 'construir', forma: ['P.', '.P'] },
   { id: 'terra-arada', faz: [I.TERRA_ARADA, 1], usa: [[I.TERRA, 1]], grupo: 'construir' },
   { id: 'tijolo', faz: [I.TIJOLO, 2], usa: [[I.TERRA, 1], [I.AREIA, 1]], bancada: true, grupo: 'construir' },
   { id: 'vidro', faz: [I.VIDRO, 1], usa: [[I.AREIA, 2]], bancada: true, grupo: 'construir' },
   { id: 'lampiao', faz: [I.LAMPIAO, 1], usa: [[I.VIDRO, 1], [I.GRAVETO, 1]], bancada: true, grupo: 'construir' },
-  { id: 'feno', faz: [I.FENO, 1], usa: [[I.TRIGO, 3]], grupo: 'construir' },
-  { id: 'porta', faz: [I.PORTA, 2], usa: [[I.TABUAS, 4]], bancada: true, grupo: 'construir' },
+  { id: 'feno', faz: [I.FENO, 1], usa: [[I.TRIGO, 3]], grupo: 'construir', forma: ['WWW'] },
+  { id: 'porta', faz: [I.PORTA, 3], usa: [[I.TABUAS, 6]], bancada: true, grupo: 'construir', forma: ['TT', 'TT', 'TT'] },
   { id: 'forno', faz: [I.FORNO, 1], usa: [[I.PEDRA, 6], [I.PEDRISCO, 2]], bancada: true, grupo: 'construir' },
   { id: 'manivela', faz: [I.SARILHO, 1], usa: [[I.TRONCO, 1], [I.GRAVETO, 2]], bancada: true, grupo: 'construir' },
   // móveis (moveis.js); o pedreiro gasta o mesmo material quando faz os móveis da casa (casas.js BRUTO)
   { id: 'cama', faz: [176, 1], usa: [[I.TABUAS, 2], [I.LA_BRANCA, 1], [I.LA_VERMELHA, 1]], bancada: true, grupo: 'construir' },
-  { id: 'cadeira', faz: [180, 1], usa: [[I.TABUAS, 2]], bancada: true, grupo: 'construir' },
-  { id: 'mesa', faz: [184, 1], usa: [[I.TABUAS, 3]], bancada: true, grupo: 'construir' },
-  { id: 'balcao', faz: [185, 1], usa: [[I.TABUAS, 3]], bancada: true, grupo: 'construir' },
-  { id: 'estante', faz: [186, 1], usa: [[I.TABUAS, 4]], bancada: true, grupo: 'construir' },
-  { id: 'prateleira-paes', faz: [187, 1], usa: [[I.TABUAS, 4]], bancada: true, grupo: 'construir' },
+  { id: 'cadeira', faz: [180, 1], usa: [[I.TABUAS, 2]], bancada: true, grupo: 'construir', forma: ['TT'] },
+  { id: 'mesa', faz: [184, 1], usa: [[I.TABUAS, 3]], bancada: true, grupo: 'construir', forma: ['TTT'] },
+  { id: 'balcao', faz: [185, 1], usa: [[I.TABUAS, 3]], bancada: true, grupo: 'construir', forma: ['TT', 'T.'] },
+  { id: 'estante', faz: [186, 1], usa: [[I.TABUAS, 4]], bancada: true, grupo: 'construir', forma: ['T.T', 'T.T'] },
+  { id: 'prateleira-paes', faz: [187, 1], usa: [[I.TABUAS, 4]], bancada: true, grupo: 'construir', forma: ['TTT', '.T.'] },
   // cores
   { id: 'la-vermelha', faz: [I.LA_VERMELHA, 1], usa: [[I.LA_BRANCA, 1], [I.FLOR_VERMELHA, 1]], grupo: 'cores' },
   { id: 'la-amarela', faz: [I.LA_AMARELA, 1], usa: [[I.LA_BRANCA, 1], [I.FLOR_AMARELA, 1]], grupo: 'cores' },
@@ -149,25 +149,25 @@ export const RECEITAS = [
   { id: 'la-verde', faz: [I.LA_VERDE, 1], usa: [[I.LA_BRANCA, 1], [I.CAPIM, 1]], grupo: 'cores' },
   { id: 'la-rosa', faz: [I.LA_ROSA, 2], usa: [[I.LA_BRANCA, 1], [I.LA_VERMELHA, 1]], grupo: 'cores' },
   // formas que não são cubos (formas-defs.js: 80..99)
-  { id: 'tronco-redondo', faz: [80, 1], usa: [[I.TRONCO, 1]], grupo: 'formas' },
-  { id: 'tronco-redondo-pinheiro', faz: [81, 1], usa: [[71, 1]], grupo: 'formas' },
-  { id: 'tronco-redondo-betula', faz: [82, 1], usa: [[73, 1]], grupo: 'formas' },
-  { id: 'cerca', faz: [84, 3], usa: [[I.TABUAS, 2], [I.GRAVETO, 2]], grupo: 'formas' },
-  { id: 'meio-bloco', faz: [90, 2], usa: [[I.PEDRA, 1]], grupo: 'formas' },
-  { id: 'rampa', faz: [91, 2], usa: [[I.PEDRISCO, 3]], grupo: 'formas' },
-  { id: 'escada', faz: [95, 4], usa: [[I.TABUAS, 6]], bancada: true, grupo: 'formas' },
-  { id: 'coluna', faz: [83, 2], usa: [[I.PEDRA, 2]], bancada: true, grupo: 'formas' },
-  { id: 'bola', faz: [87, 1], usa: [[I.PEDRA, 1]], bancada: true, grupo: 'formas' },
+  { id: 'tronco-redondo', faz: [80, 2], usa: [[I.TRONCO, 2]], grupo: 'formas', forma: ['L', 'L'] },
+  { id: 'tronco-redondo-pinheiro', faz: [81, 2], usa: [[71, 2]], grupo: 'formas', forma: ['L', 'L'] },
+  { id: 'tronco-redondo-betula', faz: [82, 2], usa: [[73, 2]], grupo: 'formas', forma: ['L', 'L'] },
+  { id: 'cerca', faz: [84, 3], usa: [[I.TABUAS, 2], [I.GRAVETO, 2]], grupo: 'formas', forma: ['TG', 'TG'] },
+  { id: 'meio-bloco', faz: [90, 6], usa: [[I.PEDRA, 3]], bancada: true, grupo: 'formas', forma: ['PPP'] },
+  { id: 'rampa', faz: [91, 2], usa: [[I.PEDRISCO, 3]], grupo: 'formas', forma: ['R.', 'RR'] },
+  { id: 'escada', faz: [95, 4], usa: [[I.TABUAS, 6]], bancada: true, grupo: 'formas', forma: ['T..', 'TT.', 'TTT'] },
+  { id: 'coluna', faz: [83, 2], usa: [[I.PEDRA, 2]], bancada: true, grupo: 'formas', forma: ['P', 'P'] },
+  { id: 'bola', faz: [87, 4], usa: [[I.PEDRA, 4]], bancada: true, grupo: 'formas', forma: ['.P.', 'P.P', '.P.'] },
   { id: 'cupula', faz: [88, 2], usa: [[I.TIJOLO, 3]], bancada: true, grupo: 'formas' },
   { id: 'vidro-fino', faz: [85, 4], usa: [[I.VIDRO, 1]], bancada: true, grupo: 'formas' },
   { id: 'cupula-vidro', faz: [89, 2], usa: [[I.VIDRO, 3]], bancada: true, grupo: 'formas' },
   { id: 'cano', faz: [86, 4], usa: [[I.PEDRA, 2], [I.PEDRISCO, 1]], bancada: true, grupo: 'formas' },
-  { id: 'roda', faz: [99, 1], usa: [[I.TABUAS, 2], [I.GRAVETO, 1]], bancada: true, grupo: 'formas' },
+  { id: 'roda', faz: [99, 1], usa: [[I.TABUAS, 2], [I.GRAVETO, 1]], bancada: true, grupo: 'formas', forma: ['TGT'] },
   // engenharia (bancada; só nos mundos com máquinas)
   { id: 'fio', faz: [I.FIO, 6], usa: [[I.LA_VERMELHA, 1], [I.GRAVETO, 1]], bancada: true, grupo: 'maquinas' },
   { id: 'alavanca', faz: [I.ALAVANCA, 1], usa: [[I.GRAVETO, 1], [I.PEDRISCO, 1]], bancada: true, grupo: 'maquinas' },
   { id: 'botao', faz: [I.BOTAO, 1], usa: [[I.PEDRA, 1]], bancada: true, grupo: 'maquinas' },
-  { id: 'placa', faz: [I.PLACA, 1], usa: [[I.PEDRA, 2]], bancada: true, grupo: 'maquinas' },
+  { id: 'placa', faz: [I.PLACA, 1], usa: [[I.PEDRA, 2]], bancada: true, grupo: 'maquinas', forma: ['PP'] },
   { id: 'sensor', faz: [I.SENSOR, 1], usa: [[I.VIDRO, 1], [I.LA_AZUL, 1], [I.PEDRA, 1]], bancada: true, grupo: 'maquinas' },
   { id: 'pisca', faz: [I.PISCA, 1], usa: [[I.LAMPIAO, 1], [I.FIO, 2]], bancada: true, grupo: 'maquinas' },
   { id: 'lampada', faz: [I.LAMPADA, 1], usa: [[I.LAMPIAO, 1], [I.VIDRO, 1]], bancada: true, grupo: 'maquinas' },
@@ -196,7 +196,85 @@ export const MAX_ITEM = 9999;
 export const qtdEm = (itens, id) => itens[id] || 0;
 export const faltaBancada = (r, temBancada) => !!r.bancada && !temBancada;
 export const temTudo = (itens, r) => r.usa.every(([id, n]) => qtdEm(itens, id) >= n);
-export const podeCriar = (itens, r, temBancada) => !faltaBancada(r, temBancada) && temTudo(itens, r) && qtdEm(itens, r.faz[0]) + r.faz[1] <= MAX_ITEM;
+export const podeCriar = (itens, r, temBancada, limite = false) => !faltaBancada(r, temBancada) && temTudo(itens, r) && qtdEm(itens, r.faz[0]) + r.faz[1] <= MAX_ITEM
+  && (!limite || cabeDepois(itens, r));
+
+// ---------- espaço da mochila (como no clássico) ----------
+// 27 espaços + 9 da barra + 1 da segunda mão; cada espaço guarda uma pilha: 64 da maioria das coisas,
+// 16 baldes, 1 ferramenta. A conta é pela arrumação mais apertada: o inventário da tela (inventario.js)
+// sempre consegue arrumar o que a mochila diz que cabe.
+export const ESPACOS = 37;
+export const pilhaDe = (id) => (FERRAMENTAS[id] ? 1 : id === I.BALDE ? 16 : 64);
+export function espacosUsados(itens) {
+  let s = 0;
+  for (const k in itens) { const n = itens[k]; if (n > 0) s += Math.ceil(n / pilhaDe(+k)); }
+  return s;
+}
+// quantos de `id` ainda cabem
+export function cabeQuanto(itens, id) {
+  const p = pilhaDe(id), tem = qtdEm(itens, id);
+  const sobra = tem % p ? p - (tem % p) : 0;
+  return Math.max(0, sobra + Math.max(0, ESPACOS - espacosUsados(itens)) * p);
+}
+export const cabe = (itens, id, n) => cabeQuanto(itens, id) >= n;
+// depois de gastar os ingredientes, o resultado cabe?
+function cabeDepois(itens, r) {
+  const c = { ...itens };
+  for (const [id, n] of r.usa) { c[id] = qtdEm(c, id) - n; if (c[id] <= 0) delete c[id]; }
+  return cabe(c, r.faz[0], r.faz[1]);
+}
+
+// ---------- grade de criar (2x2 na mochila, 3x3 na bancada) ----------
+// receita com `forma`: o desenho tem de ser esse (em qualquer lugar da grade, e pode ser espelhado);
+// sem `forma`: as coisas podem estar em qualquer lugar (uma por espaço). Cada espaço gasta 1.
+// Letras: T tábuas, G graveto, P pedra, R pedrisco, W trigo, L = o único ingrediente da receita.
+const LETRAS = { T: I.TABUAS, G: I.GRAVETO, P: I.PEDRA, R: I.PEDRISCO, W: I.TRIGO };
+const letra = (r, c) => (c === '.' ? 0 : c === 'L' ? r.usa[0][0] : LETRAS[c]);
+export function desenhoDe(r) {
+  if (r.forma) return r.forma.map((l) => [...l].map((c) => letra(r, c)));
+  return null;
+}
+export const totalUsa = (r) => r.usa.reduce((s, [, n]) => s + n, 0);
+// cabe numa grade de lado w? (2x2 só para o que não precisa de bancada)
+export function cabeNaGrade(r, w) {
+  if (w < 3 && r.bancada) return false;
+  const d = desenhoDe(r);
+  return d ? d.length <= w && d[0].length <= w : totalUsa(r) <= w * w;
+}
+// recorta a grade no retângulo usado
+function recortar(grade, w) {
+  let x0 = w, y0 = w, x1 = -1, y1 = -1;
+  for (let y = 0; y < w; y++) for (let x = 0; x < w; x++) if (grade[y * w + x]) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  if (x1 < 0) return null;
+  const r = [];
+  for (let y = y0; y <= y1; y++) { const l = []; for (let x = x0; x <= x1; x++) l.push(grade[y * w + x] || 0); r.push(l); }
+  return r;
+}
+const igual = (a, b) => a.length === b.length && a.every((l, y) => l.length === b[y].length && l.every((v, x) => v === b[y][x]));
+// grade = ids (w*w, 0 = vazio) -> a receita que ela faz (ou null)
+export function receitaDaGrade(grade, w, lista = RECEITAS) {
+  const g = recortar(grade, w);
+  if (!g) return null;
+  const esp = g.map((l) => [...l].reverse());
+  const cont = {}; let n = 0;
+  for (const v of grade) if (v) { cont[v] = (cont[v] || 0) + 1; n++; }
+  for (const r of lista) {
+    if (!cabeNaGrade(r, w)) continue;
+    const d = desenhoDe(r);
+    if (d) { if (igual(g, d) || igual(esp, d)) return r; continue; }
+    if (n === totalUsa(r) && r.usa.every(([id, q]) => cont[id] === q)) return r;
+  }
+  return null;
+}
+// como o livro de receitas arruma os ingredientes na grade (ids w*w)
+export function arrumar(r, w) {
+  const g = new Array(w * w).fill(0);
+  const d = desenhoDe(r);
+  if (d) { d.forEach((l, y) => l.forEach((v, x) => { g[y * w + x] = v; })); return g; }
+  let i = 0;
+  for (const [id, q] of r.usa) for (let k = 0; k < q; k++) g[i++] = id;
+  return g;
+}
 
 export function por(itens, id, n = 1) {
   if (!guardavel(id) || !(n > 0)) return 0;
@@ -210,8 +288,8 @@ export function tirar(itens, id, n = 1) {
   if (tem === n) delete itens[id]; else itens[id] = tem - n;
   return true;
 }
-export function criarEm(itens, r, temBancada) {
-  if (!podeCriar(itens, r, temBancada)) return false;
+export function criarEm(itens, r, temBancada, limite = false) {
+  if (!podeCriar(itens, r, temBancada, limite)) return false;
   for (const [id, n] of r.usa) tirar(itens, id, n);
   por(itens, r.faz[0], r.faz[1]);
   return true;
