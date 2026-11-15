@@ -13,6 +13,7 @@
 <link rel="apple-touch-icon" href="icone-apple.png">
 <meta name="apple-mobile-web-app-title" content="Pradaria">
 <link rel="stylesheet" href="estilo.css?v=22">
+<link rel="stylesheet" href="tv.css?v=1">
 </head>
 <body>
 <canvas id="tela"></canvas>
@@ -60,6 +61,7 @@
     </form>
   </div>
   <div id="vida" role="img" hidden></div>
+  <div id="folego" role="img" hidden></div>
   <!-- mundo de Guerra (guerra.js) -->
   <div id="procurado" role="img" hidden></div>
   <div id="pena" hidden></div>
@@ -83,6 +85,7 @@
     <button id="bt-largar" class="redondo" aria-label="Largar o que está na mão (segure para largar tudo)" hidden><span data-icone="largar"></span></button>
     <button id="bt-voar" class="redondo" aria-label="Voar"><span data-icone="voar"></span></button>
     <button id="bt-descer" class="redondo" aria-label="Descer" hidden><span data-icone="descer"></span></button>
+    <button id="bt-agachar" class="redondo" aria-label="Agachar (liga e desliga)"><span data-icone="agachar"></span></button>
     <button id="bt-pular" class="redondo grande" aria-label="Pular"><span data-icone="pular"></span></button>
   </div>
   <!-- armas (opção do mundo) -->
@@ -291,6 +294,19 @@
     <p class="versao" id="versao-inicio"></p>
   </div>
 
+  <!-- a plataforma: escolher o jogo (hub.js, lista em jogos.js) -->
+  <div class="caixa larga" id="m-jogos" hidden>
+    <h2>Olá, <span id="j-nome"></span>!</h2>
+    <p class="sub centro">Escolha um jogo</p>
+    <div id="lista-jogos" class="jogos"></div>
+    <p id="jogos-msg" class="sub centro" aria-live="polite"></p>
+    <div class="linha-bts">
+      <button class="bt" id="bt-personagem4"><span data-icone="camiseta"></span>Meu personagem</button>
+      <button class="bt fraco" id="bt-sair-conta2"><span data-icone="sair"></span>Sair da conta</button>
+    </div>
+    <p class="versao" id="versao-jogos"></p>
+  </div>
+
   <form class="caixa" id="m-conta" hidden>
     <h2 id="conta-titulo">Entrar</h2>
     <label class="campo">Nome de jogador<input id="c-nome" autocomplete="username" maxlength="16" required></label>
@@ -306,6 +322,7 @@
   </form>
 
   <div class="caixa" id="m-mundos" hidden>
+    <button class="bt fraco voltar-jogos" type="button" id="bt-voltar-jogos"><span data-icone="voltar"></span>Todos os jogos</button>
     <h2>Olá, <span id="m-nome"></span>!</h2>
     <p class="sub">Escolha um mundo</p>
     <p id="mundos-erro" class="erro"></p>
@@ -403,6 +420,6 @@
 
 <div id="desmaio" hidden></div>
 <div id="fps" hidden></div>
-<script type="module" src="js/main.js?v=25"></script>
+<script type="module" src="js/main.js?v=26"></script>
 </body>
 </html>

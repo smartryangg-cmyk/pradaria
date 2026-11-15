@@ -12,3 +12,8 @@ database_id = "COLOCAR_ID_DO_D1"
 name = "SALA"
 class_name = "Sala"
 script_name = "pradaria-sala"
+
+[[durable_objects.bindings]]
+name = "CONTROLE"
+class_name = "Controle"
+script_name = "pradaria-sala"

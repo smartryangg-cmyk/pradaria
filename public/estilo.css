@@ -47,6 +47,8 @@ body.visao-frente #mira { display: none; }
 .redondo.ativo, .redondo:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--txt); background: #fff6d6; }
 #bt-menu { width: 50px; height: 50px; border-radius: 16px; font-size: 26px; }
 #bt-voar.ligado { background: var(--amarelo); }
+#bt-agachar.ligado { background: var(--amarelo); }
+#joy.correndo { border-color: var(--amarelo); background: rgba(255,214,90,.22); }
 
 #emotes { position: relative; display: flex; gap: 6px; padding: 5px; border-radius: 16px; background: var(--hud-fundo); }
 #emotes-lista { display: flex; gap: 6px; }
@@ -261,7 +263,7 @@ body:not(.toque) #veic-botoes { bottom: 90px; }
 .pilula:active { transform: translateY(3px); box-shadow: 0 3px 0 rgba(0,0,0,.18); }
 #velo { position: fixed; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%); background: rgba(0,0,0,.45); color: #fff; border-radius: 16px; padding: 6px 16px; display: flex; align-items: baseline; gap: 6px; }
 #velo b { font-size: 30px; font-variant-numeric: tabular-nums; } #velo small { opacity: .8; }
-body.dirigindo #barra, body.dirigindo #mira, body.dirigindo #bt-voar, body.dirigindo #dica-toque { display: none; }
+body.dirigindo #barra, body.dirigindo #mira, body.dirigindo #bt-voar, body.dirigindo #bt-agachar, body.dirigindo #dica-toque { display: none; }
 body.dirigindo #botoes-toque { bottom: 60px; }
 #garagem .caixa { max-width: 640px; }
 #garagem-cores { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 4px 0 12px; }
@@ -287,6 +289,17 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 #vida.treme { animation: treme .35s; }
 @keyframes treme { 0%, 100% { transform: translateX(-50%); } 25% { transform: translateX(calc(-50% - 5px)); } 75% { transform: translateX(calc(-50% + 5px)); } }
 @media (max-width: 640px) { #vida { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 64px); } #vida .coracao, #vida .coracao .ic-svg { width: 20px; height: 20px; } }
+/* água: tom azulado embaixo d'água e barra de fôlego (bolhas) */
+#agua-tela { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .25s; background: radial-gradient(ellipse at 50% 45%, rgba(40,175,200,.10) 0%, rgba(10,80,120,.30) 70%, rgba(4,40,80,.48) 100%); }
+#agua-tela.ligada { opacity: 1; }
+#folego { position: absolute; left: 50%; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 116px); transform: translateX(-50%); display: flex; gap: 2px; pointer-events: none; filter: drop-shadow(0 2px 2px rgba(0,0,0,.4)); }
+#folego[hidden] { display: none; }
+#folego .bolha { width: 22px; height: 22px; transition: transform .2s, opacity .2s; }
+#folego .bolha .ic-svg { width: 22px; height: 22px; display: block; }
+#folego .bolha.vazia { transform: scale(.45); opacity: .25; }
+#folego.acabando .bolha:not(.vazia) { animation: bolha-treme .5s infinite; }
+@keyframes bolha-treme { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@media (max-width: 640px) { #folego { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 90px); } #folego .bolha, #folego .bolha .ic-svg { width: 17px; height: 17px; } }
 #desmaio { position: fixed; inset: 0; pointer-events: none; background: #2a1d45; opacity: 0; }
 #desmaio.vai { animation: desmaio 2.2s ease-in-out; }
 @keyframes desmaio { 0% { opacity: 0; } 35%, 55% { opacity: .95; } 100% { opacity: 0; } }
@@ -786,3 +799,24 @@ body.chat-aberto #botoes-toque, body.chat-aberto #dica-toque, body.chat-aberto #
   .ops-mini .ic-svg { width: 14px; height: 14px; }
   #lista-mundos { max-height: 50vh; }
 }
+
+/* ---------- plataforma: escolher o jogo (hub.js) ---------- */
+#m-jogos { width: min(620px, 100%); }
+.jogos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.jogo { display: flex; flex-direction: column; padding: 0; overflow: hidden; border: 3px solid var(--txt); border-radius: 18px; background: #fff; box-shadow: 0 5px 0 var(--txt); font: inherit; color: var(--txt); text-align: left; cursor: pointer; min-width: 0; }
+.jogo:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--txt); }
+.jogo:focus-visible { outline: 4px solid #3f8fe0; outline-offset: 2px; }
+.jogo .capa { display: grid; place-items: center; height: 96px; border-bottom: 3px solid var(--txt);
+  background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.35) 0 18%, transparent 19%), linear-gradient(160deg, var(--c1), var(--c2)); }
+.jogo .capa .ic-svg { width: 64px; height: 64px; filter: drop-shadow(0 3px 0 rgba(0,0,0,.25)); }
+.jogo .info { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px 12px; min-width: 0; }
+.jogo .info b { font-size: 20px; font-weight: 900; line-height: 1.1; }
+.jogo .info small { color: var(--txt2); font-weight: 700; font-size: 14px; line-height: 1.25; }
+.jogo .selos { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+.jogo .selos i { font-style: normal; font-size: 12px; font-weight: 900; padding: 2px 8px; border-radius: 999px; background: var(--creme2); border: 2px solid var(--borda); }
+.jogo .selos i.mais16 { background: #ffe1d6; border-color: #e9967a; color: #8a2f12; }
+.jogo.embreve .capa { filter: saturate(.55); }
+.jogo.bloqueado { opacity: .6; }
+.voltar-jogos { align-self: flex-start; min-height: 40px; padding: 4px 8px; margin: -8px 0 -6px -6px; font-size: 16px; }
+@media (max-width: 380px) { .jogo .capa { height: 76px; } .jogo .capa .ic-svg { width: 50px; height: 50px; } .jogo .info b { font-size: 18px; } .jogos { gap: 10px; } }
+@media (max-height: 500px) and (orientation: landscape) { .jogos { grid-template-columns: repeat(3, minmax(0, 1fr)); } .jogo .capa { height: 66px; } .jogo .capa .ic-svg { width: 44px; height: 44px; } .jogo .info small { display: none; } }
