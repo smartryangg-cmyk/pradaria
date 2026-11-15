@@ -285,6 +285,9 @@ async function salvarNascimento(request, env, u) {
   const nascimento = nascimentoOk((await corpo(request)).nascimento);
   if (!nascimento) return erro('Escolha o dia, o mês e o ano em que você nasceu.');
   const db = await banco(env);
+  // conta antiga que já respondeu "menos de 16" (idade16 = 0) não se libera digitando um ano de adulto
+  const antes = await db.prepare('SELECT idade16 FROM usuarios WHERE id = ?').bind(u.id).first();
+  if (antes && antes.idade16 === 0 && mais16De(nascimento)) return erro('Esta conta já respondeu que tem menos de 16 anos. Escolha a data certa.', 403);
   await db.prepare('UPDATE usuarios SET nascimento = ? WHERE id = ? AND nascimento IS NULL').bind(nascimento, u.id).run();
   const r = await db.prepare('SELECT id, nome, cor, skin, modelos, nascimento FROM usuarios WHERE id = ?').bind(u.id).first();
   return json({ usuario: publico(r) });
