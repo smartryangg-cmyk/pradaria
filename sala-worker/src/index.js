@@ -547,7 +547,7 @@ export class Sala extends DurableObject {
       // coletar e criar: água parada só sai com balde na mão (a mira atravessa a água)
       if (econ && op.sobrevivencia && m.j && b === 0 && (m.mao | 0) !== 1009) {
         const de0 = ed.has(k) ? ed.get(k) : m.de | 0;
-        if (de0 === 5 || (de0 >= 23 && de0 <= 30)) { ws.send(JSON.stringify({ t: 'econ', s: econ })); return; }
+        if (de0 === 5 || (de0 >= 23 && de0 <= 30) || (de0 >= 215 && de0 <= 219)) { ws.send(JSON.stringify({ t: 'econ', s: econ })); return; } // lava também
       }
       // coletar e criar: só coloca o que tem na mochila
       if (econ && op.sobrevivencia && m.j && b > 0 && lugarVazio(ed.has(k) ? ed.get(k) | 0 : m.de | 0) && !((econ.itens[gastoDe(b)] || 0) > 0)) {

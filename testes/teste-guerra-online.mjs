@@ -12,7 +12,7 @@ const conferir = (ok, msg) => { console.log((ok ? 'OK   ' : 'FALHA ') + msg); if
 const esperar = async (p, fn, arg, ms = 20000) => { try { await p.waitForFunction(fn, arg, { timeout: ms, polling: 100 }); return true; } catch { return false; } };
 const clicar = async (p) => { await p.dispatchEvent('#tela', 'mousedown', { button: 0 }); await p.waitForTimeout(250); await p.evaluate(() => dispatchEvent(new MouseEvent('mouseup', { button: 0 }))); };
 
-async function jogador(nome, op) {
+async function jogador(nome, op, ano = 1990) {
   const ctx = await b.newContext(op);
   const p = await ctx.newPage();
   p.on('pageerror', (e) => erros.push(nome + ' PAGEERROR ' + e.message));
@@ -21,6 +21,7 @@ async function jogador(nome, op) {
   await p.click('#bt-criar-conta');
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
   if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
+  await p.selectOption('#c-nasc .d-dia', '1'); await p.selectOption('#c-nasc .d-mes', '1'); await p.selectOption('#c-nasc .d-ano', String(ano));
   await p.click('#c-ok');
   await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])', { timeout: 15000 }); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 }); } })();
   return p;
@@ -30,11 +31,10 @@ const sfx = Date.now() % 10000;
 const a = await jogador('Ana' + sfx, { viewport: { width: 1024, height: 640 } });
 await a.click('#bt-novo-mundo');
 await a.click('[data-tipo=guerra]');
-await a.waitForSelector('#idade:not([hidden])');
-await a.click('#idade-sim');
-await esperar(a, () => document.querySelector('#idade').hidden, null, 5000);
+await a.waitForTimeout(400);
+conferir(!(await a.isVisible('#idade')), 'A (adulta) escolhe Guerra sem pergunta');
 const contaA = await a.evaluate(async (k) => (await (await fetch('/api/eu', { headers: { authorization: 'Bearer ' + localStorage.getItem(k) } })).json()).usuario.idade16, TOKEN);
-conferir(contaA === true, 'resposta "tenho 16" guardada na conta da A');
+conferir(contaA === true, 'idade da conta da A: 16 anos ou mais');
 await a.fill('#n-nome', 'Guerra');
 await a.click('#m-novo summary'); await a.fill('#n-semente', 'guerra1');
 await a.click('#m-novo button[type=submit]');
@@ -44,22 +44,19 @@ const vagasA = await esperar(a, () => ['gbt', 'gbj', 'gbh'].every((k) => window.
 conferir(vagasA, 'A: tanque, jipe e helicóptero aparecem nas vagas da base (criados pela sala)');
 
 // C (sem 16 anos) tenta entrar pelo código: pergunta, responde "não", fica de fora; o servidor também barra
-const c = await jogador('Caio' + sfx, { viewport: { width: 900, height: 600 } });
+const c = await jogador('Caio' + sfx, { viewport: { width: 900, height: 600 } }, new Date().getFullYear() - 12);
 await c.click('#bt-codigo'); await c.fill('#n-nome', codigo); await c.click('#m-novo button[type=submit]');
 await c.waitForSelector('#idade:not([hidden])', { timeout: 10000 });
-await c.click('#idade-nao');
 await c.click('#idade-ok');
 await c.waitForTimeout(800);
 conferir(!(await c.evaluate(() => !!(window.__jogo && window.__jogo.sala))), 'C (menos de 16) não entra no mundo de Guerra');
-const barrado = await c.evaluate(async ([cod, TOKEN]) => { const t = localStorage.getItem(TOKEN); const r = await fetch('/api/mundos/entrar', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + t }, body: JSON.stringify({ codigo: cod }) }); const r2 = await fetch('/api/eu/idade', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + t }, body: JSON.stringify({ mais16: true }) }); return [r.status, (await r2.json()).idade16]; }, [codigo, TOKEN]);
+const barrado = await c.evaluate(async ([cod, TOKEN]) => { const t = localStorage.getItem(TOKEN); const r = await fetch('/api/mundos/entrar', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + t }, body: JSON.stringify({ codigo: cod }) }); await fetch('/api/eu/nascimento', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + t }, body: JSON.stringify({ nascimento: '1990-01-01' }) }); const r2 = await fetch('/api/eu', { headers: { authorization: 'Bearer ' + t } }); return [r.status, (await r2.json()).usuario.idade16]; }, [codigo, TOKEN]);
 conferir(barrado[0] === 403 && barrado[1] === false, 'servidor barra C e não deixa trocar a resposta para "sim": ' + barrado);
 await c.context().close();
 
-// B (tablet) entra pelo código e responde que tem 16
+// B (tablet, adulto) entra pelo código sem pergunta
 const bb = await jogador('Beto' + sfx, { ...devices['iPad (gen 7) landscape'] });
 await bb.click('#bt-codigo'); await bb.fill('#n-nome', codigo); await bb.click('#m-novo button[type=submit]');
-await bb.waitForSelector('#idade:not([hidden])', { timeout: 10000 });
-await bb.click('#idade-sim');
 await bb.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.guerra.ativo && window.__jogo.outros > 0, null, { timeout: 30000 });
 conferir(true, 'B (16 anos ou mais) entra no mundo de Guerra');
 await esperar(bb, () => ['gbt', 'gbj', 'gbh'].every((k) => window.__jogo.garagem.veic.mapa.has(k)), null, 10000);

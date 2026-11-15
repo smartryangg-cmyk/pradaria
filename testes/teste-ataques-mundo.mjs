@@ -33,8 +33,8 @@ function salaCru(codigo, token, extra, corpo) {
 }
 // letras sorteadas (nome sem 5 números seguidos e sem repetir entre testes rodados em seguida)
 const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join('');
-const dono = await api('cadastrar', { nome: 'Dono' + sfx, senha: 'senha123' });
-const chato = await api('cadastrar', { nome: 'Chato' + sfx, senha: 'senha123' });
+const dono = await api('cadastrar', { nome: 'Dono' + sfx, senha: 'senha123', nascimento: '2000-01-01' });
+const chato = await api('cadastrar', { nome: 'Chato' + sfx, senha: 'senha123', nascimento: '2000-01-01' });
 ok(dono.token && chato.token, 'contas criadas');
 const TORRE = [[3, 58, 4, 3], [3, 59, 4, 3], [3, 60, 4, 2]];
 const arq = { formato: 'pradaria-mundo', versao: 1, nome: 'Alvo', semente: 1234, opcoes: {}, edicoes: TORRE };
@@ -85,7 +85,7 @@ const sujo = {
   edicoes: [[1, 30, 1, 3], [200000, 30, 0, 3], [0, 0, 0, 3], [0, 96, 0, 3], [0, 30, 0, 256], [0, 30, 0, -1], ['1', 30, 0, 3], [1.5, 30, 0, 3], [0, 30], null, { x: 1 }, [0, 30, 0, 3, 9]],
 };
 // (conta nova: cada um só importa 10 por hora, e os pedidos ruins acima também contam)
-const limpo = await api('cadastrar', { nome: 'Limpo' + sfx, senha: 'senha123' });
+const limpo = await api('cadastrar', { nome: 'Limpo' + sfx, senha: 'senha123', nascimento: '2000-01-01' });
 const r = await api('mundos/importar', { arquivo: sujo, nome: 'Arquivo Sujo' }, limpo.token);
 ok(r.mundo, 'arquivo cheio de lixo ainda importa só o que presta');
 if (r.mundo) {

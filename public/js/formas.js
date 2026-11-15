@@ -3,10 +3,13 @@
 // passar entre as cercas só onde tem abertura, e a cerca é alta (1,5) para ninguém pular.
 import { BLOCOS, OPACO, SOLIDO, BRILHO, uvTile, COLS, TILE, ICONES_ESPECIAIS } from './blocos.js';
 import { F, ehForma, baseForma } from './formas-defs.js';
+import { ESCADA_MAO, TOCHA } from './escada-mao.js';
 
 export { F, ehForma };
 export const FORMA_NOVA = new Uint8Array(256);
 for (let b = 80; b <= 99; b++) FORMA_NOVA[b] = 1;
+for (let d = 0; d < 4; d++) FORMA_NOVA[ESCADA_MAO + d] = 1;
+FORMA_NOVA[TOCHA] = 1;
 
 const TRONCOS = new Set([F.TRONCO_R, F.TRONCO_R_PINHEIRO, F.TRONCO_R_BETULA]);
 const ehTronco = (b) => TRONCOS.has(b);
@@ -242,6 +245,18 @@ export function desenharFormaNova(A, get, x, y, z, b, cor = 1) {
     case 'laje':
       caixa(p, 0, 0, 0, 1, 0.5, 1, def.tiles[2], (i) => i !== 2 && tapadoFace(get, x, y, z, i));
       break;
+    case 'tocha':
+      // cabo de madeira e a chama em cima (a chama usa a textura da lava)
+      caixa(p, 0.44, 0, 0.44, 0.56, 0.6, 0.56, def.tiles[2], (i) => i === 3 && tapado(0, -1, 0));
+      caixa(p, 0.41, 0.6, 0.41, 0.59, 0.8, 0.59, def.tiles[0]);
+      break;
+    case 'escadamao': {
+      // dois trilhos e quatro degraus encostados na parede (+x, girado)
+      const q = new Pincel(A, x, y, z, cor, luz, b - ESCADA_MAO), t = def.tiles[2];
+      caixa(q, 0.86, 0, 0.1, 0.98, 1, 0.22, t); caixa(q, 0.86, 0, 0.78, 0.98, 1, 0.9, t);
+      for (const yy of [0.12, 0.37, 0.62, 0.87]) caixa(q, 0.88, yy - 0.05, 0.22, 0.96, yy + 0.05, 0.78, t);
+      break;
+    }
     case 'rampa': {
       const d = b - F.RAMPA;
       const q = new Pincel(A, x, y, z, cor, luz, d);
@@ -333,6 +348,8 @@ export function caixasForma(b, get, x, y, z) {
     case 'bola': return [[0, 0, 0, 1, 1, 1]];
     case 'cupula': return [[0, 0, 0, 1, 0.5, 1]];
     case 'laje': return [[0, 0, 0, 1, 0.5, 1]];
+    case 'escadamao': return [girarCaixa(b - ESCADA_MAO, [0.78, 0, 0, 1, 1, 1])];
+    case 'tocha': return [[0.36, 0, 0.36, 0.64, 0.82, 0.64]];
     case 'rampa': return [[0, 0, 0, 1, 1, 1]];
     case 'escada': {
       const d = b - F.ESCADA;
@@ -466,6 +483,15 @@ function desenharIcone(ctx, id, tam, atlas) {
       break;
     case 'escada':
       preencher(poli([[4, 44], [4, 32], [16, 32], [16, 20], [28, 20], [28, 8], [44, 8], [44, 44]]), tile, 0.1);
+      break;
+    case 'tocha':
+      preencher(poli([[21, 20], [27, 20], [27, 46], [21, 46]]), tile, 0.1);
+      preencher(() => { ctx.beginPath(); ctx.ellipse(24, 13, 7, 10, 0, 0, Math.PI * 2); }, topo, 0);
+      break;
+    case 'escadamao':
+      preencher(poli([[10, 3], [16, 3], [16, 45], [10, 45]]), tile, 0.15);
+      preencher(poli([[32, 3], [38, 3], [38, 45], [32, 45]]), tile, 0.15);
+      for (const yy of [9, 19, 29, 39]) preencher(poli([[16, yy], [32, yy], [32, yy + 4], [16, yy + 4]]), tile, 0);
       break;
     case 'roda':
       preencher(() => { ctx.beginPath(); ctx.arc(24, 24, 20, 0, Math.PI * 2); ctx.arc(24, 24, 15, 0, Math.PI * 2, true); }, tile, 0.1);

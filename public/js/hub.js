@@ -3,7 +3,7 @@
 import { conta, api } from './rede.js';
 import { icone } from './icones.js';
 import { JOGOS } from './jogos.js';
-import { idade16, confirmarIdade16 } from './idade.js';
+import { idade16, confirmarIdade16, garantirNascimento } from './idade.js';
 
 const $ = (s) => document.querySelector(s);
 let cb = {};
@@ -55,6 +55,8 @@ export async function abrirJogos() {
     else { cb.mostrarMenu('m-inicio'); alert('Não consegui falar com o servidor agora. Você pode jogar sem internet.\n\n' + err.message); }
     return;
   }
+  // conta antiga sem data de nascimento: pergunta uma vez (decide quais jogos ficam liberados)
+  await garantirNascimento();
   if (cb.lobby) { if (!cb.lobby.ws || cb.lobby.fechado) cb.lobby.reabrir(); cb.lobby.jogo('hub'); cb.amigos.carregar(); }
   $('#j-nome').textContent = conta.usuario.nome;
   $('#jogos-msg').textContent = '';

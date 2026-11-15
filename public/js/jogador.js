@@ -1,6 +1,8 @@
 // Física do jogador: andar, pular, voar, nadar e colisão com blocos.
 import { SOLIDO, AGUA, B, E, ESTEIRA_DIRS } from './blocos.js';
 import { FORMA_NOVA, colideForma } from './formas.js';
+import { ehEscadaMao, SOBE, DESCE } from './escada-mao.js';
+import { ehLava } from './lava-regras.js';
 import { vida } from './vida.js';
 import { superficieAgua } from './agua.js';
 
@@ -104,7 +106,10 @@ export class Jogador {
     // agachar: só no chão ou caindo (não voando nem nadando); levanta só se tiver espaço em cima
     if (ent.agachar && !this.voando && !this.naAgua) { this.agachado = true; this.altura = ALTURA_AGACHADO; }
     else if (this.agachado) { this.altura = ALTURA; if (this.colide(p.x, p.y, p.z)) this.altura = ALTURA_AGACHADO; else this.agachado = false; }
+    // dentro da lava: anda bem devagar e afunda devagar (queimar quem conta é main.js)
+    this.naLava = !this.voando && (ehLava(this.mundo.bloco(bx, Math.floor(p.y + 0.1), bz)) || ehLava(this.mundo.bloco(bx, Math.floor(p.y + 0.9), bz)));
     let vel = this.voando ? 9 : this.naAgua ? 2.6 : 4.4;
+    if (this.naLava) vel *= 0.4;
     if (this.agachado) vel *= 0.35;
     else if (ent.correr && !this.naAgua) vel *= 1.45;
     this.correndo = !!ent.correr && !this.agachado && !this.naAgua && !this.voando && this.noChao && len > 0.1;
@@ -126,6 +131,7 @@ export class Jogador {
       v.x += cx * 9 * dt; v.z += cz * 9 * dt;
     }
 
+    this.naEscada = false;
     if (this.voando) {
       const alvo = (ent.pular ? 7 : 0) - (ent.descer ? 7 : 0);
       v.y += (alvo - v.y) * Math.min(1, 10 * dt);
@@ -138,6 +144,14 @@ export class Jogador {
         v.y = PULO; this.noChao = false; this.pulou = true; this.bufPulo = 0; this.tempoNoAr = COYOTE;
       }
       v.y = Math.max(v.y, -40);
+      // escada de mão: andando para a frente ou pulando, sobe; agachado, fica parado; solto, escorrega devagar
+      this.naEscada = ehEscadaMao(this.mundo.bloco(bx, Math.floor(p.y + 0.1), bz)) || ehEscadaMao(this.mundo.bloco(bx, Math.floor(p.y + 0.9), bz));
+      if (this.naLava) { v.y = ent.pular ? 2.2 : Math.max(v.y, -1.2); this.pulou = true; }
+      if (this.naEscada) {
+        if (ent.pular || ent.frente > 0.3) { v.y = SOBE; this.pulou = true; this.bufPulo = 0; }
+        else if (this.agachado) v.y = 0;
+        else v.y = Math.max(v.y, -DESCE);
+      }
       // planando (começo da Ilha de Aventura): cai devagarinho e anda rápido no ar
       if (this.planando) {
         v.y = Math.max(v.y, ent.descer ? -12 : -3.2);
@@ -186,7 +200,7 @@ export class Jogador {
     // coyote time e altura da queda
     if (this.noChao) { this.tempoNoAr = 0; this.pulou = false; } else this.tempoNoAr += dt;
     if (this.naAgua || this.voando) this.tempoNoAr = Math.max(this.tempoNoAr, COYOTE);
-    if (this.noChao || this.voando || this.naAgua || this.planando || this.noVento) this.pico = p.y;
+    if (this.noChao || this.voando || this.naAgua || this.planando || this.noVento || this.naEscada || this.naLava) this.pico = p.y; // na escada não machuca
     else if (p.y > this.pico) this.pico = p.y;
   }
 

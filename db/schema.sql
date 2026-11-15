@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS usuarios (
   criado_em INTEGER NOT NULL,
   skin TEXT, -- personagem em JSON (public/js/skin.js); bancos antigos ganham a coluna em lib/base.js
   modelos TEXT, -- personagens guardados (lista em JSON, até 8)
-  idade16 INTEGER -- "Você tem 16 anos ou mais?": null = não respondeu, 1 = sim, 0 = não (modos com temas sensíveis)
+  idade16 INTEGER, -- antigo "Você tem 16 anos ou mais?" (não vale mais: a idade sai da data de nascimento)
+  nascimento TEXT -- data de nascimento AAAA-MM-DD, pedida no cadastro (ou uma vez no login de contas antigas); não muda depois
 );
 CREATE TABLE IF NOT EXISTS mundos (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

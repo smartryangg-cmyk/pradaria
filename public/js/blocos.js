@@ -7,6 +7,8 @@ import { M, DEFS_MEC, PINTORES_MEC } from './blocos-mecanismos.js';
 import { MV, DEFS_MOVEIS, PINTORES_MOVEIS } from './moveis.js';
 export { M };
 import { DEFS_FORMAS, INVENTARIO_FORMAS } from './formas-defs.js';
+import { ESCADA_MAO, TOCHA } from './escada-mao.js';
+import { LAVA, LAVA_CORRENTE, LAVA_CAINDO, OBSIDIANA } from './lava-regras.js';
 export { INVENTARIO_FORMAS };
 
 export const AR = 0;
@@ -171,6 +173,14 @@ for (const [id, nome, tiles, o] of DEFS_MEC) def(id, nome, tiles, o);
 for (const [id, nome, tiles, o] of DEFS_FORMAS) def(id, nome, tiles, o);
 // móveis das casas (cama, cadeira, mesa, balcão, estantes): IDs 176..187, veja moveis.js
 for (const [id, nome, tiles, o] of DEFS_MOVEIS) def(id, nome, tiles, o);
+// lava (lava-regras.js): fonte, corrente (3 níveis) e caindo; não é sólida, brilha; obsidiana dura
+def(LAVA, 'Lava', 150, { solido: false, opaco: false, brilho: 1 });
+for (let n = 1; n <= 3; n++) def(LAVA_CORRENTE[n], 'Lava', 150, { solido: false, opaco: false, brilho: 1 });
+def(LAVA_CAINDO, 'Lava', 150, { solido: false, opaco: false, brilho: 1 });
+def(OBSIDIANA, 'Obsidiana', 151);
+def(TOCHA, 'Tocha', [150, 9, 9], { solido: false, opaco: false, forma: 'tocha', chao: true, brilho: 0.6 });
+// escada de mão (escada-mao.js): 4 giros, de madeira, presa na parede
+for (let d = 0; d < 4; d++) def(ESCADA_MAO + d, 'Escada de mão', 9, { solido: false, opaco: false, forma: 'escadamao' });
 
 // blocos das eras (mundo Linha do Tempo): IDs 128..175, veja blocos-eras.js
 for (const [id, nome, tiles, o] of DEFS_ERAS) def(id, nome, tiles, o);
@@ -198,8 +208,8 @@ NIVEL[AGUA_CAINDO] = 8;
 // Ordem dos blocos no inventário (modo criativo)
 export const INVENTARIO = [
   B.GRAMA, B.TERRA, B.PEDRA, B.PEDRISCO, B.AREIA, B.TRONCO, B.TABUAS, B.FOLHAS, B.VIDRO, B.TIJOLO,
-  B.LAMPIAO, B.FENO, B.BANCADA, B.TERRA_ARADA, B.LA_BRANCA, B.LA_VERMELHA, B.LA_AZUL, B.LA_AMARELA, B.LA_VERDE, B.LA_ROSA,
-  B.FLOR_VERMELHA, B.FLOR_AMARELA, B.FLOR_AZUL, B.CAPIM, B.TRIGO, B.MUDA, B.MUDA_PINHEIRO, B.AGUA,
+  B.LAMPIAO, TOCHA, ESCADA_MAO, B.FENO, B.BANCADA, B.TERRA_ARADA, B.LA_BRANCA, B.LA_VERMELHA, B.LA_AZUL, B.LA_AMARELA, B.LA_VERDE, B.LA_ROSA,
+  B.FLOR_VERMELHA, B.FLOR_AMARELA, B.FLOR_AZUL, B.CAPIM, B.TRIGO, B.MUDA, B.MUDA_PINHEIRO, B.AGUA, LAVA, OBSIDIANA,
   B.CACTO, B.CASCALHO, B.CARVAO, B.FERRO, B.OURO, B.DIAMANTE,
   B.TRONCO_PINHEIRO, B.FOLHAS_PINHEIRO, B.TRONCO_BETULA, B.FOLHAS_SELVA, B.ARBUSTO_SECO,
   M.PORTA, M.FORNO, M.FARINHA, M.PAO,
@@ -376,6 +386,18 @@ function pintarCriacao(img) {
     if (x + y === 15 && x >= 3 && x <= 12) return var_(cabo, r, 0.08);
     if (x + y === 16 && x >= 3 && x <= 12) return var_(caboEsc, r, 0.08);
     return [0, 0, 0, 0];
+  });
+  // 150 lava: laranja quente com manchas escuras de crosta e pontos amarelos
+  pintarTile(img, 150, (x, y, r) => {
+    const o = Math.sin(x * 0.9 + y * 0.35) + Math.sin(y * 1.1 - x * 0.5) * 0.8;
+    if (o > 1.2) return var_(hex(0xffe066), r, 0.08);
+    if (o < -1.1) return var_(hex(0x9a2a10), r, 0.1);
+    return var_(o > 0.3 ? hex(0xff9a1f) : hex(0xe8561a), r, 0.1);
+  });
+  // 151 obsidiana: quase preta, roxa, com riscos brilhantes
+  pintarTile(img, 151, (x, y, r) => {
+    if ((x * 3 + y * 5) % 17 === 0 || (x * 7 + y * 2) % 23 === 0) return var_(hex(0x6b4fa0), r, 0.1);
+    return var_(((x >> 2) + (y >> 2)) % 3 ? hex(0x1c1430) : hex(0x2a1d45), r, 0.12);
   });
   // 142 balde: de tábuas, com aros escuros e alça
   pintarTile(img, 142, (x, y, r) => {

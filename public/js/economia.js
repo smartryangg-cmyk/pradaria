@@ -7,6 +7,7 @@ import { RECEITAS, guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, fa
 
 // ids dos blocos (iguais aos de blocos.js)
 const BALDE = 1009; // receitas.js I.BALDE
+const LAVA = 215; // lava-regras.js: a fonte de lava na mochila é o balde de lava
 const G = 1, TE = 2, PE = 3, AR_ = 4, AG = 5, TR = 6, FO = 7, TA = 8, VI = 9, TJ = 10, FV = 11, FA = 12, CA = 13,
   LB = 14, LV = 15, LZ = 16, LM = 17, LG = 18, LR = 19, PD = 20, LP = 21, FZ = 22, TAR = 31, TRI = 32, FE = 33;
 // farinha e pão (blocos-mecanismos.js): saem do moinho de vento e do forno
@@ -259,11 +260,15 @@ export function aplicar(e, op, a, ctx = {}) {
         const g = gastoDe(a.b), comprado = livreDe(e, g) < 1;
         if (!tirar(e.itens, g, 1)) return falha('Você não tem esse bloco.');
         if (comprado) { e.compra[g] = Math.max(0, (e.compra[g] || 0) - 1); r.marca = 1; }
-        if (a.b === AG) por(e.itens, BALDE, 1); // despejou a água: o balde volta vazio
+        if (a.b === AG || a.b === LAVA) por(e.itens, BALDE, 1); // despejou a água (ou a lava): o balde volta vazio
       } else if (!a.b && a.de === AG) {
         // água parada só sai com balde: o balde vazio vira balde de água (a Água na mochila), nada cai no chão
         if ((a.mao | 0) !== BALDE || !tirar(e.itens, BALDE, 1)) return falha('Para pegar água, use um balde (crie na bancada com 3 tábuas).');
         por(e.itens, AG, 1);
+      } else if (!a.b && a.de === LAVA) {
+        // lava também: só com balde (não dá para pegar com a mão)
+        if ((a.mao | 0) !== BALDE || !tirar(e.itens, BALDE, 1)) return falha('Para pegar lava, use um balde.');
+        por(e.itens, LAVA, 1);
       } else if (!a.b) {
         // quebrou: o que cai vai para o chão (regras-chao.js); quem chamou põe no chão. A mochila só recebe quando
         // alguém pega. O que cai de um bloco que era comprado continua marcado (c = quantos são comprados).

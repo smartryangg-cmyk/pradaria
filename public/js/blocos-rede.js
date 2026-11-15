@@ -11,7 +11,7 @@ PARES_TOQUE.forEach(([a, b], i) => { PAR.set(a, i); PAR.set(b, i); });
 export const CAI = new Set([4, 20, 65]);
 export const FOLHA = new Set([7, 72, 74, 132]);
 // some quando tiram o bloco de baixo (blocos.js PRECISA_CHAO: plantas, fios, alavanca, botão, placa)
-export const PRECISA_CHAO = new Set([11, 12, 13, 22, 32, 75, 76, 77, 78, 79, 100, 101, 102, 103, 104, 105, 106, 107, 129, 130, 135]);
+export const PRECISA_CHAO = new Set([11, 12, 13, 22, 32, 75, 76, 77, 78, 79, 100, 101, 102, 103, 104, 105, 106, 107, 129, 130, 135, 221]); // 221 tocha
 const vazio = (b) => !b || b === 5 || (b >= 23 && b <= 30); // ar ou água
 
 // atual = o que está no lugar (o servidor sabe se alguém já mexeu; se não, é o que o aparelho diz)
@@ -22,5 +22,8 @@ export function mudancaSemMao(atual, b, construcao = true) {
   if (atual === b) return true;
   if (b === 0) return CAI.has(atual) || FOLHA.has(atual) || PRECISA_CHAO.has(atual);
   if (CAI.has(b)) return vazio(atual); // areia caindo
+  // lava (lava-regras.js): com água a lava vira obsidiana ou pedrisco; lava caindo na água vira pedra
+  if (atual >= 215 && atual <= 219 && (b === 220 || b === 20)) return true;
+  if ((atual === 5 || (atual >= 23 && atual <= 30)) && b === 3) return true;
   return (atual === 1 && b === 2) || (atual === 2 && b === 1); // grama coberta vira terra e volta
 }

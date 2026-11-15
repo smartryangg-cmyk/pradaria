@@ -943,3 +943,7 @@ body.modo-tv .marca-dagua { font-size: 14px; }
 }
 #grade .bt-mini { aspect-ratio: auto; display: inline-flex; place-items: initial; border-width: 2px; box-shadow: 0 2px 0 var(--txt); padding: 6px 10px; }
 .bt-mini .ic-svg { width: 18px; height: 18px; }
+/* data de nascimento (idade.js): dia, mês e ano lado a lado */
+.data-nasc { display: grid; grid-template-columns: 1fr 1.6fr 1.2fr; gap: 6px; }
+.data-nasc select { font: inherit; font-size: 17px; font-weight: 700; padding: 10px 6px; border-radius: 14px; border: 3px solid var(--borda); background: #fff; color: var(--txt); min-width: 0; }
+#idade-data { margin: 4px 0 2px; }

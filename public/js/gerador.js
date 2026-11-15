@@ -14,7 +14,9 @@ export const G = {
   TRONCO_PINHEIRO: 71, FOLHAS_PINHEIRO: 72, TRONCO_BETULA: 73, FOLHAS_SELVA: 74, ARBUSTO_SECO: 75,
   // troncos redondos das árvores (formas-defs.js)
   TRONCO_R: 80, TRONCO_R_PINHEIRO: 81, TRONCO_R_BETULA: 82,
+  LAVA: 215, // lava-regras.js: lagos de lava no fundo das cavernas
 };
+const NIVEL_LAVA_CAVERNA = 7; // cavernas até esta altura ficam com lava no fundo (como no clássico)
 
 export const BIOMA = {
   OCEANO: 0, OCEANO_GELADO: 1, PRAIA: 2, RIO: 3, PLANICIE: 4, FLORESTA: 5, TAIGA: 6, NEVE: 7,
@@ -185,7 +187,7 @@ export function criarGerador(semente, alt, limite = null) {
         const a = interp(N1, x, y, z), b = interp(N2, x, y, z);
         let oco = a * a + b * b < esp;
         if (!oco && y < S - 6 && fundo > 8) oco = interp(N3, x, y, z) > 0.5 - Math.min(0.12, (S - 6 - y) * 0.006);
-        if (oco) d[idx(x, y, z)] = G.AR;
+        if (oco) d[idx(x, y, z)] = y <= NIVEL_LAVA_CAVERNA ? G.LAVA : G.AR;
       }
     }
 

@@ -35,6 +35,9 @@ import { Agua } from './agua.js';
 import { criarComandos } from './comandos.js';
 import { criarCama } from './cama.js';
 import { ehCama } from './dormir-regras.js';
+import { ESCADA_MAO, PAREDE } from './escada-mao.js';
+import { LAVA, ehLava, DANO_LAVA } from './lava-regras.js';
+import { FORMA_NOVA } from './formas.js';
 import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, ESTILOS, MODOS_JOGO, DIFICULDADES, modoJogoDe, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto, raioExtraMundo, precisa16 } from './opcoes-mundo.js';
 import { vida } from './vida.js';
 import { Mapa } from './mapa.js';
@@ -51,7 +54,7 @@ import { Armas } from './armas.js';
 import { abrirEditarMundo, desenharRegrasMods, desenharAbas, atualizarAbas, baixarArquivo, escolherArquivo, montarArquivo } from './editar-mundo.js';
 import { Mecanismos } from './mecanismos.js';
 import { Guerra } from './guerra.js';
-import { confirmarIdade16 } from './idade.js';
+import { confirmarIdade16, seletorData } from './idade.js';
 import { ligarHub, abrirJogos } from './hub.js';
 import { modoTV, iniciarTV } from './tv.js';
 import { Lobby } from './lobby.js';
@@ -1253,8 +1256,8 @@ function usar(ponto) {
   if (y < 1 || y >= ALT) return;
   if (!mercado.podeColocar(novo)) { aviso(`${BLOCOS[novo].nome}: compre na loja de uma vila por ${mercado.precoDe(novo)} moedas`, 2500, 'cadeado'); return; }
   const atual = mundo.bloco(x, y, z);
-  if (atual !== AR && !AGUA[atual] && !BLOCOS[atual].planta) return;
-  if (novo === B.AGUA && atual === B.AGUA) return;
+  if (atual !== AR && !AGUA[atual] && !BLOCOS[atual].planta && !(ehLava(atual) && atual !== LAVA)) return; // na lava corrente dá para pôr
+  if ((novo === B.AGUA || novo === LAVA) && atual === novo) return;
   if (SOLIDO[novo] && jog.ocupa(x, y, z)) return;
   if (PRECISA_CHAO[novo] && !SOLIDO[mundo.bloco(x, y - 1, z)]) return;
   // trigo: na Terra de plantar vira broto e cresce sozinho; coletando, só dá para plantar nela
@@ -1272,6 +1275,15 @@ function usar(ponto) {
     const fx = -Math.sin(jog.yaw), fz = -Math.cos(jog.yaw);
     novo = E.ESTEIRA + (Math.abs(fx) > Math.abs(fz) ? (fx > 0 ? 0 : 2) : (fz > 0 ? 1 : 3));
   }
+  // escada de mão: fica presa na parede tocada (tocando no chão, na parede da frente); sem parede não fica
+  if (novo === ESCADA_MAO) {
+    let d;
+    if (h.n[1] === 0) d = PAREDE.findIndex(([px, pz]) => px === -h.n[0] && pz === -h.n[2]);
+    else { const fx = -Math.sin(jog.yaw), fz = -Math.cos(jog.yaw); d = Math.abs(fx) > Math.abs(fz) ? (fx > 0 ? 0 : 2) : (fz > 0 ? 1 : 3); }
+    const [px, pz] = PAREDE[d], parede = mundo.bloco(x + px, y, z + pz);
+    if (!SOLIDO[parede] || FORMA_NOVA[parede]) { aviso('A escada de mão precisa de uma parede atrás', 2200, 'subir'); return; }
+    novo = ESCADA_MAO + d;
+  }
   // rampa e escada: sobem para onde o jogador está olhando (andando para a frente, sobe)
   if (novo === F.RAMPA || novo === F.ESCADA) {
     const fx = -Math.sin(jog.yaw), fz = -Math.cos(jog.yaw);
@@ -1288,6 +1300,7 @@ function usar(ponto) {
   som.em(meioDe(x, y, z), () => som.colocar(novo));
   // coletando: despejou a última água, o balde vazio volta para a mão
   if (novo === B.AGUA && sobrev() && qtd(B.AGUA) < 1) trocarNaMao(B.AGUA, ITEM.BALDE);
+  if (novo === LAVA && sobrev() && qtd(LAVA) < 1) trocarNaMao(LAVA, ITEM.BALDE);
   dicaEnergia(novo, x, y, z);
 }
 
@@ -1436,25 +1449,35 @@ function quebrar(ponto) {
   if (comoJogador(() => escav.bater(h, p, total))) { som.em(meioDe(h.x, h.y, h.z), () => som.quebrar(h.b)); mostrarQueCaiu(h.b, h.x, h.y, h.z); } else som.em(meioDe(h.x, h.y, h.z), () => som.bater(h.b));
 }
 
+// dentro da lava queima (com os corações ligados): DANO_LAVA por segundo
+let tempoLava = 0, avisouLava = 0;
+function queimarNaLava(dt) {
+  if (!jog.naLava) { tempoLava = 0; return; }
+  if (tempoTotal - avisouLava > 4) { avisouLava = tempoTotal; aviso('A lava queima! Saia rápido (pule)', 2000, 'explosao'); }
+  tempoLava += dt;
+  if (tempoLava >= 1 / DANO_LAVA) { tempoLava = 0; if (vida.dano(1)) som.tom(160, 0.15, { tipo: 'square', vol: 0.25, ate: 90 }); }
+}
+
 // recolhe a fonte de água mirada; a água corrente que dependia dela seca sozinha
 function recolherAgua(ponto) {
   const dir = direcaoDe(ponto);
   const h = mundo.raycast(raio.ray.origin, dir, 6, true);
-  if (!h || !AGUA[h.b]) return false;
-  // mirou na água corrente: procura a fonte mais perto dali
-  let alvo = h.b === B.AGUA ? h : null;
+  if (!h || !(AGUA[h.b] || ehLava(h.b))) return false;
+  // lava também vai no balde (vira "Lava" na mochila); corrente: procura a fonte mais perto dali
+  const fonte = ehLava(h.b) ? LAVA : B.AGUA;
+  let alvo = h.b === fonte ? h : null;
   for (let r = 1; !alvo && r <= 3; r++) {
     for (let dy = -r; dy <= r && !alvo; dy++) for (let dx = -r; dx <= r && !alvo; dx++) for (let dz = -r; dz <= r && !alvo; dz++) {
-      if (mundo.bloco(h.x + dx, h.y + dy, h.z + dz) === B.AGUA) alvo = { x: h.x + dx, y: h.y + dy, z: h.z + dz };
+      if (mundo.bloco(h.x + dx, h.y + dy, h.z + dz) === fonte) alvo = { x: h.x + dx, y: h.y + dy, z: h.z + dz };
     }
   }
-  if (!alvo) { aviso('Essa água vem de longe', 1500, 'gota'); return true; }
+  if (!alvo) { aviso(fonte === LAVA ? 'Essa lava vem de longe' : 'Essa água vem de longe', 1500, fonte === LAVA ? 'explosao' : 'gota'); return true; }
   if (sobrev() && qtd(ITEM.BALDE) < 1) return true;
   maoQuebrando = ITEM.BALDE;
   comoJogador(() => mundo.definir(alvo.x, alvo.y, alvo.z, AR));
   som.splash(0.2);
   // coletando: o balde ficou cheio (Água na mochila); acabaram os vazios, a mão passa a segurar a água
-  if (sobrev() && qtd(ITEM.BALDE) < 1) trocarNaMao(ITEM.BALDE, B.AGUA);
+  if (sobrev() && qtd(ITEM.BALDE) < 1) trocarNaMao(ITEM.BALDE, fonte);
   return true;
 }
 // o espaço da barra com "de" passa a mostrar "para" (ou escolhe o espaço que já tem "para")
@@ -1867,13 +1890,15 @@ function sairDoMundo(op = {}) {
 }
 
 // ---------- menus de conta e mundos ----------
-let modoConta = 'entrar', corEscolhida = 0;
+let modoConta = 'entrar', corEscolhida = 0, dataNasc = null;
 function abrirConta(m) {
   modoConta = m;
   $('#conta-titulo').textContent = m === 'entrar' ? 'Entrar' : 'Criar conta';
   $('#c-ok').textContent = m === 'entrar' ? 'Entrar' : 'Criar e jogar';
   $('#c-senha').autocomplete = m === 'entrar' ? 'current-password' : 'new-password';
   $('#c-cores').hidden = m === 'entrar';
+  $('#c-nasc-caixa').hidden = m === 'entrar';
+  if (!dataNasc) dataNasc = seletorData($('#c-nasc'));
   contaModo(m);
   $('#c-erro').textContent = '';
   const cc = $('#c-cores');
@@ -1886,7 +1911,7 @@ function abrirConta(m) {
     cc.appendChild(b);
   });
   mostrarMenu('m-conta');
-  setTimeout(() => $('#c-nome').focus(), 50);
+  setTimeout(() => { if (!$('#m-conta').contains(document.activeElement)) $('#c-nome').focus(); }, 50); // não rouba o foco de quem já está digitando
 }
 $('#bt-entrar').addEventListener('click', () => conta.token ? abrirJogos() : abrirConta('entrar'));
 $('#bt-criar-conta').addEventListener('click', () => abrirConta('criar'));
@@ -1898,9 +1923,11 @@ $('#m-conta').addEventListener('submit', async (e) => {
   e.preventDefault();
   som.iniciar();
   $('#c-erro').textContent = '';
+  const nascimento = modoConta === 'entrar' ? undefined : dataNasc.valor();
+  if (modoConta !== 'entrar' && !nascimento) { $('#c-erro').textContent = 'Escolha o dia, o mês e o ano em que você nasceu.'; return; }
   $('#c-ok').disabled = true;
   try {
-    const r = await api(modoConta === 'entrar' ? 'entrar' : 'cadastrar', { nome: $('#c-nome').value.trim(), senha: $('#c-senha').value, cor: corEscolhida, skin: modoConta === 'entrar' ? undefined : skinLocal() || undefined });
+    const r = await api(modoConta === 'entrar' ? 'entrar' : 'cadastrar', { nome: $('#c-nome').value.trim(), senha: $('#c-senha').value, cor: corEscolhida, nascimento, skin: modoConta === 'entrar' ? undefined : skinLocal() || undefined });
     conta.salvar(r.token); conta.usuario = r.usuario;
     levarSkinLocal(); levarModelosLocal();
     $('#c-senha').value = '';
@@ -2130,6 +2157,7 @@ function laco(agora) {
     const ent = ctrl.atualizar();
     if (!garagem.quadro(dt, ent, false) && !cama.quadro(dt, ent)) {
       jog.atualizar(dt, ent);
+      queimarNaLava(dt);
       if ((jog.noChao || jog.naAgua) && Math.floor(jog.passo / 1.8) !== ultimoPasso) { ultimoPasso = Math.floor(jog.passo / 1.8); som.passo(jog.naAgua ? 'agua' : chaoDe(jog.pos.x, jog.pos.y, jog.pos.z), visao.agachado ? 0.18 : visao.correndo ? 0.45 : 0.35); }
     }
   }
