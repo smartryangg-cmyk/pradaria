@@ -301,3 +301,52 @@ export function criarEm(itens, r, temBancada, limite = false) {
   por(itens, r.faz[0], r.faz[1]);
   return true;
 }
+
+// ---------- desgaste das ferramentas (como no clássico) ----------
+// e.desg[id] = lista com o uso já gasto de cada ferramenta desse tipo (a primeira é a da mão: gasta primeiro).
+// Quebrar um bloco com a ferramenta gasta 1 (plantas e coisas de um toque não); acender com o isqueiro gasta 1.
+// Quando chega no máximo, a ferramenta quebra. Largar no chão leva o desgaste junto (pegar de volta não conserta).
+export const DURA = { 1001: 59, 1003: 59, 1005: 59, 1002: 131, 1004: 131, 1006: 131, 1010: 64 };
+const lim = (id, v) => Math.max(0, Math.min(DURA[id] - 1, v | 0));
+// desgaste válido para n ferramentas id (lista de números; o que faltar é ferramenta nova)
+export const desgLista = (id, l, n) => (DURA[id] && Array.isArray(l) ? l.slice(0, Math.max(0, n | 0)).map((v) => lim(id, v)) : []);
+// a lista de cada ferramenta nunca passa de quantas a mochila tem
+export function ajustarDesg(e) {
+  const d = {};
+  for (const [k, l] of Object.entries(e.desg && typeof e.desg === 'object' ? e.desg : {})) {
+    const q = desgLista(+k, l, e.itens[k] | 0);
+    while (q.length && !q[q.length - 1]) q.pop(); // as novas no fim não precisam ficar
+    if (q.length) d[k] = q;
+  }
+  e.desg = d;
+}
+// gasta 1 da ferramenta id: 'quebrou' (sumiu da mochila), 'gastou' ou null (não é ferramenta / não tem)
+export function desgastar(e, id) {
+  if (!DURA[id] || !((e.itens[id] | 0) > 0)) return null;
+  const l = ((e.desg ??= {})[id] ??= []);
+  l[0] = (l[0] | 0) + 1;
+  if (l[0] < DURA[id]) return 'gastou';
+  l.shift();
+  tirar(e.itens, id, 1);
+  ajustarDesg(e);
+  return 'quebrou';
+}
+// tira n do fim da lista (as que saem da mochila levam o desgaste); devolve o desgaste delas
+export function tirarDesg(e, id, n) {
+  if (!DURA[id]) return null;
+  const l = (e.desg && e.desg[id]) || [];
+  const tem = (e.itens[id] | 0) + n; // antes de tirar
+  while (l.length < tem) l.push(0);
+  const fora = l.splice(tem - n, n);
+  if (e.desg) e.desg[id] = l;
+  return fora.some((v) => v > 0) ? fora : null;
+}
+// as que chegam (do chão) entram no fim com o desgaste delas
+export function porDesg(e, id, d, n) {
+  if (!DURA[id]) return;
+  const tem = (e.itens[id] | 0) - n; // antes de pôr
+  const l = ((e.desg ??= {})[id] ??= []);
+  while (l.length < tem) l.push(0);
+  l.length = tem;
+  l.push(...desgLista(id, d, n), ...Array(Math.max(0, n - desgLista(id, d, n).length)).fill(0));
+}

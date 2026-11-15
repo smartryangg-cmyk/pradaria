@@ -210,7 +210,10 @@ export function fim(e) {
   if ((e.rep[chave(e)] || 0) >= 3) return { tipo: 'repeticao' };
   return null;
 }
-export const TEXTO_FIM = { mate: 'Xeque-mate', afogado: 'Empate: rei afogado', material: 'Empate: poucas peças', 50: 'Empate: 50 lances sem captura', repeticao: 'Empate: a mesma posição 3 vezes', desistiu: 'Desistiu', tempo: 'Acabou o tempo', 'tempo-empate': 'Empate: acabou o tempo, mas o outro não tinha peças para dar mate', saiu: 'O outro jogador saiu', empate: 'Empate combinado' };
+// só as chaves da própria lista (nada de "constructor", "__proto__"...)
+export const ritmoValido = (r) => typeof r === 'string' && Object.hasOwn(RITMOS, r);
+
+export const TEXTO_FIM = { cancelada: 'Partida cancelada: o primeiro lance não saiu a tempo', mate: 'Xeque-mate', afogado: 'Empate: rei afogado', material: 'Empate: poucas peças', 50: 'Empate: 50 lances sem captura', repeticao: 'Empate: a mesma posição 3 vezes', desistiu: 'Desistiu', tempo: 'Acabou o tempo', 'tempo-empate': 'Empate: acabou o tempo, mas o outro não tinha peças para dar mate', saiu: 'O outro jogador saiu', empate: 'Empate combinado' };
 
 // ---------- computador ----------
 const VAL = { P: 100, N: 320, B: 330, R: 500, Q: 900, K: 0 };

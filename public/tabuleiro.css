@@ -80,3 +80,12 @@ body.pag-dama { background: linear-gradient(160deg, #e0525a, #a8303a); }
 /* pré-lance marcado (vale quando chegar a sua vez) */
 .casa.pre { background: #e88d7c !important; }
 .casa.escura.pre { background: #c9614f !important; }
+
+/* pontos e busca de adversário */
+#x-meus-pontos { margin: 0; font-weight: 800; }
+.pag-tabuleiro .janela#x-busca { background: rgba(20, 16, 40, .55); }
+.busca-tempo { margin: 4px 0 8px; text-align: center; font-size: 40px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.fim-pontos { margin: 0; text-align: center; font-size: 20px; font-weight: 900; }
+.fim-pontos .sobe { color: #2f9a3c; } .fim-pontos .desce { color: #d23c30; }
+.jogador-linha .pts { flex: none; padding: 1px 8px; border-radius: 8px; background: rgba(20, 16, 40, .35); font-size: 14px; }
+.jogador-linha .pts:empty { display: none; }

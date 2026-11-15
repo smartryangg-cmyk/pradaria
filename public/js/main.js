@@ -1185,7 +1185,7 @@ function morrer() {
   const p = jog.pos, r = mercado.mexer({ t: 'morrer' }, true);
   if (r) {
     if (mercado.sala) mercado.sala.enviar({ t: 'morrer' });
-    else for (const [id, n, c] of r.cai || []) drops.novoLocal(id, n, p.x, p.y + 0.6, p.z, [(Math.random() - 0.5) * 4, 3 + Math.random() * 2, (Math.random() - 0.5) * 4], '', c);
+    else for (const [id, n, c, dg] of r.cai || []) drops.novoLocal(id, n, p.x, p.y + 0.6, p.z, [(Math.random() - 0.5) * 4, 3 + Math.random() * 2, (Math.random() - 0.5) * 4], '', c, dg);
     desenharBarra();
   }
   $('#morte-txt').textContent = MORREU[vida.motivo] || '';
@@ -1562,6 +1562,7 @@ function acenderFogo(x, y, z) {
   if (!SOLIDO[mundo.bloco(x, y - 1, z)] && !perto) { aviso('O fogo precisa de chão ou de madeira do lado', 1800, 'explosao'); return; }
   mundo.marcarFogo(x, y, z);
   acendendo = true; try { mundo.definir(x, y, z, FOGO); } finally { acendendo = false; } // isq: a sala marca como fogo de verdade
+  if (sobrev()) mercado.acender(); // gasta o isqueiro (depois do fogo: a sala confere que ainda tem)
   som.tom(900, 0.05, { tipo: 'square', vol: 0.15, ate: 300 });
 }
 
@@ -1955,7 +1956,7 @@ async function jogarOnline(m, volta = null) {
     bloco: (msg) => {
       if (!mundo) return;
       const antes = mundo.bloco(msg.x, msg.y, msg.z);
-      if (msg.bom && msg.b === FOGO) mundo.marcarFogo(msg.x, msg.y, msg.z); // fogo de verdade (a sala marcou)
+      if (msg.b === FOGO && Array.isArray(msg.bom) && msg.bom.length === 3 && msg.bom.every(Number.isInteger)) mundo.marcarFogo(msg.x, msg.y, msg.z, msg.bom); // fogo de verdade (a sala marcou, com o isqueiro de origem)
       mundo.definir(msg.x, msg.y, msg.z, msg.b, true);
       // o amigo quebrou/colocou: ouve de onde foi (só o que alguém fez, não a água escorrendo)
       if (msg.j && antes !== msg.b) som.em(meioDe(msg.x, msg.y, msg.z), () => (msg.b ? som.colocar(msg.b) : som.quebrar(antes)));
@@ -2352,7 +2353,14 @@ function laco(agora) {
     if (o.sentado) { if (!o.neutro) { poseNeutra(o); o.neutro = true; } continue; }
     o.neutro = false;
     const g = o.grupo.position;
-    g.lerp(o.alvo, Math.min(1, dt * 10));
+    // base = onde o amigo está (sem o ajuste dos pés); alguém mexeu no boneco por fora: recomeça dali
+    if (!o.base || Math.abs(g.x - o.base.x) > 1e-3 || Math.abs(g.z - o.base.z) > 1e-3 || Math.abs(g.y - o.base.y - (o.pesNoChao || 0)) > 1e-3) { o.base = g.clone(); o.pesNoChao = 0; }
+    o.base.lerp(o.alvo, Math.min(1, dt * 10));
+    // Natural 3D: pés no chão desenhado (arredondado), como o nosso boneco (visao.js)
+    let desce = 0;
+    if (mundo.suave && !((o.acao | 0) & 10)) { const h = mundo.alturaVisual(o.base.x, o.base.y, o.base.z); if (h !== null && h < o.base.y) desce = h - o.base.y; }
+    o.pesNoChao += (desce - o.pesNoChao) * Math.min(1, dt * 12);
+    g.set(o.base.x, o.base.y + o.pesNoChao, o.base.z);
     // para onde o amigo olha (suave entre uma mensagem e outra); o corpo vira sozinho na animação
     o.yawOlhar += (((o.alvoYaw - o.yawOlhar + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * Math.min(1, dt * 10);
     // parou de chegar posição (aba escondida, rede caiu): para de andar

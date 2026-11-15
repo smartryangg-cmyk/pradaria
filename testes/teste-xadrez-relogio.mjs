@@ -43,13 +43,13 @@ const chegou = (j, n) => j.p.waitForFunction((n) => (window.__xadrez.e.hist || [
   await t.clica('.nivel[data-nivel="3"]'); await t.clica('.cor-peca[data-cor="w"]'); await t.clica('#bt-computador');
   await t.p.waitForSelector('#x-jogo:not([hidden])');
   ok(/Os lances aparecem aqui/.test(await t.p.evaluate(() => getComputedStyle(document.querySelector('#x-lances'), '::before').content)), 'tablet: lista de lances vazia avisa onde eles aparecem');
+  await t.p.evaluate(() => { window.__xadrez.demoraPC = 2500; });
   await t.lance('e2', 'e4');
   // enquanto o computador pensa, marca o pré-lance d2-d4
   await t.lance('d2', 'd4');
-  const marcou = await t.p.evaluate(() => JSON.stringify(window.__xadrez.pre));
   await t.p.waitForFunction(() => (window.__xadrez.e.hist || []).length >= 3, null, { timeout: 20000 });
   const h = await t.p.evaluate(() => window.__xadrez.e.hist);
-  ok(marcou === JSON.stringify({ de: casa('d2'), para: casa('d4') }) && h[2] === 'd4', 'tablet: pré-lance d4 feito enquanto o computador pensava saiu sozinho (' + h.join(' ') + ')');
+  ok(await t.p.evaluate(() => window.__xadrez.preFeitos) === 1 && h[2] === 'd4', 'tablet: pré-lance d4 feito enquanto o computador pensava saiu sozinho (' + h.join(' ') + ')');
   await t.p.waitForFunction(() => (window.__xadrez.e.hist || []).length >= 4, null, { timeout: 20000 });
   const txt = await t.p.textContent('#x-lances');
   ok(/^1\.e4.+2\.d4.+/.test(txt), 'tablet: lista mostra os lances numerados (' + txt + ')');
@@ -70,7 +70,7 @@ async function partida(ritmoUI, ritmoTeste) {
   await ana.p.waitForSelector('#amigos:not([hidden])', { timeout: 5000 }).then(() => ana.clica('#amigos-fechar'), () => {});
   const cod = await ana.p.evaluate(() => window.__xadrez.online.codigo);
   await beto.p.goto(URL + '/xadrez?sala=' + cod);
-  await beto.p.waitForFunction(() => window.__xadrez && window.__xadrez.voce === 'b' && window.__xadrez.relogio, null, { timeout: 15000 });
+  await beto.p.waitForFunction(() => window.__xadrez && window.__xadrez.voce === 'b' && window.__xadrez.online && window.__xadrez.online.jogadores, null, { timeout: 15000 });
   await ana.p.waitForFunction(() => window.__xadrez.online.jogadores && window.__xadrez.online.jogadores.b, null, { timeout: 10000 });
 }
 await partida('3+2');
@@ -98,7 +98,8 @@ ok(/1\.\s*e4\s*e5\s*2\.\s*Cf3/.test(await beto.p.textContent('#x-lances')), 'lis
 // ---------- parte 3: o tempo acaba ----------
 await partida('1+0', 'teste');
 const curto = await ana.p.evaluate(() => window.__xadrez.relogio && window.__xadrez.relogio.base);
-if (curto !== 8000) ok(false, 'sala local sem TESTE=1: rode a sala com --var TESTE:1 (base ' + curto + ')');
+if (curto !== 8000 && !/localhost|127\.0\.0\.1/.test(URL)) ok(!curto, 'no site no ar o ritmo de teste não existe (partida sem relógio)');
+else if (curto !== 8000) ok(false, 'sala local sem TESTE=1: rode a sala com --var TESTE:1 (base ' + curto + ')');
 else {
   await esperaVez(ana, 'w'); await ana.lance('d2', 'd4'); await chegou(beto, 1);
   await esperaVez(beto, 'b'); await beto.lance('d7', 'd5'); await chegou(ana, 2);

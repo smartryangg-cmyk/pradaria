@@ -3,7 +3,7 @@
 // Não importe nada daqui que dependa do navegador (o servidor também usa este arquivo).
 
 import { aplicarTrabalho, normalizarTrabalho, negocioNovo, livreDe, marcarCompra, ajustarCompra, converter } from './trabalho.js';
-import { RECEITAS, guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm, cabe, cabeQuanto, pilhaDe } from './receitas.js';
+import { RECEITAS, guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm, cabe, cabeQuanto, pilhaDe, DURA, ajustarDesg, desgastar, tirarDesg, porDesg, desgLista } from './receitas.js';
 import { ehComida } from './fome-regras.js';
 
 // ids dos blocos (iguais aos de blocos.js)
@@ -184,6 +184,7 @@ export function normalizar(e, op) {
   n.feitos = (e.feitos || []).filter((id) => OBJETIVOS.some((o) => o.id === id));
   n.veiculos = [...new Set((Array.isArray(e.veiculos) ? e.veiculos : []).filter((t) => t in PRECO_VEICULO))];
   for (const [t, x] of Object.entries(e.garagem && typeof e.garagem === 'object' ? e.garagem : {})) { const q = estadoVeic(x); if (t in PRECO_VEICULO && q) n.garagem[t] = q; }
+  n.desg = e.desg; ajustarDesg(n); // desgaste das ferramentas (receitas.js)
   normalizarTrabalho(n, e);
   return n;
 }
@@ -229,6 +230,8 @@ function contar(e, op, k, n) {
 //  trabalhadores (trabalho.js): contratar, demitir, obra, cancelar-obra, depositar, retirar, turno
 //    ctx.pos = onde o jogador está (a sala usa a posição que ela conhece). Pode devolver r.blocos (o pedreiro
 //    colocou: quem chamou põe no mundo) e r.msgs (avisos para o jogador).
+// quebrar estas não gasta ferramenta (plantas, fogo, coisas de um toque)
+const DESGASTA_NAO = new Set([0, 11, 12, 13, 22, 32, 75, 76, 77, 78, 79, 129, 130, 135, 221, 222]);
 export function aplicar(e, op, a, ctx = {}) {
   const r = { ok: true, feitos: [], mudou: false };
   const falha = (erro) => ({ ok: false, erro, feitos: [], mudou: false });
@@ -237,6 +240,7 @@ export function aplicar(e, op, a, ctx = {}) {
   if (tr) {
     if (tr.erro) return { ...falha(tr.erro), falta: tr.falta, custo: tr.custo };
     ajustarCompra(e);
+    if (e.desg) ajustarDesg(e);
     return { ok: true, feitos: [], mudou: !tr.quieto, blocos: tr.blocos || [], marcar: tr.marcar || [], msgs: tr.msgs || [], vendas: tr.vendas || 0, paes: tr.paes || 0 };
   }
   if (a.t === 'ev') {
@@ -279,6 +283,8 @@ export function aplicar(e, op, a, ctx = {}) {
         // alguém pega. O que cai de um bloco que era comprado continua marcado (c = quantos são comprados).
         // A ferramenta só vale se estiver na mochila (senão o aparelho dizia ter picareta e tirava vidro inteiro)
         r.cai = oQueCai(a.de, a.x, a.y, a.z, !!a.natural, (e.itens[a.mao | 0] | 0) > 0 ? a.mao | 0 : 0).map(([id, n]) => [id, n, a.comprado ? n : 0]);
+        // a ferramenta da mão gasta (planta e coisa de um toque não: DESGASTA_NAO)
+        if (!DESGASTA_NAO.has(a.de | 0)) r.ferramenta = desgastar(e, a.mao | 0);
       }
     }
     if (a.b > 0) {
@@ -387,9 +393,11 @@ export function aplicar(e, op, a, ctx = {}) {
       const c = Math.max(0, Math.min(n, a.c | 0)), cK = Math.min(k, c);
       marcarCompra(e, id, cK);
       r.pegou = k; r.restoC = c - cK;
+      if (DURA[id]) { const d = desgLista(id, a.d, n); porDesg(e, id, d.slice(0, k), k); r.restoD = d.slice(k); } // o desgaste vem junto
     } else {
       r.c = Math.max(0, n - livreDe(e, id)); // a parte comprada é a última a sair
       if (!tirar(e.itens, id, n)) return falha('Você não tem isso.');
+      r.d = tirarDesg(e, id, n); // a ferramenta largada leva o desgaste para o chão
     }
     r.mudou = true;
   } else if (a.t === 'comer') {
@@ -410,11 +418,21 @@ export function aplicar(e, op, a, ctx = {}) {
       if (!(n > 0) || !guardavel(id)) continue;
       let c = Math.min(n, (e.compra && e.compra[k]) | 0);
       const p = pilhaDe(id);
-      while (n > 0 && r.cai.length < 60) { const q = Math.min(p, 64, n), qc = Math.min(q, c); r.cai.push([id, q, qc]); n -= q; c -= qc; }
+      // ferramentas: cada uma leva o próprio desgaste (receitas.js DURA)
+      e.itens[k] = 0; // tirarDesg conta com a mochila já sem elas
+      const dg = DURA[id] ? tirarDesg(e, id, n) : null;
+      let di = 0;
+      while (n > 0 && r.cai.length < 60) { const q = Math.min(p, 64, n), qc = Math.min(q, c); r.cai.push(dg ? [id, q, qc, dg.slice(di, di + q)] : [id, q, qc]); di += q; n -= q; c -= qc; }
       e.itens[k] = n;
       if (!n) delete e.itens[k];
     }
     ajustarCompra(e);
+    r.mudou = true;
+  } else if (a.t === 'acender') {
+    // acendeu fogo com o isqueiro (fogo-regras.js): gasta 1
+    if (!op.sobrevivencia) return falha('?');
+    r.ferramenta = desgastar(e, 1010);
+    if (!r.ferramenta) return falha('Você não tem isqueiro.');
     r.mudou = true;
   } else if (a.t === 'alimentar') {
     // deu trigo na mão para um bicho de fazenda (animais.js: cruzar)
@@ -434,6 +452,7 @@ export function aplicar(e, op, a, ctx = {}) {
     r.feitos = contar(e, op, a.t, n); r.mudou = true;
   } else return falha('?');
   ajustarCompra(e);
+  if (e.desg) ajustarDesg(e); // vendeu, largou, quebrou...: o desgaste acompanha a mochila
   return r;
 }
 

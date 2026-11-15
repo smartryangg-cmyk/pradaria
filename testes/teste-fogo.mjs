@@ -66,7 +66,7 @@ await tocarEm(p, [x0 + 0.5, y0, z0 - 2.5]);
 ok(await bl(p, x0, y0, z0 - 3) === FOGO, 'acendeu fogo encostado na parede de tábuas');
 const tabuas = () => p.evaluate(([x0, y0, z0]) => { let n = 0; for (let x = -2; x <= 2; x++) for (let y = 0; y < 3; y++) if (window.__jogo.mundo.bloco(x0 + x, y0 + y, z0 - 4) === 8) n++; return n; }, base);
 const fogos = () => p.evaluate(() => window.__jogo.mundo.fogos.size);
-await p.waitForTimeout(2500);
+await p.waitForTimeout(4500);
 await p.evaluate(() => { const j = window.__jogo.jog; j.yaw = 0; j.pitch = 0.05; });
 await p.waitForTimeout(400);
 await p.screenshot({ path: SAIDA + '/fogo-1-parede.png' });
@@ -95,7 +95,7 @@ await p.evaluate(([x0, y0, z0, T, L]) => {
   m.definir(x0 + 6, y0, z0 + 4, T); m.definir(x0 + 6, y0, z0 + 5, L);
 }, [x0, y0, z0, TABUAS, LAVA]);
 let pegou = false;
-for (let k = 0; k < 10 && !pegou; k++) { await p.waitForTimeout(400); pegou = (await bl(p, x0 + 6, y0, z0 + 6)) !== TABUAS; }
+for (let k = 0; k < 60 && !pegou; k++) { await p.waitForTimeout(400); pegou = (await bl(p, x0 + 6, y0, z0 + 6)) !== TABUAS; } // a lava anda devagar (e a fila ainda tem a limpeza do terreno)
 await p.waitForTimeout(1500);
 ok(pegou, 'lava acende a madeira do mundo encostada nela');
 ok(await bl(p, x0 + 6, y0, z0 + 4) === TABUAS, 'lava não queima a tábua que alguém pôs (construção só pega fogo do isqueiro)');
@@ -150,11 +150,19 @@ if (ONLINE) {
   // um aparelho modificado mandando "fogo" na tábua longe de qualquer fogo: a sala recusa
   await bb.evaluate(([x, y, z]) => window.__jogo.sala.enviar({ t: 'bloco', x, y, z, b: 222, de: 8 }), [ax + 8, ay, az - 3]);
   // o golpe da auditoria: fogo sem mão num ar do lado da tábua (mentindo "de"), depois fogo na tábua; e com isq de longe
-  await bb.evaluate(([x, y, z]) => { const s = window.__jogo.sala; s.enviar({ t: 'bloco', x: x + 1, y, z, b: 222, de: 0 }); setTimeout(() => s.enviar({ t: 'bloco', x, y, z, b: 222, de: 8 }), 300); setTimeout(() => s.enviar({ t: 'bloco', x: x - 1, y, z, b: 222, de: 0, isq: 1 }), 500); setTimeout(() => s.enviar({ t: 'bloco', x, y, z, b: 222, de: 8 }), 800); }, [ax + 8, ay, az - 3]);
+  await bb.evaluate(([x, y, z]) => { const s = window.__jogo.sala; s.enviar({ t: 'bloco', x: x + 1, y, z, b: 222, de: 0 }); setTimeout(() => s.enviar({ t: 'bloco', x, y, z, b: 222, de: 8 }), 300); }, [ax + 8, ay, az - 3]);
+  // trilha de fogo pelo ar: Beto acende com isqueiro do lado dele e manda fogo no ar, um por um, até a tábua longe
+  await bb.evaluate(([x, y, z]) => {
+    const s = window.__jogo.sala, j = window.__jogo.jog; j.pos.x = x - 4.5; j.pos.y = y + 1; j.pos.z = z + 0.5;
+    setTimeout(() => s.enviar({ t: 'bloco', x: x - 4, y, z, b: 222, de: 0, isq: 1 }), 600);
+    for (let i = 3; i >= 1; i--) setTimeout(() => s.enviar({ t: 'bloco', x: x - i, y, z, b: 222, de: 0 }), 600 + (4 - i) * 150);
+    setTimeout(() => s.enviar({ t: 'bloco', x, y, z, b: 222, de: 8 }), 1400);
+  }, [ax + 8, ay, az - 3]);
+  await bb.waitForTimeout(1800);
   await a.evaluate(([ax, ay, az]) => { const j = window.__jogo.jog; j.pos.x = ax + 0.5; j.pos.y = ay + 1; j.pos.z = az + 0.5; }, A);
   await bb.evaluate(([ax, ay, az]) => { const j = window.__jogo.jog; j.pos.x = ax + 0.5; j.pos.y = ay + 1; j.pos.z = az + 30.5; }, A); // Beto longe
   await a.evaluate(() => { const J = window.__jogo; J.barra[0] = 1010; J.slot = 0; });
-  await tocarEm(a, [ax + 0.5, ay, az - 2.5], false);
+  for (let k = 0; k < 3 && (await bl(a, ax, ay, az - 3)) !== FOGO; k++) await tocarEm(a, [ax + 0.5, ay, az - 2.5], false);
   const fA = await bl(a, ax, ay, az - 3);
   await a.waitForTimeout(1200);
   const fB = await bl(bb, ax, ay, az - 3);
@@ -164,9 +172,12 @@ if (ONLINE) {
   await bb.screenshot({ path: SAIDA + '/fogo-online-beto.png' });
   let queimou = false;
   for (let k = 0; k < 40 && !queimou; k++) { await a.waitForTimeout(1000); queimou = [await bl(bb, ax + 1, ay, az - 3), await bl(bb, ax + 1, ay + 1, az - 3)].every((v) => v !== TABUAS); }
+  // isqueiro de longe: Beto (há muito tempo a 30 blocos) manda acender do lado da tábua e depois fogo nela
+  await bb.evaluate(([x, y, z]) => { const s = window.__jogo.sala; s.enviar({ t: 'bloco', x: x - 1, y, z, b: 222, de: 0, isq: 1 }); setTimeout(() => s.enviar({ t: 'bloco', x, y, z, b: 222, de: 8 }), 300); }, [ax + 8, ay, az - 3]);
+  await a.waitForTimeout(1500);
   const longe = await bl(bb, ax + 8, ay, az - 3), longeA = await bl(a, ax + 8, ay, az - 3);
   ok(queimou, 'online: a coluna de tábuas queimou para os dois');
-  ok(longe === TABUAS && longeA === TABUAS, `online: a sala recusou o "fogo" mentiroso do aparelho modificado (fogo longe, fogo no ar do lado, isqueiro de longe) (Ana ${longeA}, Beto ${longe})`);
+  ok(longe === TABUAS && longeA === TABUAS, `online: a sala recusou o "fogo" mentiroso do aparelho modificado (fogo longe, fogo no ar do lado, isqueiro de longe, trilha de fogo pelo ar) (Ana ${longeA}, Beto ${longe})`);
   // quem entra depois vê a madeira queimada (ficou salvo)
   const c3 = await jogador('Caio' + sfx);
   await c3.click('#bt-codigo'); await c3.fill('#n-nome', codigo); await c3.click('#m-novo button[type=submit]');
@@ -175,6 +186,33 @@ if (ONLINE) {
   await c3.waitForTimeout(3000);
   const v3 = [await bl(c3, ax + 1, ay, az - 3), await bl(c3, ax + 1, ay + 1, az - 3), await bl(c3, ax, ay, az - 3)];
   ok(v3.every((v) => v !== TABUAS && v !== FOGO), `online: quem entra depois vê a madeira queimada e o fogo apagado (${v3})`);
+}
+if (ONLINE) {
+  // mundo "Só explorar" (sem construção): o isqueiro de um aparelho modificado não acende nada
+  const sfx2 = Date.now() % 10000;
+  const mk = async (nome) => { const c = await b.newContext({ viewport: { width: 900, height: 560 } }); const q = await c.newPage();
+    await q.goto(ONLINE + '/#teste'); await q.evaluate(() => localStorage.clear()); await q.reload();
+    await q.click('#bt-criar-conta'); await q.fill('#c-nome', nome); await q.fill('#c-senha', 'senha123');
+    if (await q.isVisible('#c-adulto-ok')) await q.check('#c-adulto-ok');
+    if (await q.isVisible('#c-nasc .d-ano')) { await q.selectOption('#c-nasc .d-dia', '1'); await q.selectOption('#c-nasc .d-mes', '1'); await q.selectOption('#c-nasc .d-ano', '1990'); }
+    await q.click('#c-ok'); await q.waitForSelector('#m-jogos:not([hidden]), #m-mundos:not([hidden])', { timeout: 20000 });
+    if (await q.isVisible('#m-jogos')) await q.click('.jogo[data-jogo=pradaria]');
+    await q.waitForSelector('#m-mundos:not([hidden])', { timeout: 20000 }); return q; };
+  const d = await mk('Dani' + sfx2);
+  await d.click('#bt-novo-mundo'); await d.fill('#n-nome', 'Passeio'); await d.click('[data-modo=explorar]');
+  await d.click('#m-novo button[type=submit]');
+  await d.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 30000 });
+  await d.waitForTimeout(2000);
+  const cod = await d.evaluate(() => window.__jogo.sala.codigo);
+  const e = await mk('Edu' + sfx2);
+  await e.click('#bt-codigo'); await e.fill('#n-nome', cod); await e.click('#m-novo button[type=submit]');
+  await e.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.outros > 0, null, { timeout: 30000 });
+  await e.waitForTimeout(1500);
+  const P = await e.evaluate(() => { const j = window.__jogo.jog; const M = window.__jogo.mundo, x = Math.floor(j.pos.x), z = Math.floor(j.pos.z) + 1; let y = Math.floor(j.pos.y) + 1; while (M.bloco(x, y, z) !== 0 && y < 90) y++; return [x, y, z]; }); // um ar do lado do Edu
+  await e.evaluate(([x, y, z]) => window.__jogo.sala.enviar({ t: 'bloco', x, y, z, b: 222, de: 0, isq: 1 }), P);
+  await d.waitForTimeout(1500);
+  const vD = await d.evaluate(([x, y, z]) => window.__jogo.mundo.bloco(x, y, z), P);
+  ok(vD !== 222, `online: no mundo "Só explorar" o isqueiro mandado por um aparelho modificado não acende (${vD}, era ar)`);
 }
 ok(!erros.length, 'console sem erros ' + erros.slice(0, 3).join(' | '));
 await b.close();

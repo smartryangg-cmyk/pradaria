@@ -148,7 +148,7 @@ export class Drops {
     if (velho) { if (velho.n !== p.n) this.diminuir(velho, p.n, p.c, null); return; }
     const e = {
       i: p.i, id: p.id, n: p.n, x: p.x, y: p.y, z: p.z, v: [...(p.v || [0, 0, 0])],
-      t: Date.now() - (p.idade || 0), dono: p.dono || '', c: p.c || 0, fase: Math.random() * 6, parado: false,
+      t: Date.now() - (p.idade || 0), dono: p.dono || '', c: p.c || 0, dg: p.dg || null, fase: Math.random() * 6, parado: false,
       g: this.geo(p.id), copias: p.n >= 16 ? 3 : p.n > 1 ? 2 : 1, // pilha: mostra 1, 2 ou 3 cópias
       giro: 0, bob: 0, visivel: true,
     };
@@ -171,8 +171,8 @@ export class Drops {
     if (this.sala || !this.ativo) return;
     for (const [id, n, c] of cai) this.novoLocal(id, n, x, y, z, null, '', c);
   }
-  novoLocal(id, n, x, y, z, v, dono = '', c = 0) {
-    const d = this.chao.novo(id, n, x, y, z, v || [(Math.random() - 0.5) * 2.4, 3.2, (Math.random() - 0.5) * 2.4], dono, Date.now(), null, c);
+  novoLocal(id, n, x, y, z, v, dono = '', c = 0, dg = null) {
+    const d = this.chao.novo(id, n, x, y, z, v || [(Math.random() - 0.5) * 2.4, 3.2, (Math.random() - 0.5) * 2.4], dono, Date.now(), null, c, '', dg);
     if (!d) return false;
     for (const f of this.chao.limpar()) this.sumir(f.i);
     if (this.chao.itens.has(d.i)) this.aparecer(publico(d));
@@ -186,7 +186,7 @@ export class Drops {
     const cp = Math.cos(jog.pitch);
     const v = [-Math.sin(jog.yaw) * cp * 4.5, 2.2 + Math.sin(jog.pitch) * 3, -Math.cos(jog.yaw) * cp * 4.5].map((c) => Math.round(c * 100) / 100);
     if (this.sala) this.sala.enviar({ t: 'chao-largar', id, n, v });
-    else this.novoLocal(id, n, jog.pos.x - Math.sin(jog.yaw) * 0.6, jog.pos.y + 1.2, jog.pos.z - Math.cos(jog.yaw) * 0.6, v, this.eu, r.c);
+    else this.novoLocal(id, n, jog.pos.x - Math.sin(jog.yaw) * 0.6, jog.pos.y + 1.2, jog.pos.z - Math.cos(jog.yaw) * 0.6, v, this.eu, r.c, r.d);
     return true;
   }
 
@@ -311,7 +311,7 @@ export class Drops {
     if (dx * dx + dz * dz > PEGA_H * PEGA_H || dy < -0.9 || dy > 2) return;
     if (!podePegar(e, this.eu, agora)) return;
     // cabe na mochila? (senão avisa de vez em quando e deixa no chão)
-    const r = this.ui.mochila.mexer({ t: 'pegar', id: e.id, n: e.n, c: e.c }, true);
+    const r = this.ui.mochila.mexer({ t: 'pegar', id: e.id, n: e.n, c: e.c, d: e.dg }, true);
     if (!r) {
       e.esperar = agora + 1500;
       if (agora - this.cheioEm > 4000) { this.cheioEm = agora; this.ui.cheio && this.ui.cheio(e.id); }
@@ -321,7 +321,8 @@ export class Drops {
     if (this.sala) { this.sala.enviar({ t: 'chao-pegar', i: e.i }); this.recusados.set(e.i, agora + 1500); setTimeout(() => this.recusados.delete(e.i), 3000); }
     if (k < e.n) {
       // só coube parte: o resto fica no chão (como no clássico)
-      if (!this.sala) { const d = this.chao.itens.get(e.i); if (d) { d.n -= k; d.c = r.restoC | 0; } }
+      if (!this.sala) { const d = this.chao.itens.get(e.i); if (d) { d.n -= k; d.c = r.restoC | 0; d.dg = r.restoD; } }
+      e.dg = r.restoD || null;
       this.diminuir(e, e.n - k, r.restoC, perto);
       e.esperar = agora + 1500;
       this.ui.pegou && this.ui.pegou(e.id, k);
