@@ -13,6 +13,7 @@ import { candidatoSeguro, sdpSemIp } from '../../public/js/voz-filtro.js';
 import { horaDe, MAX_TURNO } from '../../public/js/trabalho.js';
 import { blocosDaObra, PLANTAS, ESTILOS_OBRA } from '../../public/js/casas.js';
 import { mudancaSemMao } from '../../public/js/blocos-rede.js';
+import { FOGO } from '../../public/js/fogo-regras.js';
 import { podeCrescer } from '../../public/js/plantacoes-regras.js';
 import { ehCama, podeDormir, ACORDA, PERTO_DA_CAMA } from '../../public/js/dormir-regras.js';
 import { MUDAS, MUDA_MIN, TRONCO_DA_MUDA, BLOCOS_ARVORE, podeCrescerMuda, naCaixa } from '../../public/js/arvores-regras.js';
@@ -544,6 +545,10 @@ export class Sala extends DurableObject {
         && [...arv.values()].some((a) => agoraA - a.t < 20000 && naCaixa(x - a.x, y - a.y, z - a.z));
       const arvore = brotou || copa;
       if (!m.j && !destruiu && !cresceu && !arvore && !mudancaSemMao(ed.has(k) ? ed.get(k) : m.de, b, this.regras().construcao)) return;
+      // fogo (fogo-regras.js): o que alguém construiu só pega fogo encostado em fogo ou lava que já estão nas edições
+      // (isqueiro e balde de lava ficam salvos), senão um aparelho modificado queimava as casas dos outros de longe
+      if (!m.j && b === FOGO && ed.has(k) && ed.get(k) && ![[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
+        .some(([a, c, d]) => { const v = ed.get((x + a) + ',' + (y + c) + ',' + (z + d)); return v === FOGO || (v >= 215 && v <= 219); })) return;
       // coletar e criar: água parada só sai com balde na mão (a mira atravessa a água)
       if (econ && op.sobrevivencia && m.j && b === 0 && (m.mao | 0) !== 1009) {
         const de0 = ed.has(k) ? ed.get(k) : m.de | 0;
