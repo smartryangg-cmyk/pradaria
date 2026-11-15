@@ -47,6 +47,7 @@ let vistoSeq = -1;
 let rodadaAte = 0, rodadaMostrada = null;
 let fimVisto = null;
 let timerRobo = 0;
+let prazo = null; // online: { falta, total (ms), recebido } da jogada de agora; acabou, o computador joga por quem demorou
 
 const time = T.time;
 function salvarPC() { if (modo === 'pc' && e) try { localStorage.setItem(CHAVE, JSON.stringify({ e, n: nMesa })); } catch {} }
@@ -153,8 +154,17 @@ function status() {
   else if (v.aposta) { const d = time(v.aposta.lugar) !== nos(); t = d ? `Pediram ${T.NOME_APOSTA[v.aposta.valor].toLowerCase()}! Aceita?` : 'Esperando a resposta…'; minha = d; }
   else if (v.vez === eu) { t = v.ferro ? 'Mão de ferro: sua vez' : 'Sua vez: escolha uma carta'; minha = true; }
   else t = 'Vez de ' + nome(v.vez);
-  s.textContent = t; s.classList.toggle('minha', minha);
+  // online: quanto falta da jogada (curto para caber no celular)
+  const falta = prazoFalta();
+  if (falta != null && !v.fim) {
+    const seg = Math.ceil(falta / 1000);
+    if (minha) t = v.aposta ? t + ' ' + seg + 's' : (v.onze ? 'Mão de onze' : 'Sua vez') + ': ' + seg + 's';
+    else if (!v.onze && !v.aposta) t = 'Vez de ' + nome(v.vez) + ': ' + seg + 's';
+  }
+  s.textContent = t; s.classList.toggle('minha', minha); s.classList.toggle('pouco', minha && falta != null && falta < 10000);
 }
+function prazoFalta() { return modo === 'online' && prazo ? Math.max(0, prazo.falta - (performance.now() - prazo.recebido)) : null; }
+setInterval(() => { if (modo === 'online' && v && !v.fim && prazo) status(); }, 500);
 function botao(txt, cls, fn) { const b = document.createElement('button'); b.type = 'button'; b.className = 'bt ' + cls; b.textContent = txt; b.addEventListener('click', fn); return b; }
 function acoes() {
   const el = $('#t-acoes');
@@ -277,7 +287,7 @@ function jogarOnline(codigo, chamar = false) {
   if (!conta.token) { $('#x-erro').textContent = 'Entre na sua conta para jogar com amigos.'; return; }
   fecharOnline();
   clearTimeout(timerRobo);
-  modo = 'online'; v = null; vistoSeq = -1; rodadaAte = 0; fimVisto = null;
+  modo = 'online'; v = null; vistoSeq = -1; rodadaAte = 0; fimVisto = null; prazo = null;
   online = { codigo, tentativas: 0, n: nMesa, comecou: false };
   history.replaceState(null, '', '?sala=' + codigo);
   $('#x-menu').hidden = true; $('#x-fim').hidden = true; $('#t-jogo').hidden = true;
@@ -319,6 +329,10 @@ function conectar() {
     $('#t-espera').hidden = true; $('#t-jogo').hidden = false;
     $('#bt-chamar').hidden = true;
     v = m.estado;
+    prazo = m.prazo ? { ...m.prazo, recebido: performance.now() } : null;
+    // alguém demorou demais: o computador jogou no lugar
+    if (m.esgotou && o.esgotou !== undefined && m.esgotou.n !== (o.esgotou && o.esgotou.n)) aviso(m.esgotou.lugar === eu ? 'Seu tempo acabou: o computador jogou por você' : `${nome(m.esgotou.lugar)} demorou: o computador jogou no lugar`, 2600, 'relogio');
+    o.esgotou = m.esgotou || null;
     desenhar();
     if (v.fim) {
       mostrarFim();
@@ -362,4 +376,4 @@ if (pedida && /^[A-Za-z0-9]{10,24}$/.test(pedida) && conta.token) jogarOnline(pe
 else abrirMenu();
 
 // para os testes automáticos (testes/teste-truco.mjs)
-window.__truco = { get e() { return e; }, get v() { return v; }, get eu() { return eu; }, get modo() { return modo; }, get online() { return online; }, T, agir, atualizar: () => atualizarPC() };
+window.__truco = { get e() { return e; }, get v() { return v; }, get prazo() { return prazo; }, get eu() { return eu; }, get modo() { return modo; }, get online() { return online; }, T, agir, atualizar: () => atualizarPC() };
