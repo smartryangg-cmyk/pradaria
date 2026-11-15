@@ -532,6 +532,11 @@ export class Sala extends DurableObject {
         && podeCrescer(x, y, z, Date.now())
         && Date.now() - ((this.estagioEm && this.estagioEm.get(k)) || 0) >= ESTAGIO_MIN; // cada estágio leva um tempo
       if (!m.j && !destruiu && !cresceu && !mudancaSemMao(ed.has(k) ? ed.get(k) : m.de, b, this.regras().construcao)) return;
+      // coletar e criar: água parada só sai com balde na mão (a mira atravessa a água)
+      if (econ && op.sobrevivencia && m.j && b === 0 && (m.mao | 0) !== 1009) {
+        const de0 = ed.has(k) ? ed.get(k) : m.de | 0;
+        if (de0 === 5 || (de0 >= 23 && de0 <= 30)) { ws.send(JSON.stringify({ t: 'econ', s: econ })); return; }
+      }
       // coletar e criar: só coloca o que tem na mochila
       if (econ && op.sobrevivencia && m.j && b > 0 && lugarVazio(ed.has(k) ? ed.get(k) | 0 : m.de | 0) && !((econ.itens[gastoDe(b)] || 0) > 0)) {
         ws.send(JSON.stringify({ t: 'econ', s: econ })); // devolve a mochila certa para o aparelho
