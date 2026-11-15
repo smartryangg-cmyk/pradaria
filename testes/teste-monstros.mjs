@@ -4,7 +4,7 @@
 // Uso: (cd public && python3 -m http.server 8772), `npm run dev:sala` e `npm run dev` (8788), e
 //   node testes/teste-monstros.mjs        (PARTES=pc,toque,online)
 import { createRequire } from 'module'; const { chromium, devices } = createRequire(import.meta.url)('playwright');
-const URL = process.env.URL || 'http://localhost:8772', ONLINE = process.env.ONLINE || 'http://localhost:8788', SAIDA = process.env.SAIDA || '/tmp';
+const URL = process.env.URL || 'http://localhost:8765', ONLINE = process.env.ONLINE || 'http://localhost:8788', SAIDA = process.env.SAIDA || '/tmp';
 const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 let falhas = 0; const erros = [];
 const PARTES = (process.env.PARTES || 'pc,toque,online').split(',');
