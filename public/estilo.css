@@ -282,6 +282,18 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 /* tipo de mundo (Pradaria, Linha do Tempo...) */
 .tipos-mundo { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
 .opcao-mundo:disabled { opacity: .3; cursor: default; }
+/* criação e edição do mundo: partes Mundo, Regras e Mods (editar-mundo.js) */
+.abas-mundo { position: sticky; top: -16px; z-index: 2; display: flex; gap: 6px; padding: 6px 0; background: var(--creme); }
+.abas-mundo button { flex: 1; border: 0; border-radius: 12px; padding: 8px 6px; background: var(--creme2); color: var(--txt); font: inherit; font-weight: 900; font-size: 14px; cursor: pointer; }
+.abas-mundo button.sel { background: var(--verde); color: #fff; }
+.sec-mundo { scroll-margin-top: 64px; }
+.sec-mundo > h3 { margin: 14px 0 2px; font-size: 19px; }
+.titulo-grupo { margin: 10px 0 4px; font-weight: 900; text-transform: uppercase; letter-spacing: .4px; font-size: 12.5px; color: var(--terra-esc); }
+.nota-grupo { margin: -2px 0 6px; font-size: 12px; color: var(--txt2); }
+.opcao-mundo .tx { min-width: 0; }
+.opcao-mundo .etiqueta { display: inline-block; margin-top: 3px; font-style: normal; font-size: 11px; font-weight: 800; background: #ffe9b0; color: var(--terra-esc); border-radius: 8px; padding: 1px 7px; }
+.tamanhos-mundo.quatro { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 560px) { .tamanhos-mundo.quatro { grid-template-columns: 1fr 1fr; } .opcoes-mundo.mods { grid-template-columns: 1fr; } }
 /* ---------- vida (corações) ---------- */
 #vida { position: absolute; left: 50%; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 84px); transform: translateX(-50%); display: flex; gap: 3px; pointer-events: none; filter: drop-shadow(0 2px 2px rgba(0,0,0,.45)); }
 #vida .coracao { position: relative; width: 26px; height: 26px; }

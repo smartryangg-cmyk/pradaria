@@ -101,7 +101,7 @@ export const GRUPOS = [
   { id: 'ferramentas', nome: 'Ferramentas', icone: 'martelo' },
   { id: 'construir', nome: 'Construção', icone: 'tijolos' },
   { id: 'cores', nome: 'Cores e enfeites', icone: 'flor' },
-  { id: 'formas', nome: 'Formas redondas', icone: 'bloco' },
+  { id: 'formas', nome: 'Formas redondas', icone: 'bloco', opcao: 'formas' },
   { id: 'maquinas', nome: 'Engenharia', icone: 'engrenagem', opcao: 'maquinas' },
 ];
 export const RECEITAS = [
