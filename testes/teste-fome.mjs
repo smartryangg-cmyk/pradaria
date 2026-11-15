@@ -155,7 +155,8 @@ const segurarMao = (p, id) => J(p, (id) => { const J_ = window.__jogo, i = J_.ba
   const aviso = await J(p, () => document.querySelector('#aviso')?.textContent || '');
   ok(/cama sumiu/i.test(aviso), 'cama quebrada: renasce no começo (' + aviso + ')');
   // guarda a vida e a fome
-  await J(p, () => { const v = window.__jogo.vida; v.atual = 15; v.fome.f = 12; v.desenhar(); }); await esperar(p, 3500);
+  await J(p, () => { const v = window.__jogo.vida; v.atual = 15; v.fome.f = 12; v.fome.s = 0; v.desenhar(); });
+  await ate(p, () => (JSON.parse(localStorage.getItem('pradaria.corpo.local') || '{}').fome || {}).f === 12, null, 10000);
   const g = await J(p, () => JSON.parse(localStorage.getItem('pradaria.corpo.local') || '{}'));
   ok(g.v === 15 && g.fome && g.fome.f === 12, 'vida e fome ficam guardadas no aparelho (' + JSON.stringify(g) + ')');
   await ctx.close();
