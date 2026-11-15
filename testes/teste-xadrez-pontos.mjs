@@ -91,9 +91,10 @@ ok(depoisAnulada === [rVence, rPerde].sort().join(), 'pontos iguais depois da an
 // ---------- ninguém faz o primeiro lance: a partida é cancelada em 30 s e não vale ----------
 await menu(ana); await menu(beto);
 [w, p] = await procurarOs2(ana, beto);
-await w.p.waitForFunction(() => /faça seu primeiro lance: \d+s/.test(document.querySelector('#x-status').textContent), null, { timeout: 5000 });
-ok(/primeiro lance do adversário: \d+s/.test(await p.p.textContent('#x-status')), 'partida nova: aparece o prazo do primeiro lance (' + await w.p.textContent('#x-status') + ')');
+await w.p.waitForFunction(() => /^Sua vez: jogue em \d+s$/.test(document.querySelector('#x-status').textContent), null, { timeout: 5000 });
+ok(/^Adversário joga em \d+s$/.test(await p.p.textContent('#x-status')), 'partida nova: aparece o prazo do primeiro lance (' + await w.p.textContent('#x-status') + ')');
 await w.foto('4-prazo-primeiro-lance');
+ok(await w.p.evaluate(() => { const s = document.querySelector('#x-status'); return s.scrollWidth <= s.clientWidth + 1; }) && await p.p.evaluate(() => { const s = document.querySelector('#x-status'); return s.scrollWidth <= s.clientWidth + 1; }), 'o aviso do prazo cabe inteiro (PC e celular)');
 for (const j of [w, p]) await j.p.waitForFunction(() => window.__xadrez.fim && window.__xadrez.fim.tipo === 'cancelada', null, { timeout: 40000 });
 ok(/Partida cancelada/.test(await w.p.textContent('#fim-titulo')) && /Você não fez o primeiro lance/.test(await w.p.textContent('#fim-txt')) && /adversário não fez/.test(await p.p.textContent('#fim-txt')), 'sem primeiro lance em 30 s: "Partida cancelada" para os dois');
 await p.foto('5-cancelada');

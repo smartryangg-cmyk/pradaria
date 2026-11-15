@@ -190,7 +190,8 @@ function status() {
   if (modo === 'online' && online.empate && !fimAtual) t = online.empate === voce ? 'Você propôs empate' : 'Seu amigo propôs empate';
   // partida com relógio: prazo para o primeiro lance
   const prazo = prazoFalta();
-  if (prazo != null && !fimAtual && !(modo === 'online' && online.empate)) t += (e.vez === meuLado() ? ' · faça seu primeiro lance: ' : ' · primeiro lance do adversário: ') + Math.ceil(prazo / 1000) + 's';
+  // (curto para caber no celular)
+  if (prazo != null && !fimAtual && !(modo === 'online' && online.empate)) t = (e.vez === meuLado() ? 'Sua vez: jogue em ' : 'Adversário joga em ') + Math.ceil(prazo / 1000) + 's';
   s.textContent = t; s.classList.toggle('minha', minha);
   const esperando = modo === 'online' && online.jogadores && !online.jogadores[voce === 'w' ? 'b' : 'w'];
   $('#bt-chamar').hidden = !(modo === 'online' && esperando);
