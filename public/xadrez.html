@@ -8,7 +8,7 @@
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="estilo.css?v=23">
-<link rel="stylesheet" href="tabuleiro.css?v=3">
+<link rel="stylesheet" href="tabuleiro.css?v=4">
 </head>
 <body class="pag-tabuleiro">
 <div id="fundo" aria-hidden="true"></div>
@@ -45,10 +45,44 @@
     </div>
     <button class="bt verde grande" id="bt-amigo" type="button"><span data-icone="amigos"></span>Chamar um amigo</button>
     <p class="sub" id="x-sem-conta" hidden>Para jogar com amigos, <a href="/">entre na sua conta</a>.</p>
+    <button class="bt" id="bt-perfil" type="button"><span data-icone="pessoa"></span>Meu perfil e partidas</button>
     <p id="x-erro" class="erro"></p>
     <a class="bt fraco" href="/" id="bt-jogos"><span data-icone="voltar"></span>Todos os jogos</a>
   </div>
 </div>
+
+<!-- perfil: pontos e últimas partidas -->
+<div id="x-perfil" class="janela" hidden>
+  <div class="caixa">
+    <h2>Meu xadrez</h2>
+    <div class="perfil-pontos" id="perfil-pontos"></div>
+    <h3>Últimas partidas</h3>
+    <div class="perfil-lista" id="perfil-lista"></div>
+    <button class="bt" id="bt-perfil-fechar" type="button"><span data-icone="voltar"></span>Voltar</button>
+  </div>
+</div>
+
+<!-- análise da partida -->
+<main id="x-analise" hidden>
+  <div class="barra-topo">
+    <button class="redondo" id="a-voltar" aria-label="Sair da análise"><span data-icone="voltar"></span></button>
+    <div id="a-status" class="status-analise" aria-live="polite">Análise</div>
+    <button class="redondo" id="a-girar" aria-label="Virar o tabuleiro"><span data-icone="recarregar"></span></button>
+  </div>
+  <div class="jogador-linha"><span class="n" id="a-cima"></span></div>
+  <div class="a-nota" aria-label="Quem está melhor"><div class="a-nota-brancas" id="a-nota-brancas"></div><span id="a-nota-txt"></span></div>
+  <div id="a-tabuleiro" class="tabuleiro" aria-label="Tabuleiro da análise"></div>
+  <div class="jogador-linha"><span class="n" id="a-baixo"></span></div>
+  <p class="a-info" id="a-info" aria-live="polite"></p>
+  <div class="linha-bts a-nav">
+    <button class="bt" id="a-inicio" type="button" aria-label="Começo">|&lt;</button>
+    <button class="bt" id="a-ant" type="button">Anterior</button>
+    <button class="bt verde" id="a-prox" type="button">Próximo</button>
+    <button class="bt" id="a-fim" type="button" aria-label="Fim">&gt;|</button>
+  </div>
+  <div id="a-lances" class="lances analise" aria-label="Lances (toque para ver)"></div>
+  <div class="a-precisao" id="a-precisao"></div>
+</main>
 
 <!-- procurando adversário -->
 <div id="x-busca" class="janela" hidden>
@@ -95,13 +129,14 @@
     <p class="fim-pontos" id="fim-pontos" hidden></p>
     <button class="bt verde grande" id="bt-revanche" type="button">Jogar de novo</button>
     <p class="sub centro" id="fim-espera" hidden></p>
+    <button class="bt amarelo" id="bt-analisar" type="button"><span data-icone="lupa"></span>Analisar a partida</button>
     <button class="bt" id="bt-ver" type="button">Ver o tabuleiro</button>
     <button class="bt" id="bt-menu-fim" type="button">Outro jeito de jogar</button>
   </div>
 </div>
 
 <div id="aviso"></div>
-<script type="module" src="js/xadrez.js?v=7"></script>
+<script type="module" src="js/xadrez.js?v=8"></script>
 <div class="marca-dagua" aria-hidden="true">Ryan Krano</div>
 </body>
 </html>

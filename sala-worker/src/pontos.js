@@ -24,7 +24,28 @@ export class Pontos extends DurableObject {
       const uids = (url.searchParams.get('uids') || '').split(',').map(Number).filter(Number.isInteger).slice(0, 10);
       const out = {};
       for (const u of uids) out[u] = await this.notas(u);
+      // com ?partidas=1 (uma conta só): as últimas partidas também
+      if (url.searchParams.get('partidas') === '1' && uids.length === 1) return json({ notas: out, partidas: (await this.ctx.storage.get('h:' + uids[0])) || [] });
       return json(out);
+    }
+    if (interno === 'historico') {
+      // fim de uma partida (vem da Partida): guarda no histórico de cada um, do ponto de vista dele (as últimas 30)
+      const d = await request.json();
+      const pessoa = (x) => x && Number.isInteger(x.uid) && typeof x.nome === 'string';
+      if (!pessoa(d.w) || !pessoa(d.b) || d.w.uid === d.b.uid || !Array.isArray(d.hist) || d.hist.length > 1000 || !d.hist.every((t) => typeof t === 'string' && t.length <= 10) || !d.fim || typeof d.fim.tipo !== 'string') return json({ erro: 'dados' }, 400);
+      const quando = Date.now(), id = quando.toString(36) + Math.random().toString(36).slice(2, 6);
+      const cat = P.categoria(d.ritmo);
+      for (const cor of ['w', 'b']) {
+        const outro = cor === 'w' ? 'b' : 'w';
+        const res = !d.fim.vencedor ? 'e' : d.fim.vencedor === cor ? 'v' : 'd';
+        const pt = d.ranqueada && d.pontos && d.pontos[cor] ? { antes: d.pontos[cor].antes, depois: Math.round(d.pontos[cor].depois), mostrar: d.pontos[cor].mostrar } : null;
+        const item = { id, quando, cor, contra: d[outro].nome.slice(0, 24), ritmo: cat ? d.ritmo : '', cat, ranqueada: !!pt, res, tipo: d.fim.tipo.slice(0, 20), pontos: pt, hist: d.hist };
+        const k = 'h:' + d[cor].uid;
+        const lista = (await this.ctx.storage.get(k)) || [];
+        lista.unshift(item);
+        await this.ctx.storage.put(k, lista.slice(0, 30));
+      }
+      return json({ ok: true });
     }
     if (interno === 'resultado') {
       // { cat, w, b (uids), s (pontos das brancas) } -> notas antes e depois

@@ -25,7 +25,7 @@ a.bt { text-decoration: none; }
 
 /* o lado do tabuleiro cabe na tela em pé e deitado */
 :root { --lado: min(calc(100vw - 24px), calc(100dvh - 250px), 640px); }
-#tabuleiro { width: var(--lado); height: var(--lado); display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); border: 4px solid var(--txt); border-radius: 10px; overflow: hidden; box-shadow: 0 6px 0 var(--txt), 0 14px 30px rgba(0,0,0,.3); flex: none; touch-action: manipulation; }
+#tabuleiro, #a-tabuleiro { width: var(--lado); height: var(--lado); display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); border: 4px solid var(--txt); border-radius: 10px; overflow: hidden; box-shadow: 0 6px 0 var(--txt), 0 14px 30px rgba(0,0,0,.3); flex: none; touch-action: manipulation; }
 .casa { position: relative; display: grid; place-items: center; border: 0; padding: 0; margin: 0; background: #f3e3c0; cursor: pointer; font: inherit; }
 .casa.escura { background: #b98a5e; }
 .casa svg { width: 88%; height: 88%; pointer-events: none; filter: drop-shadow(0 2px 0 rgba(0,0,0,.25)); }
@@ -89,3 +89,53 @@ body.pag-dama { background: linear-gradient(160deg, #e0525a, #a8303a); }
 .fim-pontos .sobe { color: #2f9a3c; } .fim-pontos .desce { color: #d23c30; }
 .jogador-linha .pts { flex: none; padding: 1px 8px; border-radius: 8px; background: rgba(20, 16, 40, .35); font-size: 14px; }
 .jogador-linha .pts:empty { display: none; }
+
+/* ---------- perfil ---------- */
+.pag-tabuleiro .janela#x-perfil .caixa { max-height: calc(100dvh - 24px); overflow-y: auto; }
+.perfil-pontos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.perfil-pontos .pp { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; border: 3px solid var(--txt); border-radius: 14px; background: #fff7e6; }
+.pp-cat { font-weight: 900; font-size: 14px; }
+.pp-n { font-weight: 900; font-size: 24px; }
+.pp small { font-weight: 700; opacity: .75; }
+.perfil-lista { display: flex; flex-direction: column; gap: 6px; }
+.partida-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border: 3px solid var(--txt); border-radius: 14px; background: #fff; font: inherit; color: var(--txt); text-align: left; cursor: pointer; box-shadow: 0 3px 0 var(--txt); }
+.partida-item .res { flex: none; min-width: 72px; text-align: center; padding: 3px 6px; border-radius: 10px; font-weight: 900; font-size: 13px; color: #fff; background: #8a7f6c; }
+.partida-item .res.r-v { background: #3fae32; } .partida-item .res.r-d { background: #e64a3c; }
+.pi-meio { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.pi-contra { font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pi-meio small { font-weight: 700; opacity: .75; }
+.pi-ver { flex: none; font-weight: 900; font-size: 13px; color: #4d3fbf; }
+.sobe { color: #2f9a24; } .desce { color: #d23b2e; }
+
+/* ---------- análise ---------- */
+#x-analise { --lado: min(calc(100vw - 24px), calc(100dvh - 400px), 560px); position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: max(10px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); overflow-y: auto; }
+#x-analise[hidden] { display: none; }
+#a-tabuleiro .casa { cursor: default; }
+.casa.melhor::before { content: ""; position: absolute; inset: 6%; border-radius: 8px; border: 4px dashed #2f9a24; pointer-events: none; }
+.status-analise { flex: 1; min-width: 0; text-align: center; padding: 8px 14px; border-radius: 999px; background: rgba(20, 16, 40, .45); color: #fff; font-weight: 900; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.a-nota { position: relative; width: 100%; max-width: var(--lado); height: 22px; border-radius: 999px; background: #3b2f22; overflow: hidden; border: 2px solid var(--txt); flex: none; }
+.a-nota-brancas { position: absolute; left: 0; top: 0; bottom: 0; width: 50%; background: #fffaf0; transition: width .25s; }
+.a-nota-brancas.pretas { background: #3b2f22; }
+.a-nota-brancas.pretas + span { color: #fff; }
+.a-nota:has(.a-nota-brancas.pretas) { background: #fffaf0; }
+#a-nota-txt { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 900; font-size: 13px; color: #fff; mix-blend-mode: difference; }
+.a-info { width: 100%; max-width: var(--lado); margin: 0; min-height: 40px; padding: 6px 10px; border-radius: 12px; background: #fff7e6; color: var(--txt); font-weight: 700; font-size: 15px; border: 3px solid var(--txt); }
+.classe { display: inline-block; padding: 1px 8px; border-radius: 8px; font-weight: 900; color: #fff; background: #8a7f6c; }
+.c-melhor { --c: #2f9a24; } .c-otimo { --c: #5fb84a; } .c-bom { --c: #4f8fd8; } .c-impreciso { --c: #e0a512; } .c-erro { --c: #ee7a2a; } .c-grave { --c: #d23b2e; } .c-unico { --c: #8a7f6c; }
+.classe[class*="c-"] { background: var(--c); }
+.a-nav { width: 100%; max-width: var(--lado); }
+.a-nav .bt { min-height: 44px; font-size: 15px; padding: 6px 8px; }
+.lances.analise .lance { border: 0; font: inherit; color: inherit; background: transparent; cursor: pointer; border-bottom: 3px solid var(--c, transparent); }
+.lances.analise .lance.ult { background: var(--amarelo); color: var(--txt); }
+.a-precisao { width: 100%; max-width: var(--lado); color: #fff; font-weight: 800; }
+.a-precisao .a-tit { font-size: 15px; opacity: .8; }
+.a-jog { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.a-jog .pct { font-size: 22px; color: var(--amarelo); }
+.a-jog small { width: 100%; opacity: .8; font-weight: 700; }
+@media (orientation: landscape) and (max-height: 620px) {
+  #x-analise { --lado: min(calc(100dvh - 24px), calc(100vw - 340px)); display: grid; grid-template-columns: var(--lado) minmax(0, 300px); grid-template-rows: auto auto auto auto auto auto 1fr; justify-content: center; align-items: start; column-gap: 16px; row-gap: 6px; }
+  #a-tabuleiro { grid-column: 1; grid-row: 1 / 8; }
+  #x-analise > :not(#a-tabuleiro) { grid-column: 2; max-width: none; }
+  #x-analise .jogador-linha { display: none; }
+  #a-lances { flex-wrap: wrap; white-space: normal; overflow-y: auto; max-height: 30dvh; }
+}
