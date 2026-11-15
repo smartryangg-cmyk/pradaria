@@ -19,7 +19,11 @@ async function jogador(nome) {
   await p.reload();
   await p.click('#bt-criar-conta');
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
+  if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
   await p.click('#c-ok');
+  // depois de entrar abre "Escolha um jogo": escolhe o Pradaria
+  await p.waitForSelector('#m-jogos:not([hidden]), #m-mundos:not([hidden])', { timeout: 20000 });
+  if (await p.isVisible('#m-jogos')) await p.click('.jogo[data-jogo=pradaria]');
   await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 20000 });
   return p;
 }
