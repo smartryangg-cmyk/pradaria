@@ -5,7 +5,7 @@
 // Outras partes do jogo podem curar: import { vida } from './vida.js'; vida.curar(2); // 2 = um coração inteiro
 import { icone } from './icones.js';
 import { opcoesMundo } from './opcoes-mundo.js';
-import { fomeNova, normalizarFome, cansar, comer, tique, podeCorrer, FOME_MAX, CANSA } from './fome-regras.js';
+import { fomeNova, normalizarFome, cansar, comer, tique, podeCorrer, FOME_MAX, CANSA, comerFatia } from './fome-regras.js';
 
 const MAX_MODS = 10; // 5 corações, cada um vale 2 (dá meio coração)
 const MAX_CLASSICO = 20; // 10 corações
@@ -65,6 +65,7 @@ export const vida = {
   podeCorrer() { return !classico() || podeCorrer(this.fome); },
   comFome() { return classico() && this.fome.f < FOME_MAX; },
   comer(id) { if (!classico() || !comer(this.fome, id)) return false; this.desenhar(); return true; },
+  comerFatia() { if (!classico() || !comerFatia(this.fome)) return false; this.desenhar(); return true; },
 
   atualizar(dt) {
     if (this.protegido > 0) this.protegido -= dt;
