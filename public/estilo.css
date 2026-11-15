@@ -799,3 +799,24 @@ body.chat-aberto #botoes-toque, body.chat-aberto #dica-toque, body.chat-aberto #
   .ops-mini .ic-svg { width: 14px; height: 14px; }
   #lista-mundos { max-height: 50vh; }
 }
+
+/* ---------- plataforma: escolher o jogo (hub.js) ---------- */
+#m-jogos { width: min(620px, 100%); }
+.jogos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.jogo { display: flex; flex-direction: column; padding: 0; overflow: hidden; border: 3px solid var(--txt); border-radius: 18px; background: #fff; box-shadow: 0 5px 0 var(--txt); font: inherit; color: var(--txt); text-align: left; cursor: pointer; min-width: 0; }
+.jogo:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--txt); }
+.jogo:focus-visible { outline: 4px solid #3f8fe0; outline-offset: 2px; }
+.jogo .capa { display: grid; place-items: center; height: 96px; border-bottom: 3px solid var(--txt);
+  background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.35) 0 18%, transparent 19%), linear-gradient(160deg, var(--c1), var(--c2)); }
+.jogo .capa .ic-svg { width: 64px; height: 64px; filter: drop-shadow(0 3px 0 rgba(0,0,0,.25)); }
+.jogo .info { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px 12px; min-width: 0; }
+.jogo .info b { font-size: 20px; font-weight: 900; line-height: 1.1; }
+.jogo .info small { color: var(--txt2); font-weight: 700; font-size: 14px; line-height: 1.25; }
+.jogo .selos { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+.jogo .selos i { font-style: normal; font-size: 12px; font-weight: 900; padding: 2px 8px; border-radius: 999px; background: var(--creme2); border: 2px solid var(--borda); }
+.jogo .selos i.mais16 { background: #ffe1d6; border-color: #e9967a; color: #8a2f12; }
+.jogo.embreve .capa { filter: saturate(.55); }
+.jogo.bloqueado { opacity: .6; }
+.voltar-jogos { align-self: flex-start; min-height: 40px; padding: 4px 8px; margin: -8px 0 -6px -6px; font-size: 16px; }
+@media (max-width: 380px) { .jogo .capa { height: 76px; } .jogo .capa .ic-svg { width: 50px; height: 50px; } .jogo .info b { font-size: 18px; } .jogos { gap: 10px; } }
+@media (max-height: 500px) and (orientation: landscape) { .jogos { grid-template-columns: repeat(3, minmax(0, 1fr)); } .jogo .capa { height: 66px; } .jogo .capa .ic-svg { width: 44px; height: 44px; } .jogo .info small { display: none; } }
