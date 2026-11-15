@@ -562,7 +562,7 @@ export class Sala extends DurableObject {
       const comprado = !natural && !!(await this.ctx.storage.get('c:' + k));
       if (comprado) await this.ctx.storage.delete('c:' + k);
       if (econ && m.j) { // só o que o jogador fez com as mãos
-        const r = await this.econAplicar(ws, eu, econ, { t: 'bloco', b, x, y, z, de, natural, comprado }, true);
+        const r = await this.econAplicar(ws, eu, econ, { t: 'bloco', b, x, y, z, de, natural, comprado, mao: m.mao | 0 }, true);
         if (r && r.ok && r.marca && b > 0) await this.ctx.storage.put('c:' + k, 1);
         // coletar e criar: quebrou com as mãos, o que tinha ali cai no chão
         if (r && r.ok && r.cai && b === 0) await this.soltarNoChao(r.cai.map(([id, n, c]) => [id, n, x + 0.5, y + 0.3, z + 0.5, null, c]), '', eu.uid);
@@ -696,6 +696,14 @@ export class Sala extends DurableObject {
       eu.skin = normalizarSkin(m.s, eu.cor);
       ws.serializeAttachment(eu);
       this.enviarTodos({ t: 'skin', id: eu.id, s: eu.skin }, ws);
+    } else if (m.t === 'racha') {
+      // rachadura de um bloco (só para os outros verem); no máximo ~7 por segundo
+      const { x, y, z, b, n, de } = m;
+      if (![x, y, z, b, n, de].every(Number.isInteger) || !blocoOk(b) || y < 1 || y > ALTURA_MAX || n < 1 || de < 2 || de > 99 || n >= de) return;
+      const agora = Date.now();
+      if (eu.rachaEm && agora - eu.rachaEm < 140) return;
+      eu.rachaEm = agora;
+      this.enviarTodos({ t: 'racha', x, y, z, b, n, de }, ws);
     } else if (m.t === 'emote' && EMOTES.has(m.e)) {
       // no máximo um emote a cada 0,8 s (evita encher a tela/os ouvidos dos outros)
       const agora = Date.now();

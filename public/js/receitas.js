@@ -49,9 +49,11 @@ const VIRA = { [I.GRAMA]: I.TERRA, [I.TERRA_ARADA]: I.TERRA, 80: I.TRONCO, 81: 7
 const EXTRA = { [I.FOLHAS]: [35, I.GRAVETO], [I.CAPIM]: [30, I.TRIGO], [I.TRIGO]: [75, I.TRIGO] };
 const sorteio = (x, y, z) => (((Math.imul(x | 0, 73856093) ^ Math.imul(y | 0, 19349663) ^ Math.imul(z | 0, 83492791)) >>> 0) % 100);
 
-// natural = bloco do mundo original (o extra só vale nele; senão era só pôr e tirar folha no lugar da sorte)
-export function oQueCai(b, x = 0, y = 0, z = 0, natural = true) {
+// natural = bloco do mundo original (o extra só vale nele; senão era só pôr e tirar folha no lugar da sorte); mao = ferramenta
+export function oQueCai(b, x = 0, y = 0, z = 0, natural = true, mao = 0) {
   if (!Number.isInteger(b) || b <= 0 || (b >= 23 && b <= 30) || b > MAX_BLOCO) return [];
+  // vidro estilhaça: só sai inteiro com picareta na mão (com a mão vazia vira cacos)
+  if (b === I.VIDRO && !(FERRAMENTAS[mao] && FERRAMENTAS[mao][0] === 'picareta')) return [];
   const r = [[VIRA[b] ?? baseDe(b), 1]];
   const ex = EXTRA[b];
   // o extra só vem de bloco do mundo (colocar e quebrar não multiplica nada), menos o trigo maduro: ele só existe

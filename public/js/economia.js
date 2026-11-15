@@ -261,7 +261,7 @@ export function aplicar(e, op, a, ctx = {}) {
       } else if (!a.b) {
         // quebrou: o que cai vai para o chão (regras-chao.js); quem chamou põe no chão. A mochila só recebe quando
         // alguém pega. O que cai de um bloco que era comprado continua marcado (c = quantos são comprados)
-        r.cai = oQueCai(a.de, a.x, a.y, a.z, !!a.natural).map(([id, n]) => [id, n, a.comprado ? n : 0]);
+        r.cai = oQueCai(a.de, a.x, a.y, a.z, !!a.natural, a.mao | 0).map(([id, n]) => [id, n, a.comprado ? n : 0]);
       }
     }
     if (a.b > 0) {

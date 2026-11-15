@@ -1,5 +1,10 @@
 // Escavar: cada toque arranca um pedaço do bloco (ele vai ficando esculpido) até quebrar de vez.
 // O bloco atingido é escondido da malha do pedaço e trocado por uma malha de 3x3x3 cubinhos.
+// Cada material quebra do seu jeito (como nos jogos de blocos clássicos, mas visível):
+//   madeira racha em lascas no sentido dos veios, pedra trinca em pedaços irregulares e solta pedrinhas,
+//   terra e areia esfarelam de cima para baixo, folhas soltam folhinhas que planam, vidro estilhaça no 1º toque.
+// Conserto: parou de bater por um tempo, o bloco vai se refazendo aos poucos até voltar inteiro.
+// No online os amigos veem as rachaduras (mensagem 'racha'), que também se consertam sozinhas.
 import * as THREE from '../vendor/three.module.min.js';
 import { AR, B, BLOCOS, OPACO, uvTile } from './blocos.js';
 import { BE } from './blocos-eras.js';
@@ -9,10 +14,25 @@ const N = 3;               // cubinhos por lado
 const TOTAL = N * N * N;
 const MAX_ESCAVADOS = 8;   // blocos meio quebrados ao mesmo tempo
 const LONGE = 24;          // longe disso o bloco volta inteiro
+export const ESPERA_CONSERTO = 2.5; // segundos sem bater até o bloco começar a se refazer
+const PASSO_CONSERTO = 0.4;  // segundos para refazer cada pedaço arrancado
+
+// material de cada bloco (jeito de rachar, pedacinhos e velocidade)
+const MAT = {};
+const marcar = (m, ids) => { for (const b of ids) MAT[b] = m; };
+marcar('madeira', [B.TRONCO, B.TABUAS, B.BANCADA, B.TRONCO_PINHEIRO, B.TRONCO_BETULA, 80, 81, 82, 84, 95, 96, 97, 98, 99, 47, 48, 49, 50, 53, 54, 110, 111]);
+for (let b = 176; b <= 187; b++) MAT[b] = 'madeira'; // móveis
+marcar('pedra', [B.PEDRA, B.PEDRISCO, B.TIJOLO, B.CARVAO, B.FERRO, B.OURO, B.DIAMANTE, B.ROCHA_MAE, B.LAMPIAO, 51, 52, 55, 56, 83, 86, 87, 88, 90, 91, 92, 93, 94]);
+marcar('terra', [B.TERRA, B.GRAMA, B.TERRA_ARADA, B.FENO]);
+marcar('areia', [B.AREIA, B.CASCALHO]);
+marcar('folha', [B.FOLHAS, B.FOLHAS_PINHEIRO, B.FOLHAS_SELVA, B.CACTO]);
+marcar('vidro', [B.VIDRO, 85, 89]);
+marcar('la', [B.LA_BRANCA, B.LA_VERMELHA, B.LA_AZUL, B.LA_AMARELA, B.LA_VERDE, B.LA_ROSA]);
+export const materialDe = (b) => MAT[b] || (BLOCOS[b] && BLOCOS[b].planta ? 'planta' : 'comum');
 
 // quantos toques cada bloco aguenta (dureza)
 const DUREZA = {
-  [B.FOLHAS]: 2, [B.VIDRO]: 2, [B.AREIA]: 3, [B.TERRA]: 3, [B.GRAMA]: 3, [B.LAMPIAO]: 3,
+  [B.FOLHAS]: 2, [B.VIDRO]: 1, [B.AREIA]: 3, [B.TERRA]: 3, [B.GRAMA]: 3, [B.LAMPIAO]: 3,
   [B.LA_BRANCA]: 3, [B.LA_VERMELHA]: 3, [B.LA_AZUL]: 3, [B.LA_AMARELA]: 3, [B.LA_VERDE]: 3, [B.LA_ROSA]: 3,
   [B.TABUAS]: 4, [B.BANCADA]: 4, [B.TRONCO]: 5, [B.PEDRISCO]: 5, [B.PEDRA]: 6, [B.TIJOLO]: 6,
   [B.CACTO]: 2, [B.CASCALHO]: 3,
@@ -20,7 +40,7 @@ const DUREZA = {
   [B.CARVAO]: 7, [B.FERRO]: 8, [B.OURO]: 8, [B.DIAMANTE]: 10, [B.ROCHA_MAE]: 9999,
 };
 // formas redondas (80..99): têm dureza própria, mas não viram cubinhos (seguem redondas até quebrar)
-const DUREZA_FORMA = { 80: 5, 81: 5, 82: 5, 83: 4, 84: 3, 85: 1, 86: 3, 87: 4, 88: 4, 89: 2, 90: 4, 91: 4, 92: 4, 93: 4, 94: 4, 95: 3, 96: 3, 97: 3, 98: 3, 99: 3 };
+const DUREZA_FORMA = { 80: 5, 81: 5, 82: 5, 83: 4, 84: 3, 85: 1, 86: 3, 87: 4, 88: 4, 89: 1, 90: 4, 91: 4, 92: 4, 93: 4, 94: 4, 95: 3, 96: 3, 97: 3, 98: 3, 99: 3 };
 const ehFormaNova = (b) => b >= 80 && b <= 99;
 export const toquesPara = (b) => (ehFormaNova(b) ? DUREZA_FORMA[b] : BLOCOS[b].planta || BLOCOS[b].forma && BLOCOS[b].forma !== 'esteira' ? 1 : DUREZA[b] ?? 3);
 
@@ -58,13 +78,14 @@ export class Escavacao {
     if (!e) {
       if (total <= 1) { this.estilhacar(h.x, h.y, h.z, h.b, null, h.n); this.mundo.definir(h.x, h.y, h.z, AR); return true; }
       if (this.blocos.size >= MAX_ESCAVADOS) this.soltar(this.maisAntigo());
-      e = { x: h.x, y: h.y, z: h.z, b: h.b, vivos: new Uint8Array(TOTAL).fill(1), restam: TOTAL, toques: 0, malha: null };
+      e = { x: h.x, y: h.y, z: h.z, b: h.b, vivos: new Uint8Array(TOTAL).fill(1), restam: TOTAL, toques: 0, malha: null, tirados: [], total, conserto: 0 };
       this.blocos.set(k, e);
       if (ehFormaNova(h.b)) e.forma = true; // fica redonda, só solta lasquinhas
       else this.mundo.esconder(h.x, h.y, h.z, true);
     }
     e.toques++;
-    e.ultimo = performance.now();
+    e.total = total;
+    e.ultimo = performance.now(); e.conserto = 0;
     if (e.forma) {
       if (e.toques >= total) { this.estilhacar(e.x, e.y, e.z, e.b, null, h.n); this.soltar(k, true); return true; }
       this.estilhacar(e.x, e.y, e.z, e.b, [ci(1, 1, 1), ci(1, 2, 1)], h.n);
@@ -77,22 +98,67 @@ export class Escavacao {
       this.soltar(k, true);
       return true;
     }
-    // arranca os cubinhos mais perto do ponto atingido (o buraco vai afundando)
-    const quantos = Math.round(TOTAL / total * (0.8 + Math.random() * 0.4));
-    const lx = p.x - e.x, ly = p.y - e.y, lz = p.z - e.z;
-    const cand = [];
+    const tirar = this.escolher(e, p.x - e.x, p.y - e.y, p.z - e.z, Math.round(TOTAL / total * (0.8 + Math.random() * 0.4)), Math.random);
+    for (const id of tirar) { e.vivos[id] = 0; e.restam--; }
+    e.tirados.push(tirar);
+    this.estilhacar(e.x, e.y, e.z, e.b, tirar, h.n);
+    this.montar(e);
+    if (this.aoRachar) this.aoRachar(e.x, e.y, e.z, e.b, e.toques, total);
+    return false;
+  }
+
+  // quais cubinhos saem nesta batida, conforme o material (lx,ly,lz = ponto atingido dentro do bloco)
+  escolher(e, lx, ly, lz, quantos, rnd) {
+    const mat = materialDe(e.b), cand = [];
     for (let kk = 0; kk < N; kk++) for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       const id = ci(i, j, kk);
       if (!e.vivos[id]) continue;
       const dx = (i + 0.5) / N - lx, dy = (j + 0.5) / N - ly, dz = (kk + 0.5) / N - lz;
-      cand.push([dx * dx + dy * dy + dz * dz + Math.random() * 0.04, id]);
+      let d;
+      if (mat === 'madeira') d = (dx * dx + dz * dz) * 1.6 + dy * dy * 0.12 + rnd() * 0.03; // lasca em pé, no sentido dos veios
+      else if (mat === 'pedra') d = dx * dx + dy * dy + dz * dz + rnd() * 0.45; // trinca torta: pedaços irregulares
+      else if (mat === 'terra' || mat === 'areia') d = (dx * dx + dz * dz) * 0.5 + (N - 1 - j) * 0.6 + rnd() * 0.05; // esfarela de cima
+      else d = dx * dx + dy * dy + dz * dz + rnd() * 0.04;
+      cand.push([d, id]);
     }
     cand.sort((a, b) => a[0] - b[0]);
-    const tirar = cand.slice(0, Math.min(quantos, cand.length - 1)).map((c) => c[1]);
-    for (const id of tirar) { e.vivos[id] = 0; e.restam--; }
-    this.estilhacar(e.x, e.y, e.z, e.b, tirar, h.n);
+    return cand.slice(0, Math.max(0, Math.min(quantos, cand.length - 1))).map((c) => c[1]);
+  }
+
+  // rachadura que veio de um amigo (online): deixa o bloco no mesmo estágio (toques de total)
+  remoto(x, y, z, b, toques, total) {
+    if (this.mundo.bloco(x, y, z) !== b || !(total > 1) || !(toques >= 1) || toques >= total) return;
+    const k = x + ',' + y + ',' + z;
+    let e = this.blocos.get(k);
+    if (e && e.b !== b) { this.soltar(k); e = null; }
+    if (!e) {
+      if (this.blocos.size >= MAX_ESCAVADOS) this.soltar(this.maisAntigo());
+      e = { x, y, z, b, vivos: new Uint8Array(TOTAL).fill(1), restam: TOTAL, toques: 0, malha: null, tirados: [], total, conserto: 0, remoto: true };
+      this.blocos.set(k, e);
+      if (ehFormaNova(b)) e.forma = true; else this.mundo.esconder(x, y, z, true);
+    }
+    e.ultimo = performance.now(); e.conserto = 0; e.total = total;
+    if (e.forma) { e.toques = toques; return; }
+    // sorteio fixo pela posição: os pedaços que saem parecem os mesmos sempre que chega o mesmo estágio
+    let semente = (x * 73856093) ^ (y * 19349663) ^ (z * 83492791);
+    const rnd = () => { semente = (Math.imul(semente, 1103515245) + 12345) | 0; return ((semente >>> 8) & 0xffff) / 65536; };
+    while (e.toques < toques) {
+      const tirar = this.escolher(e, 0.5, 1, 0.5, Math.round(TOTAL / total), rnd);
+      if (!tirar.length) break;
+      for (const id of tirar) { e.vivos[id] = 0; e.restam--; }
+      e.tirados.push(tirar); e.toques++;
+      this.estilhacar(x, y, z, b, tirar, [0, 1, 0]);
+    }
     this.montar(e);
-    return false;
+  }
+
+  // conserto: devolve o último pedaço arrancado; quando não falta nada, o bloco volta inteiro
+  consertar(k, e) {
+    if (e.forma || !e.tirados.length) { this.soltar(k); return; }
+    for (const id of e.tirados.pop()) { e.vivos[id] = 1; e.restam++; }
+    e.toques = Math.max(0, e.toques - 1);
+    if (!e.tirados.length) { this.soltar(k); return; }
+    this.montar(e);
   }
 
   maisAntigo() {
@@ -180,6 +246,8 @@ export class Escavacao {
   // pedaços voando (ids = cubinhos arrancados; null = bloco inteiro de planta)
   estilhacar(x, y, z, b, ids, n) {
     const def = BLOCOS[b];
+    const mat = materialDe(b);
+    if (mat === 'vidro') { this.cacos(x, y, z, b, n); return; }
     const lista = ids || [ci(1, 1, 1)];
     const tam = ids ? 1 / N : 0.5;
     for (const id of lista) {
@@ -191,6 +259,9 @@ export class Escavacao {
         const mesh = new THREE.Mesh(this.geoP, this.corDe(b, tile, (i + q) % N, N - 1 - j));
         const sz = tam * (0.2 + Math.random() * 0.25);
         mesh.scale.setScalar(sz);
+        // lasca de madeira: comprida e fina; pedrinha: um pouco maior e quica mais; terra/areia: farelo miúdo
+        if (mat === 'madeira') mesh.scale.set(sz * 0.45, sz * 2.4, sz * 0.45);
+        else if (mat === 'terra' || mat === 'areia') mesh.scale.setScalar(sz * 0.6);
         const cx = ids ? (i + 0.5) / N : 0.2 + Math.random() * 0.6;
         const cy = ids ? (j + 0.5) / N : 0.1 + Math.random() * 0.6;
         const cz = ids ? (k + 0.5) / N : 0.2 + Math.random() * 0.6;
@@ -202,9 +273,33 @@ export class Escavacao {
           m: mesh, sz,
           v: [nx * 2.2 + (cx - 0.5) * 3 + (Math.random() - 0.5) * 1.5, ny * 2 + 1.5 + Math.random() * 2.5, nz * 2.2 + (cz - 0.5) * 3 + (Math.random() - 0.5) * 1.5],
           gir: [(Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12],
-          vida: 0.7 + Math.random() * 0.5,
+          vida: (mat === 'pedra' ? 1.3 : mat === 'folha' ? 1.6 : 0.7) + Math.random() * 0.5,
+          quica: mat === 'pedra' ? 0.55 : mat === 'terra' || mat === 'areia' ? 0.05 : 0.3,
+          g: mat === 'folha' || mat === 'la' ? 3 : 16, // folhinha e fiapo de lã planam
+          escala: mesh.scale.clone(),
         });
       }
+    }
+  }
+
+  // vidro: estilhaça em cacos finos e brilhantes que voam para todo lado
+  cacos(x, y, z, b, n) {
+    if (!this.matCaco) this.matCaco = new THREE.MeshLambertMaterial({ color: 0xcfeefa, transparent: true, opacity: 0.75 });
+    const nx = n ? n[0] : 0, ny = n ? n[1] : 0, nz = n ? n[2] : 0;
+    for (let q = 0; q < 16 && this.parts.length < 90; q++) {
+      const mesh = new THREE.Mesh(this.geoP, this.matCaco);
+      const sz = 0.08 + Math.random() * 0.12;
+      mesh.scale.set(sz, sz * (0.6 + Math.random()), 0.015);
+      const cx = Math.random(), cy = Math.random(), cz = Math.random();
+      mesh.position.set(x + cx, y + cy, z + cz);
+      mesh.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+      this.cena.add(mesh);
+      this.parts.push({
+        m: mesh, sz,
+        v: [nx * 2.5 + (cx - 0.5) * 5, ny * 2 + 1 + Math.random() * 3, nz * 2.5 + (cz - 0.5) * 5],
+        gir: [(Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20],
+        vida: 0.6 + Math.random() * 0.5, quica: 0.25, escala: mesh.scale.clone(),
+      });
     }
   }
 
@@ -212,20 +307,26 @@ export class Escavacao {
     // pedaços caem, quicam no chão e somem encolhendo
     for (let i = this.parts.length - 1; i >= 0; i--) {
       const q = this.parts[i], m = q.m;
-      q.vida -= dt; q.v[1] -= 16 * dt;
+      q.vida -= dt; q.v[1] -= (q.g || 16) * dt;
+      if (q.g && q.g < 16) { q.v[1] = Math.max(q.v[1], -1.2); q.v[0] += Math.sin(q.vida * 7) * dt * 2; } // plana balançando
       m.position.x += q.v[0] * dt; m.position.y += q.v[1] * dt; m.position.z += q.v[2] * dt;
       m.rotation.x += q.gir[0] * dt; m.rotation.y += q.gir[1] * dt;
       const b = this.mundo.bloco(Math.floor(m.position.x), Math.floor(m.position.y - q.sz / 2), Math.floor(m.position.z));
       if (q.v[1] < 0 && b !== AR && b !== B.AGUA && !BLOCOS[b].planta && !this.mundo.escondido(Math.floor(m.position.x), Math.floor(m.position.y - q.sz / 2), Math.floor(m.position.z))) {
         m.position.y = Math.floor(m.position.y - q.sz / 2) + 1 + q.sz / 2;
-        q.v[1] *= -0.3; q.v[0] *= 0.6; q.v[2] *= 0.6; q.gir[0] *= 0.5; q.gir[1] *= 0.5;
+        q.v[1] *= -(q.quica ?? 0.3); q.v[0] *= 0.6; q.v[2] *= 0.6; q.gir[0] *= 0.5; q.gir[1] *= 0.5;
       }
-      if (q.vida < 0.25) m.scale.setScalar(q.sz * Math.max(0.01, q.vida / 0.25));
+      if (q.vida < 0.25) { const f = Math.max(0.01, q.vida / 0.25); if (q.escala) m.scale.copy(q.escala).multiplyScalar(f); else m.scale.setScalar(q.sz * f); }
       if (q.vida <= 0) { this.cena.remove(m); this.parts.splice(i, 1); }
     }
     // bloco mudou por outro jogador / longe demais: volta ao normal
+    const agora = performance.now();
     for (const [k, e] of this.blocos) {
-      if (this.mundo.bloco(e.x, e.y, e.z) !== e.b || Math.abs(e.x - px) > LONGE || Math.abs(e.z - pz) > LONGE) this.soltar(k);
+      if (this.mundo.bloco(e.x, e.y, e.z) !== e.b || Math.abs(e.x - px) > LONGE || Math.abs(e.z - pz) > LONGE) { this.soltar(k); continue; }
+      // conserto: ficou um tempo sem apanhar, vai se refazendo pedaço por pedaço
+      if ((agora - e.ultimo) / 1000 < ESPERA_CONSERTO) continue;
+      e.conserto += dt;
+      if (e.conserto >= PASSO_CONSERTO) { e.conserto = 0; this.consertar(k, e); }
     }
   }
 }

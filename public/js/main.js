@@ -1048,6 +1048,7 @@ function eventoEnergia(tipo, x, y, z) {
 // (areia caindo, folhas secando, grama crescendo e máquinas não contam)
 let porJogador = false;
 function comoJogador(fn) { porJogador = true; try { return fn(); } finally { porJogador = false; } }
+let maoQuebrando = 0; // o que estava na mão ao quebrar (vidro só sai inteiro com picareta)
 
 // segurar o dedo (ou clicar) num bicho bate nele; com ferramenta na mão o golpe é mais forte
 const FORCA = { [ITEM.PICARETA_MADEIRA]: 2, [ITEM.MACHADO_MADEIRA]: 2, [ITEM.PA_MADEIRA]: 2, [ITEM.PICARETA_PEDRA]: 3, [ITEM.MACHADO_PEDRA]: 3, [ITEM.PA_PEDRA]: 3 };
@@ -1084,8 +1085,8 @@ function quebrar(ponto) {
   // cada toque arranca um pedaço; o último derruba o bloco (a ferramenta certa precisa de menos toques)
   const p = raio.ray.at(h.t + 0.001, new THREE.Vector3());
   const total = toquesCom(toquesPara(h.b), h.b, mao);
-  const natural = !mundo.editado(h.x, h.y, h.z);
-  if (comoJogador(() => escav.bater(h, p, total))) { som.quebrar(); mostrarQueCaiu(h.b, h.x, h.y, h.z, natural); } else som.bater(h.b);
+  maoQuebrando = mao;
+  if (comoJogador(() => escav.bater(h, p, total))) { som.quebrar(); mostrarQueCaiu(h.b, h.x, h.y, h.z); } else som.bater(h.b);
 }
 
 // recolhe a fonte de água mirada; a água corrente que dependia dela seca sozinha
@@ -1230,6 +1231,13 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   mundo.raio = raioVisao();
   mundo.suaveSimples = opcoesGraficas().sombra === 0; // gráfico Leve: arredondado simples (monta mais rápido)
   escav = new Escavacao(cena, mundo, matBlocos, atlasCanvas);
+  // rachadura: os amigos veem o bloco rachando (no máximo 1 aviso a cada 0,15 s)
+  let ultimaRacha = 0;
+  escav.aoRachar = (x, y, z, b, toques, total) => {
+    const ag = performance.now();
+    if (!sala || ag - ultimaRacha < 150) return;
+    ultimaRacha = ag; sala.enviar({ t: 'racha', x, y, z, b, n: toques, de: total });
+  };
   drops.usarMundo(mundo);
   fisica = new Fisica(cena, mundo, matBlocos);
   plantacoes = new Plantacoes(mundo);
@@ -1238,9 +1246,9 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   mundo.carregarEdicoes(edicoes);
   mundo.aoMudarBloco = (x, y, z, b, de, natural) => {
     edicoesPendentes = true;
-    if (sala) sala.enviar(porJogador ? { t: 'bloco', x, y, z, b, de, j: 1 } : { t: 'bloco', x, y, z, b, de });
+    if (sala) sala.enviar(porJogador ? { t: 'bloco', x, y, z, b, de, j: 1, mao: b ? 0 : maoQuebrando } : { t: 'bloco', x, y, z, b, de });
     if (fisica) fisica.mudou(x, y, z, b);
-    if (porJogador) mercado.bloco(b, y, de, natural, x, z);
+    if (porJogador) mercado.bloco(b, y, de, natural, x, z, b ? 0 : maoQuebrando);
   };
   mundo.energia.aoEvento = eventoEnergia;
   minhaPlaca = null;
@@ -1433,6 +1441,7 @@ async function jogarOnline(m, volta = null) {
     voz: (msg) => chat.mensagemVoz(msg), 'voz-lista': (msg) => chat.mensagemVoz(msg), 'voz-sinal': (msg) => chat.mensagemVoz(msg), 'voz-fala': (msg) => chat.mensagemVoz(msg),
     pos: recebeuPos,
     bloco: (msg) => { if (mundo) mundo.definir(msg.x, msg.y, msg.z, msg.b, true); },
+    racha: (msg) => { if (escav) escav.remoto(msg.x, msg.y, msg.z, msg.b, msg.n, msg.de); },
     blocos: (msg) => { if (Array.isArray(msg.l)) porBlocosObra(msg.l, true); },
     emote: (msg) => {
       const o = outros.get(msg.id);
@@ -1944,4 +1953,4 @@ if (conta.token) abrirJogos().then(() => { if (mundoPedido && conta.usuario) ent
 else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; } }; }
+if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; }, get escav() { return escav; } }; }

@@ -89,8 +89,8 @@ export class Mercado {
   evento(e, n = 1) { this.enviar({ t: 'ev', e, n }, true); }
   // só sem internet (online o servidor conta pela própria mensagem do bloco)
   // online, o "Coletar e criar" já mexe na mochila daqui na hora (a sala confere e manda a certa logo depois)
-  bloco(b, y, de, natural, x, z) {
-    const a = { t: 'bloco', b, x, y, z, de, natural };
+  bloco(b, y, de, natural, x, z, mao = 0) {
+    const a = { t: 'bloco', b, x, y, z, de, natural, mao };
     if (!this.sala) this.enviar(a, true);
     else if (this.op.sobrevivencia) this.otimista(a);
   }
