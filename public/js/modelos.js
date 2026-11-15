@@ -1,6 +1,6 @@
 // Modelos 3D feitos de caixinhas (bichos e jogadores), com cores e sombreamento embutidos.
 import * as THREE from '../vendor/three.module.min.js';
-import { PELES, CORES_CABELO, CORES_OLHOS, CORES_ROUPA, PADRAO, normalizarSkin, skinDeCor } from './skin.js';
+import { PELES, CORES_CABELO, CORES_OLHOS, CORES_ROUPA, PADRAO, ALTURAS, CORPOS, corDe, normalizarSkin, skinDeCor } from './skin.js';
 import { opcoesMundo } from './opcoes-mundo.js';
 
 export const matModelo = new THREE.MeshLambertMaterial({ vertexColors: true });
@@ -54,11 +54,12 @@ const SOMBRA = [0.95, 0.95, 1, 0.85, 0.92, 0.92];
 
 // cria geometria de caixa com cor por face; o = deslocamento do centro
 // No estilo Natural 3D (mundo suave) as caixas maiores ganham cantos redondos.
-export function caixa(w, h, d, cor, ox = 0, oy = 0, oz = 0) {
-  const redonda = opcoesMundo.estilo === 'suave' && Math.min(w, h, d) >= 0.12;
+// raio: força cantos redondos com esse raio (> 0) ou caixa reta (0), em qualquer estilo
+export function caixa(w, h, d, cor, ox = 0, oy = 0, oz = 0, raio) {
+  const redonda = raio === undefined ? opcoesMundo.estilo === 'suave' && Math.min(w, h, d) >= 0.12 : raio > 0;
   const s = redonda ? 4 : 1;
   const g = new THREE.BoxGeometry(w, h, d, s, s, s);
-  if (redonda) arredondar(g, w, h, d, Math.min(w, h, d) * 0.32);
+  if (redonda) arredondar(g, w, h, d, raio === undefined ? Math.min(w, h, d) * 0.32 : raio);
   g.translate(ox, oy, oz);
   const c = new THREE.Color(cor);
   const pf = (s + 1) * (s + 1); // vértices por face
@@ -375,78 +376,168 @@ function membroPartes(partes, x, y, z, inicio = 0) {
   return m;
 }
 
-const BOCA = 0xc0605a, ESCURO = 0x222222, BRANCO = 0xffffff, ROSA = 0xf29a9a, PALHA = 0xe8c66a, OURO = 0xf5c542;
+const BOCA = 0xc0605a, ESCURO = 0x222222, BRANCO = 0xffffff, ROSA = 0xf29a9a, PALHA = 0xe8c66a, OURO = 0xf5c542, LENTE = 0x9fd6f0;
+
+// cores de um personagem (paleta ou cor livre)
+function coresDe(s) {
+  return {
+    pele: corDe(PELES, s.pele), cab: corDe(CORES_CABELO, s.corCabelo), olho: corDe(CORES_OLHOS, s.corOlhos),
+    roupa: corDe(CORES_ROUPA, s.corRoupa), det: corDe(CORES_ROUPA, s.corDetalhe), calca: corDe(CORES_ROUPA, s.corCalca),
+    sap: corDe(CORES_ROUPA, s.corSapato), hat: corDe(CORES_ROUPA, s.corChapeu), ocu: corDe(CORES_ROUPA, s.corOculos),
+    cos: corDe(CORES_ROUPA, s.corCostas),
+  };
+}
+// formato da cabeça: [raio dos cantos, escala x, y, z]
+const FORMATOS = [[0, 1, 1, 1], [0.1, 1, 1, 1], [0.14, 0.93, 1.08, 0.96], [0.07, 1.1, 0.94, 1]];
+// cilindro deitado (eixo 'x' = de frente, 'z' = de lado)
+function deitado(r, h, cor, x, y, z, eixo) {
+  const g = new THREE.CylinderGeometry(r, r, h, 12);
+  if (eixo === 'z') g.rotateZ(Math.PI / 2); else g.rotateX(Math.PI / 2);
+  g.translate(x, y, z);
+  return comCor(g, cor);
+}
+function aro(r, tubo, cor, x, y, z) { const g = new THREE.TorusGeometry(r, tubo, 5, 14); g.translate(x, y, z); return comCor(g, cor); }
+function estrelaGeo(r, cor, x, y, z) {
+  const sh = new THREE.Shape();
+  for (let i = 0; i < 10; i++) { const a = Math.PI / 2 + (i * Math.PI) / 5, q = i % 2 ? r * 0.45 : r; sh[i ? 'lineTo' : 'moveTo'](Math.cos(a) * q, Math.sin(a) * q); }
+  const g = new THREE.ShapeGeometry(sh); g.translate(x, y, z);
+  return comCor(g, cor);
+}
 
 function pecasCabeca(s) {
-  const pele = PELES[s.pele], ch = CORES_CABELO[s.corCabelo], io = CORES_OLHOS[s.corOlhos], hat = CORES_ROUPA[s.corChapeu];
-  const g = [caixa(0.48, 0.48, 0.48, pele, 0, 0.24, 0)];
+  const C = coresDe(s), pele = C.pele, ch = C.cab, io = C.olho, hat = C.hat;
+  const g = [caixa(0.48, 0.48, 0.48, pele, 0, 0.24, 0, FORMATOS[s.formato][0])];
   const z = 0.245; // frente do rosto
+  const pelo = s.cabelo === 0 ? 0x4a3020 : ch; // sobrancelha/bigode de quem é careca
   // olhos
   for (const lx of [-0.11, 0.11]) {
-    if (s.olhos === 0) g.push(caixa(0.08, 0.08, 0.02, io, lx, 0.26, z));
-    else if (s.olhos === 1) g.push(caixa(0.13, 0.13, 0.02, BRANCO, lx, 0.26, z), caixa(0.07, 0.09, 0.02, io, lx + (lx < 0 ? 0.02 : -0.02), 0.25, z + 0.006));
-    else if (s.olhos === 2) g.push(caixa(0.12, 0.035, 0.02, ESCURO, lx, 0.275, z), caixa(0.035, 0.035, 0.02, ESCURO, lx - 0.055, 0.25, z), caixa(0.035, 0.035, 0.02, ESCURO, lx + 0.055, 0.25, z));
-    else if (s.olhos === 3) g.push(caixa(0.1, 0.11, 0.02, io, lx, 0.26, z), caixa(0.04, 0.04, 0.02, BRANCO, lx + 0.025, 0.285, z + 0.006));
-    else g.push(caixa(0.12, 0.035, 0.02, ESCURO, lx, 0.27, z + 0.004), caixa(0.08, 0.045, 0.02, io, lx, 0.24, z));
+    const o = s.olhos;
+    if (o === 0) g.push(caixa(0.08, 0.08, 0.02, io, lx, 0.26, z));
+    else if (o === 1 || o === 5) {
+      g.push(caixa(0.13, 0.13, 0.02, BRANCO, lx, 0.26, z), caixa(0.07, 0.09, 0.02, io, lx + (lx < 0 ? 0.02 : -0.02), 0.25, z + 0.006));
+      if (o === 5) { const fora = lx < 0 ? -1 : 1; g.push(caixa(0.15, 0.025, 0.02, ESCURO, lx, 0.33, z + 0.008), caixa(0.03, 0.05, 0.02, ESCURO, lx + fora * 0.085, 0.345, z + 0.008), caixa(0.03, 0.035, 0.02, ESCURO, lx + fora * 0.05, 0.355, z + 0.008)); }
+    } else if (o === 2) g.push(caixa(0.12, 0.035, 0.02, ESCURO, lx, 0.275, z), caixa(0.035, 0.035, 0.02, ESCURO, lx - 0.055, 0.25, z), caixa(0.035, 0.035, 0.02, ESCURO, lx + 0.055, 0.25, z));
+    else if (o === 3) g.push(caixa(0.1, 0.11, 0.02, io, lx, 0.26, z), caixa(0.04, 0.04, 0.02, BRANCO, lx + 0.025, 0.285, z + 0.006));
+    else if (o === 4) g.push(caixa(0.12, 0.035, 0.02, ESCURO, lx, 0.27, z + 0.004), caixa(0.08, 0.045, 0.02, io, lx, 0.24, z));
+    else if (o === 6) g.push(lx < 0 ? caixa(0.09, 0.1, 0.02, io, lx, 0.26, z) : caixa(0.12, 0.03, 0.02, ESCURO, lx, 0.25, z));
+    else g.push(caixa(0.15, 0.15, 0.02, BRANCO, lx, 0.26, z), caixa(0.09, 0.09, 0.02, io, lx, 0.255, z + 0.005), caixa(0.035, 0.035, 0.02, BRANCO, lx + 0.02, 0.28, z + 0.01));
+    // sobrancelhas
+    const dentro = lx < 0 ? 1 : -1;
+    if (s.sobrancelha === 1) g.push(caixa(0.12, 0.022, 0.02, pelo, lx, 0.36, z));
+    else if (s.sobrancelha === 2) g.push(caixa(0.14, 0.05, 0.02, pelo, lx, 0.365, z));
+    else if (s.sobrancelha === 3 || s.sobrancelha === 4) {
+      const brava = s.sobrancelha === 3 ? 1 : -1;
+      g.push(caixa(0.07, 0.035, 0.02, pelo, lx + dentro * 0.035, 0.36 - brava * 0.015, z), caixa(0.07, 0.035, 0.02, pelo, lx - dentro * 0.035, 0.36 + brava * 0.015, z));
+    }
   }
   // boca
-  if (s.boca === 0) g.push(caixa(0.16, 0.04, 0.02, BOCA, 0, 0.12, z));
-  else if (s.boca === 1) g.push(caixa(0.2, 0.09, 0.02, 0x7a2a2a, 0, 0.115, z), caixa(0.17, 0.03, 0.02, BRANCO, 0, 0.142, z + 0.005));
-  else if (s.boca === 2) g.push(caixa(0.08, 0.03, 0.02, BOCA, 0, 0.12, z));
-  else g.push(caixa(0.16, 0.04, 0.02, BOCA, 0, 0.125, z), caixa(0.07, 0.07, 0.02, 0xef7f95, 0.02, 0.085, z + 0.005));
-  // extras do rosto
-  if (s.rosto === 1) g.push(caixa(0.08, 0.05, 0.02, ROSA, -0.17, 0.16, z - 0.002), caixa(0.08, 0.05, 0.02, ROSA, 0.17, 0.16, z - 0.002));
-  else if (s.rosto === 2) for (const [x, y] of [[-0.18, 0.18], [-0.14, 0.15], [-0.19, 0.14], [0.18, 0.18], [0.14, 0.15], [0.19, 0.14]]) g.push(caixa(0.025, 0.025, 0.02, 0xa8673f, x, y, z - 0.002));
-  else if (s.rosto === 3) {
-    for (const lx of [-0.11, 0.11]) g.push(caixa(0.17, 0.025, 0.02, ESCURO, lx, 0.335, z + 0.012), caixa(0.17, 0.025, 0.02, ESCURO, lx, 0.185, z + 0.012),
-      caixa(0.025, 0.15, 0.02, ESCURO, lx - 0.085, 0.26, z + 0.012), caixa(0.025, 0.15, 0.02, ESCURO, lx + 0.085, 0.26, z + 0.012));
-    g.push(caixa(0.06, 0.025, 0.02, ESCURO, 0, 0.29, z + 0.012), caixa(0.02, 0.025, 0.2, ESCURO, -0.245, 0.3, 0.13), caixa(0.02, 0.025, 0.2, ESCURO, 0.245, 0.3, 0.13));
-  } else if (s.rosto === 4) {
-    g.push(caixa(0.17, 0.11, 0.02, 0x1b1b24, -0.11, 0.265, z + 0.014), caixa(0.17, 0.11, 0.02, 0x1b1b24, 0.11, 0.265, z + 0.014),
-      caixa(0.06, 0.025, 0.02, ESCURO, 0, 0.29, z + 0.014), caixa(0.02, 0.025, 0.2, ESCURO, -0.245, 0.3, 0.13), caixa(0.02, 0.025, 0.2, ESCURO, 0.245, 0.3, 0.13));
+  const b = s.boca;
+  if (b === 0) g.push(caixa(0.16, 0.04, 0.02, BOCA, 0, 0.12, z));
+  else if (b === 1) g.push(caixa(0.2, 0.09, 0.02, 0x7a2a2a, 0, 0.115, z), caixa(0.17, 0.03, 0.02, BRANCO, 0, 0.142, z + 0.005));
+  else if (b === 2) g.push(caixa(0.08, 0.03, 0.02, BOCA, 0, 0.12, z));
+  else if (b === 3) g.push(caixa(0.16, 0.04, 0.02, BOCA, 0, 0.125, z), caixa(0.07, 0.07, 0.02, 0xef7f95, 0.02, 0.085, z + 0.005));
+  else if (b === 4) g.push(caixa(0.08, 0.09, 0.02, 0x7a2a2a, 0, 0.11, z));
+  else if (b === 5) g.push(caixa(0.16, 0.04, 0.02, BOCA, 0, 0.125, z), caixa(0.035, 0.04, 0.02, BRANCO, -0.022, 0.095, z + 0.003), caixa(0.035, 0.04, 0.02, BRANCO, 0.022, 0.095, z + 0.003));
+  else g.push(caixa(0.12, 0.035, 0.02, BOCA, 0.02, 0.115, z), caixa(0.045, 0.035, 0.02, BOCA, 0.09, 0.14, z));
+  // detalhes do rosto
+  const r = s.rosto;
+  if (r === 1) g.push(caixa(0.08, 0.05, 0.02, ROSA, -0.17, 0.16, z - 0.002), caixa(0.08, 0.05, 0.02, ROSA, 0.17, 0.16, z - 0.002));
+  else if (r === 2) for (const [x, y] of [[-0.18, 0.18], [-0.14, 0.15], [-0.19, 0.14], [0.18, 0.18], [0.14, 0.15], [0.19, 0.14]]) g.push(caixa(0.025, 0.025, 0.02, 0xa8673f, x, y, z - 0.002));
+  else if (r === 3) g.push(caixa(0.22, 0.045, 0.025, pelo, 0, 0.165, z + 0.004), caixa(0.05, 0.04, 0.025, pelo, -0.12, 0.15, z + 0.004), caixa(0.05, 0.04, 0.025, pelo, 0.12, 0.15, z + 0.004));
+  else if (r === 4) g.push(caixa(0.48, 0.075, 0.03, pelo, 0, 0.04, z + 0.004), caixa(0.14, 0.05, 0.03, pelo, -0.17, 0.1, z + 0.004), caixa(0.14, 0.05, 0.03, pelo, 0.17, 0.1, z + 0.004),
+    caixa(0.2, 0.04, 0.025, pelo, 0, 0.165, z + 0.004), caixa(0.03, 0.22, 0.3, pelo, -0.252, 0.12, 0.09), caixa(0.03, 0.22, 0.3, pelo, 0.252, 0.12, 0.09));
+  else if (r === 5) g.push(caixa(0.03, 0.03, 0.02, 0x4a2c18, 0.15, 0.18, z));
+  else if (r === 6) g.push(caixa(0.13, 0.045, 0.02, 0xf2d7a8, -0.15, 0.18, z + 0.003), caixa(0.03, 0.03, 0.02, 0xd8b98a, -0.15, 0.18, z + 0.008));
+  // óculos
+  const oc = s.oculos, aroCor = oc === 4 ? BRANCO : C.ocu, hastes = () => g.push(caixa(0.06, 0.025, 0.02, aroCor, 0, 0.29, z + 0.012), caixa(0.02, 0.025, 0.2, aroCor, -0.245, 0.3, 0.13), caixa(0.02, 0.025, 0.2, aroCor, 0.245, 0.3, 0.13));
+  if (oc === 1) { for (const lx of [-0.11, 0.11]) g.push(aro(0.075, 0.013, aroCor, lx, 0.26, z + 0.014)); hastes(); }
+  else if (oc === 2) {
+    for (const lx of [-0.11, 0.11]) g.push(caixa(0.17, 0.025, 0.02, aroCor, lx, 0.335, z + 0.012), caixa(0.17, 0.025, 0.02, aroCor, lx, 0.185, z + 0.012),
+      caixa(0.025, 0.15, 0.02, aroCor, lx - 0.085, 0.26, z + 0.012), caixa(0.025, 0.15, 0.02, aroCor, lx + 0.085, 0.26, z + 0.012));
+    hastes();
+  } else if (oc === 3 || oc === 4) {
+    const lente = oc === 3 ? 0x1b1b24 : C.ocu;
+    g.push(caixa(0.17, 0.11, 0.02, lente, -0.11, 0.265, z + 0.014), caixa(0.17, 0.11, 0.02, lente, 0.11, 0.265, z + 0.014));
+    if (oc === 4) g.push(caixa(0.05, 0.03, 0.02, BRANCO, -0.14, 0.29, z + 0.026), caixa(0.05, 0.03, 0.02, BRANCO, 0.08, 0.29, z + 0.026));
+    hastes();
+  } else if (oc === 5) {
+    g.push(caixa(0.42, 0.15, 0.03, aroCor, 0, 0.27, z + 0.018), caixa(0.36, 0.1, 0.02, LENTE, 0, 0.27, z + 0.03),
+      caixa(0.53, 0.05, 0.03, aroCor, 0, 0.29, -0.25), caixa(0.03, 0.05, 0.5, aroCor, -0.262, 0.29, 0), caixa(0.03, 0.05, 0.5, aroCor, 0.262, 0.29, 0));
   }
   // cabelo
+  const c = s.cabelo;
   const curto = () => g.push(caixa(0.52, 0.1, 0.52, ch, 0, 0.47, 0), caixa(0.52, 0.3, 0.06, ch, 0, 0.33, -0.245),
     caixa(0.04, 0.16, 0.42, ch, -0.25, 0.37, -0.03), caixa(0.04, 0.16, 0.42, ch, 0.25, 0.37, -0.03));
   let topo = 0.48;
-  if (s.cabelo >= 1 && s.cabelo <= 6) { curto(); topo = 0.52; }
-  if (s.cabelo === 2) for (const [x, zz, h] of [[-0.15, 0.1, 0.12], [0.02, 0.14, 0.15], [0.17, 0.06, 0.11], [-0.08, -0.1, 0.13], [0.12, -0.14, 0.12]]) g.push(caixa(0.11, h, 0.11, ch, x, 0.52 + h / 2, zz));
-  else if (s.cabelo === 3) g.push(caixa(0.52, 0.1, 0.05, ch, 0, 0.42, 0.24), caixa(0.14, 0.06, 0.05, ch, -0.17, 0.36, 0.24));
-  else if (s.cabelo === 4) g.push(caixa(0.54, 0.64, 0.08, ch, 0, 0.19, -0.255), caixa(0.06, 0.46, 0.3, ch, -0.265, 0.23, -0.07), caixa(0.06, 0.46, 0.3, ch, 0.265, 0.23, -0.07));
-  else if (s.cabelo === 5) g.push(caixa(0.1, 0.1, 0.08, hat === ch ? BRANCO : hat, 0, 0.36, -0.3), caixa(0.13, 0.4, 0.13, ch, 0, 0.12, -0.32));
-  else if (s.cabelo === 6) g.push(bola(0.12, ch, 0, 0.58, -0.1));
-  else if (s.cabelo === 7) { g.push(bola(0.34, ch, 0, 0.42, -0.1, 1.12, 0.86, 1), caixa(0.5, 0.06, 0.4, ch, 0, 0.49, 0.03)); topo = 0.7; }
+  if ((c >= 1 && c <= 6) || (c >= 9)) { curto(); topo = 0.52; }
+  if (c === 2) for (const [x, zz, h] of [[-0.15, 0.1, 0.12], [0.02, 0.14, 0.15], [0.17, 0.06, 0.11], [-0.08, -0.1, 0.13], [0.12, -0.14, 0.12]]) g.push(caixa(0.11, h, 0.11, ch, x, 0.52 + h / 2, zz));
+  else if (c === 3) g.push(caixa(0.52, 0.1, 0.05, ch, 0, 0.42, 0.24), caixa(0.14, 0.06, 0.05, ch, -0.17, 0.36, 0.24));
+  else if (c === 4) g.push(caixa(0.54, 0.64, 0.08, ch, 0, 0.19, -0.255), caixa(0.06, 0.46, 0.3, ch, -0.265, 0.23, -0.07), caixa(0.06, 0.46, 0.3, ch, 0.265, 0.23, -0.07));
+  else if (c === 5) g.push(caixa(0.1, 0.1, 0.08, hat === ch ? BRANCO : hat, 0, 0.36, -0.3), caixa(0.13, 0.4, 0.13, ch, 0, 0.12, -0.32));
+  else if (c === 6) g.push(bola(0.12, ch, 0, 0.58, -0.1));
+  else if (c === 7) { g.push(bola(0.34, ch, 0, 0.42, -0.1, 1.12, 0.86, 1), caixa(0.5, 0.06, 0.4, ch, 0, 0.49, 0.03)); topo = 0.7; }
+  else if (c === 8) { g.push(caixa(0.12, 0.18, 0.54, ch, 0, 0.55, -0.02), caixa(0.12, 0.3, 0.06, ch, 0, 0.36, -0.255)); topo = 0.6; }
+  else if (c === 9) for (const sx of [-1, 1]) g.push(caixa(0.11, 0.42, 0.11, ch, sx * 0.2, 0.08, -0.2), caixa(0.13, 0.05, 0.13, hat === ch ? BRANCO : hat, sx * 0.2, -0.1, -0.2), caixa(0.1, 0.08, 0.1, ch, sx * 0.2, -0.17, -0.2));
+  else if (c === 10) g.push(caixa(0.52, 0.11, 0.05, ch, 0, 0.42, 0.245), caixa(0.06, 0.38, 0.44, ch, -0.265, 0.27, -0.02), caixa(0.06, 0.38, 0.44, ch, 0.265, 0.27, -0.02), caixa(0.54, 0.4, 0.08, ch, 0, 0.27, -0.255));
+  else if (c === 11) { g.push(caixa(0.42, 0.16, 0.24, ch, 0, 0.56, 0.12), caixa(0.36, 0.08, 0.14, ch, 0, 0.6, 0.2)); topo = 0.62; }
+  else if (c === 12) for (const sx of [-1, 1]) g.push(caixa(0.08, 0.08, 0.08, hat === ch ? BRANCO : hat, sx * 0.29, 0.42, -0.08), bola(0.1, ch, sx * 0.35, 0.33, -0.08, 0.9, 1.3, 0.9));
   // chapéu
-  if (s.chapeu === 1) g.push(caixa(0.54, 0.15, 0.54, hat, 0, topo + 0.04, 0), caixa(0.5, 0.04, 0.24, hat, 0, topo - 0.01, 0.36), caixa(0.08, 0.04, 0.08, BRANCO, 0, topo + 0.13, 0));
-  else if (s.chapeu === 2) g.push(cilindro(0.5, 0.5, 0.035, PALHA, 0, topo, 0, 16), cilindro(0.26, 0.29, 0.22, PALHA, 0, topo + 0.12, 0), cilindro(0.295, 0.295, 0.06, hat, 0, topo + 0.04, 0));
-  else if (s.chapeu === 3) g.push(caixa(0.56, 0.08, 0.56, BRANCO, 0, topo - 0.02, 0), caixa(0.52, 0.2, 0.52, hat, 0, topo + 0.1, 0), bola(0.09, BRANCO, 0, topo + 0.26, 0));
-  else if (s.chapeu === 4) {
+  const h = s.chapeu;
+  if (h === 1) g.push(caixa(0.54, 0.15, 0.54, hat, 0, topo + 0.04, 0), caixa(0.5, 0.04, 0.24, hat, 0, topo - 0.01, 0.36), caixa(0.08, 0.04, 0.08, BRANCO, 0, topo + 0.13, 0));
+  else if (h === 2) g.push(cilindro(0.5, 0.5, 0.035, PALHA, 0, topo, 0, 16), cilindro(0.26, 0.29, 0.22, PALHA, 0, topo + 0.12, 0), cilindro(0.295, 0.295, 0.06, hat, 0, topo + 0.04, 0));
+  else if (h === 3) g.push(caixa(0.56, 0.08, 0.56, BRANCO, 0, topo - 0.02, 0), caixa(0.52, 0.2, 0.52, hat, 0, topo + 0.1, 0), bola(0.09, BRANCO, 0, topo + 0.26, 0));
+  else if (h === 4) {
     g.push(caixa(0.5, 0.1, 0.5, OURO, 0, topo + 0.03, 0));
     for (const [x, zz] of [[-0.2, 0.2], [0, 0.2], [0.2, 0.2], [-0.2, -0.2], [0.2, -0.2], [0, -0.2]]) g.push(caixa(0.08, 0.12, 0.08, OURO, x, topo + 0.13, zz));
     g.push(caixa(0.07, 0.07, 0.02, hat, 0, topo + 0.03, 0.255));
-  } else if (s.chapeu === 5) g.push(caixa(0.16, 0.13, 0.06, hat, 0.08, topo + 0.02, 0.1), caixa(0.16, 0.13, 0.06, hat, 0.3, topo + 0.02, 0.1), caixa(0.08, 0.08, 0.08, hat, 0.19, topo + 0.02, 0.1));
+  } else if (h === 5) g.push(caixa(0.16, 0.13, 0.06, hat, 0.08, topo + 0.02, 0.1), caixa(0.16, 0.13, 0.06, hat, 0.3, topo + 0.02, 0.1), caixa(0.08, 0.08, 0.08, hat, 0.19, topo + 0.02, 0.1));
+  else if (h === 6) g.push(bola(0.31, hat, 0, topo - 0.1, -0.01, 1, 0.82, 1.02), caixa(0.36, 0.035, 0.12, hat, 0, topo - 0.05, 0.3), caixa(0.1, 0.06, 0.04, BRANCO, 0, topo + 0.08, 0.27));
+  else if (h === 7) g.push(caixa(0.53, 0.045, 0.07, hat, 0, topo + 0.005, 0.07), caixa(0.04, 0.16, 0.07, hat, -0.27, topo - 0.07, 0.07), caixa(0.04, 0.16, 0.07, hat, 0.27, topo - 0.07, 0.07), bola(0.05, BRANCO, 0.14, topo + 0.04, 0.09));
+  else if (h === 8) g.push(caixa(0.56, 0.05, 0.08, hat, 0, topo + 0.03, 0), caixa(0.04, 0.22, 0.08, hat, -0.28, topo - 0.1, 0), caixa(0.04, 0.22, 0.08, hat, 0.28, topo - 0.1, 0),
+    deitado(0.1, 0.07, ESCURO, -0.29, 0.25, 0, 'z'), deitado(0.1, 0.07, ESCURO, 0.29, 0.25, 0, 'z'));
+  else if (h === 9) g.push(cilindro(0.38, 0.38, 0.03, ESCURO, 0, topo, 0, 16), cilindro(0.24, 0.24, 0.42, ESCURO, 0, topo + 0.22, 0, 14), cilindro(0.245, 0.245, 0.07, hat, 0, topo + 0.06, 0, 14));
   return g;
 }
 
+// tronco (corpo + o que vai nas costas); medidas a partir do chão
 function pecasCorpo(s) {
-  const pele = PELES[s.pele], r = CORES_ROUPA[s.corRoupa], d = CORES_ROUPA[s.corDetalhe];
-  const jardineira = s.roupa === 5, vestido = s.roupa === 4;
+  const C = coresDe(s), pele = C.pele, r = C.roupa, d = C.det;
+  const jardineira = s.roupa === 5, vestido = s.roupa === 4, jaqueta = s.roupa === 7;
   const camisa = jardineira ? d : r; // na jardineira a camiseta de baixo é a cor do detalhe
   const g = [caixa(0.5, 0.65, 0.28, camisa, 0, 1.08, 0)];
   // estampa (não vale na jardineira, que já tem duas cores)
   if (!jardineira) {
-    if (s.estampa === 1) for (const y of [0.88, 1.05, 1.22]) g.push(caixa(0.51, 0.07, 0.29, d, 0, y, 0));
-    else if (s.estampa === 2) g.push(caixa(0.13, 0.66, 0.29, d, 0, 1.08, 0));
-    else if (s.estampa === 3) g.push(caixa(0.24, 0.14, 0.02, d, 0.09, 0.95, 0.145), caixa(0.24, 0.02, 0.02, ESCURO, 0.09, 1.025, 0.146));
+    const e = s.estampa;
+    if (e === 1) for (const y of [0.88, 1.05, 1.22]) g.push(caixa(0.51, 0.07, 0.29, d, 0, y, 0));
+    else if (e === 2) g.push(caixa(0.13, 0.66, 0.29, d, 0, 1.08, 0));
+    else if (e === 3) g.push(caixa(0.24, 0.14, 0.02, d, 0.09, 0.95, 0.145), caixa(0.24, 0.02, 0.02, ESCURO, 0.09, 1.025, 0.146));
+    else if (e === 4) { for (const y of [0.92, 1.12, 1.3]) g.push(caixa(0.51, 0.04, 0.29, d, 0, y, 0)); for (const x of [-0.13, 0.03, 0.17]) g.push(caixa(0.04, 0.66, 0.29, d, x, 1.08, 0)); }
+    else if (e === 5) { g.push(estrelaGeo(0.11, d, 0, 1.1, 0.142)); }
   }
   if (s.roupa === 1) g.push(caixa(0.5, 0.06, 0.24, pele, 0, 1.38, 0), caixa(0.06, 0.06, 0.29, r, -0.19, 1.38, 0), caixa(0.06, 0.06, 0.29, r, 0.19, 1.38, 0));
   if (s.roupa === 3) g.push(caixa(0.42, 0.2, 0.12, r, 0, 1.4, -0.18), caixa(0.03, 0.14, 0.02, BRANCO, -0.07, 1.31, 0.146), caixa(0.03, 0.14, 0.02, BRANCO, 0.07, 1.31, 0.146));
   if (jardineira) g.push(caixa(0.34, 0.3, 0.02, r, 0, 0.93, 0.145), caixa(0.51, 0.16, 0.29, r, 0, 0.84, 0),
     caixa(0.06, 0.34, 0.02, r, -0.15, 1.22, 0.145), caixa(0.06, 0.34, 0.02, r, 0.15, 1.22, 0.145), caixa(0.06, 0.4, 0.02, r, -0.15, 1.15, -0.145), caixa(0.06, 0.4, 0.02, r, 0.15, 1.15, -0.145),
     caixa(0.05, 0.05, 0.02, OURO, -0.15, 1.08, 0.157), caixa(0.05, 0.05, 0.02, OURO, 0.15, 1.08, 0.157));
+  // camisa social: gola branca e botões
+  if (s.roupa === 6) {
+    g.push(caixa(0.12, 0.08, 0.03, BRANCO, -0.08, 1.37, 0.14), caixa(0.12, 0.08, 0.03, BRANCO, 0.08, 1.37, 0.14));
+    for (const y of [0.9, 1.04, 1.18, 1.3]) g.push(caixa(0.035, 0.035, 0.02, BRANCO, 0, y, 0.148));
+  }
+  // jaqueta aberta: a camiseta (cor do detalhe) aparece no meio, com zíper e gola
+  if (jaqueta) g.push(caixa(0.16, 0.64, 0.02, d, 0, 1.08, 0.142), caixa(0.03, 0.64, 0.025, 0x9e9e9e, -0.09, 1.08, 0.146), caixa(0.03, 0.64, 0.025, 0x9e9e9e, 0.09, 1.08, 0.146),
+    caixa(0.52, 0.09, 0.3, r, 0, 1.38, 0));
   // saia / vestido (rodadinhos)
   if (vestido) g.push(cilindro(0.27, 0.38, 0.44, r, 0, 0.6, 0, 14));
-  else if (s.calca === 2) g.push(cilindro(0.27, 0.35, 0.28, CORES_ROUPA[s.corCalca], 0, 0.69, 0, 14));
+  else if (s.calca === 2) g.push(cilindro(0.27, 0.35, 0.28, C.calca, 0, 0.69, 0, 14));
+  // costas
+  const cos = C.cos, k = s.costas;
+  if (k === 1) g.push(caixa(0.36, 0.42, 0.16, cos, 0, 1.05, -0.22), caixa(0.26, 0.14, 0.06, cos, 0, 0.94, -0.32), caixa(0.2, 0.02, 0.02, ESCURO, 0, 1.0, -0.352),
+    caixa(0.06, 0.5, 0.02, 0x3b2f22, -0.15, 1.12, 0.148), caixa(0.06, 0.5, 0.02, 0x3b2f22, 0.15, 1.12, 0.148));
+  else if (k === 2) g.push(caixa(0.56, 0.9, 0.03, cos, 0, 0.93, -0.165), caixa(0.54, 0.06, 0.32, cos, 0, 1.38, 0));
+  else if (k === 3) for (const sx of [-1, 1]) g.push(caixa(0.3, 0.26, 0.02, cos, sx * 0.24, 1.22, -0.2), caixa(0.22, 0.2, 0.02, cos, sx * 0.21, 0.98, -0.2), caixa(0.12, 0.1, 0.025, BRANCO, sx * 0.27, 1.24, -0.212));
+  else if (k === 4) g.push(bola(0.2, cos, 0.04, 0.88, -0.2, 1, 1.15, 0.32), bola(0.14, cos, 0.04, 1.14, -0.2, 1, 1, 0.32), deitado(0.045, 0.03, ESCURO, 0.04, 0.95, -0.262, 'x'),
+    caixa(0.06, 0.48, 0.04, 0x5a3a22, 0.04, 1.42, -0.2), caixa(0.1, 0.1, 0.05, 0x3b2f22, 0.04, 1.69, -0.2), caixa(0.04, 0.6, 0.02, 0x3b2f22, -0.13, 1.13, 0.148));
   return g;
 }
 
@@ -468,8 +559,8 @@ const comFolga = (partes, f) => partes.map((p, i) => (i ? p : [p[0] * 0.95, p[1]
 
 // braços (braço + antebraço) e pernas (coxa + canela); cada um devolve [de cima, de baixo]
 function membrosDe(s) {
-  const pele = PELES[s.pele], r = CORES_ROUPA[s.corRoupa], d = CORES_ROUPA[s.corDetalhe], sap = CORES_ROUPA[s.corSapato];
-  const manga = s.roupa === 2 || s.roupa === 3 ? 0.52 : s.roupa === 1 ? 0 : 0.22;
+  const C = coresDe(s), pele = C.pele, r = C.roupa, d = C.det, sap = C.sap;
+  const manga = [2, 3, 6, 7].includes(s.roupa) ? 0.52 : s.roupa === 1 ? 0 : 0.22;
   const corManga = s.roupa === 5 ? d : r;
   const articular = (partes, total, x, y) => {
     const [cima, baixo] = cortar(partes, total / 2);
@@ -478,13 +569,25 @@ function membrosDe(s) {
     return [a, b];
   };
   const braco = (x) => articular(manga ? [[0.22, manga, 0.24, corManga], [0.2, BRACO - manga, 0.22, pele]] : [[0.2, BRACO, 0.22, pele]], BRACO, x, OMBRO_Y);
+  // pé: [peças de baixo para cima não; de cima para baixo], e quanto da perna ele ocupa
+  const PES = [
+    [[0.24, 0.1, 0.28, sap, 0.02], [0.25, 0.04, 0.29, BRANCO, 0.02]], // tênis com sola branca
+    [[0.24, 0.26, 0.27, sap, 0.01]], // botas
+    [[0.2, 0.09, 0.22, pele, 0.01], [0.25, 0.05, 0.29, sap, 0.02]], // sandália
+    [[0.2, 0.14, 0.24, pele, 0.01]], // descalço
+    [[0.25, 0.34, 0.27, sap, 0.01]], // galocha
+  ];
+  const pe = PES[s.sapato] || PES[0];
+  const resto = PERNA - pe.reduce((t, p) => t + p[1], 0);
   // jardineira: a calça é da cor da roupa; vestido e saia: pernas de fora
   const pernasDeFora = s.roupa === 4 || s.calca === 2;
-  const corCalca = s.roupa === 5 ? r : CORES_ROUPA[s.corCalca];
-  const sapato = [0.24, 0.14, 0.28, sap, 0.02];
-  const perna = (x) => articular(pernasDeFora ? [[0.2, 0.61, 0.22, pele], sapato]
-    : s.calca === 1 && s.roupa !== 5 ? [[0.23, 0.3, 0.25, corCalca], [0.2, 0.31, 0.22, pele], sapato]
-      : [[0.22, 0.61, 0.24, corCalca], sapato], PERNA, x, 0);
+  const corCalca = s.roupa === 5 ? r : C.calca;
+  let cima;
+  if (pernasDeFora) cima = [[0.2, resto, 0.22, pele]];
+  else if (s.calca === 1 && s.roupa !== 5) cima = [[0.23, Math.min(0.3, resto), 0.25, corCalca], ...(resto > 0.3 ? [[0.2, resto - 0.3, 0.22, pele]] : [])];
+  else if (s.calca === 3 && s.roupa !== 5 && resto > 0.36) cima = [[0.22, 0.24, 0.24, corCalca], [0.21, 0.08, 0.23, pele], [0.22, resto - 0.32, 0.24, corCalca]];
+  else cima = [[0.22, resto, 0.24, corCalca]];
+  const perna = (x) => articular([...cima, ...pe], PERNA, x, 0);
   return [braco(-0.36), braco(0.36), perna(-0.13), perna(0.13)];
 }
 
@@ -514,6 +617,12 @@ export function vestirBoneco(b, skin) {
   if (b.cabeca) cab.rotation.copy(b.cabeca.rotation);
   b.cabeca = cab; b.membros = [bd, be, pd, pe]; b.antebracos = [ad, ae]; b.canelas = [cd, ce];
   b.pecas = [corpo, cab, bd, be, pd, pe]; b.skin = s;
+  // altura e corpo: o boneco todo estica/engorda; a cabeça fica quase do mesmo tamanho (só o formato muda)
+  const A = ALTURAS[s.altura], L = CORPOS[s.corpo], F = FORMATOS[s.formato], k = Math.pow(A, 0.35);
+  b.raiz.scale.set(L, A, L); b.raiz.position.y = CENTRO * A;
+  cab.scale.set((F[1] * k) / L, (F[2] * k) / A, (F[3] * k) / L);
+  b.topo = 1.88 * A; // topo da cabeça (para o nome ficar logo acima)
+  for (const c of b.grupo.children) if (c.userData.etiqueta) c.position.y = b.topo + 0.37;
   return b;
 }
 // compatibilidade: quem ainda passa uma cor de camiseta (0xRRGGBB)
