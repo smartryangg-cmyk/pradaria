@@ -6,12 +6,16 @@
 # senão os testes que criam contas pela tela passam do limite de 10 contas por hora e falham.
 # Uso: bash testes/rodar-todos.sh            (todos)
 #      bash testes/rodar-todos.sh agua mapa   (só os que têm esses nomes)
+#      PARTE=2/6 bash testes/rodar-todos.sh   (só a 2ª de 6 partes: o 2º, o 8º, o 14º... teste; o CI roda as 6 juntas)
 cd "$(dirname "$0")/.."
 export PORTA="${PORTA:-8788}" BASE="${BASE:-http://localhost:8788}" SAIDA="${SAIDA:-$(mktemp -d)}"
 mkdir -p "$SAIDA"
 falhas=()
+idx=0
 for f in testes/teste-*.mjs; do
   n=$(basename "$f" .mjs)
+  idx=$((idx + 1))
+  if [ -n "$PARTE" ]; then [ $(( (idx - 1) % ${PARTE#*/} + 1 )) = "${PARTE%/*}" ] || continue; fi
   if [ $# -gt 0 ]; then ok=0; for p in "$@"; do [[ "$n" == *"$p"* ]] && ok=1; done; [ $ok = 1 ] || continue; fi
   ini=$(date +%s)
   [ -n "$ESTADO" ] && npx wrangler d1 execute pradaria-db --local --persist-to "$ESTADO" --command "DELETE FROM tentativas" > /dev/null 2>&1

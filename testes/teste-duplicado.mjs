@@ -3,7 +3,7 @@ import { createRequire } from 'module'; const { chromium } = createRequire(impor
 const URL = (process.env.URL || 'http://localhost:8788') + '/#teste';
 const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const erros = [];
-const nome = 'Duda' + (Date.now() % 10000);
+const nome = 'Duda' + (Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join(''));
 async function abrir(criar) {
   const p = await (await b.newContext({ viewport: { width: 900, height: 600 } })).newPage();
   p.on('pageerror', (e) => erros.push('PAGEERROR ' + e.message));

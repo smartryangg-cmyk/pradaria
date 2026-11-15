@@ -44,7 +44,7 @@ const irParaChaoFirme = (p) => p.evaluate(() => {
   return !!melhor;
 });
 const ouviu = (p, k) => p.evaluate((k) => window.__ouviu.filter((x) => x.k.includes(k)), k);
-const sfx = Date.now() % 10000;
+const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join(''); // letras: com 4 algarismos do relógio o nome repetia entre testes e a conta não era criada
 const a = await jogador('Ana' + sfx, false);
 await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Barulhinho');
 await a.click('[data-modo=criativo]'); await a.click('#m-novo [data-opcao=veiculos]'); // sem mercado (mod desligado) e blocos à vontade

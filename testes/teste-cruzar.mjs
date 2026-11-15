@@ -105,7 +105,7 @@ if (ONLINE) {
   const q = await c.newPage();
   q.on('pageerror', (e) => erros.push('online ' + e.message));
   await q.goto(ONLINE + '/#teste'); await q.evaluate(() => localStorage.clear()); await q.reload();
-  await q.click('#bt-criar-conta'); await q.fill('#c-nome', 'Ana' + (Date.now() % 10000)); await q.fill('#c-senha', 'senha123');
+  await q.click('#bt-criar-conta'); await q.fill('#c-nome', 'Ana' + (Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join(''))); await q.fill('#c-senha', 'senha123');
   if (await q.isVisible('#c-adulto-ok')) await q.check('#c-adulto-ok');
   await q.click('#c-ok');
   await q.waitForFunction(() => ['#m-jogos', '#m-mundos'].some((k) => { const e = document.querySelector(k); return e && !e.hidden; }), null, { timeout: 30000 });

@@ -2,9 +2,9 @@
 // pulando, aterrissando, caindo de alto, nadando, voando; cabeça seguindo a câmera; olhos e balanço
 // na 1ª pessoa; flags para os amigos; e no tablet o toque duplo no joystick (correr) e o botão de agachar.
 // Também simula um amigo (mensagens 'pos') para ver ele andar/correr/agachar.
-// Uso: (cd public && python3 -m http.server 8774) e depois: URL=http://localhost:8774 node testes/teste-movimentos.mjs
+// Uso: (cd public && python3 -m http.server 8765) e depois: node testes/teste-movimentos.mjs
 import { createRequire } from 'module'; const { chromium, devices } = createRequire(import.meta.url)('playwright');
-const URL = (process.env.URL || 'http://localhost:8774') + '/#teste';
+const URL = (process.env.URL || 'http://localhost:8765') + '/#teste';
 const SAIDA = process.env.SAIDA || '/tmp';
 const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 let falhas = 0;

@@ -35,7 +35,7 @@ async function criar(p, nomeNovo, foto) {
   await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])', { timeout: 15000 }); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 }); } })();
   return { sugerido, nomeNoJogo };
 }
-const sfx = Date.now() % 10000;
+const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join(''); // letras: com 4 algarismos do relógio o nome repetia entre testes e a conta não era criada
 for (const [rot, tablet] of [['pc', false], ['tablet', true]]) {
   const p = await jogador((tablet ? 'Tab' : 'Pc') + sfx, tablet);
   const r1 = await criar(p, null, `${SAIDA}/${rot}-1-sugere-mundo01.png`);

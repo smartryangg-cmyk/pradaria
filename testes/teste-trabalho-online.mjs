@@ -7,7 +7,7 @@ const SAIDA = process.env.SAIDA || '/tmp';
 const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const erros = [], falhas = [];
 const conferir = (ok, msg) => { console.log((ok ? 'OK   ' : 'FALHA ') + msg); if (!ok) falhas.push(msg); };
-const sfx = Date.now() % 10000;
+const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join(''); // letras: com 4 algarismos do relógio o nome repetia entre testes e a conta não era criada
 async function jogador(nome, tablet) {
   const ctx = tablet ? await b.newContext({ viewport: { width: 1180, height: 820 }, hasTouch: true, isMobile: true }) : await b.newContext({ viewport: { width: 1180, height: 720 } });
   const p = await ctx.newPage();
