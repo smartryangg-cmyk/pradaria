@@ -1,0 +1,42 @@
+plugins { id "com.android.application" }
+
+// App da TV (Android TV / TV Box): abre pradaria.pages.dev/tv num WebView em tela cheia.
+// Pacote separado do app do tablet (pode ter os dois), assinado com a MESMA chave.
+def chave = System.getenv("ANDROID_KEYSTORE_ARQUIVO")
+def senha = System.getenv("ANDROID_KEYSTORE_SENHA")
+
+android {
+    namespace "dev.pradaria.tv"
+    compileSdk 35
+    defaultConfig {
+        applicationId "dev.pradaria.tv"
+        minSdk 21
+        targetSdk 35
+        versionCode Integer.parseInt(System.getenv("VERSAO_CODIGO") ?: "1")
+        versionName System.getenv("VERSAO_NOME") ?: "1.0"
+        // o site mostra a versão do app: vai no endereço que o app abre
+        // só no teste automático (emulador de Android TV): deixa o teste controlar o WebView
+        resValue "bool", "depurar", System.getenv("DEPURAR_WEB") == "1" ? "true" : "false"
+        resValue "string", "endereco", "https://pradaria.pages.dev/tv?appv=" + (System.getenv("VERSAO_NOME") ?: "1.0") + (System.getenv("DEPURAR_WEB") == "1" ? "#teste" : "")
+    }
+    signingConfigs {
+        release {
+            if (chave) {
+                storeFile file(chave)
+                storePassword senha
+                keyAlias "pradaria"
+                keyPassword senha
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

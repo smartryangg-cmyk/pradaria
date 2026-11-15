@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pradaria TV</title>
+<style>
+html,body{margin:0;height:100%;background:linear-gradient(#8FD3FF,#5BB0E8);font-family:system-ui,sans-serif;color:#fff}
+main{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 6vw;box-sizing:border-box}
+h1{font-size:5vw;margin:0 0 2vh;text-shadow:0 .3vw 0 #2a5a8c}
+p{font-size:2.6vw;margin:0 0 4vh;text-shadow:0 .2vw 0 #2a5a8c}
+button{font:inherit;font-size:2.6vw;font-weight:800;color:#fff;background:#FFB32E;border:.4vw solid #fff;border-radius:2vw;padding:1.5vh 4vw;outline:none}
+</style></head>
+<body><main>
+<h1>Sem internet</h1>
+<p>O Pradaria precisa de internet. Confira o Wi-Fi da TV.</p>
+<button id="b" autofocus>Tentar de novo (aperte OK)</button>
+</main>
+<script>
+// o OK do controle é tratado pelo app; o botão serve para toque/mouse, e a volta da internet tenta sozinha
+var volta = new URLSearchParams(location.search).get('volta') || 'https://pradaria.pages.dev/tv';
+function ir(){ location.replace(volta); }
+document.getElementById('b').onclick = ir;
+addEventListener('online', ir);
+</script>
+</body></html>
