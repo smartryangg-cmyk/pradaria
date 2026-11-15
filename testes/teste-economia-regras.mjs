@@ -53,11 +53,12 @@ conferir(true, `${RECEITAS.length} receitas sem lucro (tronco vende por ${precoV
   conferir(!sm(0, 0, false) && !sm(3, 0, false) && !sm(0, 4, false), 'sem Construção: nem a física coloca ou tira blocos');
   conferir(sm(4, 0, true) && sm(0, 4, true) && sm(7, 0, true) && sm(1, 2, true) && sm(12, 0, true), 'areia cai, folha cai, grama vira terra, flor sem chão some');
 }
-// folha colocada pelo jogador não dá graveto extra; folha da árvore pode dar
+// capim colocado pelo jogador não dá trigo extra; capim do mundo pode dar
+// (folha e trigo maduro rendem mesmo editados: nascem crescendo e a sala confere)
 let extraEditado = 0, extraNatural = 0;
 for (let x = 0; x < 200; x++) {
-  if (oQueCai(IDS.FOLHAS, x, 40, 7, false).length > 1) extraEditado++;
-  if (oQueCai(IDS.FOLHAS, x, 40, 7, true).length > 1) extraNatural++;
+  if (oQueCai(IDS.CAPIM, x, 40, 7, false).length > 1) extraEditado++;
+  if (oQueCai(IDS.CAPIM, x, 40, 7, true).length > 1) extraNatural++;
 }
 conferir(extraEditado === 0 && extraNatural > 0, `extra só em bloco natural (editado ${extraEditado}, natural ${extraNatural})`);
 // a mochila de quem morreu: só ele pega nos primeiros 30 s, depois qualquer um

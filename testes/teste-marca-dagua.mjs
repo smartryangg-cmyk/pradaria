@@ -1,5 +1,5 @@
 // Marca d'água "Ryan Krano": visível, dentro da tela, sem pegar toque nem cobrir botões (menu, criar, jogo, pausa, xadrez, dama, controle; celular, tablet e TV). SAIDA=pasta das fotos.
-import { createRequire } from 'module'; const { chromium, devices } = createRequire('/opt/')('playwright');
+import { createRequire } from 'module'; const { chromium, devices } = createRequire(import.meta.url)('playwright');
 const SAIDA = process.env.SAIDA, URL = process.env.URL || 'http://localhost:8788';
 const AP = { 'cel-pe': { viewport: { width: 360, height: 740 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }, 'cel-deitado': { viewport: { width: 740, height: 360 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }, 'tablet': { ...devices['Galaxy Tab S4 landscape'] }, 'tv': { viewport: { width: 1920, height: 1080 } } };
 const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });

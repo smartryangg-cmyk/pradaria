@@ -161,9 +161,12 @@ const cerca = await p.evaluate(async ({ X, Y, Z }) => {
   jog.yaw = 0;
   return { cz };
 }, { X, Y, Z });
-await p.keyboard.down('KeyW');
-for (let i = 0; i < 12; i++) { await p.keyboard.press('Space'); await p.waitForTimeout(90); }
-await p.keyboard.up('KeyW');
+// segura o pulo (pula de novo a cada pouso). Apertar Espaço duas vezes rápido liga o voo no criativo,
+// e voando passa por cima de qualquer cerca: o teste é de quem anda
+await p.keyboard.down('KeyW'); await p.keyboard.down('Space');
+await p.waitForTimeout(1100);
+await p.keyboard.up('Space'); await p.keyboard.up('KeyW');
+ok(!(await p.evaluate(() => window.__jogo.jog.voando)), 'pulando contra a cerca não ligou o voo');
 const zDepois = await p.evaluate(() => window.__jogo.jog.pos.z);
 ok(zDepois > cerca.cz + 0.9, `a cerca segurou o jogador, mesmo pulando (z=${(zDepois - cerca.cz).toFixed(2)} da cerca)`);
 
@@ -310,7 +313,8 @@ const arv = await sp.evaluate(() => {
   }
   if (!melhor) return null;
   const { x, y, z, tb } = melhor;
-  for (let dz = 1; dz <= 3; dz++) for (let dy = 0; dy <= 2; dy++) mundo.definir(x, y + dy, z + dz, 0);
+  // abre espaço na frente do tronco para o corpo todo (os pés ficam 1 abaixo da base): preso no chão, o jogo empurrava o jogador e a mira saía do tronco
+  for (let dz = 1; dz <= 3; dz++) for (let dy = -2; dy <= 2; dy++) mundo.definir(x, y + dy, z + dz, 0);
   jog.voando = true; jog.vel.x = jog.vel.y = jog.vel.z = 0; jog.pos.x = x + 0.5; jog.pos.z = z + 2.6; jog.pos.y = y - 1.05; jog.yaw = 0; jog.pitch = 0;
   return { x, y, z, tb };
 });

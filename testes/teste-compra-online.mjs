@@ -17,6 +17,15 @@ async function jogador(nome) {
   await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])'); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])'); } })();
   return p;
 }
+// o que quebra cai no chão (é preciso passar por cima para pegar): vai até cada coisa caída
+const pegarDoChao = async (p) => {
+  await p.waitForTimeout(1200);
+  for (const d of await p.evaluate(() => window.__jogo.drops.lista())) {
+    await p.evaluate((d) => { const j = window.__jogo.jog; j.voando = false; j.pos.x = d.x; j.pos.z = d.z; j.pos.y = d.y + 0.1; j.vel.x = j.vel.y = j.vel.z = 0; }, d);
+    await p.waitForTimeout(500);
+  }
+  await p.waitForTimeout(800);
+};
 const est = (p) => p.evaluate(() => JSON.parse(JSON.stringify(window.__jogo.mercado.e)));
 const a = await jogador('Ana' + sfx);
 await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Compras'); // Coletar e criar já vem ligado
@@ -52,7 +61,7 @@ await bb.evaluate(([x, y, z]) => { const { jog } = window.__jogo; jog.voando = t
 await bb.waitForFunction(([x, y, z]) => window.__jogo.mundo.bloco(x, y, z) === 14, lugar, { timeout: 10000 }).catch(() => {});
 const antesB = await est(bb);
 await bb.evaluate(([x, y, z]) => { const { mundo, comoJogador } = window.__jogo; comoJogador(() => mundo.definir(x, y, z, 0)); }, lugar);
-await bb.waitForTimeout(1500);
+await pegarDoChao(bb);
 const depoisB = await est(bb);
 conferir((depoisB.itens[14] || 0) === (antesB.itens[14] || 0) + 1, `Beto quebrou a lã e pegou (${depoisB.itens[14]})`);
 conferir((depoisB.compra[14] || 0) === 1, `a lã chegou marcado como comprado (${JSON.stringify(depoisB.compra)})`);
@@ -66,7 +75,7 @@ const terra = await bb.evaluate(() => {
   let y = 94; while (y > 2 && !mundo.bloco(x, y, z)) y--;
   const b = mundo.bloco(x, y, z); comoJogador(() => mundo.definir(x, y, z, 0)); return b;
 });
-await bb.waitForTimeout(1200);
+await pegarDoChao(bb);
 const colheu = await est(bb);
 const cai = Object.keys(colheu.itens).map(Number).find((k) => k !== 14 && !colheu.compra[k]);
 await bb.evaluate((k) => window.__jogo.mercado.enviar({ t: 'vender', b: k, n: 1 }), cai);
