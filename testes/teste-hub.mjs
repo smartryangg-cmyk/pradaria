@@ -37,7 +37,7 @@ for (const nome of so) {
   const fora = await p.evaluate(() => [...document.querySelectorAll('#m-jogos .jogo, #m-jogos .bt')].filter((e) => { const r = e.getBoundingClientRect(); return r.left < -1 || r.right > innerWidth + 1; }).map((e) => e.id || e.dataset.jogo));
   ok(!fora.length, `${nome}: nada sai pelos lados (${fora})`);
   await foto('1-jogos');
-  await clica('.jogo[data-jogo=dama]');
+  await clica('.jogo[data-jogo=truco]');
   ok(/sendo feito/.test(await p.textContent('#jogos-msg')), `${nome}: jogo em breve avisa e não sai da tela`);
   ok(await p.isVisible('#m-jogos'), `${nome}: continua na lista de jogos`);
   await clica('.jogo[data-jogo=pradaria]');
