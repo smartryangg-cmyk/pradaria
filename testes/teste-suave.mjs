@@ -134,6 +134,12 @@ async function rodar(nome, ctxOpc, toque) {
     const ed1 = await p.evaluate(() => window.__jogo.mundo.listarEdicoes());
     ok(ed1.some((e) => e[3] !== 0), `colocou um bloco com o botão direito (${ed1.filter((e) => e[3] !== 0).length} colocado)`);
     // bloco colocado pelo jogador fica quadrado: os 8 cantos dele estão na grade
+    // (a malha nova é montada em fatias: espera o pedaço terminar de remontar)
+    await p.waitForFunction(() => {
+      const { mundo } = window.__jogo; const ed = mundo.listarEdicoes().filter((e) => e[3] !== 0).pop();
+      if (!ed) return true; const c = mundo.chunks.get(Math.floor(ed[0] / 16) + ',' + Math.floor(ed[2] / 16));
+      return c && !c.sujo && !(mundo.montagem && mundo.montagem.c === c);
+    }, null, { timeout: 8000 }).catch(() => {});
     const quadrado = await p.evaluate(([x, y, z, bb]) => {
       const { mundo } = window.__jogo; const ed = mundo.listarEdicoes().filter((e) => e[3] !== 0).pop();
       if (!ed) return null;
