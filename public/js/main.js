@@ -2147,7 +2147,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   setTimeout(() => { $('#dica-toque').style.opacity = 0; }, 9000);
   const vazia = () => !Object.keys(mercado.e.itens).length;
   if (sobrev()) setTimeout(() => {
-    if (jogando && sobrev() && vazia()) aviso('Neste mundo você junta o que quebrar! Segure o dedo numa árvore para pegar Tronco e depois abra a Mochila para criar.', 7000, 'mochila');
+    if (jogando && sobrev() && vazia()) aviso('Neste mundo você junta o que quebrar! ' + (ehToque ? 'Segure o dedo numa árvore' : 'Segure o botão esquerdo do mouse numa árvore') + ' para pegar Tronco e depois abra a Mochila' + (ehToque ? '' : ' (tecla E)') + ' para criar.', 7000, 'mochila');
   }, 3000);
 }
 
