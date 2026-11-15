@@ -855,3 +855,13 @@ body.chat-aberto #botoes-toque, body.chat-aberto #dica-toque, body.chat-aberto #
 #convite .linha-bts { grid-column: 1 / -1; }
 #convite .linha-bts .bt { min-height: 46px; }
 @media (max-width: 380px) { .amigo .acoes .bt span:not(.ic-svg) { font-size: 14px; } .amigo { padding: 6px 8px; } }
+
+/* ---------- marca d'água "Ryan Krano" (pedido do Ryan): pequena, meio transparente, não pega toque ---------- */
+.marca-dagua { position: fixed; left: max(6px, env(safe-area-inset-left)); bottom: max(3px, env(safe-area-inset-bottom)); z-index: 60;
+  pointer-events: none; user-select: none; -webkit-user-select: none; white-space: nowrap;
+  font-weight: 800; font-size: 11px; letter-spacing: .5px; line-height: 1; color: #fff; opacity: .6; text-shadow: 0 1px 2px rgba(0,0,0,.7); }
+/* celular em pé jogando: o canto de baixo é da barra de blocos, então a marca fica de lado no meio da borda esquerda */
+@media (max-width: 640px) and (orientation: portrait) {
+  body:has(#hud:not([hidden])) .marca-dagua { left: max(2px, env(safe-area-inset-left)); bottom: auto; top: 50%; writing-mode: vertical-rl; transform: translateY(-50%) rotate(180deg); }
+}
+body.modo-tv .marca-dagua { font-size: 14px; }
