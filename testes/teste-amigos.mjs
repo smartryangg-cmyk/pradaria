@@ -105,7 +105,7 @@ await beto.clica('#bt-amigos'); await beto.p.waitForSelector('#amigos-lista .ami
 await beto.clica('#amigos-lista .amigo .remover');
 await beto.clica('#amigos-lista .amigo .perigo');
 await beto.p.waitForFunction(() => /não são mais amigos/.test(document.querySelector('#amigos-msg').textContent));
-ok(await beto.p.locator('#amigos-lista .amigo').count() === 0, 'Beto desfez a amizade');
+ok(await beto.p.waitForFunction(() => !document.querySelector('#amigos-lista .amigo'), null, { timeout: 5000 }).then(() => true, () => false), 'Beto desfez a amizade');
 await ana.p.waitForFunction(() => !/online/.test(document.querySelector('#amigos-contador').textContent) || document.querySelector('#amigos-contador').hidden, null, { timeout: 10000 });
 ok(true, 'contador da Ana atualizou');
 

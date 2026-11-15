@@ -1,0 +1,57 @@
+/* Páginas dos jogos de tabuleiro (xadrez, dama). Usa as cores e botões do estilo.css. */
+body.pag-tabuleiro { background: linear-gradient(160deg, #7b6cf0, #4d3fbf); }
+#fundo { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(circle at 15% 10%, rgba(255,255,255,.18) 0 12%, transparent 13%), radial-gradient(circle at 90% 85%, rgba(255,255,255,.12) 0 16%, transparent 17%); }
+.pag-tabuleiro .janela { background: transparent; }
+.pag-tabuleiro .janela#promo, .pag-tabuleiro .janela#x-fim { background: rgba(20, 16, 40, .55); }
+.titulo-jogo { display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 40px; font-weight: 900; color: #fff; -webkit-text-stroke: 2px #2e2577; paint-order: stroke fill; text-shadow: 0 4px 0 #2e2577; }
+.titulo-jogo .ic-svg { width: 52px; height: 52px; }
+.pag-tabuleiro h3 { margin: 6px 0 0; font-size: 18px; font-weight: 900; }
+.niveis { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; }
+.niveis .bt { min-height: 46px; font-size: 16px; padding: 6px 8px; }
+.niveis .bt.sel { background: var(--amarelo); transform: translateY(2px); box-shadow: 0 3px 0 var(--txt); }
+a.bt { text-decoration: none; }
+
+#x-jogo { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: max(10px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); }
+#x-jogo[hidden] { display: none; }
+.barra-topo { display: flex; align-items: center; gap: 10px; width: 100%; max-width: var(--lado); }
+.barra-topo .redondo { width: 48px; height: 48px; flex: none; }
+#x-status { flex: 1; min-width: 0; text-align: center; padding: 8px 14px; border-radius: 999px; background: rgba(20, 16, 40, .45); color: #fff; font-weight: 900; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#x-status.minha { background: var(--verde); text-shadow: 0 2px 0 var(--verde-borda); }
+.jogador-linha { display: flex; align-items: center; gap: 8px; width: 100%; max-width: var(--lado); color: #fff; font-weight: 900; font-size: 16px; min-height: 26px; }
+.jogador-linha .bolinha { width: 12px; height: 12px; border-radius: 50%; background: #c9bda6; border: 2px solid #fff; flex: none; }
+.jogador-linha .bolinha.on { background: #4ccb3c; }
+.jogador-linha .pecas-comidas { margin-left: auto; display: flex; flex-wrap: wrap; justify-content: flex-end; }
+.jogador-linha .pecas-comidas svg { width: 18px; height: 18px; margin-left: -4px; }
+
+/* o lado do tabuleiro cabe na tela em pé e deitado */
+:root { --lado: min(calc(100vw - 24px), calc(100dvh - 210px), 640px); }
+#tabuleiro { width: var(--lado); height: var(--lado); display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); border: 4px solid var(--txt); border-radius: 10px; overflow: hidden; box-shadow: 0 6px 0 var(--txt), 0 14px 30px rgba(0,0,0,.3); flex: none; touch-action: manipulation; }
+.casa { position: relative; display: grid; place-items: center; border: 0; padding: 0; margin: 0; background: #f3e3c0; cursor: pointer; font: inherit; }
+.casa.escura { background: #b98a5e; }
+.casa svg { width: 88%; height: 88%; pointer-events: none; filter: drop-shadow(0 2px 0 rgba(0,0,0,.25)); }
+.casa.ultimo { background: #f2d55c; }
+.casa.escura.ultimo { background: #d4b13a; }
+.casa.sel { background: #9fd66b; }
+.casa.escura.sel { background: #79b84a; }
+.casa.xeque { background: radial-gradient(circle, #ff7a6e 0 45%, #e64a3c 75%); }
+.casa.pode::after { content: ""; position: absolute; width: 30%; height: 30%; border-radius: 50%; background: rgba(40, 30, 20, .3); pointer-events: none; }
+.casa.pode.come::after { width: 86%; height: 86%; background: transparent; border: 5px solid rgba(40, 30, 20, .35); box-sizing: border-box; }
+.casa .coord { position: absolute; font-size: 10px; font-weight: 900; color: rgba(59, 47, 34, .6); pointer-events: none; }
+.casa .coord.l { left: 3px; top: 1px; }
+.casa .coord.c { right: 3px; bottom: 0; }
+#x-botoes { width: 100%; max-width: var(--lado); }
+#x-botoes .bt { min-height: 44px; font-size: 16px; padding: 6px 12px; }
+.promo-pecas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.promo-pecas button { aspect-ratio: 1; border: 3px solid var(--txt); border-radius: 14px; background: #f3e3c0; box-shadow: 0 4px 0 var(--txt); cursor: pointer; padding: 6px; }
+.promo-pecas svg { width: 100%; height: 100%; }
+.pag-tabuleiro #aviso { position: fixed; z-index: 50; top: 18%; }
+
+/* deitado (celular ou tablet): tabuleiro à esquerda, o resto à direita */
+@media (orientation: landscape) and (max-height: 620px) {
+  :root { --lado: min(calc(100dvh - 24px), calc(100vw - 300px)); }
+  #x-jogo { display: grid; grid-template-columns: var(--lado) minmax(0, 260px); grid-template-rows: auto auto 1fr auto auto; justify-content: center; align-items: start; column-gap: 16px; row-gap: 8px; }
+  #tabuleiro { grid-column: 1; grid-row: 1 / 6; }
+  .barra-topo, .jogador-linha, #x-botoes { grid-column: 2; max-width: none; }
+  #x-cima { grid-row: 2; } #x-baixo { grid-row: 4; } #x-botoes { grid-row: 5; flex-direction: column; }
+}
+.pag-tabuleiro .bt:disabled { opacity: .5; cursor: default; }
