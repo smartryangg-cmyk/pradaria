@@ -1,4 +1,4 @@
-// Pontos (rating) do xadrez e da dama e a busca de adversário. Uma instância só ("geral").
+// Pontos (rating) do xadrez, da dama e do truco (um contra um) e a busca de adversário. Uma instância só ("geral").
 //  - guarda a nota de cada conta em cada categoria (bullet, blitz, rápida) e atualiza no fim das partidas que valem pontos
 //    (quem chama é a Partida, por dentro do worker: cabeçalho x-interno, que a API do site nunca repassa);
 //  - fila de quem está procurando partida (WebSocket da tela): junta duas pessoas do mesmo ritmo com pontos parecidos,
@@ -69,13 +69,14 @@ export class Pontos extends DurableObject {
     // busca de adversário (WebSocket)
     const u = JSON.parse(request.headers.get('x-usuario') || 'null');
     if (!u || request.headers.get('upgrade') !== 'websocket') return new Response('sem dados', { status: 400 });
-    const ritmo = url.searchParams.get('ritmo');
-    const jogo = url.searchParams.get('jogo') === 'dama' ? 'dama' : 'xadrez';
+    const jogo = ['dama', 'truco'].includes(url.searchParams.get('jogo')) ? url.searchParams.get('jogo') : 'xadrez';
+    // (o truco não tem relógio: todos no mesmo "ritmo")
+    const ritmo = jogo === 'truco' ? 'truco' : url.searchParams.get('ritmo');
     const [cliente, servidor] = Object.values(new WebSocketPair());
-    if (!(Object.hasOwn(RITMOS, ritmo || '') || (ritmo === 'teste' && this.env.TESTE))) { servidor.accept(); servidor.send(JSON.stringify({ t: 'erro', msg: 'Escolha um ritmo com relógio.' })); servidor.close(4003, 'ritmo'); return new Response(null, { status: 101, webSocket: cliente }); }
+    if (jogo !== 'truco' && !(Object.hasOwn(RITMOS, ritmo || '') || (ritmo === 'teste' && this.env.TESTE))) { servidor.accept(); servidor.send(JSON.stringify({ t: 'erro', msg: 'Escolha um ritmo com relógio.' })); servidor.close(4003, 'ritmo'); return new Response(null, { status: 101, webSocket: cliente }); }
     // a mesma pessoa só fica uma vez na fila
     for (const w of this.ctx.getWebSockets()) { const a = w.deserializeAttachment(); if (a && a.uid === u.id) { w.serializeAttachment(null); try { w.close(4001, 'outra aba'); } catch {} } }
-    const cat = P.categoria(ritmo, jogo);
+    const cat = jogo === 'truco' ? 'truco' : P.categoria(ritmo, jogo);
     const n = await this.nota(u.id, cat);
     this.ctx.acceptWebSocket(servidor);
     servidor.serializeAttachment({ uid: u.id, nome: u.nome, jogo, ritmo, cat, r: n.r, desde: Date.now(), rede: redeDoPedido(request, this.env) });

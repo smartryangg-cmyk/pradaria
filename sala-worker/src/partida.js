@@ -163,6 +163,15 @@ export class Partida extends DurableObject {
       if (this.p) return new Response('já existe', { status: 409 });
       const d = await request.json();
       const pessoa = (x) => ({ uid: x.uid, nome: x.nome, rede: typeof x.rede === 'string' ? x.rede : '' });
+      if (d.jogo === 'truco') {
+        // truco um contra um valendo pontos (da busca): já começa; o prazo da primeira jogada é o normal (ninguém conectou ainda)
+        this.p = { jogo: 'truco', n: 2, dono: d.w.uid, lugares: [pessoa(d.w), pessoa(d.b)], e: null, fim: null, criado: Date.now(), partidas: 1, revanche: [], ranqueada: true, idJogo: crypto.randomUUID() };
+        this.comecarTruco();
+        this.prazoNormal();
+        await this.lerPontosTruco();
+        await this.salvar();
+        return new Response('ok');
+      }
       const jogo = d.jogo === 'dama' ? 'dama' : 'xadrez';
       this.p = { jogo, lugares: { w: pessoa(d.w), b: pessoa(d.b) }, e: JOGOS[jogo].novo(), fim: null, criado: Date.now(), partidas: 1, ranqueada: true, idJogo: crypto.randomUUID() };
       this.p.relogio = this.relogioNovo(d.ritmo);
@@ -182,8 +191,10 @@ export class Partida extends DurableObject {
     if (!this.p) {
       if (jogo === 'truco') {
         const n = new URL(request.url).searchParams.get('n') === '4' ? 4 : 2;
-        this.p = { jogo, n, dono: u.id, lugares: Array(n).fill(null), e: null, fim: null, criado: Date.now(), partidas: 1, revanche: [] };
-        this.p.lugares[0] = { uid: u.id, nome: u.nome };
+        // um contra um com amigo pode valer pontos
+        const ranqueada = n === 2 && new URL(request.url).searchParams.get('ranqueada') === '1';
+        this.p = { jogo, n, dono: u.id, lugares: Array(n).fill(null), e: null, fim: null, criado: Date.now(), partidas: 1, revanche: [], ranqueada, idJogo: crypto.randomUUID() };
+        this.p.lugares[0] = { uid: u.id, nome: u.nome, rede };
         await this.salvar();
       } else if (!JOGOS[jogo]) return recusar('Jogo desconhecido.');
       else {
@@ -201,9 +212,9 @@ export class Partida extends DurableObject {
       if (!p.lugares.some((j) => j && j.uid === u.id)) {
         const i = p.lugares.findIndex((j) => !j);
         if (i < 0) return recusar(p.e ? 'Esta mesa já começou sem você.' : 'Esta mesa já está cheia.');
-        p.lugares[i] = { uid: u.id, nome: u.nome };
+        p.lugares[i] = { uid: u.id, nome: u.nome, rede };
         // dois amigos no um contra um: já começa; na mesa de 4 começa quando encher (ou quando o dono mandar)
-        if (!p.e && p.lugares.every((j) => j)) this.comecarTruco();
+        if (!p.e && p.lugares.every((j) => j)) { this.comecarTruco(); await this.lerPontosTruco(); }
         await this.salvar();
       }
     } else {
@@ -300,7 +311,7 @@ export class Partida extends DurableObject {
     const eu = p.lugares.findIndex((j) => j && j.uid === uid);
     const lugares = p.lugares.map((j) => (j ? (j.robo ? { nome: j.nome, robo: true, online: true } : { nome: j.nome, online: this.online(j.uid) }) : null));
     const prazo = p.e && !p.e.fim && p.prazoJogada ? { falta: Math.max(0, p.prazoJogada - Date.now()), total: p.prazoTotal || this.prazoTruco() } : null;
-    return { t: 'estado', jogo: 'truco', n: p.n, lugares, voce: eu, dono: p.dono === uid, comecou: !!p.e, estado: p.e ? T.visao(p.e, eu) : null, fim: p.e ? p.e.fim : null, revanche: p.revanche || [], partida: p.partidas, prazo, esgotou: p.esgotou || null };
+    return { t: 'estado', jogo: 'truco', n: p.n, lugares, voce: eu, dono: p.dono === uid, comecou: !!p.e, estado: p.e ? T.visao(p.e, eu) : null, fim: p.e ? p.e.fim : null, revanche: p.revanche || [], partida: p.partidas, prazo, esgotou: p.esgotou || null, ranqueada: !!p.ranqueada, pontos: p.pontos || null, resultado: p.registrado || null };
   }
   comecarTruco() {
     const p = this.p;
@@ -309,6 +320,47 @@ export class Partida extends DurableObject {
     p.e = T.novo(p.n);
     p.revanche = [];
     this.agendarRobo();
+  }
+  // o prazo da jogada de agora volta a ser o normal (quem age vai chegar já)
+  prazoNormal() {
+    const p = this.p;
+    if (!p.prazoJogada || p.prazoTotal !== PRAZO_TRUCO_FORA) return;
+    p.prazoTotal = this.prazoTruco(); p.prazoJogada = Date.now() + p.prazoTotal;
+    this.ctx.storage.setAlarm(p.prazoJogada);
+  }
+  // pontos do truco um contra um (lugar 0 e 1): [ { r, rd, mostrar }, ... ]
+  async lerPontosTruco() {
+    const p = this.p;
+    if (!p.ranqueada || p.n !== 2 || !this.env.PONTOS || !p.lugares[0] || !p.lugares[1]) return;
+    try {
+      const r = await this.env.PONTOS.get(this.env.PONTOS.idFromName('geral')).fetch('https://pontos/interno?uids=' + p.lugares[0].uid + ',' + p.lugares[1].uid, { headers: { 'x-interno': 'ver' } });
+      const n = await r.json();
+      p.pontos = p.lugares.map((j) => { const x = P.envelhecer({ ...P.INICIAL, ...((n[j.uid] || {}).truco || {}) }, Date.now()); return { r: x.r, rd: x.rd, mostrar: P.mostrar(x) }; });
+    } catch {}
+  }
+  // fim de um truco valendo pontos: manda o resultado (uma vez). As duas contas na mesma internet = não vale;
+  // o limite de 3 por dia entre as mesmas contas fica no Pontos
+  async registrarTruco() {
+    const p = this.p;
+    if (!p.ranqueada || p.n !== 2 || !p.e || !p.e.fim || p.registrado || !this.env.PONTOS || !p.lugares[0] || !p.lugares[1]) return;
+    const [a, b] = p.lugares;
+    if (a.rede && a.rede === b.rede) { p.registrado = { anulada: true, motivo: 'rede' }; return; }
+    const reg = { pendente: true };
+    p.registrado = reg;
+    if (!p.idJogo) p.idJogo = crypto.randomUUID();
+    let fim = { falhou: true };
+    try {
+      const r = await this.env.PONTOS.get(this.env.PONTOS.idFromName('geral')).fetch('https://pontos/interno', {
+        method: 'POST', headers: { 'x-interno': 'resultado', 'content-type': 'application/json' },
+        body: JSON.stringify({ id: p.idJogo, cat: 'truco', w: a.uid, b: b.uid, s: p.e.fim.vencedor === 0 ? 1 : 0 }),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        const um = (x) => ({ antes: Math.round(x.antes.r), depois: x.depois.r, mostrar: P.mostrar(x.depois) });
+        fim = d.limite ? { anulada: true, motivo: 'limite' } : { cat: 'truco', 0: um(d.w), 1: um(d.b) };
+      }
+    } catch {}
+    if (this.p === p && p.registrado === reg) p.registrado = fim;
   }
   prazoTruco() { return this.env.TESTE ? 15000 : PRAZO_TRUCO; } // (servidor de teste: 15 s)
   humanosQueAgem() { const p = this.p; return T.quemAge(p.e).filter((l) => p.lugares[l] && !p.lugares[l].robo); }
@@ -354,6 +406,7 @@ export class Partida extends DurableObject {
     const a = T.robo(p.e, l);
     if (a) T.agir(p.e, l, a);
     this.agendarRobo();
+    await this.registrarTruco();
     await this.salvar();
     this.avisarTodos();
   }
@@ -378,8 +431,9 @@ export class Partida extends DurableObject {
       if (!p.e || !p.e.fim) return;
       p.revanche = [...new Set([...(p.revanche || []), meu])];
       const humanos = p.lugares.map((j, i) => (j && !j.robo ? i : -1)).filter((i) => i >= 0);
-      if (humanos.every((i) => p.revanche.includes(i))) { p.e = T.novo(p.n); p.revanche = []; p.partidas++; this.agendarRobo(); }
+      if (humanos.every((i) => p.revanche.includes(i))) { p.e = T.novo(p.n); p.revanche = []; p.partidas++; p.registrado = null; p.idJogo = crypto.randomUUID(); this.agendarRobo(); await this.lerPontosTruco(); }
     } else return;
+    await this.registrarTruco();
     await this.salvar();
     this.avisarTodos();
   }

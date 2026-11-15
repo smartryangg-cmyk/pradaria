@@ -39,10 +39,13 @@ export const categoria = (r, jogo = 'xadrez') => {
 };
 export const NOME_CATEGORIA = { bullet: 'Bullet', blitz: 'Blitz', rapida: 'Rápida' };
 export const NOME_CATEGORIA_DAMA = { 'dama-bullet': 'Bullet', 'dama-blitz': 'Blitz', 'dama-rapida': 'Rápida' };
+// truco (um contra um): uma nota só, sem relógio
+export const NOME_CATEGORIA_TRUCO = { truco: 'Truco' };
 // as categorias de um jogo (para listar os pontos da conta) e o nome de qualquer categoria
-export const categoriasDo = (jogo) => (jogo === 'dama' ? NOME_CATEGORIA_DAMA : NOME_CATEGORIA);
-export const categoriaValida = (c) => typeof c === 'string' && (Object.hasOwn(NOME_CATEGORIA, c) || Object.hasOwn(NOME_CATEGORIA_DAMA, c));
-export const nomeCategoria = (c) => (!categoriaValida(c) ? '' : Object.hasOwn(NOME_CATEGORIA, c) ? NOME_CATEGORIA[c] : NOME_CATEGORIA_DAMA[c]);
+const TODAS = { ...NOME_CATEGORIA, ...NOME_CATEGORIA_DAMA, ...NOME_CATEGORIA_TRUCO };
+export const categoriasDo = (jogo) => (jogo === 'dama' ? NOME_CATEGORIA_DAMA : jogo === 'truco' ? NOME_CATEGORIA_TRUCO : NOME_CATEGORIA);
+export const categoriaValida = (c) => typeof c === 'string' && Object.hasOwn(TODAS, c);
+export const nomeCategoria = (c) => (categoriaValida(c) ? TODAS[c] : '');
 export const provisorio = (x) => !x || x.rd > RD_PROVISORIO;
 export const mostrar = (x) => (x ? Math.round(x.r) : INICIAL.r) + (provisorio(x) ? '?' : '');
 // busca de adversário: no começo só quem está perto (±150); a cada 3 s a janela abre mais 100 (até ±800),

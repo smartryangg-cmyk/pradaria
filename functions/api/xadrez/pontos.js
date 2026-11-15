@@ -8,8 +8,8 @@ export async function onRequestGet({ request, env }) {
   if (!env.PONTOS) return erro('Pontos não configurados (PONTOS)', 503);
   // ?partidas=1: também as últimas partidas (perfil)
   const comPartidas = new URL(request.url).searchParams.get('partidas') === '1';
-  // ?jogo=dama: as notas da dama (dama-bullet, dama-blitz, dama-rapida)
-  const jogo = new URL(request.url).searchParams.get('jogo') === 'dama' ? 'dama' : 'xadrez';
+  // ?jogo=dama: as notas da dama (dama-bullet, dama-blitz, dama-rapida); ?jogo=truco: a do truco
+  const jogo = ['dama', 'truco'].includes(new URL(request.url).searchParams.get('jogo')) ? new URL(request.url).searchParams.get('jogo') : 'xadrez';
   const r = await env.PONTOS.get(env.PONTOS.idFromName('geral')).fetch('https://pontos/interno?uids=' + u.id + (comPartidas ? '&partidas=1' : ''), { headers: { 'x-interno': 'ver' } });
   const d = (await r.json()) || {};
   const n = (comPartidas ? d.notas : d)[u.id] || {};

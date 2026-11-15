@@ -1,7 +1,8 @@
 // Página do Truco paulista: contra o computador (um contra um ou em dupla) ou online com amigos (mesa de 2 ou 4;
-// as vagas que sobrarem ficam com o computador). Regras em truco-regras.js (as mesmas do servidor, sala-worker/src/partida.js).
+// as vagas que sobrarem ficam com o computador). Um contra um pode valer pontos (com amigo ou procurando adversário). Regras em truco-regras.js (as mesmas do servidor, sala-worker/src/partida.js).
 // Sem three.js: leve para tablet fraco. As cartas são desenhos próprios (SVG), sem imagens.
 import * as T from './truco-regras.js';
+import * as P from './pontos-regras.js';
 import { conta } from './rede.js';
 import { preencherIcones, comIcone } from './icones.js';
 import { Lobby } from './lobby.js';
@@ -47,6 +48,9 @@ let vistoSeq = -1;
 let rodadaAte = 0, rodadaMostrada = null;
 let fimVisto = null;
 let timerRobo = 0;
+let tipoAmigo = 'amistosa'; // um contra um com amigo: 'amistosa' ou 'pontos'
+let meusPontos = null; // { truco: { mostrar, ... } }
+let busca = null; // procurando adversário: { ws, desde, timer }
 let prazo = null; // online: { falta, total (ms), recebido } da jogada de agora; acabou, o computador joga por quem demorou
 
 const time = T.time;
@@ -109,6 +113,8 @@ function desenhar() {
     el.className = 't-lugar' + (vez ? ' vez' : '') + (time(l) === nos() ? ' parceiro' : '');
     el.innerHTML = `<div class="t-nome"><span class="bolinha${!j || j.online ? ' on' : ''}"></span><span class="n"></span>${l === v.dealer ? '<span class="dealer" title="Deu as cartas">D</span>' : ''}</div><div class="t-costas">${Array(v.quantas[l]).fill(0).map(costas).join('')}</div>`;
     el.querySelector('.n').textContent = nome(l) + (v.n === 4 && time(l) === nos() && !/parceiro/i.test(nome(l)) ? ' (parceiro)' : '');
+    // valendo pontos: os pontos do adversário do lado do nome
+    if (modo === 'online' && online.pontos && online.pontos[l]) el.querySelector('.t-nome').insertAdjacentHTML('beforeend', `<span class="pts">${online.pontos[l].mostrar}</span>`);
   }
 
   // vira e manilha
@@ -250,12 +256,81 @@ function mostrarFim() {
   $('#fim-titulo').textContent = venci ? (v.n === 2 ? 'Você ganhou!' : 'Vocês ganharam!') : (v.n === 2 ? 'Você perdeu' : 'Vocês perderam');
   $('#fim-txt').textContent = `Placar: ${v.pontos[nos()]} a ${v.pontos[1 - nos()]}`;
   $('#fim-espera').hidden = true;
+  mostrarPontosFim();
   setTimeout(() => { $('#x-fim').hidden = false; }, 1200);
 }
 
+// linha dos pontos no fim: "Seus pontos (Truco): 1200 → 1216 (+16)"
+function mostrarPontosFim() {
+  const el = $('#fim-pontos');
+  const r = modo === 'online' && online && online.resultado;
+  el.hidden = !(modo === 'online' && online && online.ranqueada);
+  if (el.hidden) return;
+  if (!r || r.pendente) { el.textContent = 'Contando os pontos…'; return; }
+  if (r.falhou) { el.textContent = 'Não deu para contar os pontos agora.'; return; }
+  if (r.anulada) {
+    el.textContent = r.motivo === 'rede' ? 'Jogo anulado (as duas contas estão na mesma internet): não valeu pontos.'
+      : r.motivo === 'limite' ? 'Vocês dois já jogaram 3 jogos valendo pontos hoje: este não valeu.' : 'Jogo anulado: não valeu pontos.';
+    return;
+  }
+  const x = r[eu];
+  if (!x) return;
+  const dif = x.depois - x.antes;
+  el.innerHTML = `Seus pontos (Truco): ${x.antes} → <b class="${dif >= 0 ? 'sobe' : 'desce'}">${x.mostrar} (${dif >= 0 ? '+' : ''}${dif})</b>`;
+  meusPontos = null;
+}
+
+// ---------- pontos e busca de adversário (um contra um) ----------
+const redeTeste = new URLSearchParams(location.search).get('rede');
+const comRede = (u) => (redeTeste ? u + '&rede=' + encodeURIComponent(redeTeste) : u);
+async function lerMeusPontos() {
+  if (!conta.token) return;
+  try {
+    const r = await fetch('/api/xadrez/pontos?jogo=truco', { headers: { authorization: 'Bearer ' + conta.token } });
+    if (r.ok) meusPontos = (await r.json()).pontos;
+  } catch {}
+  mostrarMeusPontos();
+}
+function mostrarMeusPontos() {
+  const el = $('#x-meus-pontos');
+  el.hidden = !conta.token;
+  $('#bt-procurar').disabled = !conta.token;
+  if (conta.token) el.textContent = `Seus pontos no truco: ${meusPontos && meusPontos.truco ? meusPontos.truco.mostrar : '…'}`;
+  // valendo pontos só no um contra um
+  $('#x-tipo-amigo').hidden = nMesa !== 2;
+}
+function procurar() {
+  if (!conta.token || busca) return;
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const ws = new WebSocket(comRede(`${proto}//${location.host}/api/xadrez/busca?jogo=truco&t=${encodeURIComponent(conta.token)}`));
+  busca = { ws, desde: Date.now(), timer: 0 };
+  $('#busca-txt').textContent = `Truco um contra um · seus pontos ${meusPontos && meusPontos.truco ? meusPontos.truco.mostrar : '…'}`;
+  $('#x-busca').hidden = false;
+  const tique = () => { const s = Math.floor((Date.now() - busca.desde) / 1000); $('#busca-tempo').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  tique(); busca.timer = setInterval(tique, 500);
+  ws.onmessage = (ev) => {
+    let m; try { m = JSON.parse(ev.data); } catch { return; }
+    if (m.t === 'achou') { pararBusca(); jogarOnline(m.codigo); }
+    else if (m.t === 'erro') { pararBusca(); $('#x-erro').textContent = m.msg; }
+  };
+  ws.onclose = () => { if (busca && busca.ws === ws) { pararBusca(); $('#x-erro').textContent = 'A busca caiu. Tente de novo.'; } };
+}
+function pararBusca() {
+  if (!busca) return;
+  const b = busca; busca = null;
+  clearInterval(b.timer);
+  try { b.ws.close(); } catch {}
+  $('#x-busca').hidden = true;
+}
+$('#bt-procurar').addEventListener('click', () => { $('#x-erro').textContent = ''; procurar(); });
+$('#bt-busca-cancelar').addEventListener('click', () => pararBusca());
+function marcarTipo() { document.querySelectorAll('.tipo-amigo').forEach((b) => { const s = b.dataset.tipo === tipoAmigo; b.classList.toggle('sel', s); b.setAttribute('aria-checked', s); }); }
+document.querySelectorAll('.tipo-amigo').forEach((b) => b.addEventListener('click', () => { tipoAmigo = b.dataset.tipo; marcarTipo(); }));
+marcarTipo();
+
 // ---------- menu ----------
 function marcarQtd() { document.querySelectorAll('.qtd').forEach((b) => { const s = +b.dataset.n === nMesa; b.classList.toggle('sel', s); b.setAttribute('aria-checked', s); }); }
-document.querySelectorAll('.qtd').forEach((b) => b.addEventListener('click', () => { nMesa = +b.dataset.n; marcarQtd(); }));
+document.querySelectorAll('.qtd').forEach((b) => b.addEventListener('click', () => { nMesa = +b.dataset.n; marcarQtd(); mostrarMeusPontos(); }));
 marcarQtd();
 function abrirMenu() {
   fecharOnline();
@@ -268,6 +343,8 @@ function abrirMenu() {
   $('#bt-amigo').disabled = !conta.token;
   history.replaceState(null, '', location.pathname);
   if (lobby) lobby.jogo('truco');
+  mostrarMeusPontos();
+  if (conta.token && !meusPontos) lerMeusPontos();
 }
 $('#bt-computador').addEventListener('click', () => comecarPC());
 $('#bt-continuar').addEventListener('click', () => { const g = lerPC(); if (g) comecarPC(g); });
@@ -283,12 +360,12 @@ $('#bt-revanche').addEventListener('click', () => {
 // ---------- online ----------
 function fecharOnline() { if (online && online.ws) { online.fechado = true; try { online.ws.close(); } catch {} } online = null; }
 function codigoNovo() { const L = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'; return [...crypto.getRandomValues(new Uint8Array(14))].map((x) => L[x % L.length]).join(''); }
-function jogarOnline(codigo, chamar = false) {
+function jogarOnline(codigo, chamar = false, criar = false) {
   if (!conta.token) { $('#x-erro').textContent = 'Entre na sua conta para jogar com amigos.'; return; }
   fecharOnline();
   clearTimeout(timerRobo);
   modo = 'online'; v = null; vistoSeq = -1; rodadaAte = 0; fimVisto = null; prazo = null;
-  online = { codigo, tentativas: 0, n: nMesa, comecou: false };
+  online = { codigo, tentativas: 0, n: nMesa, comecou: false, ranqueada: criar && nMesa === 2 && tipoAmigo === 'pontos' };
   history.replaceState(null, '', '?sala=' + codigo);
   $('#x-menu').hidden = true; $('#x-fim').hidden = true; $('#t-jogo').hidden = true;
   $('#t-espera').hidden = false;
@@ -307,7 +384,7 @@ function conectar() {
   const o = online;
   if (!o) return;
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const ws = new WebSocket(`${proto}//${location.host}/api/partida/${o.codigo}?jogo=truco&n=${o.n}&t=${encodeURIComponent(conta.token)}`);
+  const ws = new WebSocket(comRede(`${proto}//${location.host}/api/partida/${o.codigo}?jogo=truco&n=${o.n}${o.ranqueada ? '&ranqueada=1' : ''}&t=${encodeURIComponent(conta.token)}`));
   o.ws = ws;
   ws.onopen = () => { o.tentativas = 0; };
   ws.onmessage = (ev) => {
@@ -318,6 +395,7 @@ function conectar() {
     if (m.t !== 'estado' || m.jogo !== 'truco') return;
     const antes = lugares;
     lugares = m.lugares; eu = m.voce; o.dono = m.dono; o.revanche = m.revanche;
+        o.ranqueada = !!m.ranqueada; o.pontos = m.pontos || null; o.resultado = m.resultado || null;
     if (o.comecou && antes.length) m.lugares.forEach((j, i) => { if (j && !j.robo && antes[i] && !antes[i].online && j.online) aviso(`${j.nome} voltou`, 1600, 'acenar'); });
     if (!m.comecou) {
       if (antes.length) m.lugares.forEach((j, i) => { if (j && !antes[i] && i !== eu) aviso(`${j.nome} chegou!`, 2200, 'acenar'); });
@@ -336,6 +414,7 @@ function conectar() {
     desenhar();
     if (v.fim) {
       mostrarFim();
+      mostrarPontosFim();
       if (m.revanche.length && !m.revanche.includes(eu)) { $('#fim-espera').hidden = false; $('#fim-espera').textContent = 'Seus amigos querem jogar de novo!'; }
     }
   };
@@ -349,7 +428,7 @@ function chamarAmigos() {
   if (!amigos || !online) return;
   amigos.abrir({ jogo: 'truco', sala: online.codigo, titulo: 'Truco' });
 }
-$('#bt-amigo').addEventListener('click', () => jogarOnline(codigoNovo(), true));
+$('#bt-amigo').addEventListener('click', () => jogarOnline(codigoNovo(), true, true));
 $('#bt-chamar').addEventListener('click', () => chamarAmigos());
 $('#bt-chamar2').addEventListener('click', () => chamarAmigos());
 $('#bt-comecar').addEventListener('click', () => { if (online && online.ws) online.ws.send(JSON.stringify({ t: 'comecar' })); });
@@ -376,4 +455,4 @@ if (pedida && /^[A-Za-z0-9]{10,24}$/.test(pedida) && conta.token) jogarOnline(pe
 else abrirMenu();
 
 // para os testes automáticos (testes/teste-truco.mjs)
-window.__truco = { get e() { return e; }, get v() { return v; }, get prazo() { return prazo; }, get eu() { return eu; }, get modo() { return modo; }, get online() { return online; }, T, agir, atualizar: () => atualizarPC() };
+window.__truco = { get e() { return e; }, get v() { return v; }, get prazo() { return prazo; }, get busca() { return busca; }, get eu() { return eu; }, get modo() { return modo; }, get online() { return online; }, T, agir, atualizar: () => atualizarPC() };
