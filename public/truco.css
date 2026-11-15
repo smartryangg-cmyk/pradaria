@@ -62,6 +62,7 @@ body.pag-truco { background: linear-gradient(160deg, #3f9b5c, #256b3c); }
 
 #t-status { padding: 6px 14px; border-radius: 999px; background: rgba(10, 30, 18, .45); color: #fff; font-weight: 900; font-size: 16px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #t-status.minha { background: var(--verde); text-shadow: 0 2px 0 var(--verde-borda); box-shadow: 0 0 0 3px #fff; }
+#t-status.minha.pouco { background: #e0662f; text-shadow: 0 2px 0 #9c3f17; }
 #t-acoes { width: 100%; max-width: 520px; min-height: 0; gap: 8px; }
 #t-acoes:empty { display: none; }
 #t-acoes .bt { min-height: 48px; font-size: 17px; padding: 6px 12px; }

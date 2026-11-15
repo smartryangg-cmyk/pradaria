@@ -15,6 +15,8 @@ const MIN_LANCES_DESISTIR = 20; // desistir, sair ou perder no tempo antes de 10
 const FIM_SEM_JOGO = ['desistiu', 'saiu', 'tempo', 'tempo-empate'];
 const PRAZO_FORA = 60000; // o adversário saiu: depois disso dá para pedir a vitória
 const PRAZO_PRIMEIRO = 30000; // tempo para fazer o primeiro lance (partida com relógio)
+const PRAZO_TRUCO = 30000; // truco online: tempo de cada jogada; acabou, o computador joga pela pessoa
+const PRAZO_TRUCO_FORA = 3000; // ... e bem menos para quem saiu da mesa (a mesa não fica parada esperando)
 
 export class Partida extends DurableObject {
   constructor(ctx, env) {
@@ -222,6 +224,8 @@ export class Partida extends DurableObject {
     for (const w of this.conexoes()) if (w.deserializeAttachment().uid === u.id) { w.serializeAttachment(null); try { w.close(4001, 'outra aba'); } catch {} }
     this.ctx.acceptWebSocket(servidor);
     servidor.serializeAttachment({ uid: u.id, nome: u.nome, cota: 0, janela: 0 });
+    // truco: chegou (ou voltou) na sua vez com o prazo curto de quem está fora: agora que está na mesa, o prazo é o normal
+    if (p.jogo === 'truco' && p.e && !p.e.fim && p.prazoTotal === PRAZO_TRUCO_FORA && this.humanosQueAgem().some((l) => p.lugares[l].uid === u.id)) { this.agendarRobo(); await this.salvar(); }
     this.avisarTodos();
     return new Response(null, { status: 101, webSocket: cliente });
   }
@@ -295,7 +299,8 @@ export class Partida extends DurableObject {
     const p = this.p;
     const eu = p.lugares.findIndex((j) => j && j.uid === uid);
     const lugares = p.lugares.map((j) => (j ? (j.robo ? { nome: j.nome, robo: true, online: true } : { nome: j.nome, online: this.online(j.uid) }) : null));
-    return { t: 'estado', jogo: 'truco', n: p.n, lugares, voce: eu, dono: p.dono === uid, comecou: !!p.e, estado: p.e ? T.visao(p.e, eu) : null, fim: p.e ? p.e.fim : null, revanche: p.revanche || [], partida: p.partidas };
+    const prazo = p.e && !p.e.fim && p.prazoJogada ? { falta: Math.max(0, p.prazoJogada - Date.now()), total: p.prazoTotal || this.prazoTruco() } : null;
+    return { t: 'estado', jogo: 'truco', n: p.n, lugares, voce: eu, dono: p.dono === uid, comecou: !!p.e, estado: p.e ? T.visao(p.e, eu) : null, fim: p.e ? p.e.fim : null, revanche: p.revanche || [], partida: p.partidas, prazo, esgotou: p.esgotou || null };
   }
   comecarTruco() {
     const p = this.p;
@@ -305,12 +310,24 @@ export class Partida extends DurableObject {
     p.revanche = [];
     this.agendarRobo();
   }
-  // o computador joga devagar (um alarme por jogada) para todo mundo ver as cartas na mesa
+  prazoTruco() { return this.env.TESTE ? 15000 : PRAZO_TRUCO; } // (servidor de teste: 15 s)
+  humanosQueAgem() { const p = this.p; return T.quemAge(p.e).filter((l) => p.lugares[l] && !p.lugares[l].robo); }
+  // o computador joga devagar (um alarme por jogada) para todo mundo ver as cartas na mesa.
+  // Se quem tem que agir é gente: marca o prazo da jogada (chame antes de salvar)
   agendarRobo() {
     const p = this.p;
+    p.prazoJogada = null;
     if (!p.e || p.e.fim) return;
     const quem = T.quemAge(p.e);
-    if (!quem.length || !quem.every((l) => p.lugares[l] && p.lugares[l].robo)) return;
+    if (!quem.length) return;
+    const humanos = this.humanosQueAgem();
+    if (humanos.length) {
+      const fora = humanos.every((l) => !this.online(p.lugares[l].uid));
+      p.prazoTotal = fora ? PRAZO_TRUCO_FORA : this.prazoTruco();
+      p.prazoJogada = Date.now() + p.prazoTotal;
+      this.ctx.storage.setAlarm(p.prazoJogada);
+      return;
+    }
     const ult = p.e.eventos[p.e.eventos.length - 1];
     const espera = ult && (ult.t === 'rodada' || ult.t === 'mao') ? 1700 : ult && ult.t === 'pediu' ? 1300 : 850;
     this.ctx.storage.setAlarm(Date.now() + espera);
@@ -324,13 +341,21 @@ export class Partida extends DurableObject {
     }
     if (!p || p.jogo !== 'truco' || !p.e || p.e.fim) return;
     const quem = T.quemAge(p.e);
-    if (!quem.length || !quem.every((l) => p.lugares[l] && p.lugares[l].robo)) return;
-    const l = quem[0];
+    if (!quem.length) return;
+    const humanos = this.humanosQueAgem();
+    let l = quem[0];
+    if (humanos.length) {
+      // gente na vez: só quando o prazo acabou o computador joga no lugar dela
+      if (!p.prazoJogada) { this.agendarRobo(); await this.salvar(); return; }
+      if (Date.now() < p.prazoJogada - 30) { this.ctx.storage.setAlarm(p.prazoJogada); return; }
+      l = humanos[0];
+      p.esgotou = { lugar: l, n: ((p.esgotou && p.esgotou.n) || 0) + 1 };
+    }
     const a = T.robo(p.e, l);
     if (a) T.agir(p.e, l, a);
+    this.agendarRobo();
     await this.salvar();
     this.avisarTodos();
-    this.agendarRobo();
   }
   async msgTruco(ws, eu, m) {
     const p = this.p;
@@ -366,8 +391,13 @@ export class Partida extends DurableObject {
     ws.serializeAttachment(null);
     try { ws.close(1000, 'tchau'); } catch {}
     if (!eu) return;
-    // xadrez/dama em andamento: marca desde quando a pessoa está fora (o outro pode pedir a vitória depois de um tempo)
     const p = this.p;
+    // truco: se era a vez de quem saiu, o computador joga por ele logo
+    if (p && p.jogo === 'truco' && p.e && !p.e.fim && !this.online(eu.uid)) {
+      const meu = p.lugares.findIndex((j) => j && j.uid === eu.uid);
+      if (this.humanosQueAgem().includes(meu)) { this.agendarRobo(); await this.salvar(); }
+    }
+    // xadrez/dama em andamento: marca desde quando a pessoa está fora (o outro pode pedir a vitória depois de um tempo)
     if (p && p.jogo !== 'truco' && !p.fim && p.lugares.w && p.lugares.b && !this.online(eu.uid)) {
       const cor = LUGARES.find((l) => p.lugares[l].uid === eu.uid);
       if (cor) { p.fora = { ...(p.fora || {}), [cor]: Date.now() }; await this.salvar(); }
