@@ -2248,7 +2248,14 @@ function laco(agora) {
     if (o.sentado) { if (!o.neutro) { poseNeutra(o); o.neutro = true; } continue; }
     o.neutro = false;
     const g = o.grupo.position;
-    g.lerp(o.alvo, Math.min(1, dt * 10));
+    // base = onde o amigo está (sem o ajuste dos pés); alguém mexeu no boneco por fora: recomeça dali
+    if (!o.base || Math.abs(g.x - o.base.x) > 1e-3 || Math.abs(g.z - o.base.z) > 1e-3 || Math.abs(g.y - o.base.y - (o.pesNoChao || 0)) > 1e-3) { o.base = g.clone(); o.pesNoChao = 0; }
+    o.base.lerp(o.alvo, Math.min(1, dt * 10));
+    // Natural 3D: pés no chão desenhado (arredondado), como o nosso boneco (visao.js)
+    let desce = 0;
+    if (mundo.suave && !((o.acao | 0) & 10)) { const h = mundo.alturaVisual(o.base.x, o.base.y, o.base.z); if (h !== null && h < o.base.y) desce = h - o.base.y; }
+    o.pesNoChao += (desce - o.pesNoChao) * Math.min(1, dt * 12);
+    g.set(o.base.x, o.base.y + o.pesNoChao, o.base.z);
     // para onde o amigo olha (suave entre uma mensagem e outra); o corpo vira sozinho na animação
     o.yawOlhar += (((o.alvoYaw - o.yawOlhar + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * Math.min(1, dt * 10);
     // parou de chegar posição (aba escondida, rede caiu): para de andar
