@@ -254,7 +254,9 @@ function mostrarFim() {
   if (fimVisto === v.seq) return;
   fimVisto = v.seq;
   $('#fim-titulo').textContent = venci ? (v.n === 2 ? 'Você ganhou!' : 'Vocês ganharam!') : (v.n === 2 ? 'Você perdeu' : 'Vocês perderam');
-  $('#fim-txt').textContent = `Placar: ${v.pontos[nos()]} a ${v.pontos[1 - nos()]}`;
+  $('#fim-txt').textContent = v.fim.abandono == null ? `Placar: ${v.pontos[nos()]} a ${v.pontos[1 - nos()]}`
+    : v.fim.abandono === eu ? 'Você saiu ou deixou o tempo acabar muitas vezes, e o computador não pode jogar por você valendo pontos.'
+    : 'Seu adversário saiu ou deixou o tempo acabar muitas vezes.';
   $('#fim-espera').hidden = true;
   mostrarPontosFim();
   setTimeout(() => { $('#x-fim').hidden = false; }, 1200);
@@ -409,7 +411,9 @@ function conectar() {
     v = m.estado;
     prazo = m.prazo ? { ...m.prazo, recebido: performance.now() } : null;
     // alguém demorou demais: o computador jogou no lugar
-    if (m.esgotou && o.esgotou !== undefined && m.esgotou.n !== (o.esgotou && o.esgotou.n)) aviso(m.esgotou.lugar === eu ? 'Seu tempo acabou: o computador jogou por você' : `${nome(m.esgotou.lugar)} demorou: o computador jogou no lugar`, 2600, 'relogio');
+    // (valendo pontos: depois de algumas vezes, quem deixou o computador jogar perde)
+    const vezes = m.ranqueada && m.porRobo && m.esgotou ? ` (${Math.min(m.porRobo[m.esgotou.lugar], m.roboMax)} de ${m.roboMax})` : '';
+    if (m.esgotou && o.esgotou !== undefined && m.esgotou.n !== (o.esgotou && o.esgotou.n) && !(m.estado && m.estado.fim && m.estado.fim.abandono != null)) aviso(m.esgotou.lugar === eu ? 'Seu tempo acabou: o computador jogou por você' + vezes : `${nome(m.esgotou.lugar)} demorou: o computador jogou no lugar` + vezes, 2600, 'relogio');
     o.esgotou = m.esgotou || null;
     desenhar();
     if (v.fim) {

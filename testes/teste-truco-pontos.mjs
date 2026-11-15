@@ -113,6 +113,45 @@ await beto.p.waitForFunction(() => !/Contando/.test(document.querySelector('#fim
 const txt = await beto.p.textContent('#fim-pontos');
 // (no site publicado as duas contas podem sair pelo mesmo IP: aí o jogo é anulado por "mesma internet", o que também está certo)
 ok(rq === true && (/→/.test(txt) ? (await pontos(beto)).jogos === jogosAntes + 1 : NO_AR && /mesma internet/.test(txt)), 'com amigo "Valendo pontos": ' + txt);
+// ---------- valendo pontos: o Beto sai da mesa; o computador joga por ele no máximo 3 vezes e na 4ª ele perde ----------
+{
+  await menu(ana); await menu(beto);
+  await ana.clica('.qtd[data-n="2"]'); await ana.clica('.tipo-amigo[data-tipo=pontos]'); await ana.clica('#bt-amigo');
+  await ana.p.waitForFunction(() => window.__truco.online && window.__truco.online.codigo, null, { timeout: 10000 });
+  await ana.p.waitForSelector('#amigos:not([hidden])', { timeout: 5000 }).then(() => ana.clica('#amigos-fechar'), () => {});
+  const cod = await ana.p.evaluate(() => window.__truco.online.codigo);
+  await beto.p.goto(URL + '/truco?sala=' + cod + '&rede=' + beto.rede);
+  await naMesa(beto); await naMesa(ana);
+  const antesB = await pontos(beto);
+  await beto.p.goto('about:blank');
+  const avisos = [];
+  // a Ana joga normal (sem pedir truco) até o jogo acabar
+  for (let k = 0; k < 300; k++) {
+    const st = await ana.p.evaluate(() => {
+      const t = window.__truco, v = t.v;
+      if (v.fim) return { fim: v.fim };
+      if (v.age.includes(t.eu)) {
+        if (v.onze) t.agir({ t: 'onze', jogar: true });
+        else if (v.aposta) t.agir({ t: 'aceitar' });
+        else if (v.vez === t.eu && v.minhas.length) t.agir({ t: 'jogar', carta: v.minhas[0] });
+      }
+      return { aviso: document.querySelector('#aviso').textContent };
+    });
+    if (st.fim) break;
+    if (st.aviso && /demorou/.test(st.aviso) && !avisos.includes(st.aviso)) avisos.push(st.aviso);
+    await ana.p.waitForTimeout(300);
+  }
+  const fim = await ana.p.evaluate(() => window.__truco.v.fim);
+  ok(fim && fim.abandono != null && fim.vencedor === (await ana.p.evaluate(() => window.__truco.eu % 2)), 'Beto saiu: depois de 3 jogadas do computador por ele, a 4ª vira derrota dele (' + avisos.map((x) => x.replace(/^.*?\(/, '(')).join(' ') + ')');
+  await ana.p.waitForSelector('#x-fim:not([hidden])', { timeout: 10000 });
+  await ana.p.waitForFunction(() => !/Contando/.test(document.querySelector('#fim-pontos').textContent), null, { timeout: 10000 });
+  const ft = await ana.p.textContent('#fim-txt'), fp = await ana.p.textContent('#fim-pontos');
+  ok(/adversário saiu ou deixou o tempo acabar/.test(ft), 'Ana vê: "' + ft + '" / ' + fp);
+  await ana.foto('5-ana-ganhou-abandono');
+  await menu(beto);
+  const depoisB = await pontos(beto);
+  ok(/→/.test(fp) ? depoisB.d === antesB.d + 1 && depoisB.r < antesB.r : NO_AR && /mesma internet/.test(fp), `os pontos do Beto: ${antesB.r} → ${depoisB.r} (derrota)`);
+}
 void rG; void rP;
 ok(ana.erros.length === 0, 'Ana sem erros no console ' + ana.erros.join(' | ').slice(0, 300));
 ok(beto.erros.length === 0, 'Beto sem erros no console ' + beto.erros.join(' | ').slice(0, 300));
