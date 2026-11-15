@@ -17,7 +17,11 @@ const $ = (s) => document.querySelector(s);
 export const ehNavegadorTV = () => UA_TV.test(navigator.userAgent);
 
 // ?tv=1 / ?tv=0 na URL também escolhe (e fica guardado)
+// pradaria.pages.dev/tv: a versão da TV, que abre primeiro a tela de ligar o celular como controle
+export const tvPrimeiro = () => /^\/tv\/?$/.test(location.pathname) || new URLSearchParams(location.search).get('tv') === 'parear';
+
 export function modoTV() {
+  if (tvPrimeiro()) return true;
   try {
     const q = new URLSearchParams(location.search).get('tv');
     if (q === '1' || q === '0') localStorage.setItem(CHAVE, q);
@@ -74,10 +78,29 @@ function focar(el) {
   if (!el) return;
   el.classList.add('foco-tv');
   try { el.focus({ preventScroll: true }); } catch { el.focus(); }
-  el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  // no meio da tela: não fica escondido atrás de uma barra que fica parada no topo (abas do Novo mundo)
+  const r = el.getBoundingClientRect();
+  if (r.top < innerHeight * 0.18 || r.bottom > innerHeight * 0.82) el.scrollIntoView({ block: 'center', inline: 'nearest' });
 }
 
 const centro = (r) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+
+// primeiro foco de uma tela: o primeiro campo para escrever (nome, senha...), senão o botão principal (verde), senão o de cima
+function focoInicial(lista) {
+  return lista.find((e) => e.tagName === 'INPUT' && /^(text|password|search|email|)$/.test(e.type) && !(e.closest('details')))
+    || lista.find((e) => e.classList.contains('verde') || e.dataset.jogo === 'pradaria')
+    || [...lista].sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)[0];
+}
+
+// tela nova (o botão escolhido sumiu): já deixa um escolhido, para o controle remoto/celular não ficar sem foco
+export function garantirFoco() {
+  const el = document.activeElement;
+  if (el && el !== document.body && !el.closest('[hidden]') && el.getBoundingClientRect().width > 0) return false;
+  const lista = focaveis();
+  if (!lista.length) return false;
+  focar(focoInicial(lista));
+  return true;
+}
 
 // escolhe o vizinho mais perto na direção (cima, baixo, esq, dir)
 export function navegar(dir) {
@@ -85,9 +108,7 @@ export function navegar(dir) {
   if (!lista.length) return false;
   const atual = lista.includes(document.activeElement) ? document.activeElement : null;
   if (!atual) {
-    // primeiro foco: o botão principal (verde) ou o mais de cima
-    const ini = lista.find((e) => e.classList.contains('verde')) || [...lista].sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)[0];
-    focar(ini);
+    focar(focoInicial(lista));
     return true;
   }
   // controles deslizantes e listas: esquerda/direita mudam o valor
@@ -363,7 +384,11 @@ export function iniciarTV(api) {
     tv.celulares = m.cel || 0;
     tv.conectado = !!m.ok;
     if (!m.ok) soltarCel();
-    if (tv.celulares > antes) { api.aviso && api.aviso('Celular ligado! Ele já é o seu controle', 2600, 'celular'); ultimoModo = ''; }
+    if (tv.celulares > antes) {
+      api.aviso && api.aviso('Celular ligado! Ele já é o seu controle', 2600, 'celular'); ultimoModo = '';
+      // versão da TV: assim que o celular liga, a tela grande do código sai e o jogo segue (menu, conta, mundos)
+      if (tv.painel && !tv.painel.hidden && tv.painel.classList.contains('tv-cheia')) setTimeout(() => { fecharPainel(); navegar('baixo'); }, 900);
+    }
     else if (tv.celulares < antes) api.aviso && api.aviso('O celular desligou do controle', 2200, 'celular');
     desenharStatus();
   }
@@ -381,20 +406,20 @@ export function iniciarTV(api) {
     };
     ws.onerror = () => {};
   }
-  tv.ligarCelular = () => {
+  tv.ligarCelular = (cheia = false) => {
     if (!tv.codigo) {
       try { tv.codigo = sessionStorage.getItem(CHAVE_COD); } catch {}
       if (!tv.codigo || !/^[A-Z2-9]{6}$/.test(tv.codigo)) tv.codigo = novoCodigo();
       try { sessionStorage.setItem(CHAVE_COD, tv.codigo); } catch {}
     }
     if (!tv.ws) conectar();
-    abrirPainel();
+    abrirPainel(cheia);
   };
   // a TV recarregou a página com um celular ligado: volta a esperar pelo mesmo código
   try { if (sessionStorage.getItem(CHAVE_COD)) { tv.codigo = sessionStorage.getItem(CHAVE_COD); conectar(); } } catch {}
 
   function urlControle() { return `${location.origin}/controle.html?c=${tv.codigo}`; }
-  function abrirPainel() {
+  function abrirPainel(cheia = false) {
     if (!tv.painel) {
       const el = document.createElement('div');
       el.id = 'tv-painel'; el.className = 'janela'; el.hidden = true;
@@ -411,7 +436,7 @@ export function iniciarTV(api) {
           </div>
         </div>
         <p class="sub">Dá para jogar também com um controle de videogame ligado na TV ou com as setas do controle remoto.</p>
-        <button class="bt verde grande" type="button" id="tv-pronto">${icone('controle')}Pronto</button>
+        <button class="bt verde grande" type="button" id="tv-pronto">${icone('controle')}<span id="tv-pronto-txt">Pronto</span></button>
         <button class="bt fraco" type="button" id="tv-novo">Trocar o código</button>
       </div>`;
       document.body.appendChild(el);
@@ -420,10 +445,14 @@ export function iniciarTV(api) {
         tv.codigo = novoCodigo();
         try { sessionStorage.setItem(CHAVE_COD, tv.codigo); } catch {}
         const velho = tv.ws; tv.ws = null; if (velho) velho.close();
-        conectar(); abrirPainel();
+        conectar(); abrirPainel(tv.painel.classList.contains('tv-cheia'));
       });
       tv.painel = el;
     }
+    // versão da TV: a tela inteira é o código, e dá para seguir sem celular (controle remoto ou videogame)
+    tv.painel.classList.toggle('tv-cheia', cheia);
+    $('#tv-titulo').lastElementChild.textContent = cheia ? 'Pegue o celular para jogar' : 'Celular como controle';
+    $('#tv-pronto-txt').textContent = cheia ? 'Jogar sem celular' : 'Pronto';
     $('#tv-qr').innerHTML = desenharQR(urlControle());
     $('#tv-url').textContent = location.host + '/controle';
     $('#tv-codigo').textContent = tv.codigo.slice(0, 3) + ' ' + tv.codigo.slice(3);
@@ -476,6 +505,10 @@ export function iniciarTV(api) {
   }
   botoes();
   tv.aplicar(modoTV());
+  if (tvPrimeiro()) {
+    document.body.classList.add('tv-primeiro');
+    tv.ligarCelular(true);
+  }
 
   // ----- a cada quadro -----
   let ultimo = performance.now();
@@ -500,6 +533,11 @@ export function iniciarTV(api) {
       const r = c.fontes.remoto || (c.fontes.remoto = {});
       r.lado = dirigindo ? giro : 0;
       if (giro && !dirigindo && emJogo()) c.girar(giro * dt * 2.2, 0);
+    }
+    // menus na TV: quando a tela muda, já escolhe um botão (de vez em quando, para não pesar)
+    if (tv.ligado && !emJogo() && agora - (tv.ultimoFoco || 0) > 300 && !(tv.painel && !tv.painel.hidden && tv.painel.classList.contains('tv-cheia'))) {
+      tv.ultimoFoco = agora;
+      garantirFoco();
     }
     // conta para o celular se a TV está num menu (ele mostra as setas) ou jogando (alavanca e botões)
     if (tv.conectado) {

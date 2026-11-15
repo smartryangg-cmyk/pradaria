@@ -15,3 +15,16 @@ body.modo-tv .caixa.larga { width: min(760px, 100%); }
 #tv-status .ic-svg { width: 22px; height: 22px; }
 .bt-celular-controle .ic-svg, #bt-ser-controle .ic-svg { width: 26px; height: 26px; }
 .bt-celular-controle .tv-sit { color: var(--verde-borda); }
+
+/* versão da TV (/tv): abre com a tela inteira do código para ligar o celular */
+#tv-painel.tv-cheia { background: var(--ceu); z-index: 50; }
+#tv-painel.tv-cheia .caixa { width: min(1000px, 100%); padding: 28px 34px; }
+#tv-painel.tv-cheia h2 { font-size: 34px; }
+#tv-painel.tv-cheia .tv-qr { width: 340px; height: 340px; }
+#tv-painel.tv-cheia .tv-passos p { font-size: 21px; }
+#tv-painel.tv-cheia .tv-passos .tv-codigo { font-size: 76px; line-height: 1.1; letter-spacing: 10px; }
+#tv-painel.tv-cheia #tv-status { font-size: 20px; }
+#tv-painel.tv-cheia #tv-pronto { background: #fff; color: var(--txt); text-shadow: none; font-size: 19px; min-height: 52px; }
+#tv-painel.tv-cheia #tv-novo { display: none; }
+/* na TV só o Pradaria: os outros jogos abrem em outra página, onde o celular não controla */
+body.tv-primeiro #lista-jogos .jogo:not([data-jogo=pradaria]) { display: none; }
