@@ -96,7 +96,8 @@ export const TIPOS = {
   },
   skate: {
     nome: 'Skate', meio: 'terra', L: 1.0, W: 0.4, H: 0.3, vmax: 9, acel: 6, giro: 2.6, som: 'skate', buzina: 'apito', inclina: true,
-    assentos: [[0, 0.22, 0, 'e', Math.PI / 2]],
+    // em pé: os pés na prancha (topo 0,2) e o quadril 0,75 acima deles; alto = até a cabeça (não passa por baixo de teto baixo)
+    alto: 2.1, assentos: [[0, 0.95, 0, 'e', Math.PI / 2]],
     rodas: [[0.13, 0.07, -0.34, 0.07, 0.08], [-0.13, 0.07, -0.34, 0.07, 0.08], [0.13, 0.07, 0.34, 0.07, 0.08], [-0.13, 0.07, 0.34, 0.07, 0.08]],
     desenho: (cor) => [c(0.38, 0.06, 0.96, cor, 0, 0.17, 0), c(0.34, 0.06, 0.1, cor, 0, 0.21, -0.5), c(0.34, 0.06, 0.1, cor, 0, 0.21, 0.5), c(0.3, 0.04, 0.04, CINZA, 0, 0.13, -0.34), c(0.3, 0.04, 0.04, CINZA, 0, 0.13, 0.34)],
   },
@@ -440,7 +441,7 @@ export class Veiculos {
     const n = Math.max(1, Math.ceil(d.L / Math.max(d.W, 0.8)));
     const meia = Math.max(0.22, d.W * 0.42);
     const s = Math.sin(yaw), co = Math.cos(yaw);
-    const ya = y + 0.001, yb = y + Math.min(d.H, 2.6) - 0.05;
+    const ya = y + 0.001, yb = y + Math.min(d.alto || d.H, 2.6) - 0.05;
     const y0 = Math.floor(ya), y1 = Math.floor(yb);
     const get = this._get || (this._get = (a, b, c) => m.bloco(a, b, c));
     for (let i = 0; i < n; i++) {
@@ -455,6 +456,8 @@ export class Veiculos {
             if (!SOLIDO[b]) continue;
             if (FORMA_NOVA[b]) { if (colideForma(b, get, bx, by, bz, x0, ya, z0, x1, yb, z1)) return true; } else if (by >= y0) return true;
           }
+      // coisas sólidas que não são blocos (bombas e colunas do posto): garagem.js liga este gancho
+      if (this.extraColide && this.extraColide(x0, ya, z0, x1, yb, z1)) return true;
     }
     return false;
   }
