@@ -88,7 +88,7 @@ body:not(.toque) #botoes-toque, body:not(.toque) #dica-toque { display: none; }
   #dica-toque { left: 12px; right: 118px; transform: none; white-space: normal; text-align: center; border-radius: 16px; }
 }
 
-#aviso { position: absolute; left: 50%; top: 20%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px); padding: 10px 20px; border-radius: 999px; background: var(--hud-fundo); color: #fff; font-weight: 900; font-size: 20px; opacity: 0; transition: opacity .3s; text-align: center; }
+#aviso { position: absolute; left: 50%; top: 20%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px); padding: 10px 20px; border-radius: 999px; background: var(--hud-fundo); color: #fff; font-weight: 900; font-size: 20px; opacity: 0; transition: opacity .3s; text-align: center; pointer-events: none; }
 #aviso:empty { display: none; }
 #aviso .ic-svg { font-size: 30px; }
 #aviso.mostra { opacity: 1; }
