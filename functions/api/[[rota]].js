@@ -5,7 +5,7 @@ import { json, erro, banco, criarToken, usuarioDa, hashSenha, iguais, limitar, c
 import { listarAmigos, pedirAmizade, responderAmizade, removerAmizade } from '../../lib/amigos.js';
 import { normalizarOpcoes, sementeDeTexto, editarOpcoes, opcoesMudadas, precisaRecarregar, precisa16 } from '../../public/js/opcoes-mundo.js';
 import { lerArquivo, montarArquivo } from '../../public/js/arquivo-mundo.js';
-import { normalizarSkin } from '../../public/js/skin.js';
+import { normalizarSkin, normalizarModelos } from '../../public/js/skin.js';
 
 const NOME_OK = /^[A-Za-zÀ-ÿ0-9_]{3,16}$/;
 const NOME_MUNDO_OK = /^[A-Za-zÀ-ÿ0-9 ]{2,24}$/;
@@ -21,7 +21,7 @@ async function corpo(request) {
   if (Number(request.headers.get('content-length') || 0) > MAX_CORPO) return {};
   try { const t = await request.text(); return t.length > MAX_CORPO ? {} : JSON.parse(t); } catch { return {}; }
 }
-const publico = (u) => ({ id: u.id, nome: u.nome, cor: u.cor, skin: normalizarSkin(u.skin, u.cor), skinSalva: !!u.skin, idade16: u.idade16 == null ? null : !!u.idade16 });
+const publico = (u) => ({ id: u.id, nome: u.nome, cor: u.cor, skin: normalizarSkin(u.skin, u.cor), skinSalva: !!u.skin, modelos: normalizarModelos(u.modelos), idade16: u.idade16 == null ? null : !!u.idade16 });
 const MSG_16 = 'Este mundo tem temas para quem tem 16 anos ou mais.';
 // resposta da pergunta "Você tem 16 anos ou mais?" guardada na conta (null = ainda não respondeu)
 async function idade16De(db, uid) {
@@ -63,7 +63,7 @@ async function entrar(request, env) {
     || !(await limitar(env, 'entn:' + n, 60, 15 * 60e3)))
     return erro('Muitas tentativas. Espere uns minutos e tente de novo.', 429);
   const db = await banco(env);
-  const u = await db.prepare('SELECT id, nome, cor, skin, hash, sal, idade16 FROM usuarios WHERE nome = ?').bind(nome).first();
+  const u = await db.prepare('SELECT id, nome, cor, skin, modelos, hash, sal, idade16 FROM usuarios WHERE nome = ?').bind(nome).first();
   if (!u) return erro('Nome ou senha errados.', 401);
   const { hash } = await hashSenha(senha, u.sal);
   if (!iguais(hash, u.hash)) return erro('Nome ou senha errados.', 401);
@@ -321,6 +321,17 @@ async function salvarSkin(request, env, u) {
   return json({ skin });
 }
 
+// modelos salvos: vários personagens guardados na conta (até MAX_MODELOS), para trocar com um toque
+async function salvarModelos(request, env, u) {
+  const c = await corpo(request);
+  if (!Array.isArray(c.modelos)) return erro('Lista de modelos inválida.');
+  if (!(await limitar(env, 'modelos:' + u.id, 60, 3600e3))) return erro('Muitas mudanças nos modelos. Espere um pouco.', 429);
+  const modelos = normalizarModelos(c.modelos);
+  const db = await banco(env);
+  await db.prepare('UPDATE usuarios SET modelos = ? WHERE id = ?').bind(JSON.stringify(modelos), u.id).run();
+  return json({ modelos });
+}
+
 export async function onRequest({ request, env, params }) {
   const rota = (params.rota || []).join('/');
   const metodo = request.method;
@@ -331,10 +342,11 @@ export async function onRequest({ request, env, params }) {
     const u = await usuarioDa(request, env);
     if (!u) return erro('Sessão expirada, entre de novo.', 401);
     // a conta pode ter sido apagada: o token assinado continua válido, então confere no banco
-    const atual = await (await banco(env)).prepare('SELECT id, nome, cor, skin, idade16 FROM usuarios WHERE id = ?').bind(u.id).first();
+    const atual = await (await banco(env)).prepare('SELECT id, nome, cor, skin, modelos, idade16 FROM usuarios WHERE id = ?').bind(u.id).first();
     if (!atual) return erro('Sessão expirada, entre de novo.', 401);
     if (rota === 'eu' && metodo === 'DELETE') return await apagarConta(request, env, u);
     if (rota === 'eu/skin' && metodo === 'POST') return await salvarSkin(request, env, atual);
+    if (rota === 'eu/modelos' && metodo === 'POST') return await salvarModelos(request, env, atual);
     if (rota === 'eu') return json({ usuario: publico(atual) });
     if (rota === 'eu/idade' && metodo === 'POST') return await responderIdade(request, env, u);
     if (rota === 'mundos' && metodo === 'GET') return json({ mundos: await listarMundos(env, u) });

@@ -12,7 +12,7 @@ import { Aldeoes } from './aldeoes.js';
 import { Garagem } from './garagem.js';
 import { Som } from './som.js';
 import { montarBoneco, vestirBoneco, etiqueta, matModelo, matContorno, caixa, juntar, bola, animarBoneco, poseNeutra } from './modelos.js';
-import { normalizarSkin, skinDeCor, skinIgual, CORES_ROUPA } from './skin.js';
+import { normalizarSkin, skinDeCor, skinIgual, CORES_ROUPA, corDe, normalizarModelos } from './skin.js';
 import { Personagem } from './personagem.js';
 import { Visao } from './visao.js';
 import { Chat } from './chat.js';
@@ -243,6 +243,12 @@ function levarSkinLocal() {
   if (!u || u.skinSalva || !s) return;
   api('eu/skin', { skin: s }).then((r) => { u.skin = r.skin; u.skinSalva = true; }).catch(() => {});
 }
+// conta sem modelos guardados: leva os deste aparelho
+function levarModelosLocal() {
+  const u = conta.usuario, l = modelosLocal();
+  if (!u || (u.modelos && u.modelos.length) || !l.length) return;
+  api('eu/modelos', { modelos: l }).then((r) => { u.modelos = r.modelos; }).catch(() => {});
+}
 function vestirMeusBonecos(s) {
   if (visao.boneco) vestirBoneco(visao.boneco, s);
   if (garagem.meuBoneco) vestirBoneco(garagem.meuBoneco, s);
@@ -263,7 +269,23 @@ async function salvarSkin(s) {
   aviso('Personagem salvo!', 1500, 'camiseta');
   return null;
 }
-const personagem = new Personagem({ som, salvar: salvarSkin });
+// modelos guardados (vários personagens): na conta e neste aparelho
+const CHAVE_MODELOS = 'pradaria.modelos';
+function modelosLocal() { try { return normalizarModelos(localStorage.getItem(CHAVE_MODELOS)); } catch { return []; } }
+function meusModelos() {
+  const u = conta.usuario;
+  return u && u.modelos && u.modelos.length ? normalizarModelos(u.modelos) : modelosLocal();
+}
+async function salvarModelos(lista) {
+  lista = normalizarModelos(lista);
+  try { localStorage.setItem(CHAVE_MODELOS, JSON.stringify(lista)); } catch {}
+  if (conta.token && conta.usuario) {
+    try { conta.usuario.modelos = (await api('eu/modelos', { modelos: lista })).modelos; }
+    catch (e) { conta.usuario.modelos = lista; return 'Guardei neste aparelho, mas não na conta: ' + e.message; }
+  }
+  return null;
+}
+const personagem = new Personagem({ som, salvar: salvarSkin, modelos: meusModelos, salvarModelos });
 function abrirPersonagem(voltar) {
   som.iniciar();
   personagem.abrir(meuSkin(), voltar);
@@ -1159,12 +1181,12 @@ function adicionarOutro(j) {
   if (j.id === euId || outros.has(j.id)) return;
   const b = montarBoneco(j.skin ? normalizarSkin(j.skin, j.cor) : skinDeCor(j.cor));
   const et = etiqueta(j.nome);
-  et.position.y = 2.25;
+  et.position.y = b.topo + 0.37; et.userData.etiqueta = true;
   b.grupo.add(et);
   const p = j.p || [0, 60, 0];
   b.grupo.position.set(p[0], p[1], p[2]);
   cena.add(b.grupo);
-  outros.set(j.id, { ...b, nome: j.nome, corCss: '#' + CORES_ROUPA[b.skin.corRoupa].toString(16).padStart(6, '0'), alvo: new THREE.Vector3(...p), yaw: 0, alvoYaw: (j.r && j.r[0]) || 0, yawOlhar: (j.r && j.r[0]) || 0, vRede: new THREE.Vector3(), vAnim: new THREE.Vector3(), vTmp: new THREE.Vector3() });
+  outros.set(j.id, { ...b, nome: j.nome, corCss: '#' + corDe(CORES_ROUPA, b.skin.corRoupa).toString(16).padStart(6, '0'), alvo: new THREE.Vector3(...p), yaw: 0, alvoYaw: (j.r && j.r[0]) || 0, yawOlhar: (j.r && j.r[0]) || 0, vRede: new THREE.Vector3(), vAnim: new THREE.Vector3(), vTmp: new THREE.Vector3() });
 }
 
 // posição de um amigo (vem da sala ~8x por segundo)
@@ -1466,7 +1488,7 @@ async function jogarOnline(m, volta = null) {
       const o = outros.get(msg.id);
       if (!o || !msg.s) return;
       vestirBoneco(o, msg.s);
-      o.corCss = '#' + CORES_ROUPA[o.skin.corRoupa].toString(16).padStart(6, '0');
+      o.corCss = '#' + corDe(CORES_ROUPA, o.skin.corRoupa).toString(16).padStart(6, '0');
     },
     saiu: (msg) => { const o = outros.get(msg.id); if (o) aviso(`${o.nome} saiu`); chat.jogadorSaiu(msg.id); removerOutro(msg.id); },
     chat: (msg) => chat.recebeu(msg), 'chat-erro': (msg) => chat.erro(msg), 'chat-op': (msg) => chat.aplicarOp(msg),
@@ -1566,7 +1588,7 @@ $('#m-conta').addEventListener('submit', async (e) => {
   try {
     const r = await api(modoConta === 'entrar' ? 'entrar' : 'cadastrar', { nome: $('#c-nome').value.trim(), senha: $('#c-senha').value, cor: corEscolhida, skin: modoConta === 'entrar' ? undefined : skinLocal() || undefined });
     conta.salvar(r.token); conta.usuario = r.usuario;
-    levarSkinLocal();
+    levarSkinLocal(); levarModelosLocal();
     $('#c-senha').value = '';
     abrirJogos();
   } catch (err) { $('#c-erro').textContent = err.message; }
@@ -1622,7 +1644,7 @@ async function abrirMundos() {
   mostrarMenu('m-carregando');
   $('#carregando-txt').textContent = 'Buscando seus mundos…';
   try {
-    if (!conta.usuario) { conta.usuario = (await api('eu')).usuario; levarSkinLocal(); }
+    if (!conta.usuario) { conta.usuario = (await api('eu')).usuario; levarSkinLocal(); levarModelosLocal(); }
     const { mundos } = await api('mundos');
     nomesMeusMundos = mundos.filter(m => m.dono).map(m => m.nome);
     $('#m-nome').textContent = conta.usuario.nome;
