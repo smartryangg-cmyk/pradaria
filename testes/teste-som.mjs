@@ -51,6 +51,22 @@ function registrar() {
   const no3D = s.no3D.bind(s);
   s.no3D = (r, d) => { const g = no3D(r, d); g.__pan = r.pan; return g; };
 }
+// leva o jogador para um chão firme e plano (sem água), para andar e mexer em blocos sem depender do lugar onde nasceu
+const irParaChaoFirme = (p) => p.evaluate(() => {
+  const J = window.__jogo, m = J.mundo, j = J.jog;
+  const firme = (x, z) => { const y = m.chao(x, z); const b = m.bloco(x, y, z); return b && b !== 5 && !(b >= 23 && b <= 30) && !m.bloco(x, y + 1, z) && !m.bloco(x, y + 2, z) ? y : 0; };
+  let melhor = null;
+  for (let r = 0; r < 60 && !melhor; r += 2) for (let dx = -r; dx <= r && !melhor; dx += 2) for (let dz = -r; dz <= r && !melhor; dz += 2) {
+    if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+    const x = Math.floor(j.pos.x) + dx, z = Math.floor(j.pos.z) + dz, y = firme(x, z);
+    if (!y) continue;
+    let plano = true;
+    for (let k = -10; k <= 8 && plano; k++) if (firme(x + k, z) !== y) plano = false;
+    if (plano) melhor = { x: x + 0.5, y: y + 1, z: z + 0.5 };
+  }
+  if (melhor) { j.pos.x = melhor.x; j.pos.y = melhor.y; j.pos.z = melhor.z; j.vel.x = j.vel.y = j.vel.z = 0; j.yaw = Math.PI / 2; j.pitch = 0; }
+  return !!melhor;
+});
 const conta = (p, k) => p.evaluate((k) => window.__log.filter((x) => x.k === k), k);
 
 const DISP = [
@@ -81,7 +97,10 @@ for (const d of DISP) {
   await p.evaluate(() => { window.__jogo.dia = 0.3; });
   const amb = await p.evaluate(() => window.__medir(2500));
   const vento = await p.evaluate(() => +window.__jogo.som.amb.ventoG.gain.value.toFixed(3));
-  ok(amb.max > 0.001 && vento > 0, `ambiente toca (vento ${vento}, RMS máx ${amb.max})`);
+  // o vento do jogo tem calmaria de ~35 s a cada 4 min (os cataventos param junto): aí o vento some de propósito
+  const calmaria = await p.evaluate(async () => (await import('/js/energia.js')).vento() === 0);
+  ok(amb.max > 0.001 && (vento > 0 || calmaria), `ambiente toca (vento ${vento}${calmaria ? ', calmaria agora' : ''}, RMS máx ${amb.max})`);
+  console.log('     chão firme:', await irParaChaoFirme(p)); await p.waitForTimeout(1200);
 
   // vira para o lado mais aberto (sem parede nem morro na frente)
   const virarParaOAberto = () => p.evaluate(() => {
@@ -130,6 +149,7 @@ for (const d of DISP) {
     await p.waitForTimeout(600);
   }
 
+  await p.evaluate(() => { window.__jogo.jog.yaw += Math.PI; }); // de costas para o carro que ficou estacionado
   // quebrar e colocar (olhando para o chão): som do material, vindo do bloco
   await p.evaluate(() => { const j = window.__jogo.jog; j.pitch = -1.3; });
   await p.waitForTimeout(300);
@@ -139,8 +159,8 @@ for (const d of DISP) {
   const rq = await med;
   const qb = [...await conta(p, 'bater'), ...await conta(p, 'quebrar')];
   ok(qb.length >= 2 && rq.max > antes.media * 1.5, `bater/quebrar: ${qb.length} sons (${[...new Set(qb.map((x) => x.m))].join(', ')}), RMS ${antes.media} -> máx ${rq.max}`);
-  await p.evaluate(() => window.__jogo.usar(null));
-  await p.waitForTimeout(300);
+  // coloca olhando um pouco mais para frente (o buraco que cavou pode estar fundo demais para alcançar)
+  for (const pt of [-1.3, -0.9, -0.6, -0.4]) { await p.evaluate((pt) => { window.__jogo.jog.pitch = pt; window.__jogo.usar(null); }, pt); await p.waitForTimeout(250); if ((await conta(p, 'colocar')).length) break; }
   const col = await conta(p, 'colocar');
   ok(col.length >= 1, `colocar bloco: ${col.map((x) => x.m).join(', ')}`);
 

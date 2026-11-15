@@ -27,6 +27,22 @@ const escutar = () => {
   s.em = (pos, fn, alc) => { const r = pos && s.espacial(pos.x, pos.y, pos.z, alc); const marca = { pan: r ? +r.pan.toFixed(2) : null, vol: r ? +r.vol.toFixed(2) : null, k: [] }; window.__ouviu.push(marca); const ant = window.__marca; window.__marca = marca; try { em(pos, fn, alc); } finally { window.__marca = ant; } };
   for (const k of ['passo', 'quebrar', 'colocar', 'bater']) { const f = s[k].bind(s); s[k] = (...a) => { if (window.__marca) window.__marca.k.push(k); return f(...a); }; }
 };
+// leva o jogador para um chão firme e plano (sem água), para andar e mexer em blocos sem depender do lugar onde nasceu
+const irParaChaoFirme = (p) => p.evaluate(() => {
+  const J = window.__jogo, m = J.mundo, j = J.jog;
+  const firme = (x, z) => { const y = m.chao(x, z); const b = m.bloco(x, y, z); return b && b !== 5 && !(b >= 23 && b <= 30) && !m.bloco(x, y + 1, z) && !m.bloco(x, y + 2, z) ? y : 0; };
+  let melhor = null;
+  for (let r = 0; r < 60 && !melhor; r += 2) for (let dx = -r; dx <= r && !melhor; dx += 2) for (let dz = -r; dz <= r && !melhor; dz += 2) {
+    if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+    const x = Math.floor(j.pos.x) + dx, z = Math.floor(j.pos.z) + dz, y = firme(x, z);
+    if (!y) continue;
+    let plano = true;
+    for (let k = -10; k <= 8 && plano; k++) if (firme(x + k, z) !== y) plano = false;
+    if (plano) melhor = { x: x + 0.5, y: y + 1, z: z + 0.5 };
+  }
+  if (melhor) { j.pos.x = melhor.x; j.pos.y = melhor.y; j.pos.z = melhor.z; j.vel.x = j.vel.y = j.vel.z = 0; j.yaw = Math.PI / 2; j.pitch = 0; }
+  return !!melhor;
+});
 const ouviu = (p, k) => p.evaluate((k) => window.__ouviu.filter((x) => x.k.includes(k)), k);
 const sfx = Date.now() % 10000;
 const a = await jogador('Ana' + sfx, false);
@@ -43,23 +59,8 @@ await bb.waitForTimeout(2000);
 await bb.evaluate(escutar);
 ok(await bb.evaluate(() => window.__jogo.som.ctx && window.__jogo.som.ctx.state === 'running'), 'áudio do Beto ligado');
 
-// Ana vai para um chão firme e plano (sem água em volta), para andar e colocar blocos
-await a.evaluate(() => {
-  const J = window.__jogo, m = J.mundo, j = J.jog;
-  const firme = (x, z) => { const y = m.chao(x, z); const b = m.bloco(x, y, z); return b && b !== 5 && !(b >= 23 && b <= 30) ? y : 0; }; // chão sem água
-  let melhor = null;
-  for (let r = 0; r < 40 && !melhor; r += 2) for (let dx = -r; dx <= r && !melhor; dx += 2) for (let dz = -r; dz <= r && !melhor; dz += 2) {
-    const x = Math.floor(j.pos.x) + dx, z = Math.floor(j.pos.z) + dz, y = firme(x, z);
-    if (!y) continue;
-    let plano = true;
-    for (let k = -14; k <= 8 && plano; k++) { const y2 = firme(x + k, z); if (y2 !== y) plano = false; }
-    if (plano) melhor = { x: x + 0.5, y: y + 1, z: z + 0.5 };
-  }
-  if (melhor) { j.pos.x = melhor.x; j.pos.y = melhor.y; j.pos.z = melhor.z; j.vel.x = j.vel.y = j.vel.z = 0; }
-  window.__chao = !!melhor;
-});
+console.log('     Ana em chão firme:', await irParaChaoFirme(a));
 await a.waitForTimeout(1500);
-console.log('     Ana em chão firme:', await a.evaluate(() => window.__chao), await a.evaluate(() => window.__jogo.jog.noChao));
 // Beto fica 5 blocos a leste da Ana, olhando para o norte (-z): a Ana está à ESQUERDA dele
 const pa = await a.evaluate(() => ({ ...window.__jogo.jog.pos }));
 const colocarBeto = (yaw) => bb.evaluate(([pa, yaw]) => { const j = window.__jogo.jog; j.pos.x = pa.x + 5; j.pos.z = pa.z; j.pos.y = pa.y + 0.5; j.vel.set ? j.vel.set(0, 0, 0) : 0; j.yaw = yaw; j.pitch = 0; }, [pa, yaw]);
@@ -85,11 +86,15 @@ ok(q.length >= 1 && q[0].pan > 0.3, `Beto (virado) ouve a Ana quebrar à direita
 
 // Ana anda: Beto ouve os passos dela (e mais baixo quando ela se afasta)
 await bb.evaluate(() => { window.__ouviu.length = 0; });
-await a.evaluate(() => { window.__jogo.jog.pitch = 0; window.__jogo.jog.yaw = Math.PI / 2; }); // olha para o oeste: se afasta do Beto
-await a.keyboard.down('KeyW'); await a.waitForTimeout(3000); await a.keyboard.up('KeyW');
+// (a oeste dela ficou o buraco do bloco quebrado: anda para o leste, chegando perto do Beto, que fica mais longe agora)
+await bb.evaluate(() => { window.__jogo.jog.pos.x += 7; });
+await a.evaluate(() => { window.__jogo.jog.pitch = 0; window.__jogo.jog.yaw = -Math.PI / 2; });
+const ini = await a.evaluate(() => ({ ...window.__jogo.jog.pos }));
+await a.keyboard.down('KeyW'); await a.waitForTimeout(2200); await a.keyboard.up('KeyW');
+console.log('     Ana andou de', ini.x.toFixed(1), 'até', await a.evaluate(() => window.__jogo.jog.pos.x.toFixed(1)), 'Beto vê acao', await bb.evaluate(() => window.__jogo.outrosLista[0].acao));
 await bb.waitForTimeout(800);
 const ps = await ouviu(bb, 'passo');
-ok(ps.length >= 2, `Beto ouve os passos da Ana: ${ps.length} passos, volume ${ps.map((x) => x.vol).join(' > ')}`);
+ok(ps.length >= 2, `Beto ouve os passos da Ana: ${ps.length} passos, volume subindo ${ps.map((x) => x.vol).join(' < ')}`);
 
 // Ana dirige um carro: Beto ouve o motor dela, do lado dela
 await a.evaluate(() => window.__jogo.mercado.veiculo({ t: 'chave', tipo: 'carro' }));
