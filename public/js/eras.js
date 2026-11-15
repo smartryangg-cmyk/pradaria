@@ -58,7 +58,7 @@ const icEra = (n) => ERAS[n].ic;
 
 // ---------- estilo (fica aqui para não mexer no estilo.css de todo mundo) ----------
 const CSS = `
-#era-topo { position: absolute; top: calc(max(10px, env(safe-area-inset-top)) + 58px); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; pointer-events: none; max-width: calc(100vw - 24px); }
+#era-topo { position: absolute; top: calc(var(--topo-fim, 66px) + 2px); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; pointer-events: none; max-width: calc(100vw - 24px); }
 #era-hud { display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: 999px; background: var(--hud-fundo, rgba(30,30,40,.55)); color: #fff; font: inherit; font-weight: 800; font-size: 14px; border: 0; cursor: pointer; pointer-events: auto; min-width: 0; }
 #era-hud[hidden] { display: none; }
 #era-hud .ic-svg { width: 26px; height: 26px; flex: none; }
@@ -77,9 +77,14 @@ const CSS = `
   #bt-viajar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 86px); font-size: 15px; padding: 8px 16px; animation-name: era-pulsa-meio; }
   #era-hud { padding: 5px 10px 5px 6px; }
 }
+/* celular em pé: a barra da era fica à esquerda do minimapa, na altura das moedas (no meio cobria a missão) */
+@media (max-width: 560px) and (orientation: portrait) {
+  #era-topo { left: auto; right: calc(max(10px, env(safe-area-inset-right)) + var(--mm, 96px) + 8px); justify-content: flex-end; top: calc(var(--topo-fim, 66px) + 6px); }
+  #era-hud { padding: 3px 8px 3px 4px; gap: 6px; } #era-hud .ic-svg { width: 22px; height: 22px; } #era-hud .barra-xp { width: 46px; height: 8px; }
+}
 @media (max-width: 560px) and (orientation: portrait) { #bt-viajar { left: 12px; transform: none; animation-name: era-pulsa; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 132px); } }
-@media (max-width: 360px) { #era-hud .barra-xp { width: 44px; } }
-@media (max-height: 480px) { #era-hud .barra-xp { width: 70px; } #era-hud .nome { display: none; } #era-topo { top: calc(max(10px, env(safe-area-inset-top)) + 64px); } }
+@media (max-width: 360px) { #era-hud .barra-xp { width: 38px; } }
+@media (max-height: 480px) { #era-hud .barra-xp { width: 70px; } #era-hud .nome { display: none; } #era-topo { top: calc(var(--topo-fim, 66px) + 8px); } }
 @keyframes era-pulsa-meio { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.07); } }
 #era-painel { grid-template-columns: minmax(0, 1fr); }
 #era-painel .caixa { width: min(560px, 100%); min-width: 0; max-width: 560px; } /* a fila das eras rola sozinha: a janela não passa da tela do celular */
