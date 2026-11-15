@@ -8,8 +8,8 @@
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="estilo.css?v=22">
-<link rel="stylesheet" href="tabuleiro.css?v=1">
-<link rel="stylesheet" href="truco.css?v=3">
+<link rel="stylesheet" href="tabuleiro.css?v=5">
+<link rel="stylesheet" href="truco.css?v=4">
 </head>
 <body class="pag-tabuleiro pag-truco">
 <div id="fundo" aria-hidden="true"></div>
@@ -26,7 +26,14 @@
     </div>
     <button class="bt verde grande" id="bt-computador" type="button"><span data-icone="engrenagem"></span>Jogar contra o computador</button>
     <button class="bt amarelo" id="bt-continuar" type="button" hidden><span data-icone="relogio"></span>Continuar a partida</button>
+    <div class="niveis" role="radiogroup" aria-label="Partida com amigo" id="x-tipo-amigo">
+      <button class="bt tipo-amigo" data-tipo="amistosa" type="button" role="radio">Amistosa</button>
+      <button class="bt tipo-amigo" data-tipo="pontos" type="button" role="radio">Valendo pontos</button>
+    </div>
     <button class="bt verde grande" id="bt-amigo" type="button"><span data-icone="amigos"></span>Chamar amigos</button>
+    <h3>Um contra um valendo pontos</h3>
+    <p class="sub centro" id="x-meus-pontos" hidden></p>
+    <button class="bt verde grande" id="bt-procurar" type="button"><span data-icone="mira"></span>Procurar adversário</button>
     <p class="sub" id="x-sem-conta" hidden>Para jogar com amigos, <a href="/">entre na sua conta</a>.</p>
     <p id="x-erro" class="erro"></p>
     <a class="bt fraco" href="/" id="bt-jogos"><span data-icone="voltar"></span>Todos os jogos</a>
@@ -57,6 +64,16 @@
   <div id="t-parceiro" hidden></div>
 </main>
 
+<!-- procurando adversário -->
+<div id="x-busca" class="janela" hidden>
+  <div class="caixa">
+    <h2>Procurando adversário…</h2>
+    <p class="sub centro" id="busca-txt"></p>
+    <p class="busca-tempo" id="busca-tempo" aria-live="off">0:00</p>
+    <button class="bt" id="bt-busca-cancelar" type="button">Cancelar</button>
+  </div>
+</div>
+
 <!-- esperando os amigos -->
 <div id="t-espera" class="janela" hidden>
   <div class="caixa">
@@ -74,6 +91,7 @@
   <div class="caixa">
     <h2 id="fim-titulo"></h2>
     <p class="sub centro" id="fim-txt"></p>
+    <p class="fim-pontos" id="fim-pontos" hidden></p>
     <button class="bt verde grande" id="bt-revanche" type="button">Jogar de novo</button>
     <p class="sub centro" id="fim-espera" hidden></p>
     <button class="bt" id="bt-menu-fim" type="button">Outro jeito de jogar</button>
@@ -81,6 +99,6 @@
 </div>
 
 <div id="aviso"></div>
-<script type="module" src="js/truco.js?v=3"></script>
+<script type="module" src="js/truco.js?v=4"></script>
 </body>
 </html>

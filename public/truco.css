@@ -23,6 +23,8 @@ body.pag-truco { background: linear-gradient(160deg, #3f9b5c, #256b3c); }
 .t-lugar[data-pos="dir"] { right: 6px; top: 50%; transform: translateY(-50%); }
 .t-nome { display: flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; background: rgba(10, 30, 18, .5); max-width: 40vw; }
 .t-nome .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t-nome .pts { flex: none; padding: 0 6px; border-radius: 6px; background: rgba(0, 0, 0, .3); font-size: 13px; }
+.t-lugar[data-pos="cima"] .t-nome { max-width: 70vw; } .t-nome .dealer { flex: none; }
 .t-lugar.vez .t-nome { background: var(--amarelo); color: var(--txt); }
 .t-lugar.parceiro .t-nome { box-shadow: 0 0 0 2px #b9f5a0; }
 .t-nome .bolinha { width: 10px; height: 10px; border-radius: 50%; background: #c9bda6; border: 2px solid #fff; flex: none; }
