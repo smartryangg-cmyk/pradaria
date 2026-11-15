@@ -605,7 +605,7 @@ export class Veiculos {
       // velocidade contra o que bloqueou (de frente = tudo; raspando de lado = só um pouco)
       const contra = Math.abs(v.vel) * Math.hypot(mv.bx ? ix : 0, mv.bz ? iz : 0) / quer;
       const andou = Math.hypot(mv.x, mv.z) / quer; // o que sobra ao longo da parede
-      if (contra > 4) this.som.ruido(0.12 + Math.min(0.25, contra / 60), { vol: Math.min(0.6, 0.15 + contra / 40), freq: 380 });
+      if (contra > 4) { this.som.ruido(0.12 + Math.min(0.25, contra / 60), { vol: Math.min(0.6, 0.15 + contra / 40), freq: 380 }); this.som.impacto('metal', Math.min(1, contra / 20)); } // batida: baque + lata
       if (contra > 5) this.bater(v, (contra - 5) * 0.03); // acima de 5 m/s contra a parede amassa
       if (mv.outro && contra > 5 && this.aoBaterOutro) this.aoBaterOutro(v, mv.outro, (contra - 5) * 0.02);
       if (andou < 0.15) v.vel *= -0.2; // de frente: para e volta um tiquinho

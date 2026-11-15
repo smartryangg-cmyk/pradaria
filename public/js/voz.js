@@ -7,6 +7,12 @@ import { candidatoSeguro, sdpSemIp } from './voz-filtro.js';
 const ICE = [];
 
 export class Voz {
+  // volume da voz dos amigos (opções: Voz), 0..1, vale para todos que falam
+  static volume = 1;
+  static definirVolume(v) {
+    Voz.volume = Math.max(0, Math.min(1, +v || 0));
+    for (const a of document.querySelectorAll('audio[data-voz]')) a.volume = Voz.volume;
+  }
   // enviar(msg): manda pela sala; aoMudar(): redesenhar a tela; silenciado(id): esta pessoa foi silenciada aqui
   constructor({ enviar, aoMudar, silenciado, aviso }) {
     this.enviar = enviar; this.aoMudar = aoMudar || (() => {}); this.silenciado = silenciado || (() => false);
@@ -113,6 +119,7 @@ export class Voz {
         par.audio.autoplay = true;
         par.audio.setAttribute('playsinline', '');
         par.audio.dataset.voz = id;
+        par.audio.volume = Voz.volume;
         document.body.appendChild(par.audio);
       }
       par.audio.srcObject = e.streams[0] || new MediaStream([e.track]);

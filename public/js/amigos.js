@@ -8,7 +8,7 @@ const $ = (s) => document.querySelector(s);
 const ONDE = { hub: 'Escolhendo um jogo', pradaria: 'Jogando Pradaria', xadrez: 'Jogando Xadrez', dama: 'Jogando Dama', truco: 'Jogando Truco', arena: 'Jogando Arena', ilha: 'Jogando Última Ilha' };
 const nomeJogo = (id) => (dadosJogo(id) || { nome: id }).nome;
 
-// opc: { lobby, som(), aviso(txt, ms, icone), aceitarConvite(msg), contador(n) }
+// opc: { lobby, som(), somConvite(), somAviso(), aviso(txt, ms, icone), aceitarConvite(msg), contador(n) }
 export function criarAmigos(opc) {
   const { lobby } = opc;
   let dados = { amigos: [], recebidos: [], enviados: [] };
@@ -144,6 +144,7 @@ export function criarAmigos(opc) {
     card.querySelector('.ic-convite').innerHTML = icone((dadosJogo(m.jogo) || {}).icone || 'amigos');
     $('#convite-txt').textContent = `${m.nome} chamou você para jogar ${nomeJogo(m.jogo)}` + (m.titulo ? ` (${m.titulo})` : '') + '!';
     card.hidden = false;
+    opc.somConvite && opc.somConvite(); // "dim-dom"
     clearTimeout(timer);
     timer = setTimeout(() => responder(false, true), 30000);
   }
@@ -162,7 +163,7 @@ export function criarAmigos(opc) {
     convite: (m) => mostrarConvite(m),
     'convite-resp': (m) => opc.aviso(m.aceitou ? `${m.nome} está vindo!` : `${m.nome} não pode agora.`, 2600, m.aceitou ? 'acenar' : 'relogio'),
     'convite-falhou': () => opc.aviso('Seu amigo saiu do jogo.', 2200, 'relogio'),
-    'amigos-mudou': (m) => { carregar(); if (m.pedido) opc.aviso('Você recebeu um pedido de amizade!', 2600, 'amigos'); },
+    'amigos-mudou': (m) => { carregar(); if (m.pedido) { opc.aviso('Você recebeu um pedido de amizade!', 2600, 'amigos'); opc.somAviso && opc.somAviso(); } },
     mudou: () => { if (!el.hidden) desenhar(); else atualizarContador(); },
   });
 
