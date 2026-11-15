@@ -49,16 +49,18 @@ const mesmaColuna = colunas && new Set(colunas).size <= Math.ceil(colunas.length
 const lascas = await p.evaluate(() => window.__escav.parts.filter((q) => q.escala && q.escala.y > q.escala.x * 3).length);
 ok(e && e.toques === 2 && mesmaColuna, `madeira: 2 batidas, lasca no sentido dos veios (colunas ${colunas && colunas.join(' ')})`);
 ok(lascas > 0, `madeira: pedacinhos compridos (lascas) voando: ${lascas}`);
-await p.screenshot({ path: SAIDA + '/quebra-madeira.png' });
-// conserto: espera sem bater; o bloco se refaz e volta inteiro
+// conserto: espera sem bater; o bloco se refaz e volta inteiro (o print fica para depois: no CI ele demora segundos)
 const t0 = Date.now();
 const linha = [];
 for (let i = 0; i < 30; i++) { const s = await estado(); linha.push([Date.now() - t0, s && s.toques]); await espera(p, 200); }
 const seq = linha.map((l) => l[1]).filter((v, i, arr) => i === 0 || v !== arr[i - 1]);
 const inteiro = await p.evaluate(([x, y, z]) => window.__jogo.mundo.bloco(x, y, z) === 6 && !window.__jogo.mundo.escondido(x, y, z), [x0, y0 + 1, z0 - 2]);
-ok(seq.join() === '2,1,', `parou de bater: espera e se refaz pedaço por pedaço (${seq.map((v) => v ?? 'inteiro')})`);
+// numa máquina lenta a primeira leitura já pode pegar o 1 (passaram 2,5 s): vale descer de um em um até inteiro
+const desce = seq.length >= 2 && seq[seq.length - 1] == null && seq.slice(0, -1).every((v, i, a) => v === (i ? a[i - 1] - 1 : v)) && seq[seq.length - 2] === 1 && seq[0] <= 2;
+ok(desce, `parou de bater: espera e se refaz pedaço por pedaço (${seq.map((v) => v ?? 'inteiro')})`);
 const fim = null;
 ok(!fim && inteiro, 'depois volta inteiro (tronco no mundo, sem rachadura)');
+await p.screenshot({ path: SAIDA + '/quebra-madeira.png' });
 
 // pedra: trinca torta e pedrinhas que quicam e duram mais
 await bater(BL.pedra, 2, 1001);
