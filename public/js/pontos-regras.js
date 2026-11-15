@@ -32,9 +32,17 @@ export function partida(w, b, s, agora = Date.now()) {
 }
 // categoria dos pontos pelo ritmo (cada ritmo tem a sua nota, como nos sites de xadrez)
 export const CATEGORIAS = { '1+0': 'bullet', '3+2': 'blitz', '10+0': 'rapida', teste: 'bullet' };
-// categoria de um ritmo (só as chaves da lista; qualquer outra coisa = null)
-export const categoria = (r) => (typeof r === 'string' && Object.hasOwn(CATEGORIAS, r) ? CATEGORIAS[r] : null);
+// categoria de um ritmo (só as chaves da lista; qualquer outra coisa = null). A dama tem notas separadas ("dama-blitz"...)
+export const categoria = (r, jogo = 'xadrez') => {
+  const c = typeof r === 'string' && Object.hasOwn(CATEGORIAS, r) ? CATEGORIAS[r] : null;
+  return c && jogo === 'dama' ? 'dama-' + c : c;
+};
 export const NOME_CATEGORIA = { bullet: 'Bullet', blitz: 'Blitz', rapida: 'Rápida' };
+export const NOME_CATEGORIA_DAMA = { 'dama-bullet': 'Bullet', 'dama-blitz': 'Blitz', 'dama-rapida': 'Rápida' };
+// as categorias de um jogo (para listar os pontos da conta) e o nome de qualquer categoria
+export const categoriasDo = (jogo) => (jogo === 'dama' ? NOME_CATEGORIA_DAMA : NOME_CATEGORIA);
+export const categoriaValida = (c) => typeof c === 'string' && (Object.hasOwn(NOME_CATEGORIA, c) || Object.hasOwn(NOME_CATEGORIA_DAMA, c));
+export const nomeCategoria = (c) => (!categoriaValida(c) ? '' : Object.hasOwn(NOME_CATEGORIA, c) ? NOME_CATEGORIA[c] : NOME_CATEGORIA_DAMA[c]);
 export const provisorio = (x) => !x || x.rd > RD_PROVISORIO;
 export const mostrar = (x) => (x ? Math.round(x.r) : INICIAL.r) + (provisorio(x) ? '?' : '');
 // busca de adversário: no começo só quem está perto (±150); a cada 3 s a janela abre mais 100 (até ±800),

@@ -6,6 +6,8 @@ import { conta } from './rede.js';
 import { icone, preencherIcones, comIcone } from './icones.js';
 import { Lobby } from './lobby.js';
 import { somDaPagina } from './som.js';
+import { criarAnalise, criarPerfil, guardarLocal } from './xadrez-analise.js';
+import { PROBLEMAS } from './xadrez-problemas.js';
 
 // sons: peça de madeira na casa, "toc-toc" ao comer, aviso de xeque e o fim da partida
 const som = somDaPagina();
@@ -56,7 +58,7 @@ function aviso(txt, ms = 1800, ic = null) {
 
 // ---------- estado ----------
 const CHAVE = 'pradaria.xadrez';
-let modo = null; // 'pc' | 'online'
+let modo = null; // 'pc' | 'online' | 'problema'
 let e = X.novo();
 let voce = 'w';
 let nivel = 2;
@@ -73,6 +75,7 @@ let modoPre = false; // as casas marcadas são de pré-lance
 let tipoAmigo = 'amistosa'; // partida com amigo: 'amistosa' ou 'pontos'
 let meusPontos = null; // { bullet: { mostrar, ... }, ... } da conta
 let busca = null; // procurando adversário: { ws, desde }
+let pcGuardada = false; // a partida contra o computador já foi para o perfil
 let preFeitos = 0; // quantos pré-lances já saíram sozinhos (para os testes)
 
 function salvarPC() {
@@ -103,7 +106,7 @@ function desenhar() {
     const c = casas[k];
     c.dataset.i = i;
     const l = i >> 3, co = i & 7;
-    c.className = 'casa' + ((l + co) % 2 ? ' escura' : '') + (ult && (ult.de === i || ult.para === i) ? ' ultimo' : '') + (i === sel ? ' sel' : '') + (i === xeque ? ' xeque' : '') + (pre && (pre.de === i || pre.para === i) ? ' pre' : '');
+    c.className = 'casa' + ((l + co) % 2 ? ' escura' : '') + (ult && (ult.de === i || ult.para === i) ? ' ultimo' : '') + (i === sel ? ' sel' : '') + (i === xeque ? ' xeque' : '') + (pre && (pre.de === i || pre.para === i) ? ' pre' : '') + (prob && prob.marca && (prob.marca.de === i || prob.marca.para === i) ? ' resposta' : '');
     const p = e.b[i];
     const pode = alvos.find((m) => m.para === i);
     if (pode) c.classList.add('pode'), (p || pode.ep) && c.classList.add('come');
@@ -144,6 +147,7 @@ function desenharJogadores(baixo) {
   const cima = baixo === 'w' ? 'b' : 'w';
   const nome = (l) => {
     if (modo === 'pc') return l === voce ? 'Você' : 'Computador (' + ['', 'fácil', 'médio', 'difícil'][nivel] + ')';
+    if (modo === 'problema') return l === voce ? 'Você' : 'Problema (nível ' + prob.p.r + ')';
     const j = online && online.jogadores && online.jogadores[l];
     if (!j) return 'Esperando seu amigo…';
     return (l === voce ? 'Você' : j.nome);
@@ -177,11 +181,21 @@ function mostrarRelogios() {
 }
 setInterval(() => { if (modo === 'online' && relogio && relogio.anda && !fimAtual) mostrarRelogios(); }, 100);
 function prazoFalta() { return modo === 'online' && relogio && relogio.prazo != null ? Math.max(0, relogio.prazo - (performance.now() - relogio.recebido)) : null; }
-setInterval(() => { if (prazoFalta() != null && !fimAtual) status(); }, 500);
+setInterval(() => { if ((prazoFalta() != null || foraFaz() != null) && !fimAtual) status(); }, 500);
+// o adversário saiu da partida: há quanto tempo (ms), ou null
+function foraFaz() {
+  if (modo !== 'online' || !online || !online.fora || fimAtual) return null;
+  const outro = voce === 'w' ? 'b' : 'w';
+  return online.fora[outro] != null ? online.fora[outro] + (performance.now() - online.foraRecebido) : null;
+}
+// (servidor de teste: ?rede=x na página troca a "internet" da conta, para testar as regras de mesma internet)
+const redeTeste = new URLSearchParams(location.search).get('rede');
+const comRede = (u) => (redeTeste ? u + '&rede=' + encodeURIComponent(redeTeste) : u);
 
 function status() {
   const s = $('#x-status');
   let t = '', minha = false;
+  if (modo === 'problema') { textoProblema(s); return; }
   if (fimAtual) t = X.TEXTO_FIM[fimAtual.tipo] || 'Fim';
   else if (modo === 'online' && (!online.jogadores || !online.jogadores.b || !online.jogadores.w)) t = 'Esperando seu amigo entrar';
   else if (pensando) t = 'Computador pensando…';
@@ -191,7 +205,11 @@ function status() {
   // partida com relógio: prazo para o primeiro lance
   const prazo = prazoFalta();
   // (curto para caber no celular)
-  if (prazo != null && !fimAtual && !(modo === 'online' && online.empate)) t = (e.vez === meuLado() ? 'Sua vez: jogue em ' : 'Adversário joga em ') + Math.ceil(prazo / 1000) + 's';
+  if (prazo != null && !fimAtual && !(modo === 'online' && online.empate)) t = (e.vez === meuLado() ? 'Sua vez: ' : 'Adversário: ') + Math.ceil(prazo / 1000) + 's';
+  const fora = foraFaz();
+  const podeVitoria = fora != null && fora >= (online.prazoFora || 60000);
+  if (fora != null && !fimAtual) { const seg = Math.floor(fora / 1000); t = 'Adversário saiu ' + Math.floor(seg / 60) + ':' + String(seg % 60).padStart(2, '0'); minha = false; }
+  $('#bt-vitoria').hidden = !podeVitoria;
   s.textContent = t; s.classList.toggle('minha', minha);
   const esperando = modo === 'online' && online.jogadores && !online.jogadores[voce === 'w' ? 'b' : 'w'];
   $('#bt-chamar').hidden = !(modo === 'online' && esperando);
@@ -202,6 +220,7 @@ function status() {
 
 // ---------- jogar ----------
 function podeMexer() {
+  if (modo === 'problema') return !!prob && !prob.resolvido && !prob.voltando && e.vez === voce;
   if (fimAtual || pensando) return false;
   if (modo === 'online' && (!online.jogadores || !online.jogadores.w || !online.jogadores.b)) return false;
   return e.vez === meuLado();
@@ -263,6 +282,7 @@ function fazer(de, para, promo) {
   const m = X.achar(e, de, para, promo);
   if (!m) return;
   sel = -1; alvos = [];
+  if (modo === 'problema') { conferirProblema(m); return; }
   e = X.avancar(e, m);
   if (modo === 'online') { online.ws && online.ws.readyState === 1 && online.ws.send(JSON.stringify({ t: 'lance', de, para, promo })); desenhar(); return; }
   fimAtual = X.fim(e);
@@ -297,10 +317,17 @@ function mostrarFim() {
   let txt = X.TEXTO_FIM[f.tipo] || '';
   if (f.tipo === 'desistiu') txt = f.quem === meuLado() ? 'Você desistiu.' : (modo === 'pc' ? 'O computador desistiu.' : 'Seu amigo desistiu.');
   if (f.tipo === 'cancelada') txt = (f.quem === meuLado() ? 'Você não fez o primeiro lance a tempo.' : 'O adversário não fez o primeiro lance a tempo.') + ' Não vale pontos.';
+  if (f.tipo === 'saiu') txt = f.quem === meuLado() ? 'Você saiu da partida e perdeu.' : 'Seu adversário saiu da partida.';
   if (f.tipo === 'tempo') txt = f.quem === meuLado() ? 'Seu tempo acabou.' : 'O tempo do seu amigo acabou.';
   $('#fim-txt').textContent = txt;
   $('#bt-revanche').textContent = modo === 'online' ? 'Jogar de novo (trocando de cor)' : 'Jogar de novo';
   mostrarPontosFim();
+  // partida contra o computador: fica guardada no aparelho (perfil e análise)
+  if (modo === 'pc' && (e.hist || []).length >= 2 && !pcGuardada) {
+    pcGuardada = true;
+    guardarLocal({ id: 'pc' + Date.now().toString(36), local: true, quando: Date.now(), cor: voce, contra: 'Computador (' + ['', 'fácil', 'médio', 'difícil'][nivel] + ')', res: !f.vencedor ? 'e' : venci ? 'v' : 'd', tipo: f.tipo, hist: e.hist });
+  }
+  $('#bt-analisar').hidden = (e.hist || []).length < 1;
   $('#fim-espera').hidden = true;
   $('#x-fim').hidden = false;
 }
@@ -312,7 +339,15 @@ function mostrarPontosFim() {
   el.hidden = !(modo === 'online' && online && online.ranqueada);
   if (el.hidden) return;
   if (!r) { el.textContent = 'Contando os pontos…'; return; }
-  if (r.anulada) { el.textContent = 'Partida anulada (menos de 2 lances): não valeu pontos.'; return; }
+  if (r.pendente) { el.textContent = 'Contando os pontos…'; return; }
+  if (r.falhou) { el.textContent = 'Não deu para contar os pontos agora.'; return; }
+  if (r.anulada) {
+    el.textContent = r.motivo === 'cedo' ? 'Partida anulada (acabou antes de 10 lances de cada um, sem xeque-mate): não valeu pontos.'
+      : r.motivo === 'rede' ? 'Partida anulada (as duas contas estão na mesma internet): não valeu pontos.'
+      : r.motivo === 'limite' ? 'Vocês dois já jogaram 3 partidas valendo pontos hoje: esta não valeu.'
+      : 'Partida anulada (menos de 2 lances): não valeu pontos.';
+    return;
+  }
   const x = r[voce], dif = x.depois - x.antes;
   el.innerHTML = `Seus pontos (${P.NOME_CATEGORIA[r.cat]}): ${x.antes} → <b class="${dif >= 0 ? 'sobe' : 'desce'}">${x.mostrar} (${dif >= 0 ? '+' : ''}${dif})</b>`;
   meusPontos = null; // a próxima vez que abrir o menu lê de novo
@@ -341,7 +376,7 @@ function mostrarMeusPontos() {
 function procurar() {
   if (!conta.token || !P.categoria(ritmo) || busca) return;
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const ws = new WebSocket(`${proto}//${location.host}/api/xadrez/busca?ritmo=${encodeURIComponent(ritmo)}&t=${encodeURIComponent(conta.token)}`);
+  const ws = new WebSocket(comRede(`${proto}//${location.host}/api/xadrez/busca?ritmo=${encodeURIComponent(ritmo)}&t=${encodeURIComponent(conta.token)}`));
   busca = { ws, desde: Date.now(), timer: 0 };
   const r = X.RITMOS[ritmo] || { nome: 'Teste', base: 8000, inc: 1000 };
   $('#busca-txt').textContent = `${r.nome} ${r.base / 60000} min${r.inc ? ' +' + r.inc / 1000 + 's' : ''} · seus pontos ${meusPontos ? meusPontos[P.categoria(ritmo)].mostrar : '…'}`;
@@ -377,7 +412,9 @@ marcar('.nivel', 'nivel', nivel); marcar('.cor-peca', 'cor', voce); marcar('.rit
 function abrirMenu() {
   fecharOnline();
   modo = null;
-  $('#x-jogo').hidden = true; $('#x-fim').hidden = true; $('#promo').hidden = true;
+  prob = null; mostrarBotoesProblema();
+  mostrarPontosProblemas();
+  $('#x-jogo').hidden = true; $('#x-fim').hidden = true; $('#promo').hidden = true; $('#x-analise').hidden = true; $('#x-perfil').hidden = true;
   $('#x-menu').hidden = false;
   $('#bt-continuar').hidden = !lerPC();
   $('#x-sem-conta').hidden = !!conta.token;
@@ -389,6 +426,7 @@ function abrirMenu() {
 }
 function comecarPC(guardado = null) {
   modo = 'pc'; girado = false; sel = -1; alvos = []; pre = null; modoPre = false; relogio = null; lancesVistos = -1;
+  pcGuardada = false;
   if (guardado) { e = X.deJson(guardado.e); voce = guardado.voce; nivel = guardado.nivel; fimAtual = null; }
   else { e = X.novo(); fimAtual = null; }
   $('#x-menu').hidden = true; $('#x-jogo').hidden = false;
@@ -409,6 +447,7 @@ $('#bt-desistir').addEventListener('click', () => {
   fimAtual = { tipo: 'desistiu', vencedor: voce === 'w' ? 'b' : 'w', quem: voce };
   salvarPC(); desenhar(); mostrarFim();
 });
+$('#bt-vitoria').addEventListener('click', () => { if (online && online.ws) online.ws.send(JSON.stringify({ t: 'vitoria' })); });
 $('#bt-empate').addEventListener('click', () => { if (online && online.ws) online.ws.send(JSON.stringify({ t: 'empate' })); });
 $('#bt-revanche').addEventListener('click', () => {
   if (modo === 'pc') { $('#x-fim').hidden = true; comecarPC(); return; }
@@ -416,6 +455,108 @@ $('#bt-revanche').addEventListener('click', () => {
   $('#fim-espera').hidden = false; $('#fim-espera').textContent = 'Esperando seu amigo topar…';
 });
 $('#bt-ver').addEventListener('click', () => { $('#x-fim').hidden = true; });
+
+// ---------- problemas de xadrez ----------
+// Um lance por problema: "dê xeque-mate" ou "ganhe material". Os pontos de problemas ficam no aparelho e sobem/descem
+// pelo mesmo cálculo das partidas (o problema tem a sua dificuldade). Só a primeira tentativa conta.
+const CHAVE_PROB = 'pradaria.xadrez.problemas';
+let prob = null; // { p, resolvido, tentou, certo, marca, voltando }
+function lerProb() {
+  const base = { r: 800, rd: 200, feitos: 0, certos: 0, vistos: [] };
+  try { const o = JSON.parse(localStorage.getItem(CHAVE_PROB) || '{}'); return { ...base, ...(o && typeof o === 'object' ? o : {}) }; } catch { return base; }
+}
+function salvarProb(st) { try { localStorage.setItem(CHAVE_PROB, JSON.stringify(st)); } catch {} }
+function mostrarPontosProblemas() {
+  const st = lerProb();
+  $('#x-prob-pontos').textContent = `Seus pontos de problemas: ${Math.round(st.r)}${st.feitos < 5 ? '?' : ''} · ${st.certos} de ${st.feitos} certos`;
+}
+function mostrarBotoesProblema() {
+  const em = modo === 'problema' && !!prob;
+  $('#bt-prob-prox').hidden = !(em && prob.resolvido);
+  $('#bt-prob-resposta').hidden = !(em && !prob.resolvido);
+  if (em) { $('#bt-desistir').hidden = true; $('#bt-empate').hidden = true; $('#bt-chamar').hidden = true; $('#bt-vitoria').hidden = true; }
+}
+function textoProblema(s) {
+  const cor = voce === 'w' ? 'Brancas' : 'Pretas';
+  let t, minha = false;
+  if (!prob) t = '';
+  else if (prob.resolvido) t = prob.certo ? 'Certo!' + (prob.dif != null ? ` (${prob.dif >= 0 ? '+' : ''}${prob.dif})` : '') : 'Resposta: ' + prob.p.sol;
+  else { t = cor + (prob.p.tipo === 'mate1' ? ': dê xeque-mate' : ': ganhe material'); minha = true; }
+  s.textContent = t; s.classList.toggle('minha', minha);
+  mostrarBotoesProblema();
+}
+function posicaoProblema(p) {
+  return { b: p.b.split('').map((c) => (c === '.' ? '' : c)), vez: p.vez, roque: p.roque, ep: p.ep, meio: 0, n: 1, rep: {}, ultimo: null, hist: [] };
+}
+function abrirProblema(p) {
+  fecharOnline();
+  modo = 'problema'; voce = p.vez; girado = false; sel = -1; alvos = []; pre = null; modoPre = false; relogio = null; fimAtual = null; lancesVistos = -1;
+  prob = { p, resolvido: false, tentou: false, certo: false, marca: null, voltando: false, dif: null };
+  e = posicaoProblema(p);
+  $('#x-menu').hidden = true; $('#x-fim').hidden = true; $('#x-jogo').hidden = false;
+  desenhar();
+}
+function proximoProblema() {
+  const st = lerProb(), vistos = new Set(st.vistos);
+  let cands = PROBLEMAS.filter((p) => !vistos.has(p.id));
+  if (!cands.length) { st.vistos = []; salvarProb(st); cands = PROBLEMAS.slice(); }
+  // perto do seu nível (entre os 6 mais próximos, um ao acaso)
+  cands.sort((a, b) => Math.abs(a.r - st.r) - Math.abs(b.r - st.r));
+  abrirProblema(cands[Math.floor(Math.random() * Math.min(6, cands.length))]);
+}
+// primeira tentativa: conta para os pontos de problemas
+function contarProblema(certo) {
+  if (prob.tentou) return;
+  prob.tentou = true;
+  const st = lerProb();
+  const antes = Math.round(st.r);
+  const r = P.partida({ ...P.INICIAL, r: st.r, rd: st.rd, jogos: st.feitos }, { ...P.INICIAL, r: prob.p.r, rd: 60, jogos: 50 }, certo ? 1 : 0);
+  st.r = r.w.r; st.rd = r.w.rd; st.feitos++; if (certo) st.certos++;
+  st.vistos = [...st.vistos.filter((x) => x !== prob.p.id), prob.p.id].slice(-120);
+  salvarProb(st);
+  prob.dif = Math.round(st.r) - antes;
+}
+function conferirProblema(m) {
+  const t = X.notacao(e, m);
+  const certo = prob.p.ok.includes(t);
+  contarProblema(certo);
+  e = X.avancar(e, m);
+  if (certo) {
+    prob.resolvido = true; prob.certo = true;
+    som.fim('ganhou');
+    desenhar();
+    return;
+  }
+  // errou: mostra o lance um pouquinho e volta para tentar de novo (os pontos já contaram como erro)
+  som.fim('perdeu');
+  aviso(`${t} não resolve. Tente de novo ou veja a resposta.`, 2200, 'alvo');
+  prob.voltando = true;
+  desenhar();
+  setTimeout(() => { if (modo !== 'problema' || !prob) return; prob.voltando = false; e = posicaoProblema(prob.p); lancesVistos = -1; desenhar(); }, 900);
+}
+function verResposta() {
+  if (!prob || prob.resolvido) return;
+  contarProblema(false);
+  e = posicaoProblema(prob.p);
+  const m = X.lances(e).find((x) => X.notacao(e, x) === prob.p.sol);
+  if (m) { prob.marca = { de: m.de, para: m.para }; e = X.avancar(e, m); }
+  prob.resolvido = true; prob.certo = false;
+  desenhar();
+}
+$('#bt-problemas').addEventListener('click', () => proximoProblema());
+$('#bt-prob-prox').addEventListener('click', () => proximoProblema());
+$('#bt-prob-resposta').addEventListener('click', () => verResposta());
+
+// ---------- análise e perfil ----------
+const analise = criarAnalise({ svgPeca, aoVoltar: () => abrirMenu() });
+const perfil = criarPerfil({ analise, aoVoltar: () => abrirMenu() });
+$('#bt-perfil').addEventListener('click', () => { $('#x-erro').textContent = ''; perfil.abrir(); });
+$('#bt-analisar').addEventListener('click', () => {
+  const lado = meuLado(), outro = lado === 'w' ? 'b' : 'w';
+  const nomeOutro = modo === 'pc' ? 'Computador' : (online && online.jogadores && online.jogadores[outro] ? online.jogadores[outro].nome : 'Adversário');
+  // ao sair da análise volta para a tela do fim da partida
+  analise.abrir({ hist: e.hist || [], cor: lado, nomes: { [lado]: 'Você', [outro]: nomeOutro } }, () => { $('#x-jogo').hidden = false; $('#x-fim').hidden = false; });
+});
 $('#bt-menu-fim').addEventListener('click', () => abrirMenu());
 
 // ---------- online ----------
@@ -437,7 +578,7 @@ function conectar() {
   const o = online;
   if (!o) return;
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const ws = new WebSocket(`${proto}//${location.host}/api/partida/${o.codigo}?jogo=xadrez${o.ritmo ? '&ritmo=' + encodeURIComponent(o.ritmo) : ''}${o.ranqueada ? '&ranqueada=1' : ''}&t=${encodeURIComponent(conta.token)}`);
+  const ws = new WebSocket(comRede(`${proto}//${location.host}/api/partida/${o.codigo}?jogo=xadrez${o.ritmo ? '&ritmo=' + encodeURIComponent(o.ritmo) : ''}${o.ranqueada ? '&ranqueada=1' : ''}&t=${encodeURIComponent(conta.token)}`));
   o.ws = ws;
   ws.onopen = () => { o.tentativas = 0; };
   ws.onmessage = (ev) => {
@@ -452,9 +593,10 @@ function conectar() {
     e = X.deJson(m.estado);
     fimAtual = m.fim;
     relogio = m.relogio ? { ...m.relogio, recebido: performance.now() } : null;
-    const tinhaResultado = !!o.resultado;
+    const tinhaResultado = !!o.resultado, antesRes = JSON.stringify(o.resultado || null);
     o.ranqueada = !!m.ranqueada; o.pontos = m.pontos || null; o.resultado = m.resultado || null;
-    if (fimAtual && !tinhaResultado && o.resultado && !$('#x-fim').hidden) mostrarPontosFim();
+    o.fora = m.fora || null; o.prazoFora = m.prazoFora || 60000; o.foraRecebido = performance.now();
+    if (fimAtual && o.resultado && !$('#x-fim').hidden && (!tinhaResultado || antesRes !== JSON.stringify(o.resultado))) mostrarPontosFim();
     if (fimAtual) { pre = null; if (modoPre) { sel = -1; alvos = []; modoPre = false; } }
     if (modoPre) { if (sel >= 0) alvos = X.preLances(e, voce, sel); }
     else if (sel >= 0 && (e.vez !== voce)) { sel = -1; alvos = []; }
@@ -503,5 +645,5 @@ if (pedida && /^[A-Za-z0-9]{10,24}$/.test(pedida) && conta.token) jogarOnline(pe
 else abrirMenu();
 
 // para os testes automáticos (testes/teste-xadrez.mjs)
-window.__xadrez = { get e() { return e; }, get voce() { return voce; }, get modo() { return modo; }, get fim() { return fimAtual; }, get online() { return online; }, get relogio() { return relogio; }, get pre() { return pre; }, get preFeitos() { return preFeitos; }, get busca() { return busca; }, set ritmo(v) { ritmo = v; }, X, set nivel(v) { nivel = v; }, set demoraPC(v) { demoraPC = v; }, fazer };
+window.__xadrez = { get e() { return e; }, get voce() { return voce; }, get modo() { return modo; }, get fim() { return fimAtual; }, get online() { return online; }, get relogio() { return relogio; }, get pre() { return pre; }, get preFeitos() { return preFeitos; }, get busca() { return busca; }, set ritmo(v) { ritmo = v; }, X, set nivel(v) { nivel = v; }, set demoraPC(v) { demoraPC = v; }, fazer, analise, get prob() { return prob; }, abrirProblema, PROBLEMAS };
 void icone;

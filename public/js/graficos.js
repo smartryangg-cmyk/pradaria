@@ -182,6 +182,64 @@ vec3 gDirBorda = vec3(0.0);`)
 #endif`);
     };
   }
+  // ---------- Natural 3D "de desenho": chão, copas, troncos e plantinhas com cor lisa (sem textura de pixel) ----------
+  // Cada vértice traz duas cores (corTopo: chão plano, corLado: barranco) e a luz (color = AO/céu, como nos blocos).
+  // O shader mistura topo/lado pela inclinação e varia o tom com ruído grande e pequeno (manchas de grama mais
+  // amarelada ou mais azulada), sem textura nenhuma: é mais barato que o atlas. Mesma luz em faixas e sombra colorida.
+  const matSuave = new THREE.MeshLambertMaterial({ vertexColors: true });
+  matSuave.defines = { FOG_SOL: '' };
+  matSuave.onBeforeCompile = (sh) => {
+    sh.uniforms.uTempo = U.uTempo;
+    sh.uniforms.uNoite = U.uNoite;
+    sh.uniforms.uVento = U.uVento;
+    Object.assign(sh.uniforms, UF);
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', `#include <common>
+attribute float onda;
+attribute float brilho;
+attribute vec3 corTopo;
+attribute vec3 corLado;
+uniform float uTempo;
+uniform float uVento;
+varying float vBrilho;
+varying vec3 vTopo;
+varying vec3 vLado;
+varying vec3 vMundoL;
+varying vec3 vNMundo;`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        vBrilho = brilho; vTopo = corTopo; vLado = corLado; vNMundo = objectNormal;
+        vec4 wpO = modelMatrix * vec4(transformed, 1.0);
+        if (onda * uVento > 0.0) {
+          float fase = uTempo * 1.6 + wpO.x * 0.55 + wpO.z * 0.4;
+          transformed.x += sin(fase) * 0.07 * onda;
+          transformed.z += cos(fase * 0.8 + wpO.y) * 0.05 * onda;
+        }
+        vMundoL = wpO.xyz;`);
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>
+uniform float uNoite;
+varying float vBrilho;
+varying vec3 vTopo;
+varying vec3 vLado;
+varying vec3 vMundoL;
+varying vec3 vNMundo;
+float hLiso(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float ruidoLiso(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hLiso(i), hLiso(i + vec2(1.0, 0.0)), f.x), mix(hLiso(i + vec2(0.0, 1.0)), hLiso(i + 1.0), f.x), f.y);
+}`)
+      .replace('#include <color_fragment>', `
+  float rG = ruidoLiso(vMundoL.xz * 0.045 + 3.7);
+  float rP = ruidoLiso(vMundoL.xz * 0.23 + vMundoL.y * 0.17);
+  float incl = smoothstep(0.5, 0.8, normalize(vNMundo).y + (rP - 0.5) * 0.2);
+  vec3 alb = mix(vLado, vTopo, incl);
+  alb *= mix(vec3(0.84, 0.9, 1.0), vec3(1.12, 1.08, 0.88), rG);
+  alb *= 0.93 + 0.14 * rP;
+  diffuseColor.rgb *= alb * vColor;`)
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += diffuseColor.rgb * vBrilho * (0.6 + uNoite * 1.6);');
+  };
+
   // cor da névoa "como aparece na tela", aplicada logo antes de desenhar (já com a exposição final)
   const nev = { h: new THREE.Color(), sol: new THREE.Color(), gmax: 0.47, dir: new THREE.Vector3() };
   const cA = new THREE.Color(), cB = new THREE.Color();
@@ -420,6 +478,7 @@ vec3 gDirBorda = vec3(0.0);`)
     // força recompilar os materiais (sombra liga/desliga, nº de luzes)
     cena.traverse((o) => { if (o.material) [].concat(o.material).forEach((m) => { m.needsUpdate = true; }); });
     matBlocos.needsUpdate = true;
+    matSuave.needsUpdate = true;
     return q;
   }
 
@@ -499,6 +558,7 @@ vec3 gDirBorda = vec3(0.0);`)
     ligarDefine(matBlocos, 'BORDA', rica);
     ligarDefine(matBlocos, 'BORDA_LUZ', rica);
     ligarDefine(matBlocos, 'FOG_SOL', rica);
+    ligarDefine(matSuave, 'FOG_SOL', rica);
     // texturas: 16px no Leve, 32px na Bonita, 64px na Linda/Ultra
     if (atlas.userData && atlas.userData.definirResolucao) atlas.userData.definirResolucao(!q.sombra ? 16 : q.sombra < 2048 ? 32 : 64);
 
@@ -540,5 +600,5 @@ vec3 gDirBorda = vec3(0.0);`)
     if (cor) matAgua.uniforms.uNevoaCor.value.copy(cor);
   }
 
-  return { matBlocos, matAgua, atualizar, aplicar, ajustarNevoa, submerso, U, get q() { return q; }, get embaixoDagua() { return sub.ativo; } };
+  return { matBlocos, matSuave, matAgua, atualizar, aplicar, ajustarNevoa, submerso, U, get q() { return q; }, get embaixoDagua() { return sub.ativo; } };
 }

@@ -1,5 +1,5 @@
 // Busca de adversário do xadrez (WebSocket): entra na fila do ritmo escolhido (sala-worker/src/pontos.js).
-import { erro, banco, usuarioDa } from '../../../lib/base.js';
+import { erro, banco, usuarioDa, redeDe } from '../../../lib/base.js';
 
 export async function onRequest({ request, env }) {
   if (request.headers.get('upgrade') !== 'websocket') return erro('Use WebSocket', 426);
@@ -15,5 +15,6 @@ export async function onRequest({ request, env }) {
   for (const k of ['upgrade', 'connection', 'sec-websocket-key', 'sec-websocket-version', 'sec-websocket-protocol', 'sec-websocket-extensions'])
     if (request.headers.has(k)) cab.set(k, request.headers.get(k));
   cab.set('x-usuario', JSON.stringify({ id: atual.id, nome: atual.nome }));
+  cab.set('x-rede', await redeDe(request));
   return env.PONTOS.get(env.PONTOS.idFromName('geral')).fetch(new Request(url.toString(), { method: 'GET', headers: cab }));
 }

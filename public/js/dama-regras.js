@@ -16,7 +16,7 @@ export const escura = (i) => ((i >> 3) + (i & 7)) % 2 === 1;
 export function novo() {
   const b = Array(64).fill('');
   for (let i = 0; i < 64; i++) if (escura(i)) { const l = i >> 3; if (l <= 2) b[i] = 'b'; else if (l >= 5) b[i] = 'w'; }
-  const e = { b, vez: 'w', semComer: 0, n: 1, rep: {} };
+  const e = { b, vez: 'w', semComer: 0, n: 1, rep: {}, hist: [] };
   e.rep[chave(e)] = 1;
   return e;
 }
@@ -100,12 +100,17 @@ export function validar(e, msg) {
   return ls.find((m) => m.caminho[0] === +msg.de && m.caminho[m.caminho.length - 1] === +msg.para) || null;
 }
 
+// lance escrito: casa de saída, "-" (andou) ou "x" (comeu), casa de chegada. Ex.: c3-d4, c3xe5
+const nomeCasa = (i) => 'abcdefgh'[i & 7] + (8 - (i >> 3));
+export const notacao = (m) => nomeCasa(m.caminho[0]) + (m.comidas.length ? 'x' : '-') + nomeCasa(m.caminho[m.caminho.length - 1]);
+
 export function avancar(e, m) {
   const n = jogar(e, m);
   n.rep = { ...e.rep };
   const k = chave(n);
   n.rep[k] = (n.rep[k] || 0) + 1;
   n.ultimo = { caminho: m.caminho, comidas: m.comidas };
+  n.hist = [...(e.hist || []), notacao(m)];
   return n;
 }
 
@@ -115,7 +120,7 @@ export function fim(e) {
   if ((e.rep[chave(e)] || 0) >= 3) return { tipo: 'repeticao' };
   return null;
 }
-export const TEXTO_FIM = { semlance: 'Sem peças ou sem lances', empate20: 'Empate: 20 lances só com damas', repeticao: 'Empate: a mesma posição 3 vezes', desistiu: 'Desistiu', empate: 'Empate combinado' };
+export const TEXTO_FIM = { semlance: 'Sem peças ou sem lances', empate20: 'Empate: 20 lances só com damas', repeticao: 'Empate: a mesma posição 3 vezes', desistiu: 'Desistiu', empate: 'Empate combinado', tempo: 'Acabou o tempo', saiu: 'Adversário saiu', cancelada: 'Partida cancelada' };
 
 // ---------- computador ----------
 function avaliar(e) {
@@ -156,5 +161,5 @@ export function melhorLance(e, nivel = 2, aleatorio = Math.random) {
   return melhor;
 }
 
-export const publico = (e) => ({ b: e.b, vez: e.vez, semComer: e.semComer, n: e.n, ultimo: e.ultimo || null });
-export function deJson(o) { return { b: o.b.slice(), vez: o.vez, semComer: o.semComer, n: o.n, rep: o.rep || {}, ultimo: o.ultimo || null }; }
+export const publico = (e) => ({ b: e.b, vez: e.vez, semComer: e.semComer, n: e.n, ultimo: e.ultimo || null, hist: e.hist || [] });
+export function deJson(o) { return { b: o.b.slice(), vez: o.vez, semComer: o.semComer, n: o.n, rep: o.rep || {}, ultimo: o.ultimo || null, hist: (o.hist || []).slice() }; }

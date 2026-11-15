@@ -8,7 +8,7 @@
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="estilo.css?v=23">
-<link rel="stylesheet" href="tabuleiro.css?v=3">
+<link rel="stylesheet" href="tabuleiro.css?v=5">
 </head>
 <body class="pag-tabuleiro">
 <div id="fundo" aria-hidden="true"></div>
@@ -20,9 +20,9 @@
     <p class="sub centro">Como você quer jogar?</p>
     <h3>Contra o computador</h3>
     <div class="niveis" role="radiogroup" aria-label="Nível do computador">
-      <button class="bt nivel" data-nivel="1" type="button" role="radio">Fácil</button>
-      <button class="bt nivel" data-nivel="2" type="button" role="radio">Médio</button>
-      <button class="bt nivel" data-nivel="3" type="button" role="radio">Difícil</button>
+      <button class="bt nivel" data-nivel="1" type="button" role="radio">Fácil<small>uns 400 pontos</small></button>
+      <button class="bt nivel" data-nivel="2" type="button" role="radio">Médio<small>uns 800 pontos</small></button>
+      <button class="bt nivel" data-nivel="3" type="button" role="radio">Difícil<small>uns 1200 pontos</small></button>
     </div>
     <div class="niveis" role="radiogroup" aria-label="Sua cor">
       <button class="bt cor-peca" data-cor="w" type="button" role="radio">Brancas</button>
@@ -30,6 +30,9 @@
     </div>
     <button class="bt verde grande" id="bt-computador" type="button"><span data-icone="engrenagem"></span>Jogar contra o computador</button>
     <button class="bt amarelo" id="bt-continuar" type="button" hidden><span data-icone="relogio"></span>Continuar a partida</button>
+    <h3>Treinar</h3>
+    <button class="bt amarelo grande" id="bt-problemas" type="button"><span data-icone="alvo"></span>Problemas de xadrez</button>
+    <p class="sub centro" id="x-prob-pontos"></p>
     <h3>Online</h3>
     <div class="niveis ritmos" role="radiogroup" aria-label="Ritmo da partida">
       <button class="bt ritmo" data-ritmo="1+0" type="button" role="radio">Bullet<small>1 min</small></button>
@@ -45,10 +48,44 @@
     </div>
     <button class="bt verde grande" id="bt-amigo" type="button"><span data-icone="amigos"></span>Chamar um amigo</button>
     <p class="sub" id="x-sem-conta" hidden>Para jogar com amigos, <a href="/">entre na sua conta</a>.</p>
+    <button class="bt" id="bt-perfil" type="button"><span data-icone="pessoa"></span>Meu perfil e partidas</button>
     <p id="x-erro" class="erro"></p>
     <a class="bt fraco" href="/" id="bt-jogos"><span data-icone="voltar"></span>Todos os jogos</a>
   </div>
 </div>
+
+<!-- perfil: pontos e últimas partidas -->
+<div id="x-perfil" class="janela" hidden>
+  <div class="caixa">
+    <h2>Meu xadrez</h2>
+    <div class="perfil-pontos" id="perfil-pontos"></div>
+    <h3>Últimas partidas</h3>
+    <div class="perfil-lista" id="perfil-lista"></div>
+    <button class="bt" id="bt-perfil-fechar" type="button"><span data-icone="voltar"></span>Voltar</button>
+  </div>
+</div>
+
+<!-- análise da partida -->
+<main id="x-analise" hidden>
+  <div class="barra-topo">
+    <button class="redondo" id="a-voltar" aria-label="Sair da análise"><span data-icone="voltar"></span></button>
+    <div id="a-status" class="status-analise" aria-live="polite">Análise</div>
+    <button class="redondo" id="a-girar" aria-label="Virar o tabuleiro"><span data-icone="recarregar"></span></button>
+  </div>
+  <div class="jogador-linha"><span class="n" id="a-cima"></span></div>
+  <div class="a-nota" aria-label="Quem está melhor"><div class="a-nota-brancas" id="a-nota-brancas"></div><span id="a-nota-txt"></span></div>
+  <div id="a-tabuleiro" class="tabuleiro" aria-label="Tabuleiro da análise"></div>
+  <div class="jogador-linha"><span class="n" id="a-baixo"></span></div>
+  <p class="a-info" id="a-info" aria-live="polite"></p>
+  <div class="linha-bts a-nav">
+    <button class="bt" id="a-inicio" type="button" aria-label="Começo">|&lt;</button>
+    <button class="bt" id="a-ant" type="button">Anterior</button>
+    <button class="bt verde" id="a-prox" type="button">Próximo</button>
+    <button class="bt" id="a-fim" type="button" aria-label="Fim">&gt;|</button>
+  </div>
+  <div id="a-lances" class="lances analise" aria-label="Lances (toque para ver)"></div>
+  <div class="a-precisao" id="a-precisao"></div>
+</main>
 
 <!-- procurando adversário -->
 <div id="x-busca" class="janela" hidden>
@@ -74,6 +111,9 @@
   <div class="linha-bts" id="x-botoes">
     <button class="bt" id="bt-empate" type="button" hidden>Propor empate</button>
     <button class="bt" id="bt-desistir" type="button">Desistir</button>
+    <button class="bt verde" id="bt-vitoria" type="button" hidden>Pedir a vitória</button>
+    <button class="bt" id="bt-prob-resposta" type="button" hidden>Ver a resposta</button>
+    <button class="bt verde" id="bt-prob-prox" type="button" hidden>Próximo problema</button>
     <button class="bt verde" id="bt-chamar" type="button" hidden><span data-icone="acenar"></span>Chamar amigo</button>
   </div>
 </main>
@@ -94,13 +134,14 @@
     <p class="fim-pontos" id="fim-pontos" hidden></p>
     <button class="bt verde grande" id="bt-revanche" type="button">Jogar de novo</button>
     <p class="sub centro" id="fim-espera" hidden></p>
+    <button class="bt amarelo" id="bt-analisar" type="button"><span data-icone="lupa"></span>Analisar a partida</button>
     <button class="bt" id="bt-ver" type="button">Ver o tabuleiro</button>
     <button class="bt" id="bt-menu-fim" type="button">Outro jeito de jogar</button>
   </div>
 </div>
 
 <div id="aviso"></div>
-<script type="module" src="js/xadrez.js?v=5"></script>
+<script type="module" src="js/xadrez.js?v=9"></script>
 <div class="marca-dagua" aria-hidden="true">Ryan Krano</div>
 </body>
 </html>

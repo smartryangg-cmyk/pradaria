@@ -13,12 +13,15 @@ const letras = () => Math.random().toString(36).replace(/[^a-z]/g, '').slice(0, 
 const CEL = { viewport: { width: 360, height: 740 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 };
 const casa = (n) => (8 - +n[1]) * 8 + 'abcdefgh'.indexOf(n[0]);
 
-async function abrir(opc, nome) {
+// cada um numa "internet" diferente (?rede=, só vale no servidor de teste). No site publicado os dois saem do mesmo IP:
+// a busca não junta contas da mesma internet, então lá este teste só confere o menu (teste-xadrez-trapaca cobre o resto)
+const NO_AR = !/localhost|127\.0\.0\.1/.test(URL);
+async function abrir(opc, nome, rede) {
   const ctx = await b.newContext(opc);
   const p = await ctx.newPage(); const erros = [];
   p.on('pageerror', (e) => erros.push(e.message)); p.on('console', (m) => { if (m.type() === 'error' && !/favicon|404/.test(m.text())) erros.push('console: ' + m.text()); });
   const toque = !!opc.hasTouch;
-  const j = { p, erros, nome, ctx, clica: (sel) => (toque ? p.tap(sel) : p.click(sel)), foto: async (n) => { await p.waitForTimeout(300); await p.screenshot({ path: `${SAIDA}/${n}.png` }); } };
+  const j = { p, erros, nome, ctx, rede, clica: (sel) => (toque ? p.tap(sel) : p.click(sel)), foto: async (n) => { await p.waitForTimeout(300); await p.screenshot({ path: `${SAIDA}/${n}.png` }); } };
   j.lance = async (de, para) => { await j.clica(`.casa[data-i="${casa(de)}"]`); await j.clica(`.casa[data-i="${casa(para)}"]`); };
   await p.goto(URL + '/#teste'); await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForTimeout(600);
   await j.clica('#bt-criar-conta');
@@ -27,13 +30,13 @@ async function abrir(opc, nome) {
   if (!(await p.inputValue('#c-nasc .d-ano'))) { await p.selectOption('#c-nasc .d-dia', '1'); await p.selectOption('#c-nasc .d-mes', '1'); await p.selectOption('#c-nasc .d-ano', '2000'); }
   await j.clica('#c-ok');
   await p.waitForSelector('#m-jogos:not([hidden])', { timeout: 15000 });
-  await p.goto(URL + '/xadrez'); await p.waitForSelector('#x-menu:not([hidden])');
+  await p.goto(URL + '/xadrez?rede=' + rede); await p.waitForSelector('#x-menu:not([hidden])');
   return j;
 }
 const pontos = (j) => j.p.evaluate(async () => (await (await fetch('/api/xadrez/pontos', { headers: { authorization: 'Bearer ' + localStorage.getItem('pradaria.token') } })).json()).pontos);
 const vez = (j, c) => j.p.waitForFunction((c) => window.__xadrez.e.vez === c && !window.__xadrez.fim, c, { timeout: 10000 });
 const cor = (j) => j.p.evaluate(() => window.__xadrez.voce);
-async function menu(j) { await j.p.goto(URL + '/xadrez'); await j.p.waitForSelector('#x-menu:not([hidden])'); }
+async function menu(j) { await j.p.goto(URL + '/xadrez?rede=' + j.rede); await j.p.waitForSelector('#x-menu:not([hidden])'); }
 async function procurarOs2(ana, beto) {
   for (const j of [ana, beto]) { await j.clica('.ritmo[data-ritmo="3+2"]'); await j.clica('#bt-procurar'); }
   for (const j of [ana, beto]) await j.p.waitForFunction(() => window.__xadrez.modo === 'online' && window.__xadrez.online && window.__xadrez.online.jogadores && window.__xadrez.online.jogadores.w && window.__xadrez.online.jogadores.b, null, { timeout: 30000 });
@@ -41,8 +44,8 @@ async function procurarOs2(ana, beto) {
   return ca === 'w' ? [ana, beto] : [beto, ana];
 }
 
-const ana = await abrir({ viewport: { width: 1280, height: 800 } }, 'pana' + letras());
-const beto = await abrir(CEL, 'pbeto' + letras());
+const ana = await abrir({ viewport: { width: 1280, height: 800 } }, 'pana' + letras(), 'a');
+const beto = await abrir(CEL, 'pbeto' + letras(), 'b');
 await ana.clica('.ritmo[data-ritmo="3+2"]');
 await ana.p.waitForFunction(() => /1200\?/.test(document.querySelector('#x-meus-pontos').textContent), null, { timeout: 8000 });
 ok(/Seus pontos no Blitz: 1200\?/.test(await ana.p.textContent('#x-meus-pontos')), 'conta nova: "Seus pontos no Blitz: 1200?" (provisório)');
@@ -56,6 +59,13 @@ await ana.p.waitForTimeout(1200);
 ok(/0:0[12]/.test(await ana.p.textContent('#busca-tempo')) && /Bullet 1 min/.test(await ana.p.textContent('#busca-txt')), 'procurando: mostra o ritmo e o tempo de espera');
 await ana.clica('#bt-busca-cancelar');
 ok(await ana.p.isHidden('#x-busca') && await ana.p.evaluate(() => !window.__xadrez.busca), 'cancelar sai da fila');
+if (NO_AR) {
+  console.log('(site publicado: Ana e Beto estão na mesma internet; a busca e os pontos são conferidos no teste-xadrez-trapaca)');
+  ok(ana.erros.length === 0 && beto.erros.length === 0, 'sem erros no console ' + [...ana.erros, ...beto.erros].join(' | ').slice(0, 300));
+  await b.close();
+  console.log(falhas ? `${falhas} FALHA(S)` : 'TUDO CERTO');
+  process.exit(falhas ? 1 : 0);
+}
 
 // ---------- partida valendo pontos pela busca ----------
 let [w, p] = await procurarOs2(ana, beto);
@@ -91,10 +101,10 @@ ok(depoisAnulada === [rVence, rPerde].sort().join(), 'pontos iguais depois da an
 // ---------- ninguém faz o primeiro lance: a partida é cancelada em 30 s e não vale ----------
 await menu(ana); await menu(beto);
 [w, p] = await procurarOs2(ana, beto);
-await w.p.waitForFunction(() => /^Sua vez: jogue em \d+s$/.test(document.querySelector('#x-status').textContent), null, { timeout: 5000 });
-ok(/^Adversário joga em \d+s$/.test(await p.p.textContent('#x-status')), 'partida nova: aparece o prazo do primeiro lance (' + await w.p.textContent('#x-status') + ')');
+await w.p.waitForFunction(() => /^Sua vez: \d+s$/.test(document.querySelector('#x-status').textContent), null, { timeout: 5000 });
+ok(/^Adversário: \d+s$/.test(await p.p.textContent('#x-status')), 'partida nova: aparece o prazo do primeiro lance (' + await w.p.textContent('#x-status') + ')');
 await w.foto('4-prazo-primeiro-lance');
-ok(await w.p.evaluate(() => { const s = document.querySelector('#x-status'); return s.scrollWidth <= s.clientWidth + 1; }) && await p.p.evaluate(() => { const s = document.querySelector('#x-status'); return s.scrollWidth <= s.clientWidth + 1; }), 'o aviso do prazo cabe inteiro (PC e celular)');
+{ const cabe = (j) => j.p.evaluate(() => { const s = document.querySelector('#x-status'); return s.scrollWidth + '<=' + s.clientWidth + ' ' + s.textContent; }); const a = await cabe(w), c = await cabe(p); ok([a, c].every((x) => +x.split('<=')[0] <= +x.split('<=')[1].split(' ')[0] + 1), 'o aviso do prazo cabe inteiro (PC e celular): ' + a + ' | ' + c); }
 for (const j of [w, p]) await j.p.waitForFunction(() => window.__xadrez.fim && window.__xadrez.fim.tipo === 'cancelada', null, { timeout: 40000 });
 ok(/Partida cancelada/.test(await w.p.textContent('#fim-titulo')) && /Você não fez o primeiro lance/.test(await w.p.textContent('#fim-txt')) && /adversário não fez/.test(await p.p.textContent('#fim-txt')), 'sem primeiro lance em 30 s: "Partida cancelada" para os dois');
 await p.foto('5-cancelada');
@@ -114,23 +124,29 @@ await ana.p.waitForTimeout(500);
 ok(await ana.p.evaluate(() => window.__xadrez.relogio === null && !window.__xadrez.online.ranqueada), 'partida com ritmo "constructor": o servidor não cria relógio nem pontos');
 
 // ---------- com amigo: valendo pontos conta, amistosa não ----------
-async function comAmigo(tipo) {
+async function comAmigo(tipo, comoAcaba = 'desistir') {
   await menu(ana); await menu(beto);
   await ana.clica('.ritmo[data-ritmo="10+0"]'); await ana.clica(`.tipo-amigo[data-tipo=${tipo}]`); await ana.clica('#bt-amigo');
   await ana.p.waitForFunction(() => window.__xadrez.online && window.__xadrez.online.jogadores, null, { timeout: 10000 });
   await ana.p.waitForSelector('#amigos:not([hidden])', { timeout: 5000 }).then(() => ana.clica('#amigos-fechar'), () => {});
   const cod = await ana.p.evaluate(() => window.__xadrez.online.codigo);
-  await beto.p.goto(URL + '/xadrez?sala=' + cod);
+  await beto.p.goto(URL + '/xadrez?sala=' + cod + '&rede=' + beto.rede);
   await beto.p.waitForFunction(() => window.__xadrez && window.__xadrez.voce === 'b' && window.__xadrez.online.jogadores && window.__xadrez.online.jogadores.w, null, { timeout: 15000 });
-  await vez(ana, 'w'); await ana.lance('e2', 'e4'); await vez(beto, 'b'); await beto.lance('e7', 'e5');
-  await vez(ana, 'w'); await ana.clica('#bt-desistir'); await ana.clica('#bt-desistir');
+  if (comoAcaba === 'mate') {
+    // mate do louco: o Beto (pretas) ganha
+    await vez(ana, 'w'); await ana.lance('f2', 'f3'); await vez(beto, 'b'); await beto.lance('e7', 'e5');
+    await vez(ana, 'w'); await ana.lance('g2', 'g4'); await vez(beto, 'b'); await beto.lance('d8', 'h4');
+  } else {
+    await vez(ana, 'w'); await ana.lance('e2', 'e4'); await vez(beto, 'b'); await beto.lance('e7', 'e5');
+    await vez(ana, 'w'); await ana.clica('#bt-desistir'); await ana.clica('#bt-desistir');
+  }
   await beto.p.waitForSelector('#x-fim:not([hidden])', { timeout: 10000 });
   await beto.p.waitForTimeout(600);
   return beto.p.evaluate(() => window.__xadrez.online.ranqueada);
 }
 const antesR = (await pontos(beto)).rapida.jogos;
 ok((await comAmigo('amistosa')) === false && (await pontos(beto)).rapida.jogos === antesR && await beto.p.isHidden('#fim-pontos'), 'com amigo "Amistosa": não mexe nos pontos');
-ok((await comAmigo('pontos')) === true && (await pontos(beto)).rapida.jogos === antesR + 1 && /→/.test(await beto.p.textContent('#fim-pontos')), 'com amigo "Valendo pontos" (Rápida): conta pontos (' + await beto.p.textContent('#fim-pontos') + ')');
+ok((await comAmigo('pontos', 'mate')) === true && (await pontos(beto)).rapida.jogos === antesR + 1 && /→/.test(await beto.p.textContent('#fim-pontos')), 'com amigo "Valendo pontos" (Rápida): conta pontos (' + await beto.p.textContent('#fim-pontos') + ')');
 ok(ana.erros.length === 0, 'Ana sem erros no console ' + ana.erros.join(' | ').slice(0, 300));
 ok(beto.erros.length === 0, 'Beto sem erros no console ' + beto.erros.join(' | ').slice(0, 300));
 await b.close();

@@ -284,3 +284,56 @@ export function melhorLance(e, nivel = 2, aleatorio = Math.random) {
 // estado em JSON (servidor -> navegador)
 export const publico = (e) => ({ b: e.b, vez: e.vez, roque: e.roque, ep: e.ep, meio: e.meio, n: e.n, ultimo: e.ultimo || null, hist: e.hist || [] });
 export function deJson(o) { return { b: o.b.slice(), vez: o.vez, roque: o.roque, ep: o.ep, meio: o.meio, n: o.n, rep: o.rep || {}, ultimo: o.ultimo || null, hist: Array.isArray(o.hist) ? o.hist.slice() : [] }; }
+
+// ---------- análise depois da partida ----------
+// refaz a partida a partir da lista de lances ("e4", "Cf3"...): devolve as posições (0 = começo) e os lances
+export function refazer(hist) {
+  const pos = [novo()], ls = [];
+  for (const t of hist || []) {
+    const e = pos[pos.length - 1];
+    const m = lances(e).find((x) => notacao(e, x) === t);
+    if (!m) break;
+    ls.push(m); pos.push(avancar(e, m));
+  }
+  return { pos, lances: ls };
+}
+const LIMITE = 2000; // nota de mate vira +-20 peões (para as contas não explodirem)
+const corta = (v) => Math.max(-LIMITE, Math.min(LIMITE, v));
+// nota de cada lance possível (para quem joga), do melhor para o pior. Cada lance tem a sua conta de nós
+// (assim os últimos não ficam com nota rasa). prof 2 + capturas: rápido até em tablet fraco.
+export function notasDosLances(e, prof = 2, max = 2500) {
+  return ordem(e, lances(e)).map((m) => ({ m, v: corta(-busca(jogar(e, m), prof - 1, -Infinity, Infinity, { n: 0, max })) })).sort((a, b) => b.v - a.v);
+}
+// classe do lance pela perda (centésimos de peão) em relação ao melhor
+export const CLASSES = {
+  melhor: 'Melhor lance', otimo: 'Ótimo', bom: 'Bom', impreciso: 'Imprecisão', erro: 'Erro', grave: 'Erro grave', unico: 'Único lance',
+};
+export function classe(perda, eraMelhor, unico) {
+  if (unico) return 'unico';
+  if (eraMelhor || perda <= 10) return 'melhor';
+  if (perda <= 40) return 'otimo';
+  if (perda <= 90) return 'bom';
+  if (perda <= 180) return 'impreciso';
+  if (perda <= 350) return 'erro';
+  return 'grave';
+}
+// analisa um lance: e = posição antes, m = lance jogado
+export function analisarLance(e, m) {
+  const ns = notasDosLances(e);
+  const melhor = ns[0];
+  const jog = ns.find((x) => x.m.de === m.de && x.m.para === m.para && (x.m.promo || '') === (m.promo || '')) || melhor;
+  const perda = Math.max(0, melhor.v - jog.v);
+  const branca = e.vez === 'w';
+  return {
+    classe: classe(perda, jog === melhor, ns.length === 1),
+    perda,
+    melhor: { de: melhor.m.de, para: melhor.m.para, t: notacao(e, melhor.m) },
+    // nota da posição depois do lance, do lado das brancas (+ = brancas melhor), em peões
+    nota: (branca ? jog.v : -jog.v) / 100,
+  };
+}
+// precisão (0 a 100) de uma lista de perdas
+export function precisao(perdas) {
+  if (!perdas.length) return null;
+  return Math.round(perdas.reduce((s, p) => s + 100 * Math.exp(-p / 220), 0) / perdas.length);
+}

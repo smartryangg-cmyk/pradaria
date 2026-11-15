@@ -1738,6 +1738,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   mundo = new Mundo(cena, matBlocos, matAgua, semente);
   mundo.raio = raioVisao();
   mundo.suaveSimples = opcoesGraficas().sombra === 0; // gráfico Leve: arredondado simples (monta mais rápido)
+  mundo.matSuave = mundo.suave ? graf.matSuave : null; // Natural 3D: chão e árvores com cor lisa de desenho (graficos.js)
   escav = new Escavacao(cena, mundo, matBlocos, atlasCanvas);
   // rachadura: os amigos veem o bloco rachando (no máximo 1 aviso a cada 0,15 s)
   let ultimaRacha = 0;
@@ -2358,7 +2359,7 @@ function laco(agora) {
     o.base.lerp(o.alvo, Math.min(1, dt * 10));
     // Natural 3D: pés no chão desenhado (arredondado), como o nosso boneco (visao.js)
     let desce = 0;
-    if (mundo.suave && !((o.acao | 0) & 10)) { const h = mundo.alturaVisual(o.base.x, o.base.y, o.base.z); if (h !== null && h < o.base.y) desce = h - o.base.y; }
+    if (mundo.suave && !((o.acao | 0) & 14)) { const h = mundo.alturaVisual(o.base.x, o.base.y, o.base.z); if (h !== null && h < o.base.y) desce = h - o.base.y; }
     o.pesNoChao += (desce - o.pesNoChao) * Math.min(1, dt * 12);
     g.set(o.base.x, o.base.y + o.pesNoChao, o.base.z);
     // para onde o amigo olha (suave entre uma mensagem e outra); o corpo vira sozinho na animação

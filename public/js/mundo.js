@@ -12,7 +12,7 @@ import { ESPECIAL } from './mecanismos.js';
 import { F, FORMA_NOVA, desenharFormaNova, mirarForma } from './formas.js';
 const ELET = new Uint8Array(256);
 for (let b = 1; b < 256; b++) ELET[b] = ELETRICO(b) ? 1 : 0;
-import { criarSuavizador } from './suave.js';
+import { criarSuavizador, GRUPO_SUAVE, PALETA, COR_CAPIM, COR_CAPIM_BASE, COR_FLOR, COR_MIOLO } from './suave.js';
 import { calcularLuz, EMITE, RAIO_LUZ } from './luz-blocos.js';
 import { LAVA, LAVA_CORRENTE, LAVA_CAINDO, OBSIDIANA, ehLava, NIVEL_LAVA, TICK_LAVA } from './lava-regras.js';
 import { FOGO, TICK_FOGO, MAX_FOGOS, QUEIMA, ALCANCE_FOGO, inflamavel, sorteioFogo, vidaFogo } from './fogo-regras.js';
@@ -34,6 +34,7 @@ const FACES = [
 ];
 const AO = [0.45, 0.65, 0.82, 1];
 const AO_SUAVE = [0.68, 0.8, 0.9, 1];
+const AO_LISO = [0.8, 0.88, 0.95, 1]; // cores lisas, canto preso (construção do lado): AO de bloco leve
 
 // ---------- líquidos ----------
 const TICK_AGUA = 200; // ms entre cada "passo" da água (5 por segundo)
@@ -115,6 +116,7 @@ export class Mundo {
     // estilo Natural 3D: terreno e copas arredondados (só o desenho; os blocos são os mesmos). suave.js
     this.suave = opcoesMundo.estilo === 'suave';
     this.suaveSimples = false; // aparelho fraco: arredondado simples (main.js liga no gráfico Leve)
+    this.matSuave = null; // material de cores lisas do estilo Natural 3D (graficos.js); null = usa a textura
   }
 
   // esconde/mostra um bloco da malha do pedaço (o bloco continua existindo para colisão e mira)
@@ -645,6 +647,8 @@ export class Mundo {
 
   construirMalha(c) {
     const P = [], U = [], C = [], I = [], N = [], O = [], L = [], BD = [];
+    // Natural 3D com cores lisas: índices do material liso (IS) e as duas cores de cada vértice (topo e lado)
+    const IS = [], CT = [], CL = [];
     const luzes = [];
     const especiais = []; // catavento, mó girando, forno aceso (animados em mecanismos.js)
     const PA = [], UA = [], CA = [], IA = [], FA = [];
@@ -686,7 +690,14 @@ export class Mundo {
     // estilo Natural 3D: cantos das faces do terreno e das folhas vão para a superfície lisa (suave.js)
     let temEd = false;
     for (let a = -1; a <= 1; a++) for (let b2 = -1; b2 <= 1; b2++) { const m = this.edicoes.get(chave(c.cx + a, c.cz + b2)); if (m && m.size) temEd = true; }
-    const sv = this.suave ? criarSuavizador(get, temEd ? (x, y, z) => this.editado(ox + x, y, oz + z) : () => false, (x, z) => this.alturaNatural(ox + x, oz + z), topo, this.suaveSimples) : null;
+    const sv = this.suave ? criarSuavizador(get, temEd ? (x, y, z) => this.editado(ox + x, y, oz + z) : () => false, (x, z) => this.alturaNatural(ox + x, oz + z), topo, this.suaveSimples, ox, oz) : null;
+    // gráfico Leve (arredondado simples): o lado de cada degrau ficaria listrado de terra; lá a cor é só a de cima
+    const simples = this.suaveSimples;
+    const liso = sv && this.matSuave ? sv : null; // desenho de desenho animado: cores lisas, troncos redondos, capim em tufo
+    // as cores lisas só existem nos vértices do material liso: completa com zero até o vértice atual
+    const completar = () => { const n = P.length; while (CT.length < n) { CT.push(0, 0, 0); CL.push(0, 0, 0); } };
+    // tronco natural vira cilindro (mais fino que o bloco); a colisão continua a do bloco
+    const cilindro = (qx, qy, qz, q) => !!liso && GRUPO_SUAVE[q] === 3 && !!PALETA[q] && liso.natural(qx, qy, qz);
 
     // "luz do céu": altura do bloco opaco mais alto de cada coluna (com borda de 1 dos vizinhos).
     // Embaixo de árvore, beiral ou caverna a face fica mais escura (sombra macia, custo zero ao jogar).
@@ -697,10 +708,17 @@ export class Mundo {
       if (dentro) { for (let y = topo; y >= 0; y--) if (OPACO[d[idx(x, y, z)]]) { altCeu[x + 1 + (z + 1) * LC] = y; break; } }
       else for (let y = ALT - 1; y >= 0; y--) if (OPACO[get(x, y, z)]) { altCeu[x + 1 + (z + 1) * LC] = y; break; }
     }
+    // cor lisa: só copa, casa e teto alto cobrem. O morro do lado não conta (marcava cada degrau do barranco)
+    const altCopa = liso ? new Int16Array(LC * (CZ + 2)).fill(-1) : null;
+    if (liso) for (let z = -1; z <= CZ; z++) for (let x = -1; x <= CX; x++) {
+      const t = altCeu[x + 1 + (z + 1) * LC];
+      for (let y = t; y >= 0; y--) { const q = get(x, y, z); if (OPACO[q] && GRUPO_SUAVE[q] !== 1) { altCopa[x + 1 + (z + 1) * LC] = y; break; } if (GRUPO_SUAVE[q] === 1) break; }
+    }
     const coberto = (x, y, z) => (altCeu[x + 1 + (z + 1) * LC] > y ? 1 : 0);
     // quão escuro fica sem o céu: sombra leve embaixo de árvore/beiral (como antes); mais de 5 blocos
     // de teto (caverna) vai escurecendo até 62%
     const escuroCeu = (x, y, z) => { const t = altCeu[x + 1 + (z + 1) * LC]; return t > y ? Math.min(0.62, 0.32 + 0.03 * Math.max(0, t - y - 5)) : 0; };
+    const escuroLiso = (x, y, z) => { const i = x + 1 + (z + 1) * LC, t = altCeu[i]; return altCopa[i] > y || t > y + 4 ? Math.min(0.62, 0.32 + 0.03 * Math.max(0, t - y - 5)) : 0; };
     // luz dos blocos (lampião, fogueira...) espalhada em volta; null = nenhuma por perto
     const arrs = [];
     for (let b2 = -1; b2 <= 1; b2++) for (let a = -1; a <= 1; a++) {
@@ -729,6 +747,90 @@ export class Mundo {
       return [Math.min(1, fd / 4 / 5), 1 - terra, 1];
     };
 
+    // ---------- Natural 3D "de desenho": peças lisas (material liso, sem textura) ----------
+    // um vértice do material liso: cor de topo e de lado (o shader mistura pela inclinação), luz (AO/céu)
+    const vLiso = (px, py, pz, nx, ny, nz, ct, cl, luz, onda, brilho) => {
+      P.push(px, py, pz); U.push(0, 0); C.push(luz, luz, luz); N.push(nx, ny, nz); O.push(onda); L.push(brilho); BD.push(0);
+      CT.push(ct[0], ct[1], ct[2]); CL.push(cl[0], cl[1], cl[2]);
+    };
+    // tronco natural: cilindro de 8 lados, mais grosso embaixo (raiz) e afinando para cima
+    const ehCopa = (q) => GRUPO_SUAVE[q] === 2 || GRUPO_SUAVE[q] === 3;
+    const desenharTronco = (x, y, z, b) => {
+      // escondido dentro da copa: nem desenha
+      if (ehCopa(get(x + 1, y, z)) && ehCopa(get(x - 1, y, z)) && ehCopa(get(x, y, z + 1)) && ehCopa(get(x, y, z - 1)) && ehCopa(get(x, y + 1, z))) return;
+      let kb = 0; while (kb < 10 && GRUPO_SUAVE[get(x, y - kb - 1, z)] === 3) kb++;
+      let ka = 0; while (ka < 10 && GRUPO_SUAVE[get(x, y + ka + 1, z)] === 3) ka++;
+      const cacto = b === B.CACTO;
+      if (cacto) { kb = 0; ka = 0; while (kb < 6 && get(x, y - kb - 1, z) === b) kb++; while (ka < 6 && get(x, y + ka + 1, z) === b) ka++; }
+      const tot = kb + ka + 1, fino = b === B.TRONCO_BETULA || b === 82 ? 0.75 : 1;
+      // cacto: coluna grossa com a ponta arredondada; tronco: afina para cima e alarga na raiz
+      const raio = cacto ? (h) => 0.4 * Math.sqrt(Math.max(0.04, 1 - Math.max(0, h - tot + 0.6) ** 2 / 0.36))
+        : (h) => fino * (0.2 + 0.14 * (1 - h / tot) + 0.2 * Math.max(0, 1 - h * 1.6));
+      const r0 = raio(kb), r1 = raio(kb + 1), p = PALETA[b];
+      const lb = luzB ? luzB(x, y, z) : 0;
+      const luz = 1 - escuroCeu(x, y, z) * (1 - lb) * 0.25, br = Math.max(BRILHO[b], lb * 0.3);
+      const fase = hash3(ox + x, 0, oz + z, 7) * 6.283, nl = Math.hypot(1, r0 - r1), S = 8;
+      completar();
+      const k = P.length / 3;
+      for (let anel = 0; anel < 2; anel++) {
+        const r = anel ? r1 : r0, yy = y + anel - (anel || kb ? 0 : 0.25) - (cacto && anel && !ka ? 0.02 : 0); // a raiz entra no chão (o chão liso pode descer)
+        for (let i = 0; i < S; i++) {
+          const a = fase + (i / S) * 6.283, ca = Math.cos(a), sa = Math.sin(a);
+          vLiso(x + 0.5 + ca * r, yy, z + 0.5 + sa * r, ca / nl, (r0 - r1) / nl, sa / nl, p.t, p.l, luz * (anel ? 1 : 0.86), 0, br);
+        }
+      }
+      for (let i = 0; i < S; i++) { const j = (i + 1) % S; IS.push(k + i, k + S + i, k + S + j, k + i, k + S + j, k + j); }
+      if (!ehCopa(get(x, y + 1, z)) && get(x, y + 1, z) !== b) { // tampa (tronco cortado, ponta do cacto)
+        const c0 = P.length / 3;
+        vLiso(x + 0.5, y + 1, z + 0.5, 0, 1, 0, p.t, p.t, luz, 0, br);
+        for (let i = 0; i < S; i++) IS.push(c0, k + S + (i + 1) % S, k + S + i);
+      }
+    };
+    // capim em tufo (folhinhas em ponta, escuras no pé e claras na ponta) e flor (estrela colorida no cabinho)
+    const desenharPlantaLisa = (x, py, z, b, luz, br) => {
+      completar();
+      const h = hash3(ox + x, Math.floor(py), oz + z, 3);
+      const folha = (a, dd, alt, larg, cBase, cPonta, curva) => {
+        const cx = x + 0.5 + Math.cos(a) * dd, cz = z + 0.5 + Math.sin(a) * dd;
+        const lx = -Math.sin(a) * larg, lz = Math.cos(a) * larg;
+        const k = P.length / 3;
+        vLiso(cx - lx, py, cz - lz, 0, 1, 0, cBase, cBase, luz * 0.85, 0, br);
+        vLiso(cx + lx, py, cz + lz, 0, 1, 0, cBase, cBase, luz * 0.85, 0, br);
+        vLiso(cx + Math.cos(a) * curva, py + alt, cz + Math.sin(a) * curva, 0, 1, 0, cPonta, cPonta, luz * 1.05, 1, br);
+        IS.push(k, k + 1, k + 2, k, k + 2, k + 1);
+      };
+      if (b === B.CAPIM) {
+        for (let i = 0; i < 6; i++) folha(h * 6.283 + i * 2.4, 0.05 + 0.2 * ((h * 3.7 + i * 0.37) % 1), 0.4 + 0.4 * ((h * 7.3 + i * 0.61) % 1), 0.075, COR_CAPIM_BASE, COR_CAPIM, 0.2);
+        return;
+      }
+      // flor: cabinho + duas folhinhas + estrela de 5 pétalas virada para cima
+      const cor = COR_FLOR[b], alt = 0.42 + 0.12 * h;
+      folha(h * 6.283, 0, alt, 0.03, COR_CAPIM_BASE, COR_CAPIM_BASE, 0);
+      folha(h * 6.283 + 2, 0.02, 0.28, 0.06, COR_CAPIM_BASE, COR_CAPIM, 0.16);
+      folha(h * 6.283 + 4.6, 0.02, 0.24, 0.06, COR_CAPIM_BASE, COR_CAPIM, 0.16);
+      const cx = x + 0.5, cz = z + 0.5, cy = py + alt;
+      const k = P.length / 3;
+      const miolo = [0, 1, 2].map((j) => cor[j] * 0.5 + COR_MIOLO[j] * 0.5);
+      vLiso(cx, cy + 0.02, cz, 0, 1, 0, miolo, miolo, luz * 1.1, 0.6, br);
+      for (let i = 0; i < 10; i++) {
+        const a = h * 6.283 + (i / 10) * 6.283, r = i & 1 ? 0.07 : 0.2;
+        vLiso(cx + Math.cos(a) * r, cy + (i & 1 ? 0 : 0.05), cz + Math.sin(a) * r, 0, 1, 0, cor, cor, luz, 0.6, br);
+      }
+      for (let i = 0; i < 10; i++) { const a = k + 1 + i, c2 = k + 1 + (i + 1) % 10; IS.push(k, c2, a, k, a, c2); }
+    };
+    // beira d'água: a água continua por cima do chão liso da margem (o chão que sobra por cima esconde),
+    // assim a margem fica curva, sem os degraus dos blocos, e a espuma acompanha
+    const VIZ8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+    const margem = (x, y, z) => {
+      if (get(x, y + 1, z) !== AR) return;
+      let h = 0;
+      for (const [a, c2] of VIZ8) { const q = get(x + a, y, z + c2); if (AGUA[q] && !AGUA[get(x + a, y + 1, z + c2)]) h = Math.max(h, ALTURA_AGUA[q]); }
+      if (!h) return;
+      const k = PA.length / 3;
+      for (const cn of FACES[2].c) { PA.push(x + cn[0], y + h, z + cn[2]); UA.push(0, 0); CA.push(0, 0, 1); FA.push(0, 0, 0); }
+      IA.push(k, k + 1, k + 2, k, k + 2, k + 3);
+    };
+
     for (let y = 0; y <= topo; y++) for (let z = 0; z < CZ; z++) for (let x = 0; x < CX; x++) {
       const b = d[idx(x, y, z)];
       if (b === AR) continue;
@@ -736,9 +838,17 @@ export class Mundo {
       if (!def) continue;
       if (b === B.LAMPIAO || b === E.LAMPADA_LIGADA || b === M.FORNO_ACESO) luzes.push([ox + x + 0.5, y + 0.5, oz + z + 0.5]);
       if (ESPECIAL[b]) especiais.push([ox + x, y, oz + z, b]);
+      if (liso && cilindro(x, y, z, b)) { desenharTronco(x, y, z, b); continue; } // tronco natural: cilindro de desenho
+      if (liso && b === B.CACTO && !(temEd && this.editado(ox + x, y, oz + z))) { desenharTronco(x, y, z, b); continue; } // cacto: coluna redonda
       if (def.forma) {
         if (FORMA_NOVA[b]) desenharFormaNova(FORMA_A, get, x, y, z, b, coberto(x, y, z) ? 0.72 : 1);
         else desenharForma(FORMA_A, get, x, y, z, b);
+        continue;
+      }
+      if (def.planta && liso && (b === B.CAPIM || COR_FLOR[b])) {
+        const lb = luzB ? luzB(x, y, z) : 0;
+        const lp = 1 - escuroCeu(x, y, z) * (1 - lb) * 0.8;
+        desenharPlantaLisa(x, y + liso.ajustePlanta(x, y, z), z, b, lp, Math.max(BRILHO[b], lb * 0.3));
         continue;
       }
       if (def.planta) {
@@ -769,13 +879,15 @@ export class Mundo {
         fluxoZ = (HC[0][0] + HC[1][0]) - (HC[0][1] + HC[1][1]);
         caindo = NIVEL[b] === 8 ? 1 : 0;
       }
+      if (liso && GRUPO_SUAVE[b] === 1) margem(x, y, z);
       let gs = -1; // 1 terreno liso, 2 copa redonda, 0 quadrado (só calcula se alguma face aparece)
       for (const f of FACES) {
         const nb = get(x + f.n[0], y + f.n[1], z + f.n[2]);
         if (agua) {
           if (AGUA[nb] || OPACO[nb]) continue;
         } else {
-          if (OPACO[nb] || nb === b) continue;
+          // o chão em volta do tronco redondo aparece (o tronco é mais fino que o bloco)
+          if (nb === b || (OPACO[nb] && !(GRUPO_SUAVE[b] === 1 && cilindro(x + f.n[0], y + f.n[1], z + f.n[2], nb)))) continue;
           // jogador na superfície: paredes de caverna bem fundas não aparecem (metade dos triângulos a menos)
           if (cortar && nb === AR) {
             const qx = x + f.n[0], qz = z + f.n[2];
@@ -795,7 +907,10 @@ export class Mundo {
           ft = ny > 0.55 ? 0 : ny < -0.55 ? 1 : 2;
         }
         const [u0, v0, u1, v1] = uvTile(def.tiles[ft]);
-        const PP = agua ? PA : P, UU = agua ? UA : U, CC = agua ? CA : C, II = agua ? IA : I;
+        // face lisa com cor de desenho (sem textura): vai para o material liso, com a cor de cada canto
+        const pal = gs && liso && PALETA[b] && !PALETA[b].atlas;
+        if (pal) completar();
+        const PP = agua ? PA : P, UU = agua ? UA : U, CC = agua ? CA : C, II = agua ? IA : pal ? IS : I;
         const k = PP.length / 3;
         const aos = [];
         // arestas "arredondadas" (shader): 1 + bits das bordas expostas da face, 0 = sem efeito.
@@ -818,6 +933,7 @@ export class Mundo {
           let py = y + cn[1];
           if (agua && cn[1] === 1) py = y + HC[cn[0]][cn[2]];
           const s = sc && sc[ic++];
+          if (pal) { const cc = liso.corCanto(x + cn[0], y + cn[1], z + cn[2], b), j = simples ? 0 : 3; CT.push(cc[0], cc[1], cc[2]); CL.push(cc[j], cc[j + 1], cc[j + 2]); }
           if (s) PP.push(x + cn[0] + s[0], py + s[1], z + cn[2] + s[2]);
           else PP.push(x + cn[0], py, z + cn[2]);
           let ao = 3;
@@ -842,11 +958,14 @@ export class Mundo {
             const qz = f.n[2] ? z + f.n[2] : z + cn[2] - (i >> 1);
             if (f.n[0] && (i & 1)) continue;
             if (f.n[2] && (i >> 1)) continue;
-            cob += escuroCeu(qx, y + f.n[1], qz); nc++;
+            cob += (pal ? escuroLiso : escuroCeu)(qx, y + f.n[1], qz); nc++;
             if (luzB) lb += luzB(qx, y + f.n[1], qz);
           }
           lb /= nc;
-          const v = (gs ? AO_SUAVE : AO)[ao] * (1 - (cob / nc) * (1 - lb)); // no chão liso o AO é mais leve (sem "curvas de nível" escuras)
+          if (pal && GRUPO_SUAVE[b] === 2) cob *= 0.35; // copa lisa: as folhas de cima quase não escurecem as de baixo
+          // cor lisa: sem o AO de bloco (deixava cada degrau marcado); só a sombrinha macia dos vales (suave.js)
+          const aoV = pal ? (s ? s[6] : AO_LISO[ao]) : (gs ? AO_SUAVE : AO)[ao];
+          const v = aoV * (1 - (cob / nc) * (1 - lb)); // no chão liso o AO é mais leve (sem "curvas de nível" escuras)
           CC.push(v, v, v);
           if (s) N.push(s[3], s[4], s[5]); else N.push(f.n[0], f.n[1], f.n[2]);
           O.push(FOLHAGEM[b] ? 0.6 : 0);
@@ -860,9 +979,9 @@ export class Mundo {
       }
     }
 
-    const fazer = (P, U, C, I, mat, antiga, extra, fluxo) => {
+    const fazer = (P, U, C, I, mat, antiga, extra, fluxo, IL) => {
       if (antiga) { this.cena.remove(antiga); antiga.geometry.dispose(); }
-      if (!I.length) return null;
+      if (!I.length && !(IL && IL.length)) return null;
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
       g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
@@ -874,6 +993,16 @@ export class Mundo {
         g.setAttribute('borda', new THREE.Float32BufferAttribute(BD, 1));
       }
       if (fluxo) g.setAttribute('fluxo', new THREE.Float32BufferAttribute(fluxo, 3));
+      if (IL && IL.length) {
+        // dois materiais na mesma malha: blocos com textura (grupo 0) e chão/copas lisos (grupo 1)
+        completar();
+        g.setAttribute('corTopo', new THREE.Float32BufferAttribute(CT, 3));
+        g.setAttribute('corLado', new THREE.Float32BufferAttribute(CL, 3));
+        const n0 = I.length;
+        for (const v of IL) I.push(v);
+        g.addGroup(0, n0, 0); g.addGroup(n0, IL.length, 1);
+        mat = [mat, this.matSuave];
+      }
       g.setIndex(P.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(I, 1) : new THREE.Uint16BufferAttribute(I, 1));
       g.computeBoundingSphere();
       const m = new THREE.Mesh(g, mat);
@@ -884,7 +1013,7 @@ export class Mundo {
       this.cena.add(m);
       return m;
     };
-    c.malha = fazer(P, U, C, I, this.mat, c.malha, true);
+    c.malha = fazer(P, U, C, I, this.mat, c.malha, true, null, IS);
     c.luzes = luzes;
     c.temLuz = !!luzB;
     c.especiais = especiais;

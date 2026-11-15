@@ -12,6 +12,7 @@
 //  - Padeiro: na padaria (construída pelo pedreiro), transforma trigo em pão (2 trigo -> 1 pão).
 //  - Lojista: na loja, vende para os moradores o que você deixou na vitrine (e leva o pão da padaria
 //    para a vitrine). O dinheiro das vendas vai para as suas moedas.
+import { DURA } from './receitas.js';
 import { PLANTAS, ESTILOS_OBRA, blocosDaObra, materiais, alturaDaPlanta, areaDaObra, brutoDe } from './casas.js';
 
 export const TRIGO = 32, FARINHA = 57, PAO = 58;
@@ -242,7 +243,12 @@ export function aplicarTrabalho(e, op, a, ctx) {
       if (!ctx.guardavel(b)) return { erro: '?' };
       if (t === 'depositar') {
         if (ctx.vendivel && !ctx.vendivel(b)) return { erro: 'Formas não vão para a vitrine: elas são para construir.' };
-        const m = Math.min(n, livreDe(e, b), MAX_ESTOQUE - (N.vitrine[b] || 0));
+        // ferramenta gasta não vai: voltar da vitrine deixaria ela nova (conserto de graça). Só as novas
+        // (as do fim da lista de desgaste, que não têm uso) podem ir.
+        let novas = Infinity;
+        if (DURA[b]) { const l = (e.desg && e.desg[b]) || []; let u = l.length; while (u && !(l[u - 1] > 0)) u--; novas = Math.max(0, (e.itens[b] | 0) - u); }
+        if (!novas && e.itens[b]) return { erro: 'Ferramenta usada não vai para a vitrine.' };
+        const m = Math.min(n, novas, livreDe(e, b), MAX_ESTOQUE - (N.vitrine[b] || 0));
         if (m <= 0) return { erro: e.itens[b] ? 'Revender o que você comprou não vale: a vitrine é para o que você colheu ou fez.' : 'Você não tem isso na mochila.' };
         ctx.tirar(e.itens, b, m); N.vitrine[b] = (N.vitrine[b] || 0) + m;
       } else {
