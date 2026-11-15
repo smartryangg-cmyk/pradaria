@@ -1,4 +1,5 @@
 // Pradaria: jogo de construir e explorar, pacífico, para o navegador.
+import { CHAO_DA_MUDA } from './arvores-regras.js';
 import * as THREE from '../vendor/three.module.min.js';
 import { F } from './formas.js';
 import { FOLHAGEM } from './blocos.js';
@@ -1015,6 +1016,11 @@ function usar(ponto) {
   if (novo === B.TRIGO) {
     if (mundo.bloco(x, y - 1, z) === B.TERRA_ARADA) novo = B.TRIGO_BROTO;
     else if (sobrev()) { aviso('Plante o trigo na Terra de plantar (crie com Terra na Mochila). Perto da água cresce mais rápido', 3200, 'milho'); return; }
+  }
+  // muda: só pega na grama, na terra ou na terra de plantar (depois vira árvore sozinha)
+  if ((novo === B.MUDA || novo === B.MUDA_PINHEIRO) && !CHAO_DA_MUDA.has(mundo.bloco(x, y - 1, z))) {
+    aviso('Plante a muda na grama ou na terra. Com espaço em cima, ela vira árvore em alguns minutos', 3000, 'arvore');
+    return;
   }
   // esteira: anda para onde o jogador está olhando
   if (novo === E.ESTEIRA) {

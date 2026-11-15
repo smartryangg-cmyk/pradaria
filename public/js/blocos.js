@@ -23,6 +23,8 @@ export const B = {
   TRONCO_PINHEIRO: 71, FOLHAS_PINHEIRO: 72, TRONCO_BETULA: 73, FOLHAS_SELVA: 74, ARBUSTO_SECO: 75,
   // trigo plantado crescendo (plantacoes.js): broto -> verde -> Trigo maduro
   TRIGO_BROTO: 76, TRIGO_VERDE: 77,
+  // muda que vira árvore (arvores-regras.js): cai das folhas
+  MUDA: 78, MUDA_PINHEIRO: 79,
 };
 
 // tiles: [cima, baixo, lados]
@@ -74,6 +76,8 @@ def(B.FOLHAS_SELVA, 'Folhas da selva', 39);
 def(B.ARBUSTO_SECO, 'Arbusto seco', 40, { solido: false, opaco: false, planta: true });
 def(B.TRIGO_BROTO, 'Trigo plantado', 140, { solido: false, opaco: false, planta: true });
 def(B.TRIGO_VERDE, 'Trigo crescendo', 141, { solido: false, opaco: false, planta: true });
+def(B.MUDA, 'Muda de árvore', 143, { solido: false, opaco: false, planta: true });
+def(B.MUDA_PINHEIRO, 'Muda de pinheiro', 144, { solido: false, opaco: false, planta: true });
 def(B.BANCADA, 'Bancada', [128, 9, 129]);
 
 // ---------- itens (não são blocos: não vão para o mundo) ----------
@@ -195,7 +199,7 @@ NIVEL[AGUA_CAINDO] = 8;
 export const INVENTARIO = [
   B.GRAMA, B.TERRA, B.PEDRA, B.PEDRISCO, B.AREIA, B.TRONCO, B.TABUAS, B.FOLHAS, B.VIDRO, B.TIJOLO,
   B.LAMPIAO, B.FENO, B.BANCADA, B.TERRA_ARADA, B.LA_BRANCA, B.LA_VERMELHA, B.LA_AZUL, B.LA_AMARELA, B.LA_VERDE, B.LA_ROSA,
-  B.FLOR_VERMELHA, B.FLOR_AMARELA, B.FLOR_AZUL, B.CAPIM, B.TRIGO, B.AGUA,
+  B.FLOR_VERMELHA, B.FLOR_AMARELA, B.FLOR_AZUL, B.CAPIM, B.TRIGO, B.MUDA, B.MUDA_PINHEIRO, B.AGUA,
   B.CACTO, B.CASCALHO, B.CARVAO, B.FERRO, B.OURO, B.DIAMANTE,
   B.TRONCO_PINHEIRO, B.FOLHAS_PINHEIRO, B.TRONCO_BETULA, B.FOLHAS_SELVA, B.ARBUSTO_SECO,
   M.PORTA, M.FORNO, M.FARINHA, M.PAO,
