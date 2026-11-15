@@ -32,6 +32,8 @@ import { Fisica } from './fisica.js';
 import { Plantacoes } from './plantacoes.js';
 import { Agua } from './agua.js';
 import { criarComandos } from './comandos.js';
+import { criarCama } from './cama.js';
+import { ehCama } from './dormir-regras.js';
 import { OPCOES_MUNDO, PADRAO_MUNDO, PADRAO_NOVO, TAMANHOS, TIPOS, ESTILOS, MODOS_JOGO, DIFICULDADES, modoJogoDe, normalizarOpcoes, definirOpcoesMundo, opcoesMundo, sementeDeTexto, raioExtraMundo, precisa16 } from './opcoes-mundo.js';
 import { vida } from './vida.js';
 import { Mapa } from './mapa.js';
@@ -891,6 +893,11 @@ const cmd = criarComandos({
   definirDia: (v) => { tempoDia = v; },
   pausar: (sim) => { pausado = sim; },
 });
+// cama: deitar de noite pula para a manhã (online, quando todo mundo deita)
+const cama = criarCama({
+  jog: () => jog, mundo: () => mundo, sala: () => sala, aviso, som, comIcone,
+  dia: () => tempoDia, definirDia: (v) => { tempoDia = v; }, cicloDia: () => !!opcoesMundo.cicloDia,
+});
 // ---------- armas (opção do mundo) ----------
 const armas = new Armas({
   cena, camera, som, aviso,
@@ -986,13 +993,15 @@ function usar(ponto) {
   const m = mirar(ponto);
   if (m.pessoa) { guerra.socar(m.pessoa); return; }
   if (m.veiculo) { garagem.pedirEntrar(m.veiculo); return; }
-  if (m.bicho) { fazerCarinho(m.bicho); return; }
+  if (m.bicho) { if (!darTrigo(m.bicho)) fazerCarinho(m.bicho); return; }
   if (m.aldeao) { conversarCom(m.aldeao); return; }
   if (m.trabalhador) { negocios.tocar(m.trabalhador); return; }
   const h = m.bloco;
   if (!h) return;
   // tocar na bancada abre o livro de receitas
   if (h.b === B.BANCADA && sobrev()) { som.clique(); abrirInventario('criar'); return; }
+  // tocar na cama: deita (de noite, dorme até amanhecer)
+  if (ehCama(h.b) && !armas.empunhando) { som.clique(); cama.deitar(h); return; }
   // tocar na alavanca liga/desliga; no botão, aperta
   if (BASE[h.b] === E.ALAVANCA) {
     mundo.definir(h.x, h.y, h.z, h.b === E.ALAVANCA ? E.ALAVANCA_LIGADA : E.ALAVANCA);
@@ -1150,6 +1159,14 @@ function mostrarRecarga() {
     recargaRaf = requestAnimationFrame(passo);
   };
   recargaRaf = requestAnimationFrame(passo);
+}
+// trigo na mão: o bicho de fazenda come (adulto fica apaixonado e cruza; filhote cresce mais rápido)
+function darTrigo(b) {
+  if (naMao() !== B.TRIGO || b.I.selvagem) return false;
+  if (sobrev() && qtd(B.TRIGO) < 1) { aviso('Acabou o trigo! Colha mais na plantação', 1600, 'milho'); return true; }
+  if (!bichos.alimentar(b)) { aviso(b.filhote ? 'Esse filhote não come trigo' : b.amor > 0 ? 'Já está procurando um par' : 'Já comeu: descansando um pouco antes de outra cria', 1800, 'coracao'); return true; }
+  if (sobrev()) mercado.enviar({ t: 'alimentar' });
+  return true;
 }
 function fazerCarinho(b) { if (!bichos.carinho(b)) return; mercado.evento('carinho'); laDaOvelha(b); } // bicho selvagem: o toque espanta (não conta como carinho)
 function conversarCom(a) {
@@ -1573,6 +1590,8 @@ async function jogarOnline(m, volta = null) {
     },
     fim: (texto) => { sala = null; sairDoMundo(); $('#mundos-erro').textContent = texto || ''; },
     ...cmd.rede,
+    ...cama.rede,
+    dia: (msg) => { cmd.rede.dia(msg); if (msg.dormiu) cama.dormiram(); },
     ...armas.rede,
     ...guerra.rede,
   });
@@ -1598,7 +1617,7 @@ function sairDoMundo(op = {}) {
   if (jogando) enviarBarra();
   if (op.apagarLocal) { try { localStorage.removeItem('pradaria.local'); } catch {} } // apagado: não salva de novo
   else salvarLocal();
-  cmd.saiu();
+  cmd.saiu(); cama.sair();
   if (sala && jog) sala.enviar({ t: 'pos', p: [jog.pos.x, jog.pos.y, jog.pos.z], r: [jog.yaw, jog.pitch] });
   limparMundo();
   jogando = false; pausado = false; som.silenciarJogo();
@@ -1870,7 +1889,7 @@ function laco(agora) {
 
   if (!pausado) {
     const ent = ctrl.atualizar();
-    if (!garagem.quadro(dt, ent, false)) {
+    if (!garagem.quadro(dt, ent, false) && !cama.quadro(dt, ent)) {
       jog.atualizar(dt, ent);
       if ((jog.noChao || jog.naAgua) && Math.floor(jog.passo / 1.8) !== ultimoPasso) { ultimoPasso = Math.floor(jog.passo / 1.8); som.passo(jog.naAgua ? 'agua' : chaoDe(jog.pos.x, jog.pos.y, jog.pos.z), visao.agachado ? 0.18 : visao.correndo ? 0.45 : 0.35); }
     }
@@ -1887,6 +1906,7 @@ function laco(agora) {
   mundo.atualizar(jog.pos.x, jog.pos.z, ehToque ? 5 : 8, jog.pos.y);
   if (!pausado) vigiarPlaca();
   if (jog.quicou) { jog.quicou = false; som.boing(); }
+  bichos.trigoNaMao = naMao() === B.TRIGO && (!sobrev() || qtd(B.TRIGO) > 0);
   bichos.atualizar(pausado ? 0 : dt, jog, tempoTotal, tempoDia);
   aldeoes.atualizar(dt, jog, Math.sin(tempoDia * Math.PI * 2));
   mecanismos.atualizar(pausado ? 0 : dt, jog, graf.U.uVento.value === 0);
