@@ -757,3 +757,32 @@ body.chat-aberto #botoes-toque, body.chat-aberto #dica-toque, body.chat-aberto #
 @media (max-width: 640px), (max-height: 480px) { body.com-armas #dica-toque { display: none; } }
 /* deitado com arma: o lugar ao lado do pular é do atirar, então o largar volta para cima do pular */
 @media (max-height: 500px) and (orientation: landscape) { body.toque.com-armas #bt-largar { position: static; } }
+
+/* ---------- caixas nunca mais largas que a tela ----------
+   A coluna da grade da janela crescia até o conteúdo mais largo (a fileira de ícones das opções
+   do mundo) e a caixa de 440px saía pela direita no celular. Agora a coluna é a largura da tela
+   e os ícones quebram linha. */
+.janela { grid-template-columns: minmax(0, 1fr); }
+.caixa { min-width: 0; max-width: 100%; }
+.mundo small { display: block; }
+.ops-mini { display: flex; flex-wrap: wrap; gap: 3px; margin: 4px 0 0; }
+.linha-bts .bt { min-width: 0; }
+@media (max-width: 400px) {
+  .mundo { gap: 8px; padding: 8px 10px; }
+  .mundo .ic { width: 40px; height: 40px; font-size: 28px; }
+  .mundo b { font-size: 16px; }
+  .bt-editar { width: 48px; }
+  #m-mundos .linha-bts { flex-wrap: wrap; }
+  #m-mundos .linha-bts .bt { flex: 1 1 130px; }
+}
+/* celular com letra grande do Android (tela vira 240-300px): cartão do mundo mais enxuto */
+@media (max-width: 300px) {
+  .mundo { gap: 6px; padding: 6px 8px; }
+  .mundo .ic { width: 32px; height: 32px; font-size: 22px; border-width: 2px; }
+  .mundo .seta { display: none; }
+  .linha-mundo { gap: 5px; }
+  .bt-editar { width: 38px; }
+  .bt-editar .ic-svg { width: 22px; height: 22px; }
+  .ops-mini .ic-svg { width: 14px; height: 14px; }
+  #lista-mundos { max-height: 50vh; }
+}
