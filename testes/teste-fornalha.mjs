@@ -1,10 +1,10 @@
 // Jogo clássico: minérios só caem com a picareta certa, a fornalha (criar na bancada, colocar, abrir, pôr minério e
 // carvão, esperar, tirar as barras), ferramentas de ferro, a barrinha de uso, quebrar a fornalha derruba o que tinha.
 // Computador e celular sem internet; online (2 jogadores) a fornalha é a mesma para os dois e a sala confere tudo.
-// Uso: (cd public && python3 -m http.server 8772), `npm run dev:sala` e `npm run dev` (8788), e
+// Uso: (cd public && python3 -m http.server 8765), `npm run dev:sala` e `npm run dev` (8788), e
 //   node testes/teste-fornalha.mjs
 import { createRequire } from 'module'; const { chromium, devices } = createRequire(import.meta.url)('playwright');
-const URL = process.env.URL || 'http://localhost:8772', ONLINE = process.env.ONLINE || 'http://localhost:8788', SAIDA = process.env.SAIDA || '/tmp';
+const URL = process.env.URL || 'http://localhost:8765', ONLINE = process.env.ONLINE || 'http://localhost:8788', SAIDA = process.env.SAIDA || '/tmp';
 const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 let falhas = 0; const erros = [];
 const PARTES = (process.env.PARTES || 'pc,toque,online').split(',');
