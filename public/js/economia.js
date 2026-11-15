@@ -3,6 +3,7 @@
 // Não importe nada daqui que dependa do navegador (o servidor também usa este arquivo).
 
 import { caberNoBau, porNoBau, tirarDoBau, ESPACOS_BAU } from './bau-regras.js';
+import { ganharXp, normalizarXp, xpDoMinerio, XP_FORNO, XP_CACA } from './xp-regras.js';
 import { avancar, caberNoForno, porNoForno, tirarDoForno, PILHA_FORNO } from './fornalha-regras.js';
 import { aplicarTrabalho, normalizarTrabalho, negocioNovo, livreDe, marcarCompra, ajustarCompra, converter } from './trabalho.js';
 import { RECEITAS, guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm, cabe, cabeQuanto, pilhaDe, DURA, ajustarDesg, desgastar, tirarDesg, porDesg, desgLista, receitaNoMundo } from './receitas.js';
@@ -171,7 +172,7 @@ export const LOTE_LOJA = 4;
 
 export function estadoNovo(op) {
   // equipe/neg/obras: trabalhadores contratados, padaria e loja do jogador, obras do pedreiro (trabalho.js)
-  return { moedas: op && op.mercado ? 10 : 0, estrelas: 0, itens: {}, comprados: [], cont: {}, feitos: [], equipe: [], neg: negocioNovo(), obras: [], tseq: 0, compra: {}, mc: [], obrasT: [], veiculos: [], garagem: {} };
+  return { moedas: op && op.mercado ? 10 : 0, estrelas: 0, itens: {}, comprados: [], cont: {}, feitos: [], equipe: [], neg: negocioNovo(), obras: [], tseq: 0, compra: {}, mc: [], obrasT: [], veiculos: [], garagem: {}, xp: 0, xpf: 0 };
 }
 
 // confere/repara um estado salvo (vindo do armazenamento)
@@ -187,6 +188,7 @@ export function normalizar(e, op) {
   n.veiculos = [...new Set((Array.isArray(e.veiculos) ? e.veiculos : []).filter((t) => t in PRECO_VEICULO))];
   for (const [t, x] of Object.entries(e.garagem && typeof e.garagem === 'object' ? e.garagem : {})) { const q = estadoVeic(x); if (t in PRECO_VEICULO && q) n.garagem[t] = q; }
   n.desg = e.desg; ajustarDesg(n); // desgaste das ferramentas (receitas.js)
+  normalizarXp(n, e); // experiência (xp-regras.js)
   normalizarTrabalho(n, e);
   return n;
 }
@@ -258,6 +260,7 @@ export function aplicar(e, op, a, ctx = {}) {
         if (!op.sobrevivencia && !op.mercado) return falha('?');
         cai = caiDoBicho(String(a.b), !!a.f);
         if (!cai.length) return falha('?');
+        if (op.fome) r.xp = ganharXp(e, XP_CACA); // caçar dá experiência (jogo clássico)
       }
       if (noChao) r.cai = cai.map(([id, q]) => [id, q, 0]);
       else for (const [id, q] of cai) por(e.itens, id, q);
@@ -287,6 +290,8 @@ export function aplicar(e, op, a, ctx = {}) {
         r.cai = oQueCai(a.de, a.x, a.y, a.z, !!a.natural, (e.itens[a.mao | 0] | 0) > 0 ? a.mao | 0 : 0, !!op.fome).map(([id, n]) => [id, n, a.comprado ? n : 0]);
         // a ferramenta da mão gasta (planta e coisa de um toque não: DESGASTA_NAO)
         if (!DESGASTA_NAO.has(a.de | 0)) r.ferramenta = desgastar(e, a.mao | 0);
+        // jogo clássico: minério do mundo tirado com a picareta certa dá experiência (xp-regras.js)
+        if (op.fome && a.natural && r.cai.length) r.xp = ganharXp(e, xpDoMinerio(a.de | 0, a.x, a.y, a.z));
       }
     }
     if (a.b > 0) {
@@ -413,6 +418,7 @@ export function aplicar(e, op, a, ctx = {}) {
   } else if (a.t === 'morrer') {
     // morreu (sem corações): tudo o que dá para pôr no chão cai, em pilhas, onde a pessoa estava
     if (!op.fome) return falha('?');
+    r.xpPerdido = e.xp | 0; e.xp = 0; e.xpf = 0; // morrer perde a experiência
     r.cai = [];
     for (const k of Object.keys(e.itens)) {
       const id = +k;
@@ -465,7 +471,7 @@ export function aplicar(e, op, a, ctx = {}) {
       if (q < 1) return falha('A mochila está cheia! Largue ou use alguma coisa.');
       tirarDoForno(f, k, q); por(e.itens, id, q);
       r.veio = [id, q];
-      if (k === 's') r.feitos = contar(e, op, 'forno', q);
+      if (k === 's') { r.feitos = contar(e, op, 'forno', q); if (op.fome) r.xp = ganharXp(e, (XP_FORNO[id] || 0) * q); }
     }
     r.mudou = true;
   } else if (a.t === 'bau-por' || a.t === 'bau-tirar') {
