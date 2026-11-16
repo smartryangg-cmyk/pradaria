@@ -6,7 +6,8 @@ import { FOLHAGEM } from './blocos.js';
 import { CANA, cabeCana } from './cana-regras.js';
 import { criarAtlas, iconeBloco, INVENTARIO, INVENTARIO_MAQUINAS, INVENTARIO_FORMAS, B, E, AR, BLOCOS, SOLIDO, AGUA, PRECISA_CHAO, ITEM, ehItem, nomeDe, FORNALHA } from './blocos.js';
 import { toquesCom, receitasDoMundo, GRUPOS, podeCriar, faltaBancada, gastoDe, receitaDaGrade, arrumar, cabeNaGrade, pilhaDe, cabe, nivelFalta, NOME_NIVEL, baseDe, DURA } from './receitas.js';
-import { Inventario, MAO2 } from './inventario.js';
+import { Inventario, MAO2, ARMA } from './inventario.js';
+import { reduzir, defesa, parteDe, PROTEGE, NOME_PARTE } from './armadura-regras.js';
 import { BASE, PRECISA_ENERGIA, ELETRICO } from './energia.js';
 import { Mundo, ALT, NIVEL_AGUA } from './mundo.js';
 import { vento as forcaVento } from './energia.js';
@@ -580,15 +581,18 @@ function sincronizarBarra() {
   barraVista = [...barra];
   if (mudou) guardarBarraDepois();
 }
-const grandeDe = (l, i) => (l === 's' && i === MAO2 ? 'mao2' : l);
+const grandeDe = (l, i) => (l === 's' && i === MAO2 ? 'mao2' : l === 's' && i >= ARMA ? 'arm' : l);
 // desgaste da ferramenta no espaço i (receitas.js DURA; e.desg[id]: a primeira é a da mão, depois na ordem dos espaços)
 function desgDoEspaco(i, id) {
   if (!DURA[id] || !invPronto) return 0;
   const l = (mercado.e.desg && mercado.e.desg[id]) || [];
   if (!l.some((v) => v > 0)) return 0;
   const ordem = [];
-  if (inv.s[slotSel] && inv.s[slotSel].id === id) ordem.push(slotSel);
-  inv.s.forEach((p, k) => { if (p && p.id === id && k !== slotSel) ordem.push(k); });
+  // armadura: a primeira é a vestida (é ela que gasta); ferramenta: a primeira é a da mão
+  const pa = parteDe(id);
+  if (pa >= 0 && inv.s[ARMA + pa] && inv.s[ARMA + pa].id === id) ordem.push(ARMA + pa);
+  else if (inv.s[slotSel] && inv.s[slotSel].id === id) ordem.push(slotSel);
+  inv.s.forEach((p, k) => { if (p && p.id === id && !ordem.includes(k)) ordem.push(k); });
   const n = ordem.indexOf(i);
   return n >= 0 ? l[n] || 0 : 0;
 }
@@ -610,6 +614,10 @@ function slotInv(l, i, p, cls = '') {
     if (p.n > 1) { const q = document.createElement('b'); q.className = 'qtd'; q.textContent = p.n; b.appendChild(q); }
     if (l === 's') barraDesg(b, i, p.id);
     b.setAttribute('aria-label', `${nomeDe(p.id)} (${p.n})`);
+  } else if (grandeDe(l, i) === 'arm') {
+    // espaço da armadura vazio: a silhueta da peça de couro, apagada
+    const f = imgIcone(1117 + i - ARMA); f.classList.add('fantasma'); b.appendChild(f);
+    b.setAttribute('aria-label', NOME_PARTE[i - ARMA] + ': nada vestido');
   } else b.setAttribute('aria-label', grandeDe(l, i) === 'mao2' ? 'Segunda mão vazia' : 'Vazio');
   return b;
 }
@@ -635,7 +643,14 @@ function desenharMochila(g) {
   const rap = document.createElement('button'); rap.type = 'button'; rap.id = 'inv-rapido'; rap.className = 'bt-mini' + (moverRapido ? ' ligado' : '');
   rap.setAttribute('aria-pressed', moverRapido); rap.innerHTML = icone('raio'); rap.append(' Mover rápido');
   rap.addEventListener('click', () => { moverRapido = !moverRapido; som.clique(); desenharMochila(g); });
+  // armadura vestida (só no jogo clássico, onde ela protege): cabeça, peito, pernas e pés
+  let arm = null;
+  if (mercado.op.fome || inv.vestido().length) {
+    arm = document.createElement('div'); arm.className = 'inv-armadura'; arm.setAttribute('aria-label', 'Armadura vestida');
+    for (let k = 0; k < 4; k++) arm.appendChild(slotInv('s', ARMA + k, inv.s[ARMA + k], 'arm'));
+  }
   lado.append(m2, rap);
+  if (arm) cima.append(arm);
   cima.append(forno || criar, lado);
   const moch = document.createElement('div'); moch.className = 'inv-mochila';
   for (let i = 9; i < 36; i++) moch.appendChild(slotInv('s', i, inv.s[i]));
@@ -1149,6 +1164,42 @@ function mostrarColeta(id, n) {
 // online quem põe no chão é a sala)
 // ---------- experiência (xp-regras.js): barra verde em cima da barra de itens, com o nível no meio ----------
 let xpVisto = -1, nivelVisto = -1;
+// armadura (jogo clássico): o dano de fora (bicho, monstro, fogo, lava) passa por ela e ela gasta
+function armaduraLigada() { return invPronto && sobrev() && !!mercado.op.fome && vida.classico(); }
+function danoDeFora(n, motivo) {
+  vida.motivo = motivo;
+  const ids = armaduraLigada() && PROTEGE.has(motivo) ? inv.vestido() : [];
+  if (!ids.length) return vida.dano(n);
+  const r = reduzir(n, ids);
+  // mesmo quando a armadura segurou tudo, o golpe pegou nela (gasta); protegido (acabou de levar) não gasta
+  if (vida.protegido > 0 || vida.atual <= 0 || !vida.ligada()) return false;
+  mercado.armadura(ids, r.gasto);
+  return r.dano > 0 ? vida.dano(r.dano) : false;
+}
+// barra de armadura em cima dos corações (como no clássico): 10 peitorais, cada um vale 2 pontos
+let armVista = -1;
+function desenharArmadura() {
+  const el = $('#armadura');
+  const d = armaduraLigada() && !morto ? defesa(inv.vestido()).d : 0;
+  if (d === armVista) return;
+  armVista = d;
+  el.hidden = !d;
+  document.body.classList.toggle('com-armadura', !!d);
+  if (!d) return;
+  if (!el.childElementCount) for (let k = 0; k < 10; k++) { const sp = document.createElement('span'); sp.className = 'peca'; sp.innerHTML = icone('peitoral') + '<span class="metade">' + icone('peitoral') + '</span>'; el.appendChild(sp); }
+  [...el.children].forEach((sp, k) => { sp.className = 'peca' + (d >= k * 2 + 2 ? '' : d === k * 2 + 1 ? ' meio' : ' oco'); });
+  el.setAttribute('aria-label', `Armadura: ${d} de 20`);
+}
+// peça de armadura na mão + usar: veste (troca com a que estava vestida)
+function tentarVestir() {
+  const id = naMao();
+  if (!armaduraLigada() || parteDe(id) < 0 || !inv.s[slotSel] || inv.s[slotSel].id !== id) return false;
+  inv.vestir(slotSel);
+  som.tom(520, 0.08, { tipo: 'triangle', vol: 0.2, ate: 700 });
+  aviso(`Vestiu: ${nomeDe(id)}`, 1200, 'escudo');
+  sincronizarBarra(); salvarInvDepois(); desenharBarra();
+  return true;
+}
 function desenharXp() {
   const el = $('#xp');
   const liga = jogando && sobrev() && !!mercado.op.fome && podeConstruir();
@@ -1452,7 +1503,7 @@ function quadroComer(dt) {
   const r = mercado.mexer(a, false);
   if (!r) return;
   if (mercado.sala) mercado.sala.enviar(a);
-  vida.comer(id);
+  if (vida.comer(id) === 'enjoo') aviso('Enjoou! Carne estragada faz a fome bater mais rápido por um tempo', 2600, 'coxa');
   som.tom(520, 0.08, { tipo: 'sine', vol: 0.2, ate: 760 });
   salvarCorpo();
   desenharBarra();
@@ -1607,7 +1658,7 @@ function usar(ponto) {
   if (m.aldeao) { conversarCom(m.aldeao); return; }
   if (m.trabalhador) { negocios.tocar(m.trabalhador); return; }
   const h = m.bloco;
-  if (!h) { tentarComer(); return; }
+  if (!h) { tentarVestir() || tentarComer(); return; }
   // tocar na bancada abre a grade de criar 3x3
   if (h.b === B.BANCADA && sobrev()) { som.clique(); if (invPronto) { inv.mudarGrade(3); abrirInventario('mochila'); } else abrirInventario('criar'); return; }
   // tocar na fornalha abre a fornalha (com a mochila embaixo)
@@ -1632,7 +1683,7 @@ function usar(ponto) {
   if (BASE[h.b] === E.BOTAO) { apertarBotao(h.x, h.y, h.z); return; }
   // portas, forno, pedra de moinho e manivela do poço (com Porta/Forno... na mão, coloca em vez de mexer)
   if (naMao() !== h.b && mecanismos.tocar(h)) return; // (não conta como colocar bloco nas missões)
-  if (tentarComer()) return; // comida na mão (clássico): come em vez de colocar
+  if (tentarVestir() || tentarComer()) return; // armadura na mão veste; comida na mão (clássico) come em vez de colocar
   if (armas.empunhando || !podeConstruir()) return; // com arma na mão (ou sem construção) não coloca bloco
   const x = h.x + h.n[0], y = h.y + h.n[1], z = h.z + h.n[2];
   let novo = naMao();
@@ -1873,14 +1924,14 @@ function queimarNoFogo(dt) {
   if (!noFogo()) { tempoFogo = 0; return; }
   if (tempoTotal - avisouFogo > 4) { avisouFogo = tempoTotal; aviso('Fogo queima! Saia de perto ou apague com água', 2000, 'explosao'); }
   tempoFogo += dt;
-  if (tempoFogo >= 1 / DANO_FOGO) { tempoFogo = 0; vida.motivo = 'fogo'; if (vida.dano(vida.escala())) som.tom(160, 0.15, { tipo: 'square', vol: 0.25, ate: 90 }); }
+  if (tempoFogo >= 1 / DANO_FOGO) { tempoFogo = 0; if (danoDeFora(vida.escala(), 'fogo')) som.tom(160, 0.15, { tipo: 'square', vol: 0.25, ate: 90 }); }
 }
 
 function queimarNaLava(dt) {
   if (!jog.naLava) { tempoLava = 0; return; }
   if (tempoTotal - avisouLava > 4) { avisouLava = tempoTotal; aviso('A lava queima! Saia rápido (pule)', 2000, 'explosao'); }
   tempoLava += dt;
-  if (tempoLava >= 1 / DANO_LAVA) { tempoLava = 0; vida.motivo = 'lava'; if (vida.dano(vida.escala() * (vida.classico() ? 2 : 1))) som.tom(160, 0.15, { tipo: 'square', vol: 0.25, ate: 90 }); }
+  if (tempoLava >= 1 / DANO_LAVA) { tempoLava = 0; if (danoDeFora(vida.escala() * (vida.classico() ? 2 : 1), 'lava')) som.tom(160, 0.15, { tipo: 'square', vol: 0.25, ate: 90 }); }
 }
 
 // recolhe a fonte de água mirada; a água corrente que dependia dela seca sozinha
@@ -2137,8 +2188,8 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
     const quem = b.I.nome || 'o bicho';
     // no clássico os danos dobram (10 corações) e mudam com a dificuldade (Fácil metade, Difícil uma vez e meia)
     if (dano && vida.classico()) { const d = opcoesMundo.dificuldade; dano = Math.max(1, Math.round(dano * 2 * (d === 'facil' ? 0.5 : d === 'dificil' ? 1.5 : 1))); vida.motivo = 'bicho'; }
-    if (dano && b.I.monstro) { vida.motivo = 'monstro'; if (vida.dano(dano)) som.tom(200, 0.15, { tipo: 'sine', vol: 0.3, ate: 120 }); return; }
-    if (dano && vida.dano(dano)) { som.tom(200, 0.15, { tipo: 'sine', vol: 0.3, ate: 120 }); aviso('Ai! ' + quem[0].toUpperCase() + quem.slice(1) + ' te mordeu. Acenda uma luz ou toque para espantar', 2000, 'coracao'); }
+    if (dano && b.I.monstro) { if (danoDeFora(dano, 'monstro')) som.tom(200, 0.15, { tipo: 'sine', vol: 0.3, ate: 120 }); return; }
+    if (dano && danoDeFora(dano, 'bicho')) { som.tom(200, 0.15, { tipo: 'sine', vol: 0.3, ate: 120 }); aviso('Ai! ' + quem[0].toUpperCase() + quem.slice(1) + ' te mordeu. Acenda uma luz ou toque para espantar', 2000, 'coracao'); }
     else aviso(quem[0].toUpperCase() + quem.slice(1) + ' te deu um empurrão. Deixe ' + (quem.startsWith('a ') ? 'ela' : 'ele') + ' em paz', 1800, 'pata');
   };
   // bicho derrubado: o que ele deixa vai para a mochila (se o mundo tiver mochila: Coletar e criar ou Mercado)
@@ -2627,7 +2678,7 @@ function laco(agora) {
   turnoAcum += dt;
   if (turnoAcum >= 3) { mercado.turno(turnoAcum, horaDe(tempoDia)); turnoAcum = 0; }
   if (!pausado && !morto) { vida.atualizar(dt); quadroComer(dt); }
-  desenharXp();
+  desenharXp(); desenharArmadura();
   if ((timerCorpo += dt) > 3) { timerCorpo = 0; salvarCorpo(); }
   armas.quadro(dt, pausado || garagem.dentro);
   if (garagem.dentro || visao.terceira) armas.mao.visible = false;

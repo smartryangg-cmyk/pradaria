@@ -13,7 +13,7 @@ export const COMIDA = {
   [I.CARNE]: { f: 3, s: 1.8 },
   [I.CARNE_ASSADA]: { f: 8, s: 12.8 }, // assada na fornalha (fornalha-regras.js) enche bem mais
   1012: { f: 7, s: 8.4 }, // bolo (cana-regras.js): 3 trigos + 2 açúcares
-  [I.CARNE_ESTRAGADA]: { f: 4, s: 0.8 }, // cai do barrento (monstro): mata pouco a fome
+  [I.CARNE_ESTRAGADA]: { f: 4, s: 0.8, enjoo: 0.8 }, // cai do barrento (monstro): mata pouco a fome e 80% de chance de enjoar
 };
 export const ehComida = (id) => Object.prototype.hasOwnProperty.call(COMIDA, id);
 export const TEMPO_COMER = 1.6; // segundos segurando para comer
@@ -21,7 +21,8 @@ export const TEMPO_COMER = 1.6; // segundos segurando para comer
 // quanto cansa cada coisa (como no clássico)
 export const CANSA = { correr: 0.1, nadar: 0.01, pular: 0.05, pularCorrendo: 0.2, bater: 0.1, quebrar: 0.005, dano: 0.1, curar: 6 };
 
-export const fomeNova = () => ({ f: FOME_MAX, s: 5, x: 0, tc: 0, tr: 0 });
+export const ENJOO = 30, CANSA_ENJOO = 0.1; // enjoo (como o efeito Fome do clássico): 30 s cansando 0,1 por segundo a mais
+export const fomeNova = () => ({ f: FOME_MAX, s: 5, x: 0, tc: 0, tr: 0, ej: 0 });
 export function normalizarFome(o) {
   const n = fomeNova();
   if (!o || typeof o !== 'object') return n;
@@ -29,6 +30,7 @@ export function normalizarFome(o) {
   n.f = Math.round(num(o.f, 0, FOME_MAX, n.f));
   n.s = num(o.s, 0, n.f, Math.min(n.s, n.f));
   n.x = num(o.x, 0, 4, 0);
+  n.ej = num(o.ej, 0, ENJOO, 0);
   return n;
 }
 
@@ -42,12 +44,13 @@ export function cansar(e, q) {
   }
 }
 
-// comeu: devolve false se não é comida ou se está sem fome
-export function comer(e, id) {
+// comeu: devolve false se não é comida ou se está sem fome; 'enjoo' se a comida fez mal (carne estragada)
+export function comer(e, id, sorte = Math.random) {
   const c = COMIDA[id];
   if (!c || e.f >= FOME_MAX) return false;
   e.f = Math.min(FOME_MAX, e.f + c.f);
   e.s = Math.min(e.f, e.s + c.s);
+  if (c.enjoo && sorte() < c.enjoo) { e.ej = ENJOO; return 'enjoo'; }
   return true;
 }
 
@@ -57,6 +60,8 @@ export const pisoFome = (dif) => (dif === 'facil' ? 10 : dif === 'dificil' ? 0 :
 
 // a cada quadro: devolve quanto a vida muda (+1 curou, -1 a fome machucou, 0 nada)
 export function tique(e, dt, vida, max, dif) {
+  // enjoado: a fome bate mais rápido até passar
+  if (e.ej > 0) { const t = Math.min(dt, e.ej); e.ej -= t; cansar(e, CANSA_ENJOO * t); }
   // cheio e com saturação: cura rápido (meio coração a cada 0,5 s, gastando a saturação)
   if (e.f >= FOME_MAX && e.s > 0 && vida < max) {
     e.tr += dt;

@@ -3,7 +3,7 @@
 import { escuroPara, aranhaBrava, qualMonstro, CAI_MONSTRO, ehMonstro, MAX_MONSTROS } from '../public/js/monstros-regras.js';
 import { aplicar, estadoNovo, opcoesEcon, caiDoBicho } from '../public/js/economia.js';
 import { IDS as I, RECEITAS, receitaDaGrade, desenhoDe, receitasDoMundo, guardavel, DURA } from '../public/js/receitas.js';
-import { ehComida } from '../public/js/fome-regras.js';
+import { ehComida, fomeNova, comer, tique, normalizarFome, ENJOO } from '../public/js/fome-regras.js';
 import { INSTINTOS } from '../public/js/instintos.js';
 
 let falhas = 0;
@@ -33,6 +33,22 @@ ok(receitaDaGrade([I.TEIA, I.TEIA, I.TEIA, I.TEIA], 2, receitasDoMundo(cl))?.id 
   ok(!e.itens[I.ESPADA_MADEIRA], 'a espada de madeira quebra com 59 golpes');
   const pac = opcoesEcon({ sobrevivencia: true, dificuldade: 'pacifico' }), e2 = estadoNovo(pac);
   ok(!aplicar(e2, pac, { t: 'ev', e: 'caca', b: 'aranha', f: 0 }).ok, 'no Pacífico (mods) não existe monstro');
+}
+{
+  // carne estragada: 80% de chance de enjoar (a fome bate mais rápido por 30 s), como no clássico
+  const f = fomeNova(); f.f = 10; f.s = 0;
+  ok(comer(f, I.CARNE_ESTRAGADA, () => 0.5) === 'enjoo' && f.ej === ENJOO && f.f === 14, 'carne estragada enjoou (sorte 0,5 < 0,8)');
+  const g = fomeNova(); g.f = 10; g.s = 0;
+  ok(comer(g, I.CARNE_ESTRAGADA, () => 0.9) === true && !g.ej, 'às vezes não enjoa (sorte 0,9)');
+  const h = fomeNova(); h.f = 10; h.s = 0; comer(h, I.CARNE, () => 0); ok(!h.ej, 'carne crua comum não enjoa');
+  let soma = 0; for (let k = 0; k < 400; k++) { const x = fomeNova(); x.f = 10; if (comer(x, I.CARNE_ESTRAGADA) === 'enjoo') soma++; }
+  ok(soma > 280 && soma < 360, 'enjoa mais ou menos 8 em 10 vezes (' + soma + '/400)');
+  for (let t = 0; t < 400; t++) tique(f, 0.1, 20, 20, 'normal'); // 40 s
+  ok(f.ej === 0, 'o enjoo passa depois de 30 s');
+  const a = fomeNova(); a.f = 10; a.s = 0; a.ej = ENJOO; const b2 = fomeNova(); b2.f = 10; b2.s = 0;
+  for (let t = 0; t < 300; t++) { tique(a, 0.1, 20, 20, 'normal'); tique(b2, 0.1, 20, 20, 'normal'); }
+  ok(a.x + (10 - a.f) * 4 > b2.x + (10 - b2.f) * 4 + 2.9, 'enjoado cansa 3 a mais em 30 s (0,1 por segundo)');
+  ok(normalizarFome({ f: 10, s: 0, ej: 99 }).ej === ENJOO && normalizarFome({ f: 10 }).ej === 0, 'o enjoo fica guardado (no máximo 30 s)');
 }
 console.log(falhas ? `${falhas} falha(s)` : 'TUDO OK');
 process.exit(falhas ? 1 : 0);

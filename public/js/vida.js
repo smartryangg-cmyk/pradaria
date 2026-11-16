@@ -40,7 +40,7 @@ export const vida = {
     }
     this.desenhar();
   },
-  salvar() { return { v: this.atual, fome: { f: this.fome.f, s: Math.round(this.fome.s * 10) / 10, x: Math.round(this.fome.x * 100) / 100 } }; },
+  salvar() { return { v: this.atual, fome: { f: this.fome.f, s: Math.round(this.fome.s * 10) / 10, x: Math.round(this.fome.x * 100) / 100, ej: Math.round(this.fome.ej || 0) } }; },
 
   // devolve true se machucou
   dano(n = 1) {
@@ -64,14 +64,16 @@ export const vida = {
   cansar(q) { if (classico() && this.atual > 0) { const f = this.fome.f; cansar(this.fome, q); if (f !== this.fome.f) this.desenhar(); } },
   podeCorrer() { return !classico() || podeCorrer(this.fome); },
   comFome() { return classico() && this.fome.f < FOME_MAX; },
-  comer(id) { if (!classico() || !comer(this.fome, id)) return false; this.desenhar(); return true; },
+  comer(id) { if (!classico()) return false; const r = comer(this.fome, id); if (!r) return false; this.desenhar(); return r; },
 
   atualizar(dt) {
     if (this.protegido > 0) this.protegido -= dt;
     this.semDano += dt;
     if (this.atual <= 0) return;
     if (classico()) {
+      const f0 = this.fome.f, ej0 = this.fome.ej > 0;
       const d = tique(this.fome, dt, this.atual, this.max, opcoesMundo.dificuldade);
+      if (f0 !== this.fome.f || ej0 !== this.fome.ej > 0) this.desenhar(); // o enjoo gastou a fome ou passou
       if (d > 0) this.curar(1);
       else if (d < 0) { this.protegido = 0; this.motivo = 'fome'; this.dano(1); }
       return;
@@ -123,6 +125,7 @@ export const vida = {
         s.className = 'coxa ' + (v >= 2 ? 'cheio' : v === 1 ? 'meio' : 'oco');
       });
       fe.classList.toggle('treme', this.fome.f <= 6);
+      fe.classList.toggle('enjoo', this.fome.ej > 0); // enjoado: as coxinhas ficam verdes
       fe.setAttribute('aria-label', `Fome: ${this.fome.f / 2} de 10`);
     }
     if (this.aoMudar) this.aoMudar(this.atual, machucou);
