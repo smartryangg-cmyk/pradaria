@@ -78,6 +78,12 @@ const CORES = [0x3f6fd9, 0xe8433f, 0x4caf50, 0xf2c72e, 0x9c5bd9, 0xf29ac2, 0xff8
 const naTV = modoTV();
 const ehToque = !naTV && (matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window);
 if (ehToque) document.body.classList.add('toque');
+// versão da TV mais leve (TV costuma ter processador e placa de vídeo fracos): desenha menos pixels
+// (de longe, no sofá, não se nota), enxerga um pouco menos longe e fica no gráfico Leve.
+// Na tela dividida cada metade pesa menos ainda: 30 quadros por segundo e sem nuvens.
+// Quem escolhe os gráficos ou a distância à mão nos Ajustes manda.
+const naDupla = !!window.jogadorTV;
+const TV_LEVE = naTV ? { teto: naDupla ? 0.25 : 0.45, dist: 2, fps: naDupla ? 30 : 0 } : null;
 const AJ_PADRAO = { dist: ehToque ? 3 : 4, qual: ehToque ? 0.8 : 1, graf: 'auto', grafAuto: null, grafTeto: null, grafManual: false, gopc: null, ...PESSOAIS, auto: true, sens: 0.0055, som: true, ...VOL_PADRAO, fps: false, minimapa: true };
 let ajustes = { ...AJ_PADRAO };
 try { Object.assign(ajustes, JSON.parse(localStorage.getItem('pradaria.ajustes') || '{}')); } catch {}
@@ -88,13 +94,16 @@ if (!ajustes.grafManual) ajustes.graf = 'auto';
 if (ajustes.graf !== 'auto' && !QUALIDADES[ajustes.graf] && !(ajustes.graf === 'personalizado' && ajustes.gopc)) ajustes.graf = 'auto';
 const NIVEIS = ['baixa', 'media', 'alta', 'ultra'];
 // nível que vale no automático: o que a calibração achou neste aparelho, ou um palpite pela placa de vídeo
-const nivelAuto = () => (NIVEIS.includes(ajustes.grafAuto) ? ajustes.grafAuto : palpiteGrafico());
+const nivelAuto = () => (TV_LEVE ? 'baixa' : NIVEIS.includes(ajustes.grafAuto) ? ajustes.grafAuto : palpiteGrafico());
 // opções gráficas valendo agora: as do preset (ou as personalizadas) + as pessoais
 function opcoesGraficas() {
   const base = ajustes.graf === 'personalizado' ? { ...QUALIDADES.alta, ...ajustes.gopc, nome: 'Personalizado' }
     : ajustes.graf === 'auto' ? { ...QUALIDADES[nivelAuto()], nome: 'Automático: ' + QUALIDADES[nivelAuto()].nome } : QUALIDADES[ajustes.graf];
   return { ...base, fov: ajustes.fov, brilho: ajustes.brilho, fpsMax: ajustes.fpsMax };
 }
+// TV leve vale enquanto os gráficos estão no Automático
+const tvLeve = () => !!TV_LEVE && ajustes.graf === 'auto';
+const fpsLimite = () => ajustes.fpsMax || (tvLeve() ? TV_LEVE.fps : 0);
 const salvarAjustes = () => { try { localStorage.setItem('pradaria.ajustes', JSON.stringify(ajustes)); } catch {} };
 
 // ---------- renderização ----------
@@ -106,6 +115,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPrefer
 let palpiteFeito = null;
 function palpiteGrafico() {
   if (palpiteFeito) return palpiteFeito;
+  if (TV_LEVE) return (palpiteFeito = 'baixa');
   let gpu = '';
   try {
     const gl = renderer.getContext();
@@ -143,7 +153,7 @@ const pos = criarPosEfeitos(renderer, cena, camera);
 
 function redimensionar() {
   // limite de pixels por nível (tablet com tela enorme não precisa desenhar 4 milhões de pixels)
-  const og = opcoesGraficas(), tetoMP = og.teto || 1.3;
+  const og = opcoesGraficas(), tetoMP = tvLeve() ? Math.min(og.teto || 1.3, TV_LEVE.teto) : og.teto || 1.3;
   const maxPr = Math.sqrt((tetoMP * 1e6) / (innerWidth * innerHeight));
   // Ultra: resolução nativa da tela (sem teto)
   const pr = (og.nativo ? window.devicePixelRatio || 1 : Math.min(window.devicePixelRatio || 1, 2, maxPr)) * ajustes.qual;
@@ -198,7 +208,7 @@ let somPronto = false;
 function aplicarGraficos() {
   const o = graf.aplicar(opcoesGraficas());
   if (somPronto) aplicarSom(); // gráfico Leve deixa o som mais simples também
-  nuvens.visible = o.nuvens;
+  nuvens.visible = o.nuvens && !(tvLeve() && naDupla);
   matContorno.visible = !!o.contorno;
   $('#vinheta').hidden = !o.vinheta;
   pos.ligar(!!o.pos);
@@ -1327,9 +1337,9 @@ addEventListener('keydown', (e) => {
 });
 // mundo pequeno/médio: como acaba no mar, dá para enxergar mais longe sem pesar
 // Ultra enxerga longe (visao: distância mínima do preset)
-const distVisao = () => Math.max(ajustes.dist, opcoesGraficas().visao || 0);
+const distVisao = () => (tvLeve() && !ajustes.distManual ? Math.min(ajustes.dist, TV_LEVE.dist) : Math.max(ajustes.dist, opcoesGraficas().visao || 0));
 const raioVisao = () => Math.min(9, distVisao() + raioExtraMundo());
-$('#aj-dist').addEventListener('input', (e) => { ajustes.dist = +e.target.value; if (mundo) mundo.raio = raioVisao(); salvarAjustes(); ajustarNevoa(); });
+$('#aj-dist').addEventListener('input', (e) => { ajustes.dist = +e.target.value; ajustes.distManual = true; if (mundo) mundo.raio = raioVisao(); salvarAjustes(); ajustarNevoa(); });
 $('#aj-graf').addEventListener('change', (e) => {
   ajustes.graf = e.target.value;
   ajustes.grafManual = ajustes.graf !== 'auto';
@@ -2591,7 +2601,8 @@ const corTmp = new THREE.Color();
 function laco(agora) {
   requestAnimationFrame(laco);
   // limite de FPS (economiza bateria); a folga de 2 ms evita pular quadro à toa
-  if (jogando && ajustes.fpsMax && agora - ultimo < 1000 / ajustes.fpsMax - 2) return;
+  const fpsMax = fpsLimite();
+  if (jogando && fpsMax && agora - ultimo < 1000 / fpsMax - 2) return;
   const dt = Math.min(0.1, (agora - ultimo) / 1000);
   ultimo = agora;
   if (!jogando) { renderer.render(cena, camera); return; }
@@ -2750,11 +2761,11 @@ const calib = {
   reiniciar() { this.bons = 0; this.ruins = 0; this.aguardar = 4; },
   passo(fps) {
     if (this.aguardar > 0) { this.aguardar--; return; }
-    const alvo = ajustes.fpsMax || 60; // tela de 60 Hz não passa de ~60
+    const alvo = fpsLimite() || 60; // tela de 60 Hz não passa de ~60
     const atual = NIVEIS.indexOf(nivelAuto());
     // sem teto marcado: no máximo um nível acima do palpite, e tablet/celular ou pouca memória nunca vão sozinhos ao Ultra
     const fraco = ehToque || (navigator.deviceMemory || 8) <= 4;
-    const tetoPadrao = Math.min(NIVEIS.indexOf(palpiteGrafico()) + 1, NIVEIS.length - (fraco ? 2 : 1));
+    const tetoPadrao = tvLeve() ? 0 : Math.min(NIVEIS.indexOf(palpiteGrafico()) + 1, NIVEIS.length - (fraco ? 2 : 1));
     const teto = NIVEIS.includes(ajustes.grafTeto) ? NIVEIS.indexOf(ajustes.grafTeto) : tetoPadrao;
     this.bons = fps >= alvo * 0.9 ? this.bons + 1 : 0;
     this.ruins = fps < alvo * 0.62 ? this.ruins + 1 : 0;
@@ -2823,4 +2834,4 @@ if (conta.token) abrirJogos().then(() => { if (mundoPedido && conta.usuario) ent
 else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get mundoAtual() { return mundoAtual; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, get inv() { return inv; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; }, get escav() { return escav; }, som, fornos, get fornoAberto() { return fornoAberto; }, baus, get bauAberto() { return bauAberto; } }; }
+if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get mundoAtual() { return mundoAtual; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, get inv() { return inv; }, abrirInventario, bancadaPerto, camera, cena, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; }, get escav() { return escav; }, som, fornos, get fornoAberto() { return fornoAberto; }, baus, get bauAberto() { return bauAberto; } }; }
