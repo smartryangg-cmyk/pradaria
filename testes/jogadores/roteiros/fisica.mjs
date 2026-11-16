@@ -49,6 +49,26 @@ export default async function fisica(j) {
     const g = await acharBloco(j, [1], 20);
     if (g) await irAte(j, g.x, g.z, { perto: 0.8, ms: 20000 });
   }
+  // nasceu numa vila ou no meio das árvores? procura um campo aberto por perto (céu livre e 12 blocos planos)
+  const campo = await j.p.evaluate(() => {
+    const g = window.__jogo, m = g.mundo, p = g.jog.pos;
+    const chao = (x, z) => { for (let y = Math.floor(p.y) + 8; y > Math.floor(p.y) - 8; y--) if (m.bloco(x, y, z)) return y + 1; return null; };
+    const livre = (x, y, z) => !m.bloco(x, y, z) && !m.bloco(x, y + 1, z) && !m.bloco(x, y + 2, z) && !m.bloco(x, y + 3, z);
+    let melhor = null;
+    for (let r = 0; r <= 40; r += 2) for (let k = 0; k < Math.max(1, r * 2); k++) {
+      const a = k / Math.max(1, r * 2) * Math.PI * 2, x = Math.floor(p.x + Math.cos(a) * r), z = Math.floor(p.z + Math.sin(a) * r), y = chao(x, z);
+      if (y == null || !livre(x, y, z) || m.bloco(x, y - 1, z) !== 1) continue; // grama de verdade (não telhado, não água)
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        let ok = true;
+        for (let d = 1; d <= 12 && ok; d++) ok = chao(x + dx * d, z + dz * d) === y && m.bloco(x + dx * d, y - 1, z + dz * d) === 1 && livre(x + dx * d, y, z + dz * d);
+        if (ok) { melhor = { x, z, r }; break; }
+      }
+      if (melhor) return melhor;
+    }
+    return null;
+  });
+  if (!campo) j.passo('não achou campo aberto de grama por perto');
+  if (campo && campo.r > 0) { j.passo(`aqui é fechado; vai até um campo aberto a ${campo.r} blocos`); await irAte(j, campo.x, campo.z, { perto: 0.8, ms: 40000 }); }
   // anda num lugar aberto (14 blocos planos na frente)
   for (let t = 0; t < 4 && (await virarParaOAberto(j)) < 10; t++) await j.andar(['frente', 'direita', 'tras', 'esquerda'][t], 2500, { pular: true });
   const anda = await velocidade(j, () => j.andar('frente', 1800));
