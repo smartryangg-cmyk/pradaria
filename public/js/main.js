@@ -4,9 +4,11 @@ import * as THREE from '../vendor/three.module.min.js';
 import { F } from './formas.js';
 import { FOLHAGEM } from './blocos.js';
 import { CANA, cabeCana } from './cana-regras.js';
+import { BOLO_ITEM, BOLO_B, ehBolo, depoisDaFatia } from './bolo-regras.js';
 import { criarAtlas, iconeBloco, INVENTARIO, INVENTARIO_MAQUINAS, INVENTARIO_FORMAS, B, E, AR, BLOCOS, SOLIDO, AGUA, PRECISA_CHAO, ITEM, ehItem, nomeDe, FORNALHA } from './blocos.js';
 import { toquesCom, receitasDoMundo, GRUPOS, podeCriar, faltaBancada, gastoDe, receitaDaGrade, arrumar, cabeNaGrade, pilhaDe, cabe, nivelFalta, NOME_NIVEL, baseDe, DURA } from './receitas.js';
-import { Inventario, MAO2 } from './inventario.js';
+import { Inventario, MAO2, ARMA } from './inventario.js';
+import { reduzir, defesa, parteDe, PROTEGE, NOME_PARTE } from './armadura-regras.js';
 import { BASE, PRECISA_ENERGIA, ELETRICO } from './energia.js';
 import { Mundo, ALT, NIVEL_AGUA } from './mundo.js';
 import { vento as forcaVento } from './energia.js';
@@ -78,6 +80,12 @@ const CORES = [0x3f6fd9, 0xe8433f, 0x4caf50, 0xf2c72e, 0x9c5bd9, 0xf29ac2, 0xff8
 const naTV = modoTV();
 const ehToque = !naTV && (matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window);
 if (ehToque) document.body.classList.add('toque');
+// versão da TV mais leve (TV costuma ter processador e placa de vídeo fracos): desenha menos pixels
+// (de longe, no sofá, não se nota), enxerga um pouco menos longe e fica no gráfico Leve.
+// Na tela dividida cada metade pesa menos ainda: 30 quadros por segundo e sem nuvens.
+// Quem escolhe os gráficos ou a distância à mão nos Ajustes manda.
+const naDupla = !!window.jogadorTV;
+const TV_LEVE = naTV ? { teto: naDupla ? 0.25 : 0.45, dist: 2, fps: naDupla ? 30 : 0 } : null;
 const AJ_PADRAO = { dist: ehToque ? 3 : 4, qual: ehToque ? 0.8 : 1, graf: 'auto', grafAuto: null, grafTeto: null, grafManual: false, gopc: null, ...PESSOAIS, auto: true, sens: 0.0055, som: true, ...VOL_PADRAO, fps: false, minimapa: true };
 let ajustes = { ...AJ_PADRAO };
 try { Object.assign(ajustes, JSON.parse(localStorage.getItem('pradaria.ajustes') || '{}')); } catch {}
@@ -88,13 +96,16 @@ if (!ajustes.grafManual) ajustes.graf = 'auto';
 if (ajustes.graf !== 'auto' && !QUALIDADES[ajustes.graf] && !(ajustes.graf === 'personalizado' && ajustes.gopc)) ajustes.graf = 'auto';
 const NIVEIS = ['baixa', 'media', 'alta', 'ultra'];
 // nível que vale no automático: o que a calibração achou neste aparelho, ou um palpite pela placa de vídeo
-const nivelAuto = () => (NIVEIS.includes(ajustes.grafAuto) ? ajustes.grafAuto : palpiteGrafico());
+const nivelAuto = () => (TV_LEVE ? 'baixa' : NIVEIS.includes(ajustes.grafAuto) ? ajustes.grafAuto : palpiteGrafico());
 // opções gráficas valendo agora: as do preset (ou as personalizadas) + as pessoais
 function opcoesGraficas() {
   const base = ajustes.graf === 'personalizado' ? { ...QUALIDADES.alta, ...ajustes.gopc, nome: 'Personalizado' }
     : ajustes.graf === 'auto' ? { ...QUALIDADES[nivelAuto()], nome: 'Automático: ' + QUALIDADES[nivelAuto()].nome } : QUALIDADES[ajustes.graf];
   return { ...base, fov: ajustes.fov, brilho: ajustes.brilho, fpsMax: ajustes.fpsMax };
 }
+// TV leve vale enquanto os gráficos estão no Automático
+const tvLeve = () => !!TV_LEVE && ajustes.graf === 'auto';
+const fpsLimite = () => ajustes.fpsMax || (tvLeve() ? TV_LEVE.fps : 0);
 const salvarAjustes = () => { try { localStorage.setItem('pradaria.ajustes', JSON.stringify(ajustes)); } catch {} };
 
 // ---------- renderização ----------
@@ -106,6 +117,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPrefer
 let palpiteFeito = null;
 function palpiteGrafico() {
   if (palpiteFeito) return palpiteFeito;
+  if (TV_LEVE) return (palpiteFeito = 'baixa');
   let gpu = '';
   try {
     const gl = renderer.getContext();
@@ -143,7 +155,7 @@ const pos = criarPosEfeitos(renderer, cena, camera);
 
 function redimensionar() {
   // limite de pixels por nível (tablet com tela enorme não precisa desenhar 4 milhões de pixels)
-  const og = opcoesGraficas(), tetoMP = og.teto || 1.3;
+  const og = opcoesGraficas(), tetoMP = tvLeve() ? Math.min(og.teto || 1.3, TV_LEVE.teto) : og.teto || 1.3;
   const maxPr = Math.sqrt((tetoMP * 1e6) / (innerWidth * innerHeight));
   // Ultra: resolução nativa da tela (sem teto)
   const pr = (og.nativo ? window.devicePixelRatio || 1 : Math.min(window.devicePixelRatio || 1, 2, maxPr)) * ajustes.qual;
@@ -198,7 +210,7 @@ let somPronto = false;
 function aplicarGraficos() {
   const o = graf.aplicar(opcoesGraficas());
   if (somPronto) aplicarSom(); // gráfico Leve deixa o som mais simples também
-  nuvens.visible = o.nuvens;
+  nuvens.visible = o.nuvens && !(tvLeve() && naDupla);
   matContorno.visible = !!o.contorno;
   $('#vinheta').hidden = !o.vinheta;
   pos.ligar(!!o.pos);
@@ -579,15 +591,18 @@ function sincronizarBarra() {
   barraVista = [...barra];
   if (mudou) guardarBarraDepois();
 }
-const grandeDe = (l, i) => (l === 's' && i === MAO2 ? 'mao2' : l);
+const grandeDe = (l, i) => (l === 's' && i === MAO2 ? 'mao2' : l === 's' && i >= ARMA ? 'arm' : l);
 // desgaste da ferramenta no espaço i (receitas.js DURA; e.desg[id]: a primeira é a da mão, depois na ordem dos espaços)
 function desgDoEspaco(i, id) {
   if (!DURA[id] || !invPronto) return 0;
   const l = (mercado.e.desg && mercado.e.desg[id]) || [];
   if (!l.some((v) => v > 0)) return 0;
   const ordem = [];
-  if (inv.s[slotSel] && inv.s[slotSel].id === id) ordem.push(slotSel);
-  inv.s.forEach((p, k) => { if (p && p.id === id && k !== slotSel) ordem.push(k); });
+  // armadura: a primeira é a vestida (é ela que gasta); ferramenta: a primeira é a da mão
+  const pa = parteDe(id);
+  if (pa >= 0 && inv.s[ARMA + pa] && inv.s[ARMA + pa].id === id) ordem.push(ARMA + pa);
+  else if (inv.s[slotSel] && inv.s[slotSel].id === id) ordem.push(slotSel);
+  inv.s.forEach((p, k) => { if (p && p.id === id && !ordem.includes(k)) ordem.push(k); });
   const n = ordem.indexOf(i);
   return n >= 0 ? l[n] || 0 : 0;
 }
@@ -609,6 +624,10 @@ function slotInv(l, i, p, cls = '') {
     if (p.n > 1) { const q = document.createElement('b'); q.className = 'qtd'; q.textContent = p.n; b.appendChild(q); }
     if (l === 's') barraDesg(b, i, p.id);
     b.setAttribute('aria-label', `${nomeDe(p.id)} (${p.n})`);
+  } else if (grandeDe(l, i) === 'arm') {
+    // espaço da armadura vazio: a silhueta da peça de couro, apagada
+    const f = imgIcone(1117 + i - ARMA); f.classList.add('fantasma'); b.appendChild(f);
+    b.setAttribute('aria-label', NOME_PARTE[i - ARMA] + ': nada vestido');
   } else b.setAttribute('aria-label', grandeDe(l, i) === 'mao2' ? 'Segunda mão vazia' : 'Vazio');
   return b;
 }
@@ -634,7 +653,14 @@ function desenharMochila(g) {
   const rap = document.createElement('button'); rap.type = 'button'; rap.id = 'inv-rapido'; rap.className = 'bt-mini' + (moverRapido ? ' ligado' : '');
   rap.setAttribute('aria-pressed', moverRapido); rap.innerHTML = icone('raio'); rap.append(' Mover rápido');
   rap.addEventListener('click', () => { moverRapido = !moverRapido; som.clique(); desenharMochila(g); });
+  // armadura vestida (só no jogo clássico, onde ela protege): cabeça, peito, pernas e pés
+  let arm = null;
+  if (mercado.op.fome || inv.vestido().length) {
+    arm = document.createElement('div'); arm.className = 'inv-armadura'; arm.setAttribute('aria-label', 'Armadura vestida');
+    for (let k = 0; k < 4; k++) arm.appendChild(slotInv('s', ARMA + k, inv.s[ARMA + k], 'arm'));
+  }
   lado.append(m2, rap);
+  if (arm) cima.append(arm);
   cima.append(forno || criar, lado);
   const moch = document.createElement('div'); moch.className = 'inv-mochila';
   for (let i = 9; i < 36; i++) moch.appendChild(slotInv('s', i, inv.s[i]));
@@ -1148,6 +1174,42 @@ function mostrarColeta(id, n) {
 // online quem põe no chão é a sala)
 // ---------- experiência (xp-regras.js): barra verde em cima da barra de itens, com o nível no meio ----------
 let xpVisto = -1, nivelVisto = -1;
+// armadura (jogo clássico): o dano de fora (bicho, monstro, fogo, lava) passa por ela e ela gasta
+function armaduraLigada() { return invPronto && sobrev() && !!mercado.op.fome && vida.classico(); }
+function danoDeFora(n, motivo) {
+  vida.motivo = motivo;
+  const ids = armaduraLigada() && PROTEGE.has(motivo) ? inv.vestido() : [];
+  if (!ids.length) return vida.dano(n);
+  const r = reduzir(n, ids);
+  // mesmo quando a armadura segurou tudo, o golpe pegou nela (gasta); protegido (acabou de levar) não gasta
+  if (vida.protegido > 0 || vida.atual <= 0 || !vida.ligada()) return false;
+  mercado.armadura(ids, r.gasto);
+  return r.dano > 0 ? vida.dano(r.dano) : false;
+}
+// barra de armadura em cima dos corações (como no clássico): 10 peitorais, cada um vale 2 pontos
+let armVista = -1;
+function desenharArmadura() {
+  const el = $('#armadura');
+  const d = armaduraLigada() && !morto ? defesa(inv.vestido()).d : 0;
+  if (d === armVista) return;
+  armVista = d;
+  el.hidden = !d;
+  document.body.classList.toggle('com-armadura', !!d);
+  if (!d) return;
+  if (!el.childElementCount) for (let k = 0; k < 10; k++) { const sp = document.createElement('span'); sp.className = 'peca'; sp.innerHTML = icone('peitoral') + '<span class="metade">' + icone('peitoral') + '</span>'; el.appendChild(sp); }
+  [...el.children].forEach((sp, k) => { sp.className = 'peca' + (d >= k * 2 + 2 ? '' : d === k * 2 + 1 ? ' meio' : ' oco'); });
+  el.setAttribute('aria-label', `Armadura: ${d} de 20`);
+}
+// peça de armadura na mão + usar: veste (troca com a que estava vestida)
+function tentarVestir() {
+  const id = naMao();
+  if (!armaduraLigada() || parteDe(id) < 0 || !inv.s[slotSel] || inv.s[slotSel].id !== id) return false;
+  inv.vestir(slotSel);
+  som.tom(520, 0.08, { tipo: 'triangle', vol: 0.2, ate: 700 });
+  aviso(`Vestiu: ${nomeDe(id)}`, 1200, 'escudo');
+  sincronizarBarra(); salvarInvDepois(); desenharBarra();
+  return true;
+}
 function desenharXp() {
   const el = $('#xp');
   const liga = jogando && sobrev() && !!mercado.op.fome && podeConstruir();
@@ -1326,9 +1388,9 @@ addEventListener('keydown', (e) => {
 });
 // mundo pequeno/médio: como acaba no mar, dá para enxergar mais longe sem pesar
 // Ultra enxerga longe (visao: distância mínima do preset)
-const distVisao = () => Math.max(ajustes.dist, opcoesGraficas().visao || 0);
+const distVisao = () => (tvLeve() && !ajustes.distManual ? Math.min(ajustes.dist, TV_LEVE.dist) : Math.max(ajustes.dist, opcoesGraficas().visao || 0));
 const raioVisao = () => Math.min(9, distVisao() + raioExtraMundo());
-$('#aj-dist').addEventListener('input', (e) => { ajustes.dist = +e.target.value; if (mundo) mundo.raio = raioVisao(); salvarAjustes(); ajustarNevoa(); });
+$('#aj-dist').addEventListener('input', (e) => { ajustes.dist = +e.target.value; ajustes.distManual = true; if (mundo) mundo.raio = raioVisao(); salvarAjustes(); ajustarNevoa(); });
 $('#aj-graf').addEventListener('change', (e) => {
   ajustes.graf = e.target.value;
   ajustes.grafManual = ajustes.graf !== 'auto';
@@ -1451,7 +1513,9 @@ function quadroComer(dt) {
   const r = mercado.mexer(a, false);
   if (!r) return;
   if (mercado.sala) mercado.sala.enviar(a);
+  const antes = vida.enjoado();
   vida.comer(id);
+  if (!antes && vida.enjoado()) aviso('A carne estragada deu enjoo: a fome desce mais rápido', 2400, 'coxa');
   som.tom(520, 0.08, { tipo: 'sine', vol: 0.2, ate: 760 });
   salvarCorpo();
   desenharBarra();
@@ -1606,13 +1670,21 @@ function usar(ponto) {
   if (m.aldeao) { conversarCom(m.aldeao); return; }
   if (m.trabalhador) { negocios.tocar(m.trabalhador); return; }
   const h = m.bloco;
-  if (!h) { tentarComer(); return; }
+  if (!h) { tentarVestir() || tentarComer(); return; }
   // tocar na bancada abre a grade de criar 3x3
   if (h.b === B.BANCADA && sobrev()) { som.clique(); if (invPronto) { inv.mudarGrade(3); abrirInventario('mochila'); } else abrirInventario('criar'); return; }
   // tocar na fornalha abre a fornalha (com a mochila embaixo)
   if (h.b === FORNALHA && sobrev() && invPronto) { som.clique(); abrirFornalha(h.x, h.y, h.z); return; }
   // tocar no baú abre o baú (27 espaços em cima, a mochila embaixo)
   if (h.b === BAU && sobrev() && invPronto) { som.abrirBau ? som.abrirBau() : som.clique(); abrirBau(h.x, h.y, h.z); return; }
+  // tocar no bolo colocado (bolo-regras.js): com fome, come uma fatia (não é a mão colocando nem quebrando)
+  if (ehBolo(h.b) && vida.classico() && !armas.empunhando) {
+    if (!vida.comFome()) { aviso('Você está sem fome', 1400, 'coxa'); return; }
+    mundo.definir(h.x, h.y, h.z, depoisDaFatia(h.b));
+    vida.comerFatia(); salvarCorpo();
+    som.tom(520, 0.08, { tipo: 'sine', vol: 0.2, ate: 760 }); visao.bater();
+    return;
+  }
   // tocar na cama: deita (de noite, dorme até amanhecer)
   if (ehCama(h.b) && !armas.empunhando) {
     som.clique();
@@ -1631,12 +1703,13 @@ function usar(ponto) {
   if (BASE[h.b] === E.BOTAO) { apertarBotao(h.x, h.y, h.z); return; }
   // portas, forno, pedra de moinho e manivela do poço (com Porta/Forno... na mão, coloca em vez de mexer)
   if (naMao() !== h.b && mecanismos.tocar(h)) return; // (não conta como colocar bloco nas missões)
-  if (tentarComer()) return; // comida na mão (clássico): come em vez de colocar
+  if (tentarVestir() || tentarComer()) return; // armadura na mão veste; comida na mão (clássico) come em vez de colocar
   if (armas.empunhando || !podeConstruir()) return; // com arma na mão (ou sem construção) não coloca bloco
   const x = h.x + h.n[0], y = h.y + h.n[1], z = h.z + h.n[2];
   let novo = naMao();
   if (novo === ISQUEIRO) { acenderFogo(x, y, z); return; }
   // segunda mão (como no clássico): com a mão vazia ou com ferramenta, coloca o bloco da segunda mão
+  if (novo === BOLO_ITEM) novo = BOLO_B; // o bolo da mochila vira o bolo inteiro no chão
   let daMao2 = false;
   if ((!novo || ehItem(novo)) && invPronto && inv.s[MAO2] && !ehItem(inv.s[MAO2].id)) { novo = inv.s[MAO2].id; daMao2 = true; }
   if (!novo || ehItem(novo)) return; // mão vazia ou ferramenta: não coloca nada
@@ -1872,14 +1945,14 @@ function queimarNoFogo(dt) {
   if (!noFogo()) { tempoFogo = 0; return; }
   if (tempoTotal - avisouFogo > 4) { avisouFogo = tempoTotal; aviso('Fogo queima! Saia de perto ou apague com água', 2000, 'explosao'); }
   tempoFogo += dt;
-  if (tempoFogo >= 1 / DANO_FOGO) { tempoFogo = 0; vida.motivo = 'fogo'; if (vida.dano(vida.escala())) som.tom(160, 0.15, { tipo: 'square', vol: 0.25, ate: 90 }); }
+  if (tempoFogo >= 1 / DANO_FOGO) { tempoFogo = 0; if (danoDeFora(vida.escala(), 'fogo')) som.tom(160, 0.15, { tipo: 'square', vol: 0.25, ate: 90 }); }
 }
 
 function queimarNaLava(dt) {
   if (!jog.naLava) { tempoLava = 0; return; }
   if (tempoTotal - avisouLava > 4) { avisouLava = tempoTotal; aviso('A lava queima! Saia rápido (pule)', 2000, 'explosao'); }
   tempoLava += dt;
-  if (tempoLava >= 1 / DANO_LAVA) { tempoLava = 0; vida.motivo = 'lava'; if (vida.dano(vida.escala() * (vida.classico() ? 2 : 1))) som.tom(160, 0.15, { tipo: 'square', vol: 0.25, ate: 90 }); }
+  if (tempoLava >= 1 / DANO_LAVA) { tempoLava = 0; if (danoDeFora(vida.escala() * (vida.classico() ? 2 : 1), 'lava')) som.tom(160, 0.15, { tipo: 'square', vol: 0.25, ate: 90 }); }
 }
 
 // recolhe a fonte de água mirada; a água corrente que dependia dela seca sozinha
@@ -2142,8 +2215,8 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
     const quem = b.I.nome || 'o bicho';
     // no clássico os danos dobram (10 corações) e mudam com a dificuldade (Fácil metade, Difícil uma vez e meia)
     if (dano && vida.classico()) { const d = opcoesMundo.dificuldade; dano = Math.max(1, Math.round(dano * 2 * (d === 'facil' ? 0.5 : d === 'dificil' ? 1.5 : 1))); vida.motivo = 'bicho'; }
-    if (dano && b.I.monstro) { vida.motivo = 'monstro'; if (vida.dano(dano)) som.tom(200, 0.15, { tipo: 'sine', vol: 0.3, ate: 120 }); return; }
-    if (dano && vida.dano(dano)) { som.tom(200, 0.15, { tipo: 'sine', vol: 0.3, ate: 120 }); aviso('Ai! ' + quem[0].toUpperCase() + quem.slice(1) + ' te mordeu. Acenda uma luz ou toque para espantar', 2000, 'coracao'); }
+    if (dano && b.I.monstro) { if (danoDeFora(dano, 'monstro')) som.tom(200, 0.15, { tipo: 'sine', vol: 0.3, ate: 120 }); return; }
+    if (dano && danoDeFora(dano, 'bicho')) { som.tom(200, 0.15, { tipo: 'sine', vol: 0.3, ate: 120 }); aviso('Ai! ' + quem[0].toUpperCase() + quem.slice(1) + ' te mordeu. Acenda uma luz ou toque para espantar', 2000, 'coracao'); }
     else aviso(quem[0].toUpperCase() + quem.slice(1) + ' te deu um empurrão. Deixe ' + (quem.startsWith('a ') ? 'ela' : 'ele') + ' em paz', 1800, 'pata');
   };
   // bicho derrubado: o que ele deixa vai para a mochila (se o mundo tiver mochila: Coletar e criar ou Mercado)
@@ -2596,7 +2669,8 @@ const corTmp = new THREE.Color();
 function laco(agora) {
   requestAnimationFrame(laco);
   // limite de FPS (economiza bateria); a folga de 2 ms evita pular quadro à toa
-  if (jogando && ajustes.fpsMax && agora - ultimo < 1000 / ajustes.fpsMax - 2) return;
+  const fpsMax = fpsLimite();
+  if (jogando && fpsMax && agora - ultimo < 1000 / fpsMax - 2) return;
   const dt = Math.min(0.1, (agora - ultimo) / 1000);
   ultimo = agora;
   if (!jogando) { renderer.render(cena, camera); return; }
@@ -2633,7 +2707,7 @@ function laco(agora) {
   turnoAcum += dt;
   if (turnoAcum >= 3) { mercado.turno(turnoAcum, horaDe(tempoDia)); turnoAcum = 0; }
   if (!pausado && !morto) { vida.atualizar(dt); quadroComer(dt); }
-  desenharXp();
+  desenharXp(); desenharArmadura();
   if ((timerCorpo += dt) > 3) { timerCorpo = 0; salvarCorpo(); }
   armas.quadro(dt, pausado || garagem.dentro);
   if (garagem.dentro || visao.terceira) armas.mao.visible = false;
@@ -2756,11 +2830,11 @@ const calib = {
   reiniciar() { this.bons = 0; this.ruins = 0; this.aguardar = 4; },
   passo(fps) {
     if (this.aguardar > 0) { this.aguardar--; return; }
-    const alvo = ajustes.fpsMax || 60; // tela de 60 Hz não passa de ~60
+    const alvo = fpsLimite() || 60; // tela de 60 Hz não passa de ~60
     const atual = NIVEIS.indexOf(nivelAuto());
     // sem teto marcado: no máximo um nível acima do palpite, e tablet/celular ou pouca memória nunca vão sozinhos ao Ultra
     const fraco = ehToque || (navigator.deviceMemory || 8) <= 4;
-    const tetoPadrao = Math.min(NIVEIS.indexOf(palpiteGrafico()) + 1, NIVEIS.length - (fraco ? 2 : 1));
+    const tetoPadrao = tvLeve() ? 0 : Math.min(NIVEIS.indexOf(palpiteGrafico()) + 1, NIVEIS.length - (fraco ? 2 : 1));
     const teto = NIVEIS.includes(ajustes.grafTeto) ? NIVEIS.indexOf(ajustes.grafTeto) : tetoPadrao;
     this.bons = fps >= alvo * 0.9 ? this.bons + 1 : 0;
     this.ruins = fps < alvo * 0.62 ? this.ruins + 1 : 0;
@@ -2829,4 +2903,4 @@ if (conta.token) abrirJogos().then(() => { if (mundoPedido && conta.usuario) ent
 else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get mundoAtual() { return mundoAtual; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, get inv() { return inv; }, abrirInventario, bancadaPerto, camera, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; }, get escav() { return escav; }, som, fornos, get fornoAberto() { return fornoAberto; }, baus, get bauAberto() { return bauAberto; } }; }
+if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get mundoAtual() { return mundoAtual; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, get inv() { return inv; }, abrirInventario, bancadaPerto, camera, cena, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; }, get escav() { return escav; }, som, fornos, get fornoAberto() { return fornoAberto; }, baus, get bauAberto() { return bauAberto; } }; }

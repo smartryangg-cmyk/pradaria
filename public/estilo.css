@@ -327,6 +327,8 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 #fome .coxa .metade .ic-svg { margin-left: -100%; }
 #fome .coxa.oco > .ic-svg, #fome .coxa.meio > .ic-svg { filter: grayscale(1) brightness(.55); opacity: .7; }
 #fome .coxa.meio .metade { display: block; }
+#fome.enjoo .coxa .ic-svg { filter: hue-rotate(75deg) saturate(1.6); }
+#fome.enjoo .coxa.oco > .ic-svg, #fome.enjoo .coxa.meio > .ic-svg { filter: hue-rotate(75deg) grayscale(.6) brightness(.55); }
 #vida.dez.treme { animation: tremeEsq .35s; }
 #fome.treme { animation: tremeDir .9s infinite; }
 @keyframes tremeEsq { 0%, 100% { transform: translateX(calc(-100% - 6px)); } 25% { transform: translateX(calc(-100% - 10px)); } 75% { transform: translateX(calc(-100% - 2px)); } }
@@ -337,6 +339,22 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 #xp b { position: absolute; left: 50%; top: -13px; transform: translateX(-50%); font-size: 15px; font-weight: 900; color: #c8ff7a; text-shadow: 0 0 3px #142406, 0 2px 0 #142406, 0 -1px 0 #142406, 1px 0 0 #142406, -1px 0 0 #142406; }
 body.com-xp #vida, body.com-xp #fome { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 96px); }
 @media (max-width: 640px) { #xp { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 58px); height: 6px; } #xp b { font-size: 12px; top: -11px; } body.com-xp #vida, body.com-xp #fome { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 72px); } }
+/* armadura: 10 peitorais em cima dos corações (à esquerda); com ela, as bolhas de fôlego vão para a direita */
+#armadura { position: absolute; left: 50%; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 108px); transform: translateX(calc(-100% - 6px)); display: flex; gap: 2px; pointer-events: none; filter: drop-shadow(0 2px 2px rgba(0,0,0,.45)); }
+#armadura[hidden] { display: none; }
+#armadura .peca { position: relative; width: 21px; height: 21px; }
+#armadura .peca .ic-svg { width: 21px; height: 21px; display: block; }
+#armadura .peca .metade { position: absolute; inset: 0; width: 50%; overflow: hidden; display: none; }
+#armadura .peca.oco > .ic-svg, #armadura .peca.meio > .ic-svg { filter: grayscale(1) brightness(.5); opacity: .55; }
+#armadura .peca.meio .metade { display: block; }
+body.com-xp #armadura { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 120px); }
+body.com-armadura #folego { transform: translateX(6px); flex-direction: row-reverse; }
+@media (max-width: 640px) { #armadura { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 82px); gap: 1px; } body.com-xp #armadura { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 90px); } #armadura .peca, #armadura .peca .ic-svg { width: 14px; height: 14px; } }
+/* armadura vestida: 2x2 (cabeça, peito / pernas, pés), da altura da grade de criar */
+.inv-armadura { display: grid; grid-template-columns: repeat(2, auto); gap: 4px; }
+.inv-armadura .slot-inv { width: 48px; }
+@media (max-width: 480px), (max-height: 520px) { .inv-armadura .slot-inv { width: 40px; } }
+.slot-inv img.fantasma { opacity: .22; filter: grayscale(1); }
 #morte-pontos { font-weight: 800; margin: 0 0 12px; }
 #morte #bt-morte-sair { margin-top: 8px; }
 @media (max-width: 640px) { #fome { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 64px); } #vida.dez .coracao, #vida.dez .coracao .ic-svg, #fome .coxa, #fome .coxa .ic-svg { width: 14px; height: 14px; } #vida.dez, #fome { gap: 1px; } }

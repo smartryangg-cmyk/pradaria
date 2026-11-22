@@ -5,7 +5,7 @@
 // Outras partes do jogo podem curar: import { vida } from './vida.js'; vida.curar(2); // 2 = um coração inteiro
 import { icone } from './icones.js';
 import { opcoesMundo } from './opcoes-mundo.js';
-import { fomeNova, normalizarFome, cansar, comer, tique, podeCorrer, FOME_MAX, CANSA } from './fome-regras.js';
+import { fomeNova, normalizarFome, cansar, comer, tique, podeCorrer, FOME_MAX, CANSA, comerFatia, enjoado } from './fome-regras.js';
 
 const MAX_MODS = 10; // 5 corações, cada um vale 2 (dá meio coração)
 const MAX_CLASSICO = 20; // 10 corações
@@ -40,7 +40,7 @@ export const vida = {
     }
     this.desenhar();
   },
-  salvar() { return { v: this.atual, fome: { f: this.fome.f, s: Math.round(this.fome.s * 10) / 10, x: Math.round(this.fome.x * 100) / 100 } }; },
+  salvar() { return { v: this.atual, fome: { f: this.fome.f, s: Math.round(this.fome.s * 10) / 10, x: Math.round(this.fome.x * 100) / 100, en: Math.round(this.fome.en) } }; },
 
   // devolve true se machucou
   dano(n = 1) {
@@ -65,13 +65,17 @@ export const vida = {
   podeCorrer() { return !classico() || podeCorrer(this.fome); },
   comFome() { return classico() && this.fome.f < FOME_MAX; },
   comer(id) { if (!classico() || !comer(this.fome, id)) return false; this.desenhar(); return true; },
+  enjoado() { return classico() && enjoado(this.fome); },
+  comerFatia() { if (!classico() || !comerFatia(this.fome)) return false; this.desenhar(); return true; },
 
   atualizar(dt) {
     if (this.protegido > 0) this.protegido -= dt;
     this.semDano += dt;
     if (this.atual <= 0) return;
     if (classico()) {
+      const en = this.fome.en > 0, f = this.fome.f;
       const d = tique(this.fome, dt, this.atual, this.max, opcoesMundo.dificuldade);
+      if (en !== this.fome.en > 0 || f !== this.fome.f) this.desenhar();
       if (d > 0) this.curar(1);
       else if (d < 0) { this.protegido = 0; this.motivo = 'fome'; this.dano(1); }
       return;
@@ -123,6 +127,7 @@ export const vida = {
         s.className = 'coxa ' + (v >= 2 ? 'cheio' : v === 1 ? 'meio' : 'oco');
       });
       fe.classList.toggle('treme', this.fome.f <= 6);
+      fe.classList.toggle('enjoo', this.fome.en > 0); // como no clássico: enjoado, a barra fica verde
       fe.setAttribute('aria-label', `Fome: ${this.fome.f / 2} de 10`);
     }
     if (this.aoMudar) this.aoMudar(this.atual, machucou);

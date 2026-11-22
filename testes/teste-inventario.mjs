@@ -114,7 +114,7 @@ const bate = (e) => JSON.stringify(Object.fromEntries(Object.entries(e.itens).fi
   ok(bate(e), 'a arrumação continua batendo com a mochila');
   await p.keyboard.press('KeyE'); await p.waitForTimeout(300);
   await p.screenshot({ path: SAIDA + '/inv-pc-cheia.png' });
-  ok(!(await p.isVisible('.inv-extra')) && (await inv(p)).s.every(Boolean), 'mochila cheia: os 37 espaços ocupados e nada sobrando');
+  ok(!(await p.isVisible('.inv-extra')) && (await inv(p)).s.slice(0, 37).every(Boolean), 'mochila cheia: os 37 espaços ocupados e nada sobrando');
   // só cabe parte da pilha do chão: pega o que cabe, o resto continua no chão (andando por cima, de verdade)
   await p.keyboard.press('Escape'); await p.waitForTimeout(300);
   await p.evaluate(() => { const m = window.__jogo.mercado; m.mexer({ t: 'largar', id: 1, n: 4 }, true); });

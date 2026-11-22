@@ -7,6 +7,7 @@ import { ganharXp, normalizarXp, xpDoMinerio, XP_FORNO, XP_CACA, XP_MONSTRO } fr
 import { CAI_MONSTRO, ehMonstro } from './monstros-regras.js';
 import { avancar, caberNoForno, porNoForno, tirarDoForno, PILHA_FORNO } from './fornalha-regras.js';
 import { aplicarTrabalho, normalizarTrabalho, negocioNovo, livreDe, marcarCompra, ajustarCompra, converter } from './trabalho.js';
+import { parteDe } from './armadura-regras.js';
 import { RECEITAS, guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm, cabe, cabeQuanto, pilhaDe, DURA, ajustarDesg, desgastar, tirarDesg, porDesg, desgLista, receitaNoMundo } from './receitas.js';
 import { ehComida } from './fome-regras.js';
 
@@ -426,6 +427,18 @@ export function aplicar(e, op, a, ctx = {}) {
     if (!DURA[id] || (e.itens[id] | 0) < 1) return falha('?');
     r.ferramenta = desgastar(e, id);
     if (!ESPADAS.has(id) && r.ferramenta === 'gastou') r.ferramenta = desgastar(e, id);
+    r.mudou = true;
+  } else if (a.t === 'armadura') {
+    // levou um golpe vestido (jogo clássico, armadura-regras.js): cada peça vestida gasta n
+    if (!op.fome || !Array.isArray(a.ids) || a.ids.length > 4) return falha('?');
+    const n = Math.max(1, Math.min(10, a.n | 0)), partes = new Set(), quebrou = [];
+    for (const v of a.ids) {
+      const id = v | 0, p = parteDe(id);
+      if (p < 0 || partes.has(p) || (e.itens[id] | 0) < 1) return falha('?');
+      partes.add(p);
+    }
+    for (const v of a.ids) for (let k = 0; k < n; k++) if (desgastar(e, v | 0) === 'quebrou') { quebrou.push(v | 0); break; }
+    if (quebrou.length) r.quebrou = quebrou;
     r.mudou = true;
   } else if (a.t === 'morrer') {
     // morreu (sem corações): tudo o que dá para pôr no chão cai, em pilhas, onde a pessoa estava

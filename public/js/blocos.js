@@ -105,6 +105,10 @@ export const ITEM = {
   PICARETA_FERRO: 1105, MACHADO_FERRO: 1106, PA_FERRO: 1107, PICARETA_DIAMANTE: 1108, MACHADO_DIAMANTE: 1109, PA_DIAMANTE: 1110,
   // monstros da noite (monstros-regras.js)
   TEIA: 1111, CARNE_ESTRAGADA: 1112, ESPADA_MADEIRA: 1113, ESPADA_PEDRA: 1114, ESPADA_FERRO: 1115, ESPADA_DIAMANTE: 1116,
+  // armadura (armadura-regras.js)
+  CAPACETE_COURO: 1117, PEITORAL_COURO: 1118, CALCA_COURO: 1119, BOTAS_COURO: 1120,
+  CAPACETE_FERRO: 1121, PEITORAL_FERRO: 1122, CALCA_FERRO: 1123, BOTAS_FERRO: 1124,
+  CAPACETE_DIAMANTE: 1125, PEITORAL_DIAMANTE: 1126, CALCA_DIAMANTE: 1127, BOTAS_DIAMANTE: 1128,
 };
 export const ITENS = {
   [ITEM.GRAVETO]: { nome: 'Graveto', tile: 130 },
@@ -137,6 +141,18 @@ export const ITENS = {
   [ITEM.ESPADA_PEDRA]: { nome: 'Espada de pedra', tile: 185 },
   [ITEM.ESPADA_FERRO]: { nome: 'Espada de ferro', tile: 186 },
   [ITEM.ESPADA_DIAMANTE]: { nome: 'Espada de diamante', tile: 187 },
+  [ITEM.CAPACETE_COURO]: { nome: 'Capacete de couro', tile: 190 },
+  [ITEM.PEITORAL_COURO]: { nome: 'Peitoral de couro', tile: 191 },
+  [ITEM.CALCA_COURO]: { nome: 'Calça de couro', tile: 192 },
+  [ITEM.BOTAS_COURO]: { nome: 'Botas de couro', tile: 193 },
+  [ITEM.CAPACETE_FERRO]: { nome: 'Capacete de ferro', tile: 194 },
+  [ITEM.PEITORAL_FERRO]: { nome: 'Peitoral de ferro', tile: 195 },
+  [ITEM.CALCA_FERRO]: { nome: 'Calça de ferro', tile: 196 },
+  [ITEM.BOTAS_FERRO]: { nome: 'Botas de ferro', tile: 197 },
+  [ITEM.CAPACETE_DIAMANTE]: { nome: 'Capacete de diamante', tile: 198 },
+  [ITEM.PEITORAL_DIAMANTE]: { nome: 'Peitoral de diamante', tile: 199 },
+  [ITEM.CALCA_DIAMANTE]: { nome: 'Calça de diamante', tile: 200 },
+  [ITEM.BOTAS_DIAMANTE]: { nome: 'Botas de diamante', tile: 201 },
 };
 export const ehItem = (id) => id >= 1000;
 // nome de qualquer coisa que cabe na mão (bloco ou item)
@@ -215,7 +231,9 @@ def(OBSIDIANA, 'Obsidiana', 151);
 def(FOGO, 'Fogo', 152, { solido: false, opaco: false, planta: true, brilho: 1 }); // fogo-regras.js (não vai para a mochila)
 def(TOCHA, 'Tocha', [150, 9, 9], { solido: false, opaco: false, forma: 'tocha', chao: true, brilho: 0.6 });
 def(223, 'Baú', [154, 154, 155]);
-def(224, 'Cana-de-açúcar', 156, { solido: false, opaco: false, planta: true }); // cana-regras.js // bau-regras.js: guarda 27 pilhas
+def(224, 'Cana-de-açúcar', 156, { solido: false, opaco: false, planta: true }); // cana-regras.js
+// bolo colocado, de 7 fatias (225) a 1 fatia (231): bolo-regras.js
+for (let b = 225; b <= 231; b++) def(b, 'Bolo', [159, 158, 158], { solido: true, opaco: false, forma: 'bolo', chao: true }); // bau-regras.js: guarda 27 pilhas
 // escada de mão (escada-mao.js): 4 giros, de madeira, presa na parede
 for (let d = 0; d < 4; d++) def(ESCADA_MAO + d, 'Escada de mão', 9, { solido: false, opaco: false, forma: 'escadamao' });
 
@@ -482,6 +500,8 @@ function pintarCriacao(img) {
     if (y === 8) return var_(x % 3 ? hex(0xfbf6ec) : hex(0xb07a48), r, 0.05);
     return var_(hex(0xb07a48), r, 0.1);
   });
+  // 159 cobertura do bolo (em cima do bolo colocado): branca com pontinhos vermelhos
+  pintarTile(img, 159, (x, y, r) => ((x * 7 + y * 5) % 11 === 0 ? var_(hex(0xd9363e), r, 0.05) : var_(hex(0xfbf6ec), r, 0.04)));
   // 142 balde: de tábuas, com aros escuros e alça
   pintarTile(img, 142, (x, y, r) => {
     const alca = Math.hypot(x - 7.5, y - 6.5);
@@ -561,6 +581,19 @@ function pintarCriacao(img) {
   pintarTile(img, 185, espada(pedraC, pedraE));
   pintarTile(img, 186, espada(ferroC, ferroE));
   pintarTile(img, 187, espada(diaC, diaE));
+  // armadura: capacete, peitoral, calça e botas (190..193 couro, 194..197 ferro, 198..201 diamante)
+  const PECAS = [
+    ['................', '................', '................', '.....######.....', '...##llllll##...', '..#lloooooooo#..', '..#looooooooo#..', '..#oooooooooo#..', '..#ooo####ooo#..', '..#oo#....#oo#..', '..#oo#....#oo#..', '..####....####..', '................', '................', '................', '................'],
+    ['................', '..###......###..', '.#lo#......#oo#.', '.#loo######ooo#.', '.#looooooooooo#.', '.###looooooo###.', '...#looooooo#...', '...#looooooo#...', '...#oooooooo#...', '...#oooooooo#...', '...#oooooooo#...', '...#oooooooo#...', '...##########...', '................', '................', '................'],
+    ['................', '................', '...##########...', '...#llllllll#...', '...#looooooo#...', '...#looooooo#...', '...#looo#ooo#...', '...#loo#.#oo#...', '...#loo#.#oo#...', '...#loo#.#oo#...', '...#loo#.#oo#...', '...#ooo#.#oo#...', '...#####.####...', '................', '................', '................'],
+    ['................', '................', '................', '................', '................', '................', '..####...####...', '..#lo#...#lo#...', '..#lo#...#lo#...', '..#oo#...#oo#...', '..#oo#...#oo#...', '.#ooo#..#ooo#...', '.#oooo#.#oooo#..', '.######.######..', '................', '................'],
+  ];
+  const peca = (m, c, cl, e) => (x, y, r) => {
+    const k = m[y][x];
+    return k === '.' ? [0, 0, 0, 0] : var_(k === '#' ? e : k === 'l' ? cl : c, r, 0.07);
+  };
+  [[hex(0xa0652f), hex(0xc98a4e), hex(0x5e3519)], [hex(0xc9ced4), hex(0xf2f4f6), hex(0x6d747c)], [hex(0x4cd6cc), hex(0xb8fff8), hex(0x1f8f8a)]]
+    .forEach(([c, cl, e], j) => PECAS.forEach((m, k) => pintarTile(img, 190 + j * 4 + k, peca(m, c, cl, e))));
   // 188 fio de teia: novelo branco-acinzentado com fios soltos
   pintarTile(img, 188, (x, y, r) => {
     const d = Math.hypot(x - 7.5, y - 8);
