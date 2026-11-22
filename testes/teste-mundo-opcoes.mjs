@@ -53,11 +53,11 @@ conferir(op2.tamanho === 'pequeno' && op2.selvagens === false && op2.animais ===
 
 // ---------- online: o servidor guarda as opções ----------
 const q = await pagina(true);
-const nome = 'Opc' + (Date.now() % 10000);
+const nome = 'Opc' + (Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join(''));
 await q.click('#bt-criar-conta');
 await q.fill('#c-nome', nome); await q.fill('#c-senha', 'senha123');
 if (await q.isVisible('#c-adulto-ok')) await q.check('#c-adulto-ok');
-await q.click('#c-ok');
+if (await q.isVisible('#c-nasc .d-ano')) { await q.selectOption('#c-nasc .d-dia', '1'); await q.selectOption('#c-nasc .d-mes', '1'); await q.selectOption('#c-nasc .d-ano', '1990'); } await q.click('#c-ok');
 await (async () => { await q.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])', { timeout: 15000 }); if (await q.isVisible('#m-jogos')) { await q.click('.jogo[data-jogo=pradaria]'); await q.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 }); } })();
 await q.click('#bt-novo-mundo');
 await q.fill('#n-nome', 'Ilha Monstro');

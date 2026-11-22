@@ -101,6 +101,7 @@ await p.keyboard.down('Shift'); await p.keyboard.press('KeyQ'); await p.keyboard
 await esperar(p, 400);
 l = await noChao(p);
 conferir(await qtd(p, T.TABUAS) === 0 && l.length === 1 && l[0].n === 5, 'Shift+Q largou as 5 tábuas juntas');
+await esperar(p, 1200); // quem largou só pega de volta depois de um pouquinho (andando antes, passava direto pelas tábuas)
 conferir(await andarAte(p, () => window.__jogo.mercado.qtd(8) === 5, null, 3500), 'pegou as 5 de volta de uma vez');
 
 // mão vazia: Q só avisa
@@ -195,7 +196,7 @@ const sfx = letras();
 async function conta(p, nome) {
   await p.click('#bt-criar-conta'); await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
   if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
-  await p.click('#c-ok');
+  if (await p.isVisible('#c-nasc .d-ano')) { await p.selectOption('#c-nasc .d-dia', '1'); await p.selectOption('#c-nasc .d-mes', '1'); await p.selectOption('#c-nasc .d-ano', '1990'); } await p.click('#c-ok');
   await p.waitForSelector('#m-jogos:not([hidden]), #m-mundos:not([hidden])', { timeout: 90000 }); if (await p.isVisible('#m-jogos')) await p.click('.jogo[data-jogo=pradaria]'); // tela Escolha um jogo (#51)
   await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 90000 });
 }

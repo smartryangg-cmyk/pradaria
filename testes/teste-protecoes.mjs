@@ -15,7 +15,7 @@ async function api(caminho, corpo, token, metodo, ip) {
   let d = null; try { d = await r.json(); } catch {}
   return { status: r.status, ...d };
 }
-const sfx = String(Date.now() % 10000);
+const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join('');
 const cadastrar = (nome) => api('cadastrar', { nome, senha: 'senha123', nascimento: '2000-01-01' }, null, null, ipx());
 
 // nomes
@@ -143,10 +143,10 @@ await p.goto(BASE + '/');
 await p.click('#bt-criar-conta');
 ok(await p.isVisible('#c-adulto-ok'), 'criar conta mostra a caixa do adulto');
 await p.fill('#c-nome', 'Tela' + sfx); await p.fill('#c-senha', 'senha123');
-await p.click('#c-ok');
+if (await p.isVisible('#c-nasc .d-ano')) { await p.selectOption('#c-nasc .d-dia', '1'); await p.selectOption('#c-nasc .d-mes', '1'); await p.selectOption('#c-nasc .d-ano', '1990'); } await p.click('#c-ok');
 await espera(500);
 ok(await p.isVisible('#m-conta'), 'sem a caixa marcada não cria');
-await p.check('#c-adulto-ok'); await p.click('#c-ok');
+await p.check('#c-adulto-ok'); if (await p.isVisible('#c-nasc .d-ano')) { await p.selectOption('#c-nasc .d-dia', '1'); await p.selectOption('#c-nasc .d-mes', '1'); await p.selectOption('#c-nasc .d-ano', '1990'); } await p.click('#c-ok');
 await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])', { timeout: 15000 }); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 }); } })();
 await p.evaluate(() => { location.hash = '#teste'; });
 await p.reload();

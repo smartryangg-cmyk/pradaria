@@ -1,9 +1,9 @@
 // Testa o nado de verdade (teclado e tablet com toque): boiar, mergulhar, nadar olhando para baixo,
 // subir, sair da piscina pela beirada, fôlego (com e sem vida) e a visão embaixo d'água (Linda e Leve).
-// Uso: (cd public && python3 -m http.server 8772) e depois: node testes/teste-nadar.mjs
-// PORTA=8772 SAIDA=/pasta/dos/prints SO=linda|leve|tablet (só uma parte)
+// Uso: (cd public && python3 -m http.server 8765) e depois: node testes/teste-nadar.mjs
+// PORTA=8765 SAIDA=/pasta/dos/prints SO=linda|leve|tablet (só uma parte)
 import { createRequire } from 'module'; const { chromium, devices } = createRequire(import.meta.url)('playwright');
-const URL = `http://localhost:${process.env.PORTA || 8772}/#teste`;
+const URL = `http://localhost:${process.env.PORTA || 8765}/#teste`;
 const SAIDA = process.env.SAIDA || '/tmp';
 const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const falhas = [], erros = [];
@@ -38,7 +38,12 @@ async function abrir(ctxOpts, graf) {
   await p.waitForTimeout(600);
   if (ctxOpts.hasTouch) await p.tap('#bt-sozinho'); else await p.click('#bt-sozinho');
   await p.waitForTimeout(400);
-  if (await p.isVisible('#m-novo')) { if (ctxOpts.hasTouch) await p.tap('#m-novo button[type=submit]'); else await p.click('#m-novo button[type=submit]'); }
+  if (await p.isVisible('#m-novo')) {
+    // Pacífico: o começo do teste é o mundo sem perigo (fôlego acaba e a água leva para cima). O Normal (padrão) afoga
+    const toque = (sel) => ctxOpts.hasTouch ? p.tap(sel) : p.click(sel);
+    await toque('#m-novo [data-dificuldade=pacifico]');
+    await toque('#m-novo button[type=submit]');
+  }
   await p.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.mundo, null, { timeout: 20000 });
   await p.waitForTimeout(2500);
   // conta o tempo de jogo que a física realmente andou
@@ -191,7 +196,12 @@ if (!process.env.SO || process.env.SO === 'linda') {
   const corr = await p.evaluate(async (P) => {
     const { mundo, jog } = window.__jogo;
     const Y = P.Y0 + 9;
-    for (let dx = -2; dx <= 9; dx++) for (let dz = -1; dz <= 1; dz++) { mundo.definir(P.X + dx, Y - 1, P.Z + 20 + dz, 3); }
+    // valeta fechada dos lados e atrás da fonte: a água procura a descida mais perto e, com a beirada
+    // logo ali, escorria toda para fora da mesa em vez de correr para o lado do jogador
+    for (let dx = -3; dx <= 9; dx++) for (let dz = -2; dz <= 2; dz++) {
+      mundo.definir(P.X + dx, Y - 1, P.Z + 20 + dz, 3);
+      mundo.definir(P.X + dx, Y, P.Z + 20 + dz, Math.abs(dz) === 2 || dx === -3 ? 3 : 0);
+    }
     mundo.definir(P.X - 2, Y, P.Z + 20, 5);
     await new Promise((r) => setTimeout(r, 2500));
     const b = mundo.bloco(P.X + 1, Y, P.Z + 20);

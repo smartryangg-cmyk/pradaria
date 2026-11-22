@@ -24,6 +24,9 @@ if (col) {
   const c = col.pecas[0];
   await ir(c.x + 0.5 + c.fx * 14, c.y + 7, c.z + 0.5 + c.fz * 14, Math.atan2(c.fx, c.fz), -0.1);
   await p.waitForTimeout(6000);
+  // o vento tem calmaria de ~35 s a cada 4 min (o catavento para junto): se cair nela, espera o vento voltar
+  await p.waitForFunction(([c]) => { const m = window.__jogo.mundo; return m.bloco(c.x + c.fx * 2, c.y + 8, c.z + c.fz * 2) === 50; }, [c], { timeout: 45000 }).catch(() => {});
+  await p.waitForTimeout(1500);
   const st = await p.evaluate(([c]) => { const m = window.__jogo.mundo; const P = (f, s, k) => m.bloco(c.x + c.fx * f - c.fz * s, c.y + k, c.z + c.fz * f + c.fx * s); return { cat: P(2, 0, 8), mo: P(0, 1, 1), lamp: P(1, 1, 1), helices: [...window.__jogo.mecanismos.ativos.values()].filter((a) => a.tipo === 'helice').length }; }, [c]);
   ok(st.cat === 50 && st.mo === 52 && st.lamp === 109, 'moinho da colina gerando energia e moendo ' + JSON.stringify(st));
   ok(st.helices >= 2, 'hélices girando na colina: ' + st.helices);

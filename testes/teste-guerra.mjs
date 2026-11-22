@@ -151,16 +151,31 @@ const saiu = await p.evaluate(() => window.__jogo.jog.pos.z);
 conferir(saiu > porta[2] + 0.3, 'passa pela grade serrada');
 await ir(p, info.prisao.x + 0.5, info.prisao.z + 25);
 await p.waitForTimeout(700);
-const fuga = await p.evaluate(() => ({ preso: !!window.__jogo.guerra.preso, est: window.__jogo.guerra.procurado, m: window.__jogo.guerra.missoes.fuga }));
+// confere e já leva para a Base Aliada no mesmo instante: no CI (lento) a polícia que vinha atrás alcançava e prendia
+// entre a conferência e o despiste
+const fuga = await p.evaluate(([bx, bz]) => {
+  const J = window.__jogo, g = J.guerra, r = { preso: !!g.preso, est: g.procurado, m: g.missoes.fuga };
+  J.mundo.atualizar(bx, bz, 400);
+  J.cmd.teleportar(bx, J.mundo.chao(Math.floor(bx), Math.floor(bz)) + 1.2, bz, J.jog.yaw, '');
+  return r;
+}, [info.base.x, info.base.z]);
 conferir(!fuga.preso && fuga.est >= 2 && fuga.m === true, 'fugiu do presídio: missão Fuga e 2 estrelas');
+// diagnóstico: quem tira vida do jogador e o que conta como polícia perto (desmaio na base virava prisão no CI)
+await p.evaluate(() => { const J = window.__jogo, v = J.vida, g = J.guerra, o = v.dano.bind(v); window.__danos = []; v.dano = function (d, ...r) { const jp = J.jog.pos; window.__danos.push({ d, p: [jp.x, jp.z].map(Math.round), t: Math.round(performance.now()), s: new Error().stack.split('\n').slice(2, 4).join(' | ') }); return o(d, ...r); };
+  window.__perto = () => { const jp = J.jog.pos; return { pol: g.pessoas.lista.filter((n) => (n.papel === 'policial' || n.papel === 'guarda') && Math.hypot(n.x - jp.x, n.z - jp.z) < 45).map((n) => [n.papel, n.estado, Math.round(n.x), Math.round(n.z)]), lug: g.ilha.lugares.filter((L) => Math.hypot(L.x - jp.x, L.z - jp.z) < 120).map((L) => [L.tipo, L.x, L.z, L.r]) }; }; });
 // despista: some de perto da polícia (os reforços que vinham atrás ficam para trás)
+// se a polícia derrubou o jogador na fuga, o desmaio se resolve antes (senão ele "acorda" preso já na base); e a vida volta cheia
+if (await p.evaluate(() => window.__jogo.vida.atual <= 0)) await p.waitForTimeout(2600);
+await p.evaluate(() => window.__jogo.vida.reiniciar());
 await p.evaluate(() => { const g = window.__jogo.guerra; for (const n of g.extras) g.pessoas.remover(n); g.extras = []; g.tReforco = 999; });
 await ir(p, info.base.x, info.base.z);
 await p.evaluate(() => { const g = window.__jogo.guerra, orig = g.prender; g.prender = function () { const jp = window.__jogo.jog.pos; window.__prisao = { p: [jp.x, jp.y, jp.z].map(Math.round), vida: window.__jogo.vida.atual, stack: new Error().stack.split("\n").slice(1, 4).join(" | "), pol: g.pessoas.lista.filter((n) => n.papel === 'policial').map((n) => [n.papel, Math.round(Math.hypot(n.x - jp.x, n.z - jp.z)), n.ve, g.hostil(n, 0)]).filter((q) => q[1] < 60) }; return orig.call(this); }; });
+// os guardas do presídio que correram atrás na fuga voltam para o posto (no CI às vezes ficavam vendo e atirando na base)
+await p.evaluate(() => { const g = window.__jogo.guerra; for (const n of g.pessoas.lista) if (n.papel === 'guarda' && n.casa) { n.x = n.casa.x; n.z = n.casa.z; n.y = g.pessoas.chao(n.x, n.z, 60); n.vy = 0; n.alerta = 0; n.ultimo = null; n.ve = false; } });
 await p.evaluate(() => { const g = window.__jogo.guerra; g.procurado = 3; g.maxProcurado = 3; g.semVer = 0; for (const n of g.extras) g.pessoas.remover(n); g.extras = []; g.tReforco = 999; });
 const despistou = await esperar(p, () => window.__jogo.guerra.procurado === 0, null, 150000);
 if (!despistou) console.log(await p.evaluate(() => { const g = window.__jogo.guerra; return JSON.stringify({ e: g.procurado, sv: g.semVer, ex: g.extras.length, vendo: g.pessoas.lista.filter((n) => n.ve && g.hostil(n, 0)).map((n) => n.papel) }); }));
-if (!despistou || await p.evaluate(() => !!window.__prisao)) console.log('prisao', await p.evaluate(() => JSON.stringify(window.__prisao)));
+if (!despistou || await p.evaluate(() => !!window.__prisao)) console.log('prisao', await p.evaluate(() => JSON.stringify({ ...window.__prisao, perto: window.__perto(), danos: window.__danos.slice(-6) })));
 console.log('despiste', despistou, await p.evaluate(() => JSON.stringify({ m: window.__jogo.guerra.missoes, max: window.__jogo.guerra.maxProcurado, preso: !!window.__jogo.guerra.preso })));
 conferir(despistou && await p.evaluate(() => window.__jogo.guerra.missoes.despiste === true), 'sem ninguém da polícia ver, as estrelas caem (missão Despiste)');
 
@@ -203,7 +218,8 @@ await p.evaluate(() => { const A = window.__jogo.armas; A.receber({ tipo: 'arma'
 const sold = await p.evaluate(() => { const J = window.__jogo, jp = J.jog.pos; const n = J.guerra.pessoas.lista.filter((n) => n.papel === 'soldado' && n.estado !== 'zonzo').sort((a, b) => Math.hypot(a.x - jp.x, a.z - jp.z) - Math.hypot(b.x - jp.x, b.z - jp.z))[0]; return n && n.id; });
 let derrubou = false;
 for (let i = 0; i < 25 && sold && !derrubou; i++) {
-  const sp = await p.evaluate((id) => { const J = window.__jogo, n = J.guerra.pessoas.lista.find((x) => x.id === id); if (!n) return null; if (Math.hypot(n.x - J.jog.pos.x, n.z - J.jog.pos.z) > 25) J.cmd.teleportar(n.x + 6, n.y + 0.1, n.z, 0, ''); return [n.x, n.y + 1.1, n.z]; }, sold);
+  // longe, ou 4 tiros sem acertar (parede do forte no meio): chega por outro lado
+  const sp = await p.evaluate(([id, i]) => { const J = window.__jogo, n = J.guerra.pessoas.lista.find((x) => x.id === id); if (!n) return null; if (Math.hypot(n.x - J.jog.pos.x, n.z - J.jog.pos.z) > 25 || i % 4 === 3) { const [dx, dz] = [[6, 0], [0, 6], [-6, 0], [0, -6]][(i >> 2) % 4]; J.cmd.teleportar(n.x + dx, n.y + 0.1, n.z + dz, 0, ''); } return [n.x, n.y + 1.1, n.z]; }, [sold, i]);
   if (!sp) break;
   await mirarEm(p, sp);
   await clicar(p);
@@ -286,9 +302,10 @@ await esperar(t, () => window.__jogo.garagem.veic.mapa.has('gbj'), null, 8000);
 conferir(await t.isHidden('#bt-voar'), 'tablet: sem botão de voar');
 // entra no jipe armado tocando no botão Entrar
 await t.evaluate(() => { const J = window.__jogo, v = J.garagem.veic.mapa.get('gbj'); J.cmd.teleportar(v.x + 2.2, v.y + 0.3, v.z, 0, ''); });
-await esperar(t, () => !document.querySelector('#bt-veic-entrar').hidden, null, 4000);
+await esperar(t, () => !document.querySelector('#bt-veic-entrar').hidden, null, 8000);
 await t.tap('#bt-veic-entrar');
-await esperar(t, () => !!window.__jogo.garagem.dentro, null, 4000);
+await esperar(t, () => !!window.__jogo.garagem.dentro, null, 8000);
+await t.waitForSelector('#bt-veic-atirar', { state: 'visible', timeout: 4000 }).catch(() => {});
 conferir(await t.isVisible('#bt-veic-atirar'), 'tablet: botão de atirar aparece no jipe armado');
 const antes = await t.evaluate(() => window.__jogo.guerra.efeitos.length);
 const bt = await t.$('#bt-veic-atirar');

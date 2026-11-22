@@ -180,7 +180,7 @@ const o = await pagina(true);
 await o.click('#bt-criar-conta');
 await o.fill('#c-nome', nome); await o.fill('#c-senha', 'senha123');
 if (await o.isVisible('#c-adulto-ok')) await o.check('#c-adulto-ok');
-await o.click('#c-ok');
+if (await o.isVisible('#c-nasc .d-ano')) { await o.selectOption('#c-nasc .d-dia', '1'); await o.selectOption('#c-nasc .d-mes', '1'); await o.selectOption('#c-nasc .d-ano', '1990'); } await o.click('#c-ok');
 await o.waitForSelector('#m-jogos:not([hidden]), #m-mundos:not([hidden])', { timeout: 90000 }); if (await o.isVisible('#m-jogos')) await o.click('.jogo[data-jogo=pradaria]'); // tela Escolha um jogo (#51)
 await o.waitForSelector('#m-mundos:not([hidden])', { timeout: 90000 }); // o primeiro cadastro depois de ligar o servidor demora
 await o.click('#bt-novo-mundo');

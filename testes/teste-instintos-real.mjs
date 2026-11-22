@@ -81,6 +81,7 @@ const olharPara = (p, i = 0) => p.evaluate((i) => {
   await andar(3500);
   const v1 = await p.evaluate(() => { const v = window.__jogo.bichos.lista[0]; return { d: window.__dist(v), e: v.estado }; });
   conferir(v1.e === 'fugir' || v1.d > 11, `tablet: andando com o joystick até o veado, ele foge (${v1.e}, ${d0.toFixed(1)} -> ${v1.d.toFixed(1)})`);
+  if (!(v1.e === 'fugir' || v1.d > 11)) console.log('veado não fugiu:', await p.evaluate(() => { const g = window.__jogo, v = g.bichos.lista[0], j = g.jog; return JSON.stringify({ lista: g.bichos.lista.map((b) => b.especie + ':' + b.estado), v: [v.especie, v.x.toFixed(1), v.y.toFixed(1), v.z.toFixed(1), v.timer, v.pensa, v.segue, v.calmo, v.medo, v.I.fuga], j: [j.pos.x.toFixed(1), j.pos.y.toFixed(1), j.pos.z.toFixed(1), j.voando, j.agachado], dia: g.dia, pausado: g.pausado }); }));
   await p.screenshot({ path: SAIDA + '/real-tablet-veado-foge.png' });
 
   // 2. ursa com filhote: chegar perto do filhote dá aviso; ficar lá, ela morde (perde um coração na tela)

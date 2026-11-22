@@ -108,13 +108,13 @@ if (ONLINE) {
     await q.goto(ONLINE + '/#teste'); await q.evaluate(() => localStorage.clear()); await q.reload();
     await q.click('#bt-criar-conta'); await q.fill('#c-nome', nome); await q.fill('#c-senha', 'senha123');
     if (await q.isVisible('#c-adulto-ok')) await q.check('#c-adulto-ok');
-    await q.click('#c-ok');
+    if (await q.isVisible('#c-nasc .d-ano')) { await q.selectOption('#c-nasc .d-dia', '1'); await q.selectOption('#c-nasc .d-mes', '1'); await q.selectOption('#c-nasc .d-ano', '1990'); } await q.click('#c-ok');
     await q.waitForSelector('#m-jogos:not([hidden]), #m-mundos:not([hidden])', { timeout: 20000 });
     if (await q.isVisible('#m-jogos')) await q.click('.jogo[data-jogo=pradaria]');
     await q.waitForSelector('#m-mundos:not([hidden])', { timeout: 20000 });
     return q;
   }
-  const sfx = Date.now() % 10000;
+  const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join(''); // letras: com 4 algarismos do relógio o nome repetia entre testes e a conta não era criada
   const a = await jogador('Ana' + sfx);
   await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Fazenda');
   // modo criativo (a mochila do servidor não tem trigo; o custo de plantar já foi testado acima)
@@ -147,12 +147,18 @@ if (ONLINE) {
   const vista = await bb.evaluate(([x, y, z]) => window.__jogo.mundo.bloco(x, y, z), pos);
   ok(vista === BROTO, `online (coletar ${sob}): Beto vê o broto que a Ana plantou (${vista})`);
   // Beto chega perto; os dois aparelhos fazem os mesmos tiques (mesma hora): o resultado é igual nos dois
+  // a Terra de plantar foi posta "sem mão" no aparelho da Ana (a sala não repassa): no do Beto também, como se fosse do mundo
+  await bb.evaluate(([x, y, z]) => window.__jogo.mundo.definir(x, y - 1, z, 31), pos);
   await bb.evaluate(([x, y, z]) => { const j = window.__jogo.jog; j.pos.x = x + 3.5; j.pos.z = z + 0.5; j.pos.y = y + 4; j.voando = true; }, pos);
-  const tq = Math.floor(Date.now() / 5000) + 1e5;
-  for (let i = 0; i < 300; i++) {
-    const [ea, eb] = await Promise.all([a, bb].map((q) => q.evaluate(([x, y, z, t]) => { const J = window.__jogo; J.plantacoes.tique(J.jog.pos.x, J.jog.pos.z, t); return J.mundo.bloco(x, y, z); }, [...pos, tq + i])));
-    if (ea === TRIGO && eb === TRIGO) break;
+  // a sala só aceita crescer no tique de agora e depois de 20 s em cada estágio (tique adiantado não vale):
+  // então espera o tempo de verdade; os dois aparelhos fazem os tiques sozinhos (média ~30 s por estágio)
+  const ini = Date.now();
+  while (Date.now() - ini < 240000) {
+    const [ea, eb] = await Promise.all([a, bb].map((q) => q.evaluate(([x, y, z]) => window.__jogo.mundo.bloco(x, y, z), pos)));
+    if ((ea === TRIGO && eb === TRIGO) || (!ea && !eb)) break; // maduro nos dois (ou nem plantou: já falhou acima)
+    await a.waitForTimeout(1000);
   }
+  console.log('trigo cresceu em', Math.round((Date.now() - ini) / 1000), 's');
   await a.waitForTimeout(1500);
   const fim = await Promise.all([a, bb].map((q) => q.evaluate(([x, y, z]) => window.__jogo.mundo.bloco(x, y, z), pos)));
   ok(fim[0] === TRIGO && fim[1] === TRIGO, `online: cresceu e ficou maduro nos dois aparelhos (${fim})`);

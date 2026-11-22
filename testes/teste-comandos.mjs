@@ -15,7 +15,7 @@ async function jogador(nome, toque) {
   await p.click('#bt-criar-conta');
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
   if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
-  await p.click('#c-ok');
+  if (await p.isVisible('#c-nasc .d-ano')) { await p.selectOption('#c-nasc .d-dia', '1'); await p.selectOption('#c-nasc .d-mes', '1'); await p.selectOption('#c-nasc .d-ano', '1990'); } await p.click('#c-ok');
   await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])', { timeout: 15000 }); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 }); } })();
   return p;
 }
@@ -24,10 +24,11 @@ const dist = (a, c) => Math.hypot(a[0] - c[0], a[2] - c[2]);
 const cmd = async (p, texto) => { await p.click('#bt-comandos'); await p.click(`#comandos .cmd:has-text("${texto}")`); await p.waitForTimeout(300);
   if (await p.isVisible('#comandos')) await p.click('#comandos [data-fechar-cmd]'); };
 
-const sfx = Date.now() % 10000;
+const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join(''); // letras: com 4 algarismos do relógio o nome repetia entre testes e a conta não era criada
 const a = await jogador('Ana' + sfx, false);
 await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Fazendinha'); await a.click('#m-novo button[type=submit]');
 await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 20000 });
+await a.evaluate(() => { window.__jogo.vida.protegido = 1e9; }); // teste de comandos: noite com monstros (jogo clássico) não derruba ninguém no meio
 await a.waitForTimeout(1500);
 const codigo = await a.evaluate(() => window.__jogo.sala.codigo);
 
@@ -36,7 +37,8 @@ const casa = await pos(a);
 await cmd(a, 'Marcar casa aqui');
 await cmd(a, 'Lugar novo bem longe');
 const longe = await pos(a);
-ok(dist(casa, longe) > 200, 'lugar longe: andou ' + Math.round(dist(casa, longe)) + ' passos');
+// mundo novo tem borda: "bem longe" fica a pelo menos 60% do tamanho (ou 250 passos) de onde estava
+ok(dist(casa, longe) > 150, 'lugar longe: andou ' + Math.round(dist(casa, longe)) + ' passos');
 // guarda o lugar longe com um desenho
 await a.click('#bt-comandos'); await a.click('#comandos .cmd:has-text("Guardar este lugar")');
 await a.click('.icones button[aria-label="Desenho onda"]');
@@ -57,6 +59,7 @@ ok(Math.abs((await a.evaluate(() => window.__jogo.graf.U.uNoite.value)) - 0) >= 
 const bb = await jogador('Beto' + sfx, true);
 await bb.click('#bt-codigo'); await bb.fill('#n-nome', codigo); await bb.click('#m-novo button[type=submit]');
 await bb.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.outros > 0, null, { timeout: 20000 });
+await bb.evaluate(() => { window.__jogo.vida.protegido = 1e9; }); // teste de comandos: noite com monstros (jogo clássico) não derruba ninguém no meio
 await bb.waitForTimeout(800);
 await bb.click('#bt-comandos');
 ok(await bb.isVisible('#cmd-horas .cmd.trancado'), 'Beto não pode mudar a hora (não é dono)');
@@ -93,6 +96,7 @@ ok(Math.abs(diaB - 0.27) < 0.02, 'hora sincronizada no Beto: ' + diaB);
 await a.click('#bt-menu'); await a.click('#bt-sair-mundo');
 await a.click('#lista-mundos .mundo');
 await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 20000 });
+await a.evaluate(() => { window.__jogo.vida.protegido = 1e9; }); // teste de comandos: noite com monstros (jogo clássico) não derruba ninguém no meio
 await a.waitForTimeout(800);
 await a.click('#bt-comandos');
 ok(await a.isVisible('#cmd-lugares .cmd:has-text("Ir para casa")') && (await a.locator('#cmd-salvos .cmd.salvo').count()) === 1, 'casa e lugar salvos no servidor');
