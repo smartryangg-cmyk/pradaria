@@ -3,7 +3,7 @@
 // machuca menos e a armadura gasta. Peça na mão + usar veste. Morreu: a armadura cai junto.
 // Celular e tablet: vestir tocando (mover rápido) e com toque na tela; a janela cabe na tela.
 // Online: o couro vem da caça, a bota sai da bancada (a sala confere) e o desgaste fica guardado na sala.
-// Uso: (cd public && python3 -m http.server 8772), `npm run dev:sala` e `npm run dev` (8788), e
+// Uso: (cd public && python3 -m http.server 8765), `npm run dev:sala` e `npm run dev` (8788), e
 //   node testes/teste-armadura.mjs        (PARTES=pc,toque,online)
 import { createRequire } from 'module'; const { chromium, devices } = createRequire(import.meta.url)('playwright');
 const URL = process.env.URL || 'http://localhost:8765', ONLINE = process.env.ONLINE || 'http://localhost:8788', SAIDA = process.env.SAIDA || '/tmp';
