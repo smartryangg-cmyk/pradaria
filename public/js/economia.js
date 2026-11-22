@@ -166,7 +166,7 @@ export function opcoesEcon(op) {
   // morte (o que estava na mochila cai no chão) e cama para renascer
   const dif = typeof op.dificuldade === 'string' ? op.dificuldade : op.selvagensMachucam ? 'normal' : 'pacifico';
   const fome = !!op.sobrevivencia && !op.armas && op.tipo !== 'guerra' && dif !== 'pacifico';
-  return { mercado: !!op.mercado, objetivos: !!op.objetivos, sobrevivencia: !!op.sobrevivencia, construcao: op.construcao !== false, voo: !op.armas, fome };
+  return { mercado: !!op.mercado, objetivos: !!op.objetivos, sobrevivencia: !!op.sobrevivencia, construcao: op.construcao !== false, voo: !op.armas, fome, extras: op.extras !== false };
 }
 // tem mochila (dá para pegar e largar coisas no chão)
 export const temMochila = (op) => !!(op && (op.mercado || op.sobrevivencia));
@@ -379,6 +379,7 @@ export function aplicar(e, op, a, ctx = {}) {
     if (!op.sobrevivencia) return falha('?');
     const rc = receita(a.r);
     if (!rc || !receitaNoMundo(rc, op.fome)) return falha('?');
+    if (rc.extra && op.extras === false) return falha('?'); // mod "Blocos extras" desligado
     if (faltaBancada(rc, a.bancada)) return falha('Precisa de uma Bancada perto.');
     if (!temTudo(e.itens, rc)) return falha('Faltam coisas para essa receita.');
     // n = quantas vezes (shift na grade de criar: o máximo de uma vez); cria enquanto der

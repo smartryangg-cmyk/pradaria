@@ -6,6 +6,11 @@ import { AR, B, E, M, PLANTA } from './blocos.js';
 import { BE } from './blocos-eras.js';
 import { BIOMA } from './gerador.js';
 import { opcoesMundo } from './opcoes-mundo.js';
+import { BLOCOS_EXTRAS, FORNALHA } from './blocos.js';
+// mod "Blocos extras" (moinho, padaria, loja, forno de pão, móveis): desligado, a vila só tem o que existe no clássico
+// (o mercado precisa da padaria e da loja, então com ele a vila também tem)
+const comExtras = () => opcoesMundo.extras !== false || !!opcoesMundo.mercado;
+const classico = (b) => (comExtras() || !BLOCOS_EXTRAS.has(b) ? b : b === 55 || b === 56 ? FORNALHA : 0);
 import { PLANTAS, desenhar, noMundo, girar, DIRS as DIRS4 } from './casas.js';
 
 export const REGIAO = 96; // cada região de 96x96 blocos pode ter uma vila (pedaços de 16 cabem certinho)
@@ -119,7 +124,7 @@ export class Vilas {
         // casas de verdade (casas.js): casinha, casa com quarto, sobrado; a vila também tem padaria e loja
         let planta = null;
         if (tipo === 'casa') {
-          planta = !padaria ? 'padaria' : !loja ? 'loja' : (() => { const q = rng(); return q < 0.35 ? 'casinha' : q < 0.75 ? 'casa' : 'sobrado'; })();
+          planta = !padaria && comExtras() ? 'padaria' : !loja && comExtras() ? 'loja' : (() => { const q = rng(); return q < 0.35 ? 'casinha' : q < 0.75 ? 'casa' : 'sobrado'; })();
           if (planta === 'padaria' || planta === 'loja') tipo = planta;
         }
         const larg = planta ? PLANTAS[planta].L : 7; // ao longo da rua
@@ -184,9 +189,9 @@ export class Vilas {
       v.posto = { x: px + 0.5, z: pz + 0.5, y: y + 1, yaw: Math.atan2(-rua.dx, -rua.dz), rua: v.ruas.indexOf(rua) };
       break;
     }
-    // moinho de vento no fim da rua mais comprida (a hélice olha para a praça)
+    // moinho de vento no fim da rua mais comprida (a hélice olha para a praça); só com os blocos extras
     const ruasPorTamanho = v.ruas.map((r, i) => [r.L, i]).sort((a, b) => b[0] - a[0]);
-    for (const [, ri] of ruasPorTamanho) {
+    for (const [, ri] of comExtras() ? ruasPorTamanho : []) {
       const rua = v.ruas[ri];
       const [mx, mz] = this.ponto(C, rua.dx, rua.dz, 4 + rua.L + 5, 0);
       const folga = [mx - 4, mz - 4, mx + 4, mz + 4];
@@ -308,7 +313,7 @@ export class Vilas {
     put(cx, y + 4, cz, B.TABUAS);
     put(cx, y + 5, cz, B.LAMPIAO);
     // manivela com o balde: toque para tirar água
-    put(cx, y + 3, cz, M.SARILHO);
+    if (comExtras()) put(cx, y + 3, cz, M.SARILHO);
     // lampiões nos cantos da praça
     for (const [lx, lz] of [[x0 + 1, z0 + 1], [x1 - 1, z0 + 1], [x0 + 1, z1 - 1], [x1 - 1, z1 - 1]]) { put(lx, y + 1, lz, B.TRONCO); this.lampiao(put, lx, y + 2, lz); }
   }
@@ -385,7 +390,7 @@ export class Vilas {
       const estilo = { parede: e.parede, canto: e.canto, piso: e.piso, telhado: e.telhado, faixa: e.canto === B.TRONCO ? B.TABUAS : B.TRONCO };
       const pos = noMundo(e.planta, px, y, pz, r);
       // na vila mora gente: o forno já está aceso (o da casa que o pedreiro faz, o jogador acende)
-      e.celulas = desenhar(e.planta, estilo, e.v).map(([lx, ly, lz, b]) => [...pos(lx, ly, lz), b === M.FORNO ? M.FORNO_ACESO : girar(b, r)]);
+      e.celulas = desenhar(e.planta, estilo, e.v).map(([lx, ly, lz, b]) => [...pos(lx, ly, lz), classico(b === M.FORNO ? M.FORNO_ACESO : girar(b, r))]);
     }
     this.aplainar(ctx, x0 - 1, z0 - 1, x1 + 1, z1 + 1, y, B.GRAMA, 14);
     for (const [x, yy, z, b] of e.celulas) put(x, yy, z, b);
@@ -432,11 +437,11 @@ export class Vilas {
     } else if (ddz) {
       const fz = ddz > 0 ? z1 - 1 : z0 + 1;
       put(x0 + 1, y + 1, fz, e.cama); put(x0 + 2, y + 1, fz, B.LA_BRANCA);
-      put(x1 - 1, y + 1, fz, M.FORNO_ACESO); // fogão a lenha aceso (ilumina a casa)
+      put(x1 - 1, y + 1, fz, classico(M.FORNO_ACESO)); // fogão a lenha aceso (ilumina a casa); no clássico, fornalha
     } else {
       const fx = ddx > 0 ? x1 - 1 : x0 + 1;
       put(fx, y + 1, z0 + 1, e.cama); put(fx, y + 1, z0 + 2, B.LA_BRANCA);
-      put(fx, y + 1, z1 - 1, M.FORNO_ACESO);
+      put(fx, y + 1, z1 - 1, classico(M.FORNO_ACESO));
     }
     // telhado em pirâmide com beiral
     const T = e.telhado;

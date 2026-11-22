@@ -270,6 +270,8 @@ export const INVENTARIO = [
   M.PORTA, M.FORNO, M.FARINHA, M.PAO,
   MV.CAMA, MV.CADEIRA, MV.MESA, MV.BALCAO, MV.ESTANTE, MV.ESTANTE_PAO,
 ];
+// blocos que não existem no clássico: só com o mod "Blocos extras" (moinho, forno de pão, farinha, móveis da vila)
+export const BLOCOS_EXTRAS = new Set([49, 50, 51, 52, 53, 54, 55, 56, 57, 59, 180, 181, 182, 183, 184, 185, 187]);
 // aba "Engenharia" do inventário
 export const INVENTARIO_MAQUINAS = [
   E.ALAVANCA, E.BOTAO, E.PLACA, E.SENSOR, E.PISCA, E.FIO,
