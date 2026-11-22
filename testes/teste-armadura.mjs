@@ -254,11 +254,12 @@ if (PARTES.includes('online')) {
   await bt.screenshot({ path: SAIDA + '/armadura-online-beto.png' });
   ok(!(await hud(bt)).vis, 'online: o Beto (sem armadura) não tem barra de armadura');
   // volta: a sala guardou o desgaste e as botas continuam vestidas
-  console.log('ANTES', await J(a, () => JSON.stringify([window.__jogo.mercado.e.itens, window.__jogo.mercado.e.desg, window.__jogo.vida.atual])));
+  // antes de sair, desce para o chão de verdade do mundo (o palco de pedra só existe neste aparelho:
+  // voltando, ela cairia lá de cima)
+  await J(a, () => { const g = window.__jogo, j = g.jog, x = Math.floor(j.pos.x), z = Math.floor(j.pos.z); for (let y = 89; y > 0; y--) if (g.mundo.bloco(x, y, z) && g.mundo.bloco(x, y, z) !== 3) { j.pos.y = y + 1; break; } j.vel.y = 0; });
+  await esperar(a, 4000); // o corpo (posição e vida) é guardado a cada 3 s
   await J(a, () => { window.__jogo.mercado.e.desg = {}; });
   await voltar(a);
-  await esperar(a, 8000);
-  console.log('DEPOIS', await J(a, () => JSON.stringify([window.__jogo.mercado.e.itens, window.__jogo.mercado.e.desg])));
   ok(await ate(a, (d0) => ((window.__jogo.mercado.e.desg?.[1120] || [])[0] | 0) === d0, d0, 6000), 'online: voltou e a sala devolveu o desgaste das botas (' + await J(a, () => JSON.stringify(window.__jogo.mercado.e.desg)) + ')');
   ok((await vestido(a))[3] === 1120 && (await hud(a)).vis, 'online: as botas continuam vestidas ' + await J(a, () => JSON.stringify([window.__jogo.mercado.e.itens, window.__jogo.inv.s.map((x) => x && x.id), window.__jogo.mundoAtual && window.__jogo.mundoAtual.nome])));
   await bt.context().close(); await a.context().close();
