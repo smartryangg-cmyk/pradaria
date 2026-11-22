@@ -97,6 +97,15 @@ if (PARTES.includes('tablet')) {
   await p.screenshot({ path: SAIDA + '/extras-tablet-pao.png' });
   await p.tap('#inv-saida'); await esperar(p, 400);
   ok(await J(p, () => window.__jogo.mercado.qtd(58) === 1 && window.__jogo.mercado.qtd(32) === 0), 'tablet: fez 1 pão com 3 trigos na bancada');
+  // cerca, laje, escada e vidro fino (quadrados) são do jogo base: cerca na bancada com 4 tábuas e 2 gravetos = 3
+  await p.click('#inventario [data-fechar]').catch(() => {}); await esperar(p, 300);
+  await J(p, () => { const me = window.__jogo.mercado; me.e.itens[8] = 4; me.e.itens[1000] = 2; me.recebeu(me.e); });
+  await esperar(p, 300);
+  await J(p, () => window.__jogo.abrirInventario('criar'));
+  await p.waitForSelector('#inventario:not([hidden]) [data-receita=cerca]');
+  ok(await p.isVisible('[data-receita=escada]') && await p.isVisible('[data-receita=meio-bloco]') && await p.isVisible('[data-receita=vidro-fino]') && !(await p.isVisible('[data-receita=bola]')), 'tablet: cerca, escada, laje e vidro fino no livro do jogo base (bola e cúpula não, são do mod)');
+  await p.tap('[data-receita=cerca]'); await esperar(p, 300); await p.tap('#inv-saida'); await esperar(p, 400);
+  ok(await J(p, () => window.__jogo.mercado.qtd(84) === 3 && !window.__jogo.mercado.qtd(8)), 'tablet: fez 3 cercas com 4 tábuas e 2 gravetos');
   await ctx.close();
 }
 
