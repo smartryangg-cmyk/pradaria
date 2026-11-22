@@ -123,10 +123,14 @@ if (ONLINE) {
   await bb.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.outros > 0, null, { timeout: 30000 });
   await bb.waitForTimeout(1500);
   // procura uma grama do mundo com espaço em cima, onde o sorteio deixa crescer daqui a 70-95 s
-  const alvo = await a.evaluate(async () => {
+  // (mundo sorteado: às vezes não há grama livre com o sorteio certo agora; a janela anda a cada tique, então tenta de novo)
+  let alvo = null;
+  for (let tenta = 0; tenta < 8 && !alvo; tenta++) { if (tenta) { // aqui não tem grama livre (floresta, neve, areia...): anda mais para longe e procura lá
+    await a.evaluate((k) => { const J = window.__jogo, j = J.jog, x = j.pos.x + (k % 2 ? 70 : 0), z = j.pos.z + (k % 2 ? 0 : 70); J.mundo.atualizar(x, z, 400); J.cmd.teleportar(x, J.mundo.chao(Math.floor(x), Math.floor(z)) + 1.02, z, j.yaw, ''); }, tenta);
+    await a.waitForTimeout(5000); } alvo = await a.evaluate(async () => {
     const J = window.__jogo, M = J.mundo, j = J.jog, R = await import('/js/arvores-regras.js'), { TIQUE_MS } = await import('/js/plantacoes-regras.js');
     const T = Math.floor(Date.now() / TIQUE_MS), px = Math.floor(j.pos.x), pz = Math.floor(j.pos.z);
-    for (let r = 2; r <= 40; r++) for (let dx = -r; dx <= r; dx++) for (const dz of [-r, r]) {
+    for (let r = 2; r <= 40; r++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz += (Math.abs(dx) === r ? 1 : 2 * r)) { // a volta inteira do quadrado
       const x = px + dx, z = pz + dz, y = M.chao(x, z) + 1;
       if (M.bloco(x, y - 1, z) !== 1 || M.bloco(x, y, z) !== 0) continue;
       let t = -1; for (let k = T + 14; k <= T + 19; k++) if (R.cresceMuda(x, y, z, k)) { t = k; break; }
@@ -135,7 +139,7 @@ if (ONLINE) {
       return { x, y, z, espera: (t + 1) * TIQUE_MS - Date.now() };
     }
     return null;
-  });
+  }); }
   ok(!!alvo, 'online: achou grama livre para plantar ' + JSON.stringify(alvo));
   if (alvo) {
     // Ana fica perto, olhando para a grama, e planta com a mão (usar)
