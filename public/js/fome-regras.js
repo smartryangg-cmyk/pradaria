@@ -12,7 +12,6 @@ export const COMIDA = {
   [I.PAO]: { f: 5, s: 6 },
   [I.CARNE]: { f: 3, s: 1.8 },
   [I.CARNE_ASSADA]: { f: 8, s: 12.8 }, // assada na fornalha (fornalha-regras.js) enche bem mais
-  1012: { f: 7, s: 8.4 }, // bolo (cana-regras.js): 3 trigos + 2 açúcares
   [I.CARNE_ESTRAGADA]: { f: 4, s: 0.8 }, // cai do barrento (monstro): mata pouco a fome
 };
 export const ehComida = (id) => Object.prototype.hasOwnProperty.call(COMIDA, id);
@@ -48,6 +47,14 @@ export function comer(e, id) {
   if (!c || e.f >= FOME_MAX) return false;
   e.f = Math.min(FOME_MAX, e.f + c.f);
   e.s = Math.min(e.f, e.s + c.s);
+  return true;
+}
+
+// fatia do bolo colocado (bolo-regras.js): enche 2 de fome e 0,4 de saturação
+export function comerFatia(e, fatia = { f: 2, s: 0.4 }) {
+  if (e.f >= FOME_MAX) return false;
+  e.f = Math.min(FOME_MAX, e.f + fatia.f);
+  e.s = Math.min(e.f, e.s + fatia.s);
   return true;
 }
 

@@ -4,6 +4,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { F } from './formas.js';
 import { FOLHAGEM } from './blocos.js';
 import { CANA, cabeCana } from './cana-regras.js';
+import { BOLO_ITEM, BOLO_B, ehBolo, depoisDaFatia } from './bolo-regras.js';
 import { criarAtlas, iconeBloco, INVENTARIO, INVENTARIO_MAQUINAS, INVENTARIO_FORMAS, B, E, AR, BLOCOS, SOLIDO, AGUA, PRECISA_CHAO, ITEM, ehItem, nomeDe, FORNALHA } from './blocos.js';
 import { toquesCom, receitasDoMundo, GRUPOS, podeCriar, faltaBancada, gastoDe, receitaDaGrade, arrumar, cabeNaGrade, pilhaDe, cabe, nivelFalta, NOME_NIVEL, baseDe, DURA } from './receitas.js';
 import { Inventario, MAO2 } from './inventario.js';
@@ -1624,6 +1625,14 @@ function usar(ponto) {
   if (h.b === FORNALHA && sobrev() && invPronto) { som.clique(); abrirFornalha(h.x, h.y, h.z); return; }
   // tocar no baú abre o baú (27 espaços em cima, a mochila embaixo)
   if (h.b === BAU && sobrev() && invPronto) { som.abrirBau ? som.abrirBau() : som.clique(); abrirBau(h.x, h.y, h.z); return; }
+  // tocar no bolo colocado (bolo-regras.js): com fome, come uma fatia (não é a mão colocando nem quebrando)
+  if (ehBolo(h.b) && vida.classico() && !armas.empunhando) {
+    if (!vida.comFome()) { aviso('Você está sem fome', 1400, 'coxa'); return; }
+    mundo.definir(h.x, h.y, h.z, depoisDaFatia(h.b));
+    vida.comerFatia(); salvarCorpo();
+    som.tom(520, 0.08, { tipo: 'sine', vol: 0.2, ate: 760 }); visao.bater();
+    return;
+  }
   // tocar na cama: deita (de noite, dorme até amanhecer)
   if (ehCama(h.b) && !armas.empunhando) {
     som.clique();
@@ -1648,6 +1657,7 @@ function usar(ponto) {
   let novo = naMao();
   if (novo === ISQUEIRO) { acenderFogo(x, y, z); return; }
   // segunda mão (como no clássico): com a mão vazia ou com ferramenta, coloca o bloco da segunda mão
+  if (novo === BOLO_ITEM) novo = BOLO_B; // o bolo da mochila vira o bolo inteiro no chão
   let daMao2 = false;
   if ((!novo || ehItem(novo)) && invPronto && inv.s[MAO2] && !ehItem(inv.s[MAO2].id)) { novo = inv.s[MAO2].id; daMao2 = true; }
   if (!novo || ehItem(novo)) return; // mão vazia ou ferramenta: não coloca nada

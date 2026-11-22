@@ -215,7 +215,9 @@ def(OBSIDIANA, 'Obsidiana', 151);
 def(FOGO, 'Fogo', 152, { solido: false, opaco: false, planta: true, brilho: 1 }); // fogo-regras.js (não vai para a mochila)
 def(TOCHA, 'Tocha', [150, 9, 9], { solido: false, opaco: false, forma: 'tocha', chao: true, brilho: 0.6 });
 def(223, 'Baú', [154, 154, 155]);
-def(224, 'Cana-de-açúcar', 156, { solido: false, opaco: false, planta: true }); // cana-regras.js // bau-regras.js: guarda 27 pilhas
+def(224, 'Cana-de-açúcar', 156, { solido: false, opaco: false, planta: true }); // cana-regras.js
+// bolo colocado, de 7 fatias (225) a 1 fatia (231): bolo-regras.js
+for (let b = 225; b <= 231; b++) def(b, 'Bolo', [159, 158, 158], { solido: true, opaco: false, forma: 'bolo', chao: true }); // bau-regras.js: guarda 27 pilhas
 // escada de mão (escada-mao.js): 4 giros, de madeira, presa na parede
 for (let d = 0; d < 4; d++) def(ESCADA_MAO + d, 'Escada de mão', 9, { solido: false, opaco: false, forma: 'escadamao' });
 
@@ -482,6 +484,8 @@ function pintarCriacao(img) {
     if (y === 8) return var_(x % 3 ? hex(0xfbf6ec) : hex(0xb07a48), r, 0.05);
     return var_(hex(0xb07a48), r, 0.1);
   });
+  // 159 cobertura do bolo (em cima do bolo colocado): branca com pontinhos vermelhos
+  pintarTile(img, 159, (x, y, r) => ((x * 7 + y * 5) % 11 === 0 ? var_(hex(0xd9363e), r, 0.05) : var_(hex(0xfbf6ec), r, 0.04)));
   // 142 balde: de tábuas, com aros escuros e alça
   pintarTile(img, 142, (x, y, r) => {
     const alca = Math.hypot(x - 7.5, y - 6.5);
