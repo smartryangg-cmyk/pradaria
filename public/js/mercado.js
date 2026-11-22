@@ -113,6 +113,15 @@ export class Mercado {
     else if (this.otimista(a, true)) this.sala.enviar(a);
     this.avisarQuebrou(id, antes);
   }
+  // levou um golpe com armadura (jogo clássico): as peças vestidas gastam n
+  armadura(ids, n) {
+    ids = (ids || []).filter((id) => DURA[id] && (this.e.itens[id] | 0) > 0);
+    if (!this.ligado || !this.op.fome || !ids.length) return;
+    const a = { t: 'armadura', ids, n }, antes = ids.map((id) => this.e.itens[id] | 0);
+    if (!this.sala) this.enviar(a, true);
+    else if (this.otimista(a, true)) this.sala.enviar(a);
+    ids.forEach((id, k) => { if (antes[k] > (this.e.itens[id] | 0)) this.ui.aviso(`${nomeDe(id)} quebrou! Crie outra peça na bancada`, 2600, 'escudo'); });
+  }
   // a ferramenta gastou até o fim (como no clássico)
   avisarQuebrou(id, antes) {
     if (DURA[id] && antes > (this.e.itens[id] | 0)) this.ui.aviso(`${nomeDe(id)} quebrou de tanto usar! Crie outro na bancada`, 2600, 'martelo');

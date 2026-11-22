@@ -8,6 +8,7 @@
 //   - receitas novas: adicionarReceitas([{ id, faz: [id, qtd], usa: [[id, qtd], ...], bancada, grupo }])
 //   - liberar receitas aos poucos (ex.: eras da Linha do Tempo): ponha `era: 'x'` na receita e troque
 //     `regras.liberada = (receita, opcoes) => true` por uma função sua
+import { DURA_ARMADURA, parteDe } from './armadura-regras.js';
 
 // ids (iguais aos de blocos.js)
 export const IDS = {
@@ -28,10 +29,14 @@ export const IDS = {
   PICARETA_FERRO: 1105, MACHADO_FERRO: 1106, PA_FERRO: 1107, PICARETA_DIAMANTE: 1108, MACHADO_DIAMANTE: 1109, PA_DIAMANTE: 1110,
   // monstros da noite (monstros-regras.js): o que eles deixam e as espadas
   TEIA: 1111, CARNE_ESTRAGADA: 1112, ESPADA_MADEIRA: 1113, ESPADA_PEDRA: 1114, ESPADA_FERRO: 1115, ESPADA_DIAMANTE: 1116,
+  // armadura (armadura-regras.js): capacete, peitoral, calça e botas de couro, ferro e diamante
+  CAPACETE_COURO: 1117, PEITORAL_COURO: 1118, CALCA_COURO: 1119, BOTAS_COURO: 1120,
+  CAPACETE_FERRO: 1121, PEITORAL_FERRO: 1122, CALCA_FERRO: 1123, BOTAS_FERRO: 1124,
+  CAPACETE_DIAMANTE: 1125, PEITORAL_DIAMANTE: 1126, CALCA_DIAMANTE: 1127, BOTAS_DIAMANTE: 1128,
 };
 const I = IDS;
 export const ULTIMO_ITEM = 1012; // 1010 isqueiro (fogo-regras.js); 1011 açúcar, 1012 bolo (cana-regras.js)
-export const PRIMEIRO_CLASSICO = 1100, ULTIMO_CLASSICO = 1116; // itens do jogo clássico (minérios, fornalha, monstros, espadas)
+export const PRIMEIRO_CLASSICO = 1100, ULTIMO_CLASSICO = 1128; // itens do jogo clássico (minérios, fornalha, monstros, espadas, armadura)
 export const MAIOR_ITEM = ULTIMO_CLASSICO;
 export const MAX_BLOCO = 255;
 
@@ -141,6 +146,7 @@ export const GRUPOS = [
   { id: 'cores', nome: 'Cores e enfeites', icone: 'flor' },
   { id: 'formas', nome: 'Formas redondas', icone: 'bloco', opcao: 'formas' },
   { id: 'maquinas', nome: 'Engenharia', icone: 'engrenagem', opcao: 'maquinas' },
+  { id: 'armadura', nome: 'Armadura', icone: 'escudo' },
 ];
 export const RECEITAS = [
   // na mão
@@ -168,6 +174,19 @@ export const RECEITAS = [
   { id: 'espada-pedra', faz: [I.ESPADA_PEDRA, 1], usa: [[I.PEDRA, 2], [I.GRAVETO, 1]], bancada: true, grupo: 'ferramentas', forma: ['P', 'P', 'G'] },
   { id: 'espada-ferro', faz: [I.ESPADA_FERRO, 1], usa: [[I.BARRA_FERRO, 2], [I.GRAVETO, 1]], bancada: true, grupo: 'ferramentas', forma: ['F', 'F', 'G'] },
   { id: 'espada-diamante', faz: [I.ESPADA_DIAMANTE, 1], usa: [[I.DIAMANTE, 2], [I.GRAVETO, 1]], bancada: true, grupo: 'ferramentas', forma: ['D', 'D', 'G'] },
+  // armadura (só no jogo clássico, onde ela protege: armadura-regras.js)
+  { id: 'capacete-couro', faz: [I.CAPACETE_COURO, 1], usa: [[I.COURO, 5]], bancada: true, grupo: 'armadura', soClassico: true, forma: ['LLL', 'L.L'] },
+  { id: 'peitoral-couro', faz: [I.PEITORAL_COURO, 1], usa: [[I.COURO, 8]], bancada: true, grupo: 'armadura', soClassico: true, forma: ['L.L', 'LLL', 'LLL'] },
+  { id: 'calca-couro', faz: [I.CALCA_COURO, 1], usa: [[I.COURO, 7]], bancada: true, grupo: 'armadura', soClassico: true, forma: ['LLL', 'L.L', 'L.L'] },
+  { id: 'botas-couro', faz: [I.BOTAS_COURO, 1], usa: [[I.COURO, 4]], bancada: true, grupo: 'armadura', soClassico: true, forma: ['L.L', 'L.L'] },
+  { id: 'capacete-ferro', faz: [I.CAPACETE_FERRO, 1], usa: [[I.BARRA_FERRO, 5]], bancada: true, grupo: 'armadura', soClassico: true, forma: ['LLL', 'L.L'] },
+  { id: 'peitoral-ferro', faz: [I.PEITORAL_FERRO, 1], usa: [[I.BARRA_FERRO, 8]], bancada: true, grupo: 'armadura', soClassico: true, forma: ['L.L', 'LLL', 'LLL'] },
+  { id: 'calca-ferro', faz: [I.CALCA_FERRO, 1], usa: [[I.BARRA_FERRO, 7]], bancada: true, grupo: 'armadura', soClassico: true, forma: ['LLL', 'L.L', 'L.L'] },
+  { id: 'botas-ferro', faz: [I.BOTAS_FERRO, 1], usa: [[I.BARRA_FERRO, 4]], bancada: true, grupo: 'armadura', soClassico: true, forma: ['L.L', 'L.L'] },
+  { id: 'capacete-diamante', faz: [I.CAPACETE_DIAMANTE, 1], usa: [[I.DIAMANTE, 5]], bancada: true, grupo: 'armadura', soClassico: true, forma: ['LLL', 'L.L'] },
+  { id: 'peitoral-diamante', faz: [I.PEITORAL_DIAMANTE, 1], usa: [[I.DIAMANTE, 8]], bancada: true, grupo: 'armadura', soClassico: true, forma: ['L.L', 'LLL', 'LLL'] },
+  { id: 'calca-diamante', faz: [I.CALCA_DIAMANTE, 1], usa: [[I.DIAMANTE, 7]], bancada: true, grupo: 'armadura', soClassico: true, forma: ['LLL', 'L.L', 'L.L'] },
+  { id: 'botas-diamante', faz: [I.BOTAS_DIAMANTE, 1], usa: [[I.DIAMANTE, 4]], bancada: true, grupo: 'armadura', soClassico: true, forma: ['L.L', 'L.L'] },
   { id: 'la-de-fio', faz: [14, 1], usa: [[I.TEIA, 4]], grupo: 'construir', forma: ['II', 'II'] }, // 4 fios de teia de aranha = 1 lã
   { id: 'balde', faz: [I.BALDE, 1], usa: [[I.TABUAS, 3]], bancada: true, grupo: 'ferramentas', forma: ['T.T', '.T.'] },
   // construção
@@ -252,8 +271,8 @@ export const mundoClassico = (o) => {
   const dif = typeof o.dificuldade === 'string' ? o.dificuldade : o.selvagensMachucam ? 'normal' : 'pacifico';
   return dif !== 'pacifico';
 };
-// receita com `classico: false` = só nos mundos com mods (no clássico há a receita certa, com barra/carvão)
-export const receitaNoMundo = (r, classico) => !(classico && r.classico === false);
+// receita com `classico: false` = só nos mundos com mods; `soClassico` = só no jogo clássico (a armadura) (no clássico há a receita certa, com barra/carvão)
+export const receitaNoMundo = (r, classico) => !(classico && r.classico === false) && !(!classico && r.soClassico);
 export function receitasDoMundo(opcoes) {
   const fora = new Set(GRUPOS.filter((g) => g.opcao && opcoes && opcoes[g.opcao] === false).map((g) => g.id));
   const cl = mundoClassico(opcoes);
@@ -274,17 +293,26 @@ export const podeCriar = (itens, r, temBancada, limite = false) => !faltaBancada
 // 16 baldes, 1 ferramenta. A conta é pela arrumação mais apertada: o inventário da tela (inventario.js)
 // sempre consegue arrumar o que a mochila diz que cabe.
 export const ESPACOS = 37;
-export const pilhaDe = (id) => (FERRAMENTAS[id] ? 1 : id === I.BALDE ? 16 : 64);
+export const pilhaDe = (id) => (FERRAMENTAS[id] || DURA[id] ? 1 : id === I.BALDE ? 16 : 64); // ferramenta, espada, isqueiro e armadura não empilham
 export function espacosUsados(itens) {
   let s = 0;
-  for (const k in itens) { const n = itens[k]; if (n > 0) s += Math.ceil(n / pilhaDe(+k)); }
+  const vestida = [0, 0, 0, 0]; // uma peça de cada parte vai vestida, no espaço dela (inventario.js), não na mochila
+  for (const k in itens) {
+    const n = itens[k];
+    if (!(n > 0)) continue;
+    s += Math.ceil(n / pilhaDe(+k));
+    const p = parteDe(+k);
+    if (p >= 0 && !vestida[p]) { vestida[p] = 1; s--; }
+  }
   return s;
 }
 // quantos de `id` ainda cabem
 export function cabeQuanto(itens, id) {
   const p = pilhaDe(id), tem = qtdEm(itens, id);
   const sobra = tem % p ? p - (tem % p) : 0;
-  return Math.max(0, sobra + Math.max(0, ESPACOS - espacosUsados(itens)) * p);
+  // a primeira peça de uma parte da armadura vai vestida: tem espaço próprio
+  const pa = parteDe(id), vestir = pa >= 0 && !Object.keys(itens).some((k) => itens[k] > 0 && parteDe(+k) === pa) ? 1 : 0;
+  return Math.max(0, sobra + (Math.max(0, ESPACOS - espacosUsados(itens)) + vestir) * p);
 }
 export const cabe = (itens, id, n) => cabeQuanto(itens, id) >= n;
 // depois de gastar os ingredientes, o resultado cabe?
@@ -370,7 +398,7 @@ export function criarEm(itens, r, temBancada, limite = false) {
 // e.desg[id] = lista com o uso já gasto de cada ferramenta desse tipo (a primeira é a da mão: gasta primeiro).
 // Quebrar um bloco com a ferramenta gasta 1 (plantas e coisas de um toque não); acender com o isqueiro gasta 1.
 // Quando chega no máximo, a ferramenta quebra. Largar no chão leva o desgaste junto (pegar de volta não conserta).
-export const DURA = { 1001: 59, 1003: 59, 1005: 59, 1002: 131, 1004: 131, 1006: 131, 1010: 64, 1105: 250, 1106: 250, 1107: 250, 1108: 1561, 1109: 1561, 1110: 1561, 1113: 59, 1114: 131, 1115: 250, 1116: 1561 };
+export const DURA = { 1001: 59, 1003: 59, 1005: 59, 1002: 131, 1004: 131, 1006: 131, 1010: 64, 1105: 250, 1106: 250, 1107: 250, 1108: 1561, 1109: 1561, 1110: 1561, 1113: 59, 1114: 131, 1115: 250, 1116: 1561, ...DURA_ARMADURA };
 const lim = (id, v) => Math.max(0, Math.min(DURA[id] - 1, v | 0));
 // desgaste válido para n ferramentas id (lista de números; o que faltar é ferramenta nova)
 export const desgLista = (id, l, n) => (DURA[id] && Array.isArray(l) ? l.slice(0, Math.max(0, n | 0)).map((v) => lim(id, v)) : []);

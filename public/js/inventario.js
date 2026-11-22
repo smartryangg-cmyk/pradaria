@@ -1,4 +1,5 @@
-// Inventário de espaços, como no clássico: 9 da barra (0..8), 27 da mochila (9..35) e a segunda mão (36),
+// Inventário de espaços, como no clássico: 9 da barra (0..8), 27 da mochila (9..35), a segunda mão (36)
+// e a armadura vestida (37 cabeça, 38 peito, 39 pernas, 40 pés: só a peça daquela parte, armadura-regras.js),
 // mais a grade de criar (2x2 na mochila, 3x3 na bancada) e o que está preso no cursor.
 // Quantas coisas o jogador tem é a contagem da economia (e.itens = { id: n }, conferida pela sala);
 // aqui fica só a ARRUMAÇÃO. ajustar(itens) faz a arrumação bater com a contagem: o que entrou vai para
@@ -6,10 +7,13 @@
 // garante que tudo cabe; se uma mochila antiga passou do limite, o resto fica em "sobrando".
 // Sem tela (o teste roda no node).
 import { pilhaDe } from './receitas.js';
+import { parteDe } from './armadura-regras.js';
 
-export const BARRA = 9, MAO2 = 36, TOTAL = 37;
+export const BARRA = 9, MAO2 = 36, ARMA = 37, TOTAL = 41;
 const faixa = (a, b) => Array.from({ length: b - a }, (_, i) => a + i);
-const BARRA_I = faixa(0, 9), MOCHILA_I = faixa(9, 36);
+const BARRA_I = faixa(0, 9), MOCHILA_I = faixa(9, 36), ARMA_I = faixa(37, 41);
+// o espaço i aceita a coisa id? (os da armadura só a peça da parte certa)
+export const aceita = (l, i, id) => !(l === 's' && i >= ARMA) || parteDe(id) === i - ARMA;
 
 export class Inventario {
   constructor() {
@@ -36,6 +40,15 @@ export class Inventario {
   total(id) { let n = 0; for (const p of this.pilhas()) if (p.id === id) n += p.n; return n; }
   contagem() { const c = {}; for (const p of this.pilhas()) c[p.id] = (c[p.id] || 0) + p.n; return c; }
   gradeIds() { return this.g.slice(0, this.w * this.w).map((p) => (p ? p.id : 0)); }
+  // as peças vestidas (ids)
+  vestido() { return ARMA_I.map((i) => this.s[i]).filter(Boolean).map((p) => p.id); }
+  // vestir a peça do espaço i (da barra ou da mochila): troca com a que estava vestida
+  vestir(i) {
+    const a = this.s[i], p = a ? parteDe(a.id) : -1;
+    if (p < 0 || i >= ARMA) return false;
+    this.s[i] = this.s[ARMA + p]; this.s[ARMA + p] = a;
+    return true;
+  }
 
   // ---------- bater com a contagem ----------
   ajustar(itens, sel = 0) {
@@ -47,10 +60,17 @@ export class Inventario {
       else if (d < 0) this.remover(id, -d, sel);
     }
     this.preferir = -1;
-    // não coube: junta as pilhas incompletas da mesma coisa (a mochila diz que cabe arrumando apertado)
-    if (this.extra.length && !this.s.some((p) => !p)) this.juntar();
+    // não coube: veste a armadura que está solta (o espaço dela é próprio) e junta as pilhas incompletas
+    // da mesma coisa (a mochila diz que cabe arrumando apertado)
+    const livre = () => [...BARRA_I, ...MOCHILA_I, MAO2].some((i) => !this.s[i]);
+    if (this.extra.length) {
+      for (const i of [...MOCHILA_I, ...BARRA_I, MAO2]) { const a = this.s[i], p = a ? parteDe(a.id) : -1; if (p >= 0 && !this.s[ARMA + p]) this.vestir(i); }
+      for (let k = 0; k < this.extra.length; k++) { const a = this.extra[k], p = parteDe(a.id); if (p >= 0 && !this.s[ARMA + p]) { this.s[ARMA + p] = a; this.extra[k] = null; } }
+      this.extra = this.extra.filter(Boolean);
+    }
+    if (this.extra.length && !livre()) this.juntar();
     // sobrando: se abriu espaço, entra
-    if (this.extra.length && this.s.some((p) => !p)) { const ex = this.extra; this.extra = []; for (const p of ex) this.add(p.id, p.n); }
+    if (this.extra.length && livre()) { const ex = this.extra; this.extra = []; for (const p of ex) this.add(p.id, p.n); }
   }
   // junta pilhas incompletas iguais (a de trás enche a da frente)
   juntar() {
@@ -85,6 +105,7 @@ export class Inventario {
     if (this.preferir >= 0) ordem.push(['s', this.preferir]);
     ordem.push(['s', sel], ...BARRA_I.map((i) => ['s', i]), ...MOCHILA_I.map((i) => ['s', i]), ['s', MAO2]);
     this.extra.forEach((_, i) => ordem.push(['x', i]));
+    ordem.push(...ARMA_I.map((i) => ['s', i])); // a vestida sai por último
     this.g.forEach((_, i) => ordem.push(['g', i]));
     for (const [l, i] of ordem) {
       const a = this.lista(l)[i];
@@ -102,7 +123,7 @@ export class Inventario {
   clicar(l, i) {
     const a = this.em(l, i), c = this.cursor;
     if (!c) { if (a) { this.cursor = a; this.por(l, i, null); } return; }
-    if (l === 'x') return; // em "sobrando" só se tira
+    if (l === 'x' || !aceita(l, i, c.id)) return; // em "sobrando" só se tira; na armadura só a peça certa
     if (!a) { this.por(l, i, c); this.cursor = null; return; }
     if (a.id === c.id) {
       const k = Math.min(pilhaDe(c.id) - a.n, c.n); a.n += k; c.n -= k;
@@ -118,7 +139,7 @@ export class Inventario {
       if (a) { const k = Math.ceil(a.n / 2); this.cursor = { id: a.id, n: k }; a.n -= k; if (!a.n) this.por(l, i, null); }
       return;
     }
-    if (l === 'x') return;
+    if (l === 'x' || !aceita(l, i, c.id)) return;
     if (!a) this.por(l, i, { id: c.id, n: 1 });
     else if (a.id === c.id && a.n < pilhaDe(a.id)) a.n++;
     else return;
@@ -129,7 +150,7 @@ export class Inventario {
   espalhar(lugares, umCada = false) {
     const c = this.cursor;
     if (!c) return;
-    const alvos = lugares.filter(([l, i]) => { const a = this.em(l, i); return l !== 'x' && (!a || a.id === c.id); });
+    const alvos = lugares.filter(([l, i]) => { const a = this.em(l, i); return l !== 'x' && aceita(l, i, c.id) && (!a || a.id === c.id); });
     if (!alvos.length) return;
     const p = pilhaDe(c.id), cada = umCada ? 1 : Math.max(1, Math.floor(c.n / alvos.length));
     for (const [l, i] of alvos) {
@@ -145,6 +166,9 @@ export class Inventario {
   moverRapido(l, i) {
     const a = this.em(l, i);
     if (!a) return;
+    // peça de armadura com a parte livre: veste (como no clássico)
+    const pa = parteDe(a.id);
+    if (pa >= 0 && !(l === 's' && i >= ARMA) && !this.s[ARMA + pa]) { this.s[ARMA + pa] = a; this.por(l, i, null); return; }
     const destino = l === 's' && i < 9 ? MOCHILA_I : l === 's' && i < 36 ? BARRA_I : [...MOCHILA_I, ...BARRA_I];
     const p = pilhaDe(a.id);
     for (const j of destino) {
@@ -158,7 +182,7 @@ export class Inventario {
   trocarComBarra(l, i, k) {
     if (l === 's' && i === k) return;
     const a = this.em(l, i), b = this.s[k];
-    if (l === 'x' && b) return;
+    if ((l === 'x' && b) || (b && !aceita(l, i, b.id))) return;
     this.s[k] = a; this.por(l, i, b);
   }
   // tecla F: troca o que está na mão com a segunda mão
@@ -201,8 +225,9 @@ export class Inventario {
   // ---------- guardar ----------
   salvar() { return { v: 1, s: this.s.map((p) => (p ? [p.id, p.n] : 0)) }; }
   carregar(o) {
-    if (!o || o.v !== 1 || !Array.isArray(o.s) || o.s.length !== TOTAL) return false;
-    this.s = o.s.map((p) => (Array.isArray(p) && Number.isInteger(p[0]) && p[1] > 0 ? { id: p[0], n: Math.min(p[1] | 0, pilhaDe(p[0])) } : null));
+    // 37 = guardado antes da armadura (os espaços dela começam vazios)
+    if (!o || o.v !== 1 || !Array.isArray(o.s) || (o.s.length !== TOTAL && o.s.length !== ARMA)) return false;
+    this.s = [...o.s, ...new Array(TOTAL - o.s.length).fill(0)].map((p, i) => (Array.isArray(p) && Number.isInteger(p[0]) && p[1] > 0 && aceita('s', i, p[0]) ? { id: p[0], n: Math.min(p[1] | 0, pilhaDe(p[0])) } : null));
     return true;
   }
 }
