@@ -13,7 +13,7 @@ const conferir = (ok, msg, extra = '') => { console.log((ok ? 'OK    ' : 'FALHA 
 
 async function abrir(ctx, toque) {
   const p = await ctx.newPage();
-  p.on('pageerror', (e) => erros.push('PAGEERROR ' + e.message));
+  p.on('pageerror', (e) => erros.push('PAGEERROR ' + (e.stack || e.message)));
   p.on('console', (m) => { if (m.type() === 'error') erros.push(m.text()); });
   await p.goto(BASE + '/#teste');
   await p.evaluate(() => localStorage.clear());
@@ -153,7 +153,8 @@ for (const [modo, rot] of [[0, '1ª pessoa'], [1, '3ª pessoa (ombro)'], [2, '3�
 }
 // celular deitado (tela bem larga) com o campo de visão no máximo (100°): os cantos da tela ficam mais longe
 await p.setViewportSize({ width: 1560, height: 700 });
-await p.evaluate(() => { window.__jogo.ajustes.fov = 100; });
+// pela barrinha dos Ajustes (é ela que aplica na câmera; mudar o número por fora só valia com o mod Armas, que mexe no zoom)
+await p.evaluate(() => { const r = document.querySelector('#aj-fov'); r.value = 100; r.dispatchEvent(new Event('input', { bubbles: true })); });
 await p.waitForTimeout(500);
 conferir(await p.evaluate(() => Math.round(window.__jogo.camera.fov)) >= 100, 'campo de visão em 100°');
 for (const [modo, rot] of [[0, 'tela larga 100° 1ª pessoa'], [1, 'tela larga 100° ombro']]) {

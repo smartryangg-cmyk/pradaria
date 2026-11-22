@@ -1,5 +1,5 @@
 // Mundo de Guerra no celular: botões de arma não podem cobrir a barra nem os slots. SAIDA=pasta das fotos.
-import { createRequire } from 'module'; const { chromium, devices } = createRequire('/opt/')('playwright');
+import { createRequire } from 'module'; const { chromium, devices } = createRequire(import.meta.url)('playwright');
 const SAIDA = process.env.SAIDA;
 const AP = { 'cel-retrato': { viewport: { width: 360, height: 740 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }, 'cel-deitado': { viewport: { width: 740, height: 360 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }, 'tablet': { ...devices['Galaxy Tab S4 landscape'] } };
 const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });

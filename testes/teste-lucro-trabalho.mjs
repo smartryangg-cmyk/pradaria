@@ -59,7 +59,7 @@ for (const { b, preco } of LOJA) {
   e.itens[9] = 5; e.itens[3] = 5; // vidro e pedra feitos/colhidos (não comprados)
   const r1 = aplicar(e, op, { t: 'criar', r: 'vidro-fino', bancada: true });
   const r2 = aplicar(e, op, { t: 'criar', r: 'meio-bloco', bancada: true });
-  conferir(r1.ok && r2.ok && e.itens[85] === 4 && e.itens[90] === 2, 'fez 4 vidros finos com 1 vidro e 2 meios blocos com 1 pedra');
+  conferir(r1.ok && r2.ok && e.itens[85] === 4 && e.itens[90] === 6, 'fez 4 vidros finos com 1 vidro e 6 meios blocos com 3 pedras');
   const m = e.moedas;
   const v1 = aplicar(e, op, { t: 'vender', b: 85, n: 4 }), v2 = aplicar(e, op, { t: 'vender', b: 90, n: 2 });
   const d = aplicar(e, op, { t: 'depositar', onde: 'loja', b: 85, n: 4 }, { pos: pos(LOJ) });

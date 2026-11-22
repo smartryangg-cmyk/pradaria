@@ -4,7 +4,7 @@
 // Uso: (cd public && python3 -m http.server 8772), `npm run dev:sala` e `npm run dev` (8788), e
 //   node testes/teste-monstros.mjs        (PARTES=pc,toque,online)
 import { createRequire } from 'module'; const { chromium, devices } = createRequire(import.meta.url)('playwright');
-const URL = process.env.URL || 'http://localhost:8772', ONLINE = process.env.ONLINE || 'http://localhost:8788', SAIDA = process.env.SAIDA || '/tmp';
+const URL = process.env.URL || 'http://localhost:8765', ONLINE = process.env.ONLINE || 'http://localhost:8788', SAIDA = process.env.SAIDA || '/tmp';
 const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 let falhas = 0; const erros = [];
 const PARTES = (process.env.PARTES || 'pc,toque,online').split(',');
@@ -160,6 +160,19 @@ if (PARTES.includes('toque')) for (const [nome, dev] of [['celular', devices['Pi
   }
   const vida1 = await J(p, () => window.__jogo.bichos.lista.find((b) => b.especie === 'barrento')?.vida ?? 0);
   ok(vida1 < vida0, `${nome}: segurando o dedo bateu no barrento com a espada (${vida0} -> ${vida1})`);
+  if (nome === 'tablet') {
+    // vários monstros em volta derrubam o jogador: na hora de morrer os bravos vão embora no meio da conta dos bichos
+    // (antes dava erro de página "reading 'x'"); depois renasce pelo botão
+    const e0 = erros.length;
+    await J(p, () => { const J_ = window.__jogo, L = J_.bichos, j = J_.jog; L.tempoSpawn = 1e9; J_.vida.protegido = 0;
+      for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; const m = L.criar(k % 2 ? 'aranha' : 'barrento', j.pos.x + Math.cos(a) * 0.9, j.pos.y, j.pos.z + Math.sin(a) * 0.9, { grupo: 900 + k }); m.estado = 'atacar'; m.alvo = 'jog'; m.cacandoGente = true; m.timer = 4; m.mordeu = 0; }
+      J_.vida.atual = 1; });
+    const morreu = await ate(p, () => !document.querySelector('#morte').hidden, null, 20000);
+    ok(morreu, 'tablet: os monstros derrubaram o jogador (tela de morte)');
+    if (morreu) { await p.tap('#bt-renascer'); await esperar(p, 1500); }
+    ok(await J(p, () => document.querySelector('#morte').hidden && window.__jogo.vida.atual > 0), 'tablet: renasceu pelo botão');
+    ok(erros.length === e0, 'tablet: morrer cercado de monstros não dá erro de página ' + JSON.stringify(erros.slice(e0)));
+  }
   await ctx.close();
 }
 
@@ -199,13 +212,16 @@ if (PARTES.includes('online')) {
   ok(await ate(a, () => window.__jogo.mercado.qtd(1111) === 2, null, 5000), 'online: pegou os 2 fios de teia (a sala deu) ' + await J(a, () => window.__jogo.mercado.qtd(1111) + JSON.stringify(window.__jogo.drops.lista().map((d) => [d.id, d.n, d.x, d.y, d.z])) + JSON.stringify(window.__jogo.jog.pos)));
   ok(await J(a, () => window.__jogo.mercado.e.xp | 0) === 5, 'online: 5 de experiência');
   // a sala confere: volta ao mundo e a mochila e a experiência vêm da sala
+  // o palco lá no alto só existe neste aparelho: antes de sair desce para o chão de verdade (senão volta no ar, cai e desmaia)
+  await J(a, () => { const J_ = window.__jogo, j = J_.jog, m = J_.mundo, x = Math.floor(j.pos.x), z = Math.floor(j.pos.z); let y = 88; while (y > 1 && !m.bloco(x, y, z)) y--; j.pos.y = y + 1.02; j.vel.y = 0; J_.dia = 0.25; });
+  await esperar(a, 2000);
   await J(a, () => { window.__jogo.mercado.e.xp = 0; });
   await a.reload(); await esperar(a, 1500);
   if (await a.isVisible('#m-jogos')) await a.click('.jogo[data-jogo=pradaria]');
   await a.waitForSelector('#m-mundos:not([hidden])', { timeout: 30000 });
   await a.click('#lista-mundos .mundo, #lista-mundos button');
   await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 30000 }); await esperar(a, 2500);
-  ok(await ate(a, () => window.__jogo.mercado.qtd(1111) === 2 && (window.__jogo.mercado.e.xp | 0) === 5, null, 5000), 'online: voltou e a sala guardou os fios e a experiência');
+  ok(await ate(a, () => window.__jogo.mercado.qtd(1111) === 2 && (window.__jogo.mercado.e.xp | 0) === 5, null, 5000), 'online: voltou e a sala guardou os fios e a experiência ' + await J(a, () => JSON.stringify([window.__jogo.mercado.qtd(1111), window.__jogo.mercado.e.xp, window.__jogo.vida.atual, !document.querySelector('#morte').hidden])));
   // inventar um monstro derrubado várias vezes seguidas: a sala não dá tudo (limite por minuto)
   await a.screenshot({ path: SAIDA + '/monstro-online-ana.png' });
   await bt.screenshot({ path: SAIDA + '/monstro-online-beto.png' });

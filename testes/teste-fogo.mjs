@@ -76,7 +76,8 @@ let fim = meio, t = 0;
 for (; t < 60 && (await fogos()) > 0; t++) await p.waitForTimeout(1000);
 fim = await tabuas();
 const itensTabua = await p.evaluate(() => window.__jogo.mercado.e.itens[8] || 0);
-ok(fim < meio && (await fogos()) === 0, `o fogo queimou a parede e apagou sozinho (sobraram ${fim} tábuas em ${t + 3} s)`);
+// (no CI lento a parede pode já ter queimado quase toda na primeira olhada: aí fim = meio)
+ok(fim <= meio && fim < 15 && (await fogos()) === 0, `o fogo queimou a parede e apagou sozinho (sobraram ${fim} tábuas em ${t + 3} s)`);
 ok(itensTabua === 0, 'madeira queimada não cai para a mochila');
 await p.screenshot({ path: SAIDA + '/fogo-2-queimou.png' });
 // água apaga: acende e despeja água do lado

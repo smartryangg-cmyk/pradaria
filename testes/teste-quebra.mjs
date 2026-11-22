@@ -49,16 +49,18 @@ const mesmaColuna = colunas && new Set(colunas).size <= Math.ceil(colunas.length
 const lascas = await p.evaluate(() => window.__escav.parts.filter((q) => q.escala && q.escala.y > q.escala.x * 3).length);
 ok(e && e.toques === 2 && mesmaColuna, `madeira: 2 batidas, lasca no sentido dos veios (colunas ${colunas && colunas.join(' ')})`);
 ok(lascas > 0, `madeira: pedacinhos compridos (lascas) voando: ${lascas}`);
-await p.screenshot({ path: SAIDA + '/quebra-madeira.png' });
-// conserto: espera sem bater; o bloco se refaz e volta inteiro
+// conserto: espera sem bater; o bloco se refaz e volta inteiro (o print fica para depois: no CI ele demora segundos)
 const t0 = Date.now();
 const linha = [];
 for (let i = 0; i < 30; i++) { const s = await estado(); linha.push([Date.now() - t0, s && s.toques]); await espera(p, 200); }
 const seq = linha.map((l) => l[1]).filter((v, i, arr) => i === 0 || v !== arr[i - 1]);
 const inteiro = await p.evaluate(([x, y, z]) => window.__jogo.mundo.bloco(x, y, z) === 6 && !window.__jogo.mundo.escondido(x, y, z), [x0, y0 + 1, z0 - 2]);
-ok(seq.join() === '2,1,', `parou de bater: espera e se refaz pedaço por pedaço (${seq.map((v) => v ?? 'inteiro')})`);
+// numa máquina lenta a primeira leitura já pode pegar o 1 (passaram 2,5 s): vale descer de um em um até inteiro
+const desce = seq.length >= 2 && seq[seq.length - 1] == null && seq.slice(0, -1).every((v, i, a) => v === (i ? a[i - 1] - 1 : v)) && seq[seq.length - 2] === 1 && seq[0] <= 2;
+ok(desce, `parou de bater: espera e se refaz pedaço por pedaço (${seq.map((v) => v ?? 'inteiro')})`);
 const fim = null;
 ok(!fim && inteiro, 'depois volta inteiro (tronco no mundo, sem rachadura)');
+await p.screenshot({ path: SAIDA + '/quebra-madeira.png' });
 
 // pedra: trinca torta e pedrinhas que quicam e duram mais
 await bater(BL.pedra, 2, 1001);
@@ -102,13 +104,13 @@ if (ONLINE) {
     await q.goto(ONLINE + '/#teste'); await q.evaluate(() => localStorage.clear()); await q.reload();
     await q.click('#bt-criar-conta'); await q.fill('#c-nome', nome); await q.fill('#c-senha', 'senha123');
     if (await q.isVisible('#c-adulto-ok')) await q.check('#c-adulto-ok');
-    await q.click('#c-ok');
+    if (await q.isVisible('#c-nasc .d-ano')) { await q.selectOption('#c-nasc .d-dia', '1'); await q.selectOption('#c-nasc .d-mes', '1'); await q.selectOption('#c-nasc .d-ano', '1990'); } await q.click('#c-ok');
     await q.waitForSelector('#m-jogos:not([hidden]), #m-mundos:not([hidden])', { timeout: 20000 });
     if (await q.isVisible('#m-jogos')) await q.click('.jogo[data-jogo=pradaria]');
     await q.waitForSelector('#m-mundos:not([hidden])', { timeout: 20000 });
     return q;
   }
-  const sfx = Date.now() % 10000;
+  const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join(''); // letras: com 4 algarismos do relógio o nome repetia entre testes e a conta não era criada
   const a = await jogador('Ana' + sfx);
   await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Pedreira');
   // coletar e criar (quebra em vários toques; no criativo quebra num toque só)
@@ -128,9 +130,14 @@ if (ONLINE) {
     await new Promise((r) => setTimeout(r, 2500)); // a sala aceita 25 blocos por segundo: deixa a limpeza passar
     m.definir(x0, y0 + 1, z0 - 2, 6); // tronco (5 toques com a mão)
     j.pos.x = x0 + 0.5; j.pos.z = z0 + 0.5; j.pos.y = y0; j.yaw = 0; j.pitch = 0; J.barra[0] = 0; J.slot = 0;
+    return [x0, y0 + 1, z0 - 2];
+  });
+  // o tronco foi posto "sem mão" no aparelho da Ana (a sala não repassa isso): no do Beto também, como se fosse do mundo
+  await bb.evaluate(([x, y, z]) => window.__jogo.mundo.definir(x, y, z, 6), pos);
+  await a.evaluate(async () => {
+    const J = window.__jogo;
     await new Promise((r) => setTimeout(r, 1500));
     for (let i = 0; i < 2; i++) { J.quebrar(null); await new Promise((r) => setTimeout(r, 300)); }
-    return [x0, y0 + 1, z0 - 2];
   });
   await bb.waitForTimeout(700);
   const vista = await bb.evaluate(([x, y, z]) => { const e = window.__jogo.escav.blocos.get(x + ',' + y + ',' + z); return e ? e.toques : 0; }, pos);

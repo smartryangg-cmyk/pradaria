@@ -19,13 +19,13 @@ async function jogador(nome, toque) {
   await p.click('#bt-criar-conta');
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
   if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
-  await p.click('#c-ok');
+  if (await p.isVisible('#c-nasc .d-ano')) { await p.selectOption('#c-nasc .d-dia', '1'); await p.selectOption('#c-nasc .d-mes', '1'); await p.selectOption('#c-nasc .d-ano', '1990'); } await p.click('#c-ok');
   await (async () => { await p.waitForSelector('#m-mundos:not([hidden]), #m-jogos:not([hidden])', { timeout: 15000 }); if (await p.isVisible('#m-jogos')) { await p.click('.jogo[data-jogo=pradaria]'); await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 }); } })();
   return p;
 }
 const ultimas = (p) => p.$$eval('#chat-log .chat-msg', (l) => l.map((e) => e.textContent));
 
-const sfx = Date.now() % 10000;
+const sfx = Array.from({ length: 5 }, () => 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 23)]).join(''); // letras: com 4 algarismos do relógio o nome repetia entre testes e a conta não era criada
 const a = await jogador('Ana' + sfx, false);
 await a.click('#bt-novo-mundo'); await a.fill('#n-nome', 'Conversa');
 // as duas opções aparecem na criação: texto ligado, voz desligada (o dono liga se quiser)
@@ -90,7 +90,9 @@ const estA = await a.evaluate(() => window.__jogo.chat.voz.estatisticas());
 const estB = await bb.evaluate(() => window.__jogo.chat.voz.estatisticas());
 ok(Object.values(estA).some((s) => s.estado === 'connected') && Object.values(estB).some((s) => s.estado === 'connected'), 'voz conectada entre os dois: ' + JSON.stringify(estA) + ' ' + JSON.stringify(estB));
 ok(await a.isVisible('#bt-falar') && await bb.isVisible('#bt-falar') && await bb.isVisible('#bt-mudo'), 'botões de falar e mudo aparecem');
-const nivelEmB = async () => { await bb.waitForTimeout(1500); const s = await bb.evaluate(() => window.__jogo.chat.voz.estatisticas()); return Object.values(s)[0]; };
+// o microfone falso do Chromium é um bipe com pausas: olha o nível várias vezes e fica com o maior
+const nivelMax = async (pg, ms) => { let m = null; for (let t = 0; t < ms; t += 150) { const s = Object.values(await pg.evaluate(() => window.__jogo.chat.voz.estatisticas()))[0]; if (s && (!m || s.nivel > m.nivel)) m = s; await pg.waitForTimeout(150); } return m; };
+const nivelEmB = async (espera = 600) => { await bb.waitForTimeout(espera); return nivelMax(bb, 2400); };
 const quieto = await nivelEmB();
 // Ana segura o botão de falar (mouse)
 const box = await a.locator('#bt-falar').boundingBox();
@@ -103,14 +105,14 @@ const indicador = await bb.evaluate(() => [...document.querySelectorAll('#voz-ge
 await a.screenshot({ path: SAIDA + '/voz-pc-falando.png' });
 await bb.screenshot({ path: SAIDA + '/voz-tablet-ouvindo.png' });
 await a.mouse.up();
-const solto = await nivelEmB();
+const solto = await nivelEmB(1500);
 console.log('nível do som da Ana no Beto: quieto', quieto.nivel, 'falando', falando.nivel, 'solto', solto.nivel, 'bytes', solto.bytes);
 ok(quieto.nivel < 0.01 && falando.nivel > 0.05 && solto.nivel < 0.01, 'som só passa enquanto segura o botão');
 ok(indicador.some((t) => t.startsWith('Ana')), 'Beto vê que a Ana está falando: ' + JSON.stringify(indicador));
 // Beto (tablet) fala segurando o dedo
 await bb.locator('#bt-falar').dispatchEvent('pointerdown', { pointerId: 7, pointerType: 'touch', isPrimary: true });
-await a.waitForTimeout(1500);
-const sA = Object.values(await a.evaluate(() => window.__jogo.chat.voz.estatisticas()))[0];
+await a.waitForTimeout(600);
+const sA = await nivelMax(a, 3000);
 await bb.locator('#bt-falar').dispatchEvent('pointerup', { pointerId: 7, pointerType: 'touch', isPrimary: true });
 ok(sA.nivel > 0.05, 'Ana ouve o Beto quando ele segura o botão no tablet (nível ' + sA.nivel + ')');
 // tecla B no computador

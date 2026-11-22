@@ -71,10 +71,12 @@ async function eatTablet(p, nome) {
   ok(c.f === 18 && c.en > 28 && c.verde, `${nome}: deu enjoo (${c.en.toFixed(1)} s) e a barra ficou verde`);
   ok(await ate(p, () => /enjoo/.test(document.querySelector('#aviso')?.textContent || document.body.innerText), null, 1500), nome + ': aviso do enjoo na tela');
   await p.screenshot({ path: SAIDA + `/carne-${nome}-enjoo.png` });
-  const x0 = (await fome(p)).x;
+  // mede no relógio do jogo (o tempo de enjoo que passou): no aparelho lento o jogo anda menos que o relógio da parede
+  const c0 = await fome(p), x0 = c0.x;
   await esperar(p, 4000);
   c = await fome(p);
-  ok(c.x - x0 > 0.3 && c.x - x0 < 0.5, `${nome}: enjoado cansa 0,1 por segundo (4 s: +${(c.x - x0).toFixed(2)})`);
+  const seg = c0.en - c.en;
+  ok(seg > 1 && Math.abs((c.x - x0) - 0.1 * seg) < 0.08, `${nome}: enjoado cansa 0,1 por segundo (${seg.toFixed(1)} s do jogo: +${(c.x - x0).toFixed(2)})`);
   ok(await J(p, () => window.__jogo.vida.salvar().fome.en > 0), nome + ': o enjoo fica guardado no corpo');
   await J(p, () => { window.__jogo.vida.fome.en = 1; });
   ok(await ate(p, () => !document.querySelector('#fome').classList.contains('enjoo'), null, 3000), nome + ': o enjoo passou e a barra voltou ao normal');

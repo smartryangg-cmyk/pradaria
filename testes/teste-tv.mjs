@@ -56,10 +56,16 @@ await toque('[data-nav=ok]');
 ok(await tv.evaluate(() => document.querySelector('#tv-painel').hidden), 'OK no celular fecha o painel da TV');
 // vai até um botão da TV usando as setas do celular
 async function irAte(id) {
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < 24; i++) {
     if (await tv.evaluate((id) => document.activeElement && document.activeElement.id === id, id)) return true;
-    const acima = await tv.evaluate((id) => { const el = document.activeElement; if (!el || el === document.body) return false; return el.getBoundingClientRect().top > document.getElementById(id).getBoundingClientRect().top; }, id);
-    await toque(acima ? '[data-nav=cima]' : '[data-nav=baixo]');
+    // na mesma linha (botões lado a lado, como os modos de jogo) vai para o lado; senão sobe ou desce
+    const lado = await tv.evaluate((id) => {
+      const el = document.activeElement; if (!el || el === document.body) return 'baixo';
+      const a = el.getBoundingClientRect(), b = document.getElementById(id).getBoundingClientRect();
+      if (Math.abs(a.top - b.top) < 8) return a.left > b.left ? 'esq' : 'dir';
+      return a.top > b.top ? 'cima' : 'baixo';
+    }, id);
+    await toque(`[data-nav=${lado}]`);
   }
   return tv.evaluate((id) => document.activeElement && document.activeElement.id === id, id);
 }
@@ -204,7 +210,7 @@ await cel.waitForFunction(() => !document.body.classList.contains('menu'));
 // controle remoto: esquerda vira, OK coloca bloco, Voltar pausa
 await voarAlto(); await espera(200);
 const yawA = await tv.evaluate(() => window.__jogo.jog.yaw);
-await tv.keyboard.down('ArrowLeft'); await espera(600); await tv.keyboard.up('ArrowLeft');
+await tv.keyboard.down('ArrowLeft'); await espera(1200); // (o CI roda a ~13 quadros por segundo) await tv.keyboard.up('ArrowLeft');
 const yawB = await tv.evaluate(() => window.__jogo.jog.yaw);
 ok(yawB - yawA > 0.4, 'seta esquerda do controle remoto vira o personagem (' + (yawB - yawA).toFixed(2) + ' rad)');
 const zA = await tv.evaluate(() => ({ ...window.__jogo.jog.pos }));

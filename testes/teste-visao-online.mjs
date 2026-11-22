@@ -18,7 +18,7 @@ async function jogador(nome, tablet) {
   await p[tablet ? 'tap' : 'click']('#bt-criar-conta');
   await p.fill('#c-nome', nome); await p.fill('#c-senha', 'senha123');
   if (await p.isVisible('#c-adulto-ok')) await p.check('#c-adulto-ok');
-  await p[tablet ? 'tap' : 'click']('#c-ok');
+  if (await p.isVisible('#c-nasc .d-ano')) { await p.selectOption('#c-nasc .d-dia', '1'); await p.selectOption('#c-nasc .d-mes', '1'); await p.selectOption('#c-nasc .d-ano', '1990'); } await p[tablet ? 'tap' : 'click']('#c-ok');
   await p.waitForSelector('#m-jogos:not([hidden]), #m-mundos:not([hidden])', { timeout: 15000 });
   if (await p.isVisible('#m-jogos')) await p[tablet ? 'tap' : 'click']('.jogo[data-jogo=pradaria]');
   await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 15000 });
@@ -61,7 +61,8 @@ await bb.screenshot({ path: `${SAIDA}/online-beto-ve-ana-parada.png` });
 await a.keyboard.down('KeyW');
 await a.waitForTimeout(500);
 const anda = [];
-for (let i = 0; i < 6; i++) { anda.push(await bb.evaluate(() => +window.__jogo.outrosLista[0].membros[2].rotation.x.toFixed(2))); await bb.waitForTimeout(60); }
+// no CI as posições da Ana chegam atrasadas no Beto: olha por até 3 s até ver o passo
+for (let i = 0; i < 40 && !(anda.length >= 6 && anda.some((r) => Math.abs(r) > 0.3)); i++) { anda.push(await bb.evaluate(() => +window.__jogo.outrosLista[0].membros[2].rotation.x.toFixed(2))); await bb.waitForTimeout(75); }
 await bb.screenshot({ path: `${SAIDA}/online-beto-ve-ana-andando.png` });
 await a.keyboard.up('KeyW');
 ok(anda.some((r) => Math.abs(r) > 0.3), 'Beto vê as pernas da Ana andando ' + anda.join(','));

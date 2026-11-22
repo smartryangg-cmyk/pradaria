@@ -15,6 +15,8 @@ await p.reload();
 await p.waitForTimeout(500);
 await p.click('#bt-sozinho');
 await p.waitForSelector('#m-novo:not([hidden])');
+// blocos à vontade (o teste coloca bloco sem juntar antes) e o mod Veículos (desligado nos mundos novos) para o carro
+await p.click('#m-novo [data-modo=criativo]'); await p.click('#m-novo [data-opcao=veiculos]');
 await p.click('#m-novo button[type=submit]');
 await p.waitForTimeout(5000);
 let falhas = 0;
@@ -127,7 +129,8 @@ e = await est();
 ok(e.modo === 0 && !e.vis, 'volta para os olhos e o boneco some');
 // veículo: a câmera do veículo continua mandando
 await p.keyboard.press('KeyR');
-await p.evaluate(() => window.__jogo.garagem.novo('carro', 0));
+// o carro precisa da chave (pega na garagem de uma vila): o teste já dá a chave
+await p.evaluate(() => { const m = window.__jogo.mercado; if (!m.e.veiculos.includes('carro')) m.e.veiculos.push('carro'); window.__jogo.garagem.novo('carro', 0); });
 await p.waitForTimeout(600);
 const v = await p.evaluate(() => ({ dentro: !!window.__jogo.garagem.dentro, meu: !!(window.__jogo.visao.boneco.grupo.parent) }));
 ok(v.dentro && !v.meu, 'no carro: câmera do veículo e sem boneco duplicado');

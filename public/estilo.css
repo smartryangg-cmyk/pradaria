@@ -298,6 +298,8 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 .opcao-mundo:disabled { opacity: .3; cursor: default; }
 /* criação e edição do mundo: partes Mundo, Regras e Mods (editar-mundo.js) */
 .abas-mundo { position: sticky; top: -16px; z-index: 2; display: flex; gap: 6px; padding: 6px 0; background: var(--creme); }
+/* a barra de abas fica grudada em cima: quem chega no botão pelas setas (TV) ou pelo Tab não fica escondido atrás dela */
+.sec-mundo :is(button, summary, input, select) { scroll-margin-top: 64px; }
 .abas-mundo button { flex: 1; border: 0; border-radius: 12px; padding: 8px 6px; background: var(--creme2); color: var(--txt); font: inherit; font-weight: 900; font-size: 14px; cursor: pointer; }
 .abas-mundo button.sel { background: var(--verde); color: #fff; }
 .sec-mundo { scroll-margin-top: 64px; }

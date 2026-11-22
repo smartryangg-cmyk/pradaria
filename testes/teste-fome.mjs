@@ -277,7 +277,13 @@ for (const [nome, disp] of [['celular', devices['Pixel 7']], ['tablet', devices[
   await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala && window.__jogo.drops.lista().some((d) => d.id === 6), null, { timeout: 30000 });
   ok(await J(a, () => window.__jogo.mercado.qtd(6)) === 0, 'online: a Ana recarregou a página e entrou de novo');
   await esperar(a, 1500);
-  await J(a, ([x, y, z]) => { const j = window.__jogo.jog; j.pos.x = x; j.pos.y = y; j.pos.z = z; }, [tr.x, tr.y, tr.z]);
+  // vai até onde o tronco está agora e fica ali (no aparelho lento a física ainda empurrava a Ana para cima do buraco
+  // antes de ela encostar no tronco)
+  for (let k = 0; k < 8 && !(await J(a, () => window.__jogo.mercado.qtd(6) === 1)); k++) {
+    await J(a, () => { const d = window.__jogo.drops.lista().find((q) => q.id === 6); if (!d) return; const j = window.__jogo.jog; j.voando = true; j.pos.x = d.x; j.pos.y = d.y; j.pos.z = d.z; j.vel.x = j.vel.y = j.vel.z = 0; });
+    await esperar(a, 700);
+  }
+  await J(a, () => { window.__jogo.jog.voando = false; });
   ok(await ate(a, () => window.__jogo.mercado.qtd(6) === 1, null, 6000), 'online: a Ana voltou e pegou o próprio tronco (' + JSON.stringify(await J(a, () => [window.__jogo.drops.eu, window.__jogo.drops.lista().map((d) => [d.id, d.res, d.x, d.y, d.z]), window.__jogo.jog.pos])) + ')');
   ok(await ate(bt, () => !window.__jogo.drops.lista().some((d) => d.id === 6), null, 4000), 'online: o tronco sumiu da tela do Beto');
   await a.screenshot({ path: SAIDA + '/fome-online-ana-pegou.png' });
