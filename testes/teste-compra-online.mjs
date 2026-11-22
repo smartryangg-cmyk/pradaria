@@ -71,11 +71,23 @@ const fimB = await est(bb);
 conferir(fimB.moedas === depoisB.moedas && fimB.itens[14] === 1, 'os moradores não compram do Beto a lã que a Ana comprou');
 // e um bloco que o Beto colheu (terra natural) vende normal
 const terra = await bb.evaluate(() => {
-  const { jog, mundo, comoJogador } = window.__jogo; const x = Math.floor(jog.pos.x) - 3, z = Math.floor(jog.pos.z) - 3;
-  let y = 94; while (y > 2 && !mundo.bloco(x, y, z)) y--;
-  const b = mundo.bloco(x, y, z); comoJogador(() => mundo.definir(x, y, z, 0)); return b;
+  // o bloco de cima de uma coluna perto que seja chão que a mão quebra (grama, terra ou areia): água, folha, plantinha ou
+  // pedra sem picareta não dão nada para vender (o teste caía quando o Beto estava perto de um lago). Perto mesmo:
+  // a sala só acredita em bloco do mundo quebrado a até 10 blocos de quem quebrou
+  const { jog, mundo, comoJogador } = window.__jogo, px = Math.floor(jog.pos.x), pz = Math.floor(jog.pos.z), lugares = [];
+  for (let dx = -6; dx <= 6; dx++) for (let dz = -6; dz <= 6; dz++) { const r = Math.hypot(dx, dz); if (r >= 2 && r <= 6) lugares.push([r, px + dx, pz + dz]); }
+  lugares.sort((p, q) => p[0] - q[0]);
+  for (const [, x, z] of lugares) {
+    let y = 94; while (y > 2 && !mundo.bloco(x, y, z)) y--;
+    const b = mundo.bloco(x, y, z); if (![1, 2, 4].includes(b)) continue;
+    comoJogador(() => mundo.definir(x, y, z, 0)); return b;
+  }
+  return null;
 });
-await pegarDoChao(bb);
+for (let t = 0; t < 4; t++) { // o que caiu pode demorar a aparecer no aparelho lento
+  await pegarDoChao(bb);
+  if (Object.keys((await est(bb)).itens).some((k) => k !== '14')) break;
+}
 const colheu = await est(bb);
 const cai = Object.keys(colheu.itens).map(Number).find((k) => k !== 14 && !colheu.compra[k]);
 await bb.evaluate((k) => window.__jogo.mercado.enviar({ t: 'vender', b: k, n: 1 }), cai);
