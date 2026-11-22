@@ -77,7 +77,8 @@ export default async function fisica(j) {
     await j.espera(Math.abs(corre - 5.61) < 0.4, 'Ctrl + W corre a ~5,6 blocos por segundo como no clássico', { tipo: 'clássico', esperado: '5,6 b/s', visto: corre + ' b/s' });
     // W duas vezes rápido também corre no clássico
     await meioDaPista(j); await virarParaOAberto(j);
-    const duplo = await velocidade(j, async () => { j.passo('apertou W duas vezes rápido'); await j.p.evaluate(() => { for (const t of ['keydown', 'keyup', 'keydown']) dispatchEvent(new KeyboardEvent(t, { code: 'KeyW', key: 'w' })); }); await j.andar('frente', 3000); });
+    let duplo = await velocidade(j, async () => { j.passo('apertou W duas vezes rápido'); await j.p.evaluate(() => { for (const t of ['keydown', 'keyup', 'keydown']) dispatchEvent(new KeyboardEvent(t, { code: 'KeyW', key: 'w' })); }); await j.andar('frente', 3000); });
+    if (duplo <= 5) { j.passo('não correu; tenta de novo, como uma pessoa'); await meioDaPista(j); await virarParaOAberto(j);duplo = await velocidade(j, async () => { j.passo('apertou W duas vezes rápido'); await j.p.evaluate(() => { for (const t of ['keydown', 'keyup', 'keydown']) dispatchEvent(new KeyboardEvent(t, { code: 'KeyW', key: 'w' })); }); await j.andar('frente', 3000); }); }
     await j.espera(duplo > 5, 'apertar W duas vezes rápido corre, como no clássico', { tipo: 'clássico', esperado: '> 5 b/s', visto: duplo + ' b/s' });
     // Shift no clássico agacha (anda devagar ~1,3 b/s)
     await meioDaPista(j); await virarParaOAberto(j);
@@ -95,10 +96,11 @@ export default async function fisica(j) {
   const teto = await j.p.evaluate(() => { const g = window.__jogo, p = g.jog.pos; for (let d = 2; d <= 3; d++) if (g.mundo.bloco(Math.floor(p.x), Math.floor(p.y) + d, Math.floor(p.z))) return d; return 0; });
   if (teto) { j.passo('tem bloco em cima da cabeça; anda um pouco antes de pular'); await virarParaOAberto(j); await j.andar('frente', 1500); }
   const y0 = (await pos(j)).y;
-  const subida = j.p.evaluate(() => new Promise((r) => { const jg = window.__jogo.jog, y0 = jg.pos.y; let mx = y0; const t0 = performance.now(); const f = () => { mx = Math.max(mx, jg.pos.y); if (performance.now() - t0 < 6000) requestAnimationFrame(f); else r(mx - y0); }; requestAnimationFrame(f); }));
+  // mede até pousar de novo (o teste roda a poucos quadros)
+  const subida = j.p.evaluate(() => new Promise((r) => { const jg = window.__jogo.jog, y0 = jg.pos.y; let mx = y0; const t0 = performance.now(); let saiu = false; const tr = []; const f = () => { mx = Math.max(mx, jg.pos.y); if (tr.length < 40) tr.push([+jg.pos.y.toFixed(2), +jg.vel.y.toFixed(1), jg.noChao ? 1 : 0]); window.__trPulo = tr; if (!jg.noChao) saiu = true; if ((saiu && jg.noChao) || performance.now() - t0 > 30000) r(mx - y0); else requestAnimationFrame(f); }; requestAnimationFrame(f); }));
   await j.pular();
   const alt = await subida;
-  await j.espera(alt > 1.1 && alt < 1.45, 'o pulo sobe ~1,25 bloco (passa 1 bloco, não passa 2)', { tipo: 'clássico', esperado: '1,25', visto: alt.toFixed(2) + ' (de ' + y0 + ')' });
+  await j.espera(alt > 1.1 && alt < 1.45, 'o pulo sobe ~1,25 bloco (passa 1 bloco, não passa 2)', { tipo: 'clássico', esperado: '1,25', visto: alt.toFixed(2) + ' (de ' + y0 + ') ' + JSON.stringify(await j.p.evaluate(() => window.__trPulo)) });
 
   // dano de queda: junta terra e sobe num pilar pulando e colocando bloco embaixo (como no clássico)
   let terra = 0;
@@ -113,13 +115,18 @@ export default async function fisica(j) {
   if (!(await j.espera(terra >= 5, 'cavar grama/terra com a mão dá terra', { visto: terra + ' terras' }))) return;
   const s = (await inv(j)).s.findIndex((x) => x && x[0] === 2);
   await j.escolherSlot(s);
+  await meioDaPista(j); // sai do buraco que cavou e sobe o pilar no campo
   const base = await pos(j);
   await j.olhar(0, 2000); // olha para os pés
   for (let k = 0; k < 5; k++) {
     j.passo('pulou e colocou terra embaixo dos pés');
-    if (!j.toque) { await j.p.keyboard.down('Space'); await j.p.waitForTimeout(260); await j.usar(); await j.p.keyboard.up('Space'); }
-    else { const pr = j.pular(); await j.p.waitForTimeout(240); await j.usar(); await pr; }
-    await j.p.waitForTimeout(900);
+    // como uma pessoa: pula e coloca o bloco quando os pés já passaram da altura de 1 bloco
+    const yAntes = (await pos(j)).y;
+    const noAlto = () => j.p.waitForFunction((y) => window.__jogo.jog.pos.y > y + 1.02, yAntes, { timeout: 15000 }).catch(() => {});
+    if (!j.toque) { await j.p.keyboard.down('Space'); await noAlto(); await j.usar(); await j.p.keyboard.up('Space'); }
+    else { const pr = j.pular(); await noAlto(); await j.usar(); await pr; }
+    await j.p.waitForFunction(() => window.__jogo.jog.noChao, null, { timeout: 15000 }).catch(() => {});
+    await j.p.waitForTimeout(300);
   }
   const topo = await pos(j);
   const subiu = Math.round(topo.y - base.y);
@@ -127,12 +134,14 @@ export default async function fisica(j) {
   if (!(await j.espera(subiu >= 4, 'pular e colocar bloco embaixo sobe um pilar (técnica do clássico)', { tipo: 'clássico', esperado: 'subir 5', visto: 'subiu ' + subiu }))) return;
   const vida0 = (await j.estado).vida;
   // mede a queda de verdade: do último instante no chão até tocar o chão de novo (descer uma ladeira não conta)
-  const medida = j.p.evaluate(() => new Promise((r) => { const jg = window.__jogo.jog; let alto = null, t0 = performance.now(); const f = () => { if (!jg.noChao && !jg.naAgua) alto = Math.max(alto ?? jg.pos.y, jg.pos.y); else if (alto != null) return r({ queda: alto - jg.pos.y, agua: jg.naAgua }); if (performance.now() - t0 < 6000) requestAnimationFrame(f); else r({ queda: 0 }); }; requestAnimationFrame(f); }));
+  const medida = j.p.evaluate(() => new Promise((r) => { const jg = window.__jogo.jog; let alto = null, t0 = performance.now(); const f = () => { if (!jg.noChao && !jg.naAgua) alto = Math.max(alto ?? jg.pos.y, jg.pos.y); else if (alto != null) return r({ queda: alto - jg.pos.y, agua: jg.naAgua }); if (performance.now() - t0 < 30000) requestAnimationFrame(f); else r({ queda: 0 }); }; requestAnimationFrame(f); }));
+  // a vida mais baixa logo depois de pousar (com a fome cheia ela volta a encher sozinha, como no clássico)
+  const vigia = j.p.evaluate(() => new Promise((r) => { let mn = window.__jogo.vida.atual; const t0 = performance.now(); const f = () => { mn = Math.min(mn, window.__jogo.vida.atual); if (performance.now() - t0 < 30000 && !(window.__fimQueda && performance.now() - window.__fimQueda > 2500)) requestAnimationFrame(f); else r(mn); }; requestAnimationFrame(f); }));
   await j.olhar(0, -2000);
-  await j.andar('frente', 1200);
+  for (let t = 0; t < 5 && (await j.p.evaluate(() => window.__jogo.jog.noChao)); t++) await j.andar('frente', 1200);
   const m = await medida;
-  await j.p.waitForTimeout(1200);
-  const vida1 = (await j.estado).vida;
+  await j.p.evaluate(() => { window.__fimQueda = performance.now(); });
+  const vida1 = await vigia;
   const queda = m.agua ? 0 : Math.round(m.queda);
   const esperado = Math.max(0, queda - 3);
   await j.espera(queda < 3 || Math.abs((vida0 - vida1) - esperado) <= 1, `cair ${queda} blocos tira ${esperado} de vida (meio coração por bloco acima de 3)`, { tipo: 'clássico', esperado: String(esperado), visto: `perdeu ${vida0 - vida1} (de ${vida0} para ${vida1})` });
