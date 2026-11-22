@@ -142,7 +142,7 @@ if (ONLINE) {
       await q.click(`[data-receita="${id}"]`);
       if (await q.isVisible('#inv-saida.pronta')) await q.click('#inv-saida');
       await q.waitForTimeout(400);
-      if (await q.isVisible('#abas-inv [data-aba=criar]')) await q.click('#abas-inv [data-aba=criar]');
+      if (await q.isVisible('#inv-livro:visible, #abas-inv [data-aba=criar]:visible')) await q.click('#inv-livro:visible, #abas-inv [data-aba=criar]:visible');
     }
     if (await q.isVisible('#inventario [data-fechar]')) await q.click('#inventario [data-fechar]');
   }

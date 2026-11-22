@@ -526,6 +526,9 @@ function abrirInventario(aba) {
   g.innerHTML = ''; g.dataset.aba = abaInv;
   g.classList.toggle('receitas', abaInv === 'criar');
   g.classList.toggle('inv-classico', abaInv === 'mochila');
+  const cl = abaInv === 'mochila' && sobrev(), fe = $('#inventario [data-fechar]');
+  $('#inventario').classList.toggle('classico', cl); // a janela do clássico: sem título, abas nem botão grande
+  fe.innerHTML = cl ? icone('fechar') : 'Fechar'; fe.setAttribute('aria-label', 'Fechar'); fe.title = 'Fechar';
   if (abaInv === 'criar') desenharReceitas(g);
   else if (abaInv === 'mochila') desenharMochila(g);
   else {
@@ -635,10 +638,60 @@ function slotInv(l, i, p, cls = '') {
   return b;
 }
 function receitaNaGrade() { return receitaDaGrade(inv.gradeIds(), inv.w, receitasDoMundo(opcoesMundo)); }
+// o boneco do jogador na mochila (como no clássico): uma foto tirada com o próprio renderizador do jogo
+// (sem abrir outro WebGL: o tablet fraco agradece), refeita só quando a roupa muda
+let retrato = null;
+function retratoJogador() {
+  const sk = meuSkin(), chave = JSON.stringify(sk);
+  if (retrato && retrato.chave === chave) return retrato.url;
+  try {
+    const W = 120, H = 180;
+    if (!retrato) {
+      const cena = new THREE.Scene();
+      cena.add(new THREE.HemisphereLight(0xfff6e0, 0x6a7a55, 1.6));
+      const sol = new THREE.DirectionalLight(0xffffff, 1.8); sol.position.set(2, 4, 3); cena.add(sol);
+      const cam = new THREE.PerspectiveCamera(30, W / H, 0.1, 50);
+      cam.position.set(0, 1.05, 5.4); cam.lookAt(0, 0.95, 0);
+      const rt = new THREE.WebGLRenderTarget(W, H); rt.texture.colorSpace = THREE.SRGBColorSpace;
+      retrato = { cena, cam, rt, boneco: null, chave: '', url: null };
+    }
+    if (retrato.boneco) vestirBoneco(retrato.boneco, sk);
+    else { retrato.boneco = montarBoneco(sk); retrato.cena.add(retrato.boneco.grupo); }
+    poseNeutra(retrato.boneco);
+    retrato.boneco.grupo.rotation.y = 0.45;
+    const antes = renderer.getRenderTarget(), cor = renderer.getClearColor(new THREE.Color()), alfa = renderer.getClearAlpha();
+    renderer.setRenderTarget(retrato.rt); renderer.setClearColor(0x000000, 0); renderer.clear();
+    renderer.render(retrato.cena, retrato.cam);
+    const px = new Uint8Array(W * H * 4);
+    renderer.readRenderTargetPixels(retrato.rt, 0, 0, W, H, px);
+    renderer.setRenderTarget(antes); renderer.setClearColor(cor, alfa);
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const c2 = cv.getContext('2d'), img = c2.createImageData(W, H);
+    for (let y = 0; y < H; y++) img.data.set(px.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4); // a foto vem de ponta-cabeça
+    c2.putImageData(img, 0, 0);
+    retrato.url = cv.toDataURL(); retrato.chave = chave;
+    return retrato.url;
+  } catch { return null; }
+}
 function desenharMochila(g) {
   arrumarMochila();
   g.innerHTML = '';
-  const cima = document.createElement('div'); cima.className = 'inv-cima';
+  // topo, como no clássico: o nome do que está aberto à esquerda; livro de receitas e mover rápido (toque) à direita
+  // (o Fechar vira um X no canto: #inventario.classico)
+  const topo = document.createElement('div'); topo.className = 'inv-topo';
+  const nome = document.createElement('span'); nome.className = 'inv-nome';
+  nome.textContent = fornoAberto ? 'Fornalha' : bauAberto ? 'Baú' : inv.w === 3 ? 'Bancada' : ''; // na mochila o "Criação" fica em cima da grade 2x2
+  const bts = document.createElement('span'); bts.className = 'inv-bts';
+  const bt = (id, ic, rotulo, fn, ligado) => {
+    const b = document.createElement('button'); b.type = 'button'; b.id = id; b.className = 'bt-ic' + (ligado ? ' ligado' : '');
+    b.innerHTML = icone(ic); b.title = rotulo; b.setAttribute('aria-label', rotulo);
+    if (ligado !== undefined) b.setAttribute('aria-pressed', !!ligado);
+    b.addEventListener('click', fn); bts.appendChild(b);
+  };
+  if (!bauAberto) bt('inv-livro', 'livro', 'Livro de receitas', () => { som.clique(); abrirInventario('criar'); });
+  if (toqueInv) bt('inv-rapido', 'raio', 'Mover rápido', () => { moverRapido = !moverRapido; som.clique(); desenharMochila(g); }, moverRapido);
+  topo.append(nome, bts);
+  const cima = document.createElement('div'); cima.className = 'inv-cima' + (fornoAberto ? ' c-forno' : bauAberto ? ' c-bau' : inv.w === 3 ? ' c-bancada' : ' c-mochila');
   // grade de criar e o resultado
   const criar = document.createElement('div'); criar.className = 'inv-criar';
   const gr = document.createElement('div'); gr.className = 'grade-criar w' + inv.w;
@@ -649,27 +702,32 @@ function desenharMochila(g) {
   saida.id = 'inv-saida';
   if (r) saida.setAttribute('aria-label', `Criar ${nomeDe(r.faz[0])}`);
   criar.append(gr, seta, saida);
-  const forno = fornoAberto ? painelForno() : bauAberto ? painelBau() : null;
-  const lado = document.createElement('div'); lado.className = 'inv-lado';
-  const m2 = document.createElement('label'); m2.className = 'inv-mao2';
-  m2.append(slotInv('s', MAO2, inv.s[MAO2], 'mao2'), Object.assign(document.createElement('small'), { textContent: 'Segunda mão' }));
-  const rap = document.createElement('button'); rap.type = 'button'; rap.id = 'inv-rapido'; rap.className = 'bt-mini' + (moverRapido ? ' ligado' : '');
-  rap.setAttribute('aria-pressed', moverRapido); rap.innerHTML = icone('raio'); rap.append(' Mover rápido');
-  rap.addEventListener('click', () => { moverRapido = !moverRapido; som.clique(); desenharMochila(g); });
-  // armadura vestida (só no jogo clássico, onde ela protege): cabeça, peito, pernas e pés
-  let arm = null;
-  if (mercado.op.fome || inv.vestido().length) {
-    arm = document.createElement('div'); arm.className = 'inv-armadura'; arm.setAttribute('aria-label', 'Armadura vestida');
-    for (let k = 0; k < 4; k++) arm.appendChild(slotInv('s', ARMA + k, inv.s[ARMA + k], 'arm'));
+  if (fornoAberto) cima.append(painelForno());
+  else if (bauAberto) cima.append(painelBau());
+  else if (inv.w === 3) cima.append(criar); // bancada: só a grade 3x3 (como no clássico)
+  else {
+    // mochila: armadura vestida, o boneco com a segunda mão e a grade 2x2
+    if (mercado.op.fome || inv.vestido().length) {
+      const arm = document.createElement('div'); arm.className = 'inv-armadura'; arm.setAttribute('aria-label', 'Armadura vestida');
+      for (let k = 0; k < 4; k++) arm.appendChild(slotInv('s', ARMA + k, inv.s[ARMA + k], 'arm'));
+      cima.append(arm);
+    }
+    const bon = document.createElement('div'); bon.className = 'inv-boneco';
+    const foto = retratoJogador();
+    if (foto) { const im = new Image(); im.src = foto; im.alt = 'Você'; im.draggable = false; im.className = 'retrato'; bon.append(im); }
+    const m2 = slotInv('s', MAO2, inv.s[MAO2], 'mao2'); m2.title = 'Segunda mão';
+    bon.append(m2);
+    const cr = document.createElement('div'); cr.className = 'inv-criar-col';
+    const rc = document.createElement('span'); rc.className = 'inv-nome'; rc.textContent = 'Criação';
+    cr.append(rc, criar);
+    cima.append(bon, cr);
   }
-  lado.append(m2, rap);
-  if (arm) cima.append(arm);
-  cima.append(forno || criar, lado);
   const moch = document.createElement('div'); moch.className = 'inv-mochila';
   for (let i = 9; i < 36; i++) moch.appendChild(slotInv('s', i, inv.s[i]));
   const bar = document.createElement('div'); bar.className = 'inv-barra';
   for (let i = 0; i < 9; i++) bar.appendChild(slotInv('s', i, inv.s[i], i === slotSel ? 'sel' : ''));
-  g.append(cima, moch, bar);
+  const rot = document.createElement('span'); rot.className = 'inv-nome inv-nome-moch'; rot.textContent = 'Mochila';
+  g.append(topo, cima, rot, moch, bar);
   if (fornoAberto) desenharForno();
   if (inv.extra.length) {
     const ex = document.createElement('div'); ex.className = 'inv-extra';

@@ -19,7 +19,7 @@ async function mundo(ctx, toque) {
   return p;
 }
 const meio = async (p, sel) => { const r = await p.locator(sel).boundingBox(); return [r.x + r.width / 2, r.y + r.height / 2]; };
-const S = (i) => (i < 9 ? `.inv-barra [data-i="${i}"]` : i === 36 ? `.inv-mao2 [data-i="36"]` : `.inv-mochila [data-i="${i}"]`);
+const S = (i) => (i < 9 ? `.inv-barra [data-i="${i}"]` : i === 36 ? `.inv-boneco [data-i="36"]` : `.inv-mochila [data-i="${i}"]`);
 const G = (i) => `.grade-criar [data-i="${i}"]`;
 const inv = (p) => p.evaluate(() => { const v = window.__jogo.inv; return { s: v.s.map((x) => x && [x.id, x.n]), g: v.g.map((x) => x && [x.id, x.n]), c: v.cursor && [v.cursor.id, v.cursor.n], w: v.w, itens: { ...window.__jogo.mercado.e.itens }, cont: v.contagem() }; });
 const bate = (e) => JSON.stringify(Object.fromEntries(Object.entries(e.itens).filter(([, n]) => n > 0).map(([k, n]) => [k, n]).sort())) === JSON.stringify(Object.fromEntries(Object.entries(e.cont).map(([k, n]) => [k, n]).sort()));
@@ -90,7 +90,7 @@ const bate = (e) => JSON.stringify(Object.fromEntries(Object.entries(e.itens).fi
   await p.waitForTimeout(800);
   await p.evaluate(() => window.__jogo.usar(null)); await p.waitForTimeout(300);
   ok(await p.isVisible('#inventario:not([hidden]) .grade-criar.w3'), 'tocar na bancada abre a grade 3x3');
-  await p.click('#abas-inv [data-aba=criar]'); await p.click('[data-receita=picareta-madeira]'); await p.waitForTimeout(200);
+  await p.click('#inv-livro:visible, #abas-inv [data-aba=criar]:visible'); await p.click('[data-receita=picareta-madeira]'); await p.waitForTimeout(200);
   e = await inv(p);
   ok(e.w === 3 && JSON.stringify(e.g.map((x) => (x ? x[0] : 0))) === JSON.stringify([8, 8, 8, 0, 1000, 0, 0, 1000, 0]), 'livro arruma a picareta na grade: 3 tábuas em cima, 2 gravetos no meio');
   await p.screenshot({ path: SAIDA + '/inv-pc-picareta.png' });
@@ -161,7 +161,7 @@ const bate = (e) => JSON.stringify(Object.fromEntries(Object.entries(e.itens).fi
   ok(!e.s[15] && e.s.slice(0, 9).some((x) => x && x[0] === 1 && x[1] === 15), 'celular: com "Mover rápido" ligado, tocar leva para a barra');
   await p.tap('#inv-rapido');
   // livro de receitas e o resultado
-  await p.tap('#abas-inv [data-aba=criar]'); await p.tap('[data-receita=tabuas]'); await p.waitForTimeout(200);
+  await p.tap('#inv-livro:visible, #abas-inv [data-aba=criar]:visible'); await p.tap('[data-receita=tabuas]'); await p.waitForTimeout(200);
   await p.tap('#inv-saida'); await p.waitForTimeout(200);
   e = await inv(p);
   ok(e.itens[8] === 4 && e.itens[6] === 1, 'celular: livro de receitas + tocar no resultado cria tábuas');
