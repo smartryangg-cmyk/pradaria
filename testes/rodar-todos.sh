@@ -20,6 +20,8 @@ rodar() {
   [ -n "$ESTADO" ] && npx wrangler d1 execute pradaria-db --local --persist-to "$ESTADO" --command "DELETE FROM tentativas" > /dev/null 2>&1
   timeout 420 node "$1" > "$2" 2>&1 && ! grep -qE '^FALHA|FALHOU|PAGEERROR|NÃO ENTROU' "$2"
 }
+# o que falhou numa tentativa que não valeu: os logs ficam só na máquina do CI, então mostra aqui (para achar a causa)
+antes() { grep -E '^FALHA|PAGEERROR|NÃO ENTROU|Error' "$SAIDA/$1.log" | head -n 5 | sed "s/^/       $2: /"; }
 for f in testes/teste-*.mjs; do
   n=$(basename "$f" .mjs)
   # o app da TV precisa do emulador de Android TV: roda no apk.yml (testes/teste-tv-apk.sh), não aqui
@@ -34,9 +36,11 @@ for f in testes/teste-*.mjs; do
     # os testes jogam de verdade (navegador, sala, dois jogadores): numa máquina carregada um tempo pode estourar.
     # Passou na 2ª vez: conta como ok, mas fica avisado (e a saída da 1ª vez fica guardada). Erro de verdade falha nas duas.
     echo "ok     $n ($(( $(date +%s) - ini ))s, passou na 2ª vez; 1ª vez em $n-1a-vez.log)"
+    antes "$n-1a-vez" 1a
   elif mv "$SAIDA/$n.log" "$SAIDA/$n-2a-vez.log" && rodar "$f" "$SAIDA/$n.log"; then
     # a máquina do CI às vezes fica bem mais lenta por uns minutos (o mesmo teste leva 2-4x mais): 3ª chance
     echo "ok     $n ($(( $(date +%s) - ini ))s, passou na 3ª vez; antes em $n-1a-vez.log e $n-2a-vez.log)"
+    antes "$n-1a-vez" 1a; antes "$n-2a-vez" 2a
   else
     echo "FALHOU $n ($(( $(date +%s) - ini ))s)"; { grep -E 'FALHA|PAGEERROR|NÃO ENTROU|Error' "$SAIDA/$n.log" | head -n 15; echo '       --- fim do log:'; tail -n 15 "$SAIDA/$n.log"; } | sed 's/^/       /'; falhas+=("$n")
   fi
