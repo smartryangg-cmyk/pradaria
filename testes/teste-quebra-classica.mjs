@@ -132,6 +132,20 @@ if (PARTES.includes('pc')) {
   await J(p2, () => window.__jogo.quebrar(null)); await esperar(p2, 300);
   ok(await J(p2, () => window.__jogo.escav.blocos.size === 1 && window.__jogo.rachas.estagioDe('eu') === -1), 'pc: com o mod, um clique arranca um pedaço (esculpe), sem rachadura');
   await ctx2.close();
+  // modo criativo: quebra na hora, como no clássico (segurando, um bloco a cada repetição)
+  const ctx3 = await b.newContext({ viewport: { width: 1280, height: 800 } });
+  const p3 = await mundoSozinho(ctx3, false, 'pc-criativo', (pg) => pg.click('#m-novo [data-modo=criativo]'));
+  ok(await J(p3, () => !window.__jogo.opcoesMundo.sobrevivencia), 'pc: mundo criativo');
+  await palco(p3); await esperar(p3, 600);
+  await p3.mouse.click(640, 400); await esperar(p3, 400);
+  await J(p3, () => document.addEventListener('mousemove', (e) => e.stopImmediatePropagation(), true));
+  await alvo(p3, 3);
+  await J(p3, () => window.__jogo.quebrar(null)); await esperar(p3, 200);
+  ok(await blocoAlvo(p3) === 0, 'pc: no criativo, um clique quebra a pedra na hora');
+  await alvo(p3, 3);
+  const t3 = await quebrarSegurando(p3, () => p3.mouse.down(), () => p3.mouse.up(), 3000);
+  ok(t3 !== null && t3 < 2, 'pc: no criativo, segurando o botão também quebra logo (' + t3 + ' s)');
+  await ctx3.close();
 }
 
 if (PARTES.includes('tablet')) {

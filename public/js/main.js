@@ -1932,7 +1932,8 @@ function segurarQuebra(h, mao, ponto) {
   const agora = performance.now(), k = h.x + ',' + h.y + ',' + h.z;
   if (!cq || cq.k !== k || cq.b !== h.b) { pararQuebra(); cq = { k, x: h.x, y: h.y, z: h.z, b: h.b, n: h.n, p: 0, est: -1, som: 0 }; }
   cq.ultimo = agora; cq.mao = mao; cq.ponto = ponto; cq.mira = 0;
-  cq.tempo = tempoQuebrar(h.b, mao, BLOCOS[h.b]); // trocou a ferramenta no meio: vale a nova
+  // criativo: quebra na hora (segurando, um bloco a cada repetição do controle, como no clássico)
+  cq.tempo = sobrev() ? tempoQuebrar(h.b, mao, BLOCOS[h.b]) : 0; // trocou a ferramenta no meio: vale a nova
   if (cq.tempo === 0) romperBloco();
 }
 function pararQuebra() { if (!cq) return; if (rachas) rachas.tirar('eu'); cq = null; }
