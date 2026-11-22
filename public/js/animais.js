@@ -814,7 +814,10 @@ export class Bichos {
     b.golpeEm = agora; b.semGolpe = 0; b.cura = 0;
     const dx = b.x - this._px, dz = b.z - this._pz, n = Math.hypot(dx, dz) || 1;
     b.empX = (dx / n) * EMPURRAO * empurrao; b.empZ = (dz / n) * EMPURRAO * empurrao;
-    b.vy = Math.max(b.vy, EMPURRAO_CIMA * Math.min(1, 0.5 + empurrao * 0.5)); b.empT = 0.8;
+    // como no clássico, o golpe só levanta o bicho que está no chão (no ar não dá para ir jogando ele para cima
+    // golpe após golpe até sair de um buraco de 2 blocos)
+    if (b.vy === 0) b.vy = EMPURRAO_CIMA * Math.min(1, 0.5 + empurrao * 0.5);
+    b.empT = 0.8;
     b.golpe = VERMELHO;
     pintarFerido(b, true);
     const topo = b.y + b.e.alt * b.esc;

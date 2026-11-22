@@ -212,13 +212,16 @@ if (PARTES.includes('online')) {
   ok(await ate(a, () => window.__jogo.mercado.qtd(1111) === 2, null, 5000), 'online: pegou os 2 fios de teia (a sala deu) ' + await J(a, () => window.__jogo.mercado.qtd(1111) + JSON.stringify(window.__jogo.drops.lista().map((d) => [d.id, d.n, d.x, d.y, d.z])) + JSON.stringify(window.__jogo.jog.pos)));
   ok(await J(a, () => window.__jogo.mercado.e.xp | 0) === 5, 'online: 5 de experiência');
   // a sala confere: volta ao mundo e a mochila e a experiência vêm da sala
+  // o palco lá no alto só existe neste aparelho: antes de sair desce para o chão de verdade (senão volta no ar, cai e desmaia)
+  await J(a, () => { const J_ = window.__jogo, j = J_.jog, m = J_.mundo, x = Math.floor(j.pos.x), z = Math.floor(j.pos.z); let y = 88; while (y > 1 && !m.bloco(x, y, z)) y--; j.pos.y = y + 1.02; j.vel.y = 0; J_.dia = 0.25; });
+  await esperar(a, 2000);
   await J(a, () => { window.__jogo.mercado.e.xp = 0; });
   await a.reload(); await esperar(a, 1500);
   if (await a.isVisible('#m-jogos')) await a.click('.jogo[data-jogo=pradaria]');
   await a.waitForSelector('#m-mundos:not([hidden])', { timeout: 30000 });
   await a.click('#lista-mundos .mundo, #lista-mundos button');
   await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 30000 }); await esperar(a, 2500);
-  ok(await ate(a, () => window.__jogo.mercado.qtd(1111) === 2 && (window.__jogo.mercado.e.xp | 0) === 5, null, 5000), 'online: voltou e a sala guardou os fios e a experiência');
+  ok(await ate(a, () => window.__jogo.mercado.qtd(1111) === 2 && (window.__jogo.mercado.e.xp | 0) === 5, null, 5000), 'online: voltou e a sala guardou os fios e a experiência ' + await J(a, () => JSON.stringify([window.__jogo.mercado.qtd(1111), window.__jogo.mercado.e.xp, window.__jogo.vida.atual, !document.querySelector('#morte').hidden])));
   // inventar um monstro derrubado várias vezes seguidas: a sala não dá tudo (limite por minuto)
   await a.screenshot({ path: SAIDA + '/monstro-online-ana.png' });
   await bt.screenshot({ path: SAIDA + '/monstro-online-beto.png' });
