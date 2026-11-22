@@ -103,6 +103,8 @@ if (ONLINE) {
   if (await a.getAttribute('[data-modo=sobrevivencia]', 'aria-pressed') !== 'true') await a.click('[data-modo=sobrevivencia]');
   await a.click('#m-novo button[type=submit]');
   await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 30000 });
+  // a noite do jogo clássico tem monstros: no aparelho lento o teste chega na noite e a Ana desmaiava no meio
+  await a.evaluate(() => { window.__jogo.vida.protegido = 1e9; window.__jogo.dia = 0.3; });
   await a.waitForTimeout(3000);
   // pega o que caiu: anda até cada item do chão
   async function juntar(q) {
@@ -165,7 +167,7 @@ if (ONLINE) {
   await a.waitForTimeout(1200);
   await naMao(a, 34);
   for (let k = 0; k < 4 && (await bl(a, P[0], P[1] + 1, P[2] - 2)) !== 34; k++) { await mirar(a, [P[0] + 0.5, P[1] + 1, P[2] - 1.5]); await a.evaluate(() => window.__jogo.usar(null)); await a.waitForTimeout(800); }
-  ok((await bl(a, P[0], P[1] + 1, P[2] - 2)) === 34, 'online: pôs a bancada no chão');
+  ok((await bl(a, P[0], P[1] + 1, P[2] - 2)) === 34, 'online: pôs a bancada no chão ' + (await bl(a, P[0], P[1] + 1, P[2] - 2) === 34 ? '' : await a.evaluate(() => JSON.stringify({ morto: !document.querySelector('#morte').hidden, dia: window.__jogo.dia, vida: window.__jogo.vida.atual, qtd: window.__jogo.mercado.qtd(34), mao: window.__jogo.barra, pos: window.__jogo.jog.pos, telas: [...document.querySelectorAll('.janela:not([hidden])')].map((e) => e.id) }))));
   await criar(a, 'picareta-madeira');
   ok((await desg(a, PIC))[0] === 1, 'online: criou a picareta de madeira na bancada');
   // quebra 2 blocos do chão do lado com ela

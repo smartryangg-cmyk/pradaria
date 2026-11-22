@@ -97,6 +97,8 @@ for (const d of DISP) {
   // ambiente: vento/passarinhos
   await p.evaluate(() => { window.__jogo.dia = 0.3; });
   const amb = await p.evaluate(() => window.__medir(2500));
+  // no aparelho lento o vento sobe devagar (o volume vai subindo quadro a quadro): espera um pouco por ele
+  for (let k = 0; k < 10 && (await p.evaluate(() => window.__jogo.som.amb.ventoG.gain.value)) === 0; k++) await p.waitForTimeout(500);
   const vento = await p.evaluate(() => +window.__jogo.som.amb.ventoG.gain.value.toFixed(3));
   // o vento do jogo tem calmaria de ~35 s a cada 4 min (os cataventos param junto): aí o vento some de propósito
   const calmaria = await p.evaluate(async () => (await import('/js/energia.js')).vento() === 0);
