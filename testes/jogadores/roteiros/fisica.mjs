@@ -42,8 +42,8 @@ async function virarParaOAberto(j) {
 
 export default async function fisica(j) {
   if (!(await j.jogarSozinho())) return;
-  // semente 6: nasce num lugar plano, com 16 blocos livres (medida igual em toda rodada)
-  if (!(await j.criarMundo({ nome: 'Física', semente: process.env.SEMENTE_MUNDO || '6' }))) return;
+  // semente 42: nasce longe da vila, num lugar aberto (medida igual em toda rodada)
+  if (!(await j.criarMundo({ nome: 'Física', semente: process.env.SEMENTE_MUNDO || '42' }))) return;
   // nasceu na água ou numa encosta? sai para a grama, como uma pessoa faria antes de medir
   for (let t = 0; t < 3 && (await j.p.evaluate(() => window.__jogo.jog.naAgua || !window.__jogo.jog.noChao)); t++) {
     const g = await acharBloco(j, [1], 20);
