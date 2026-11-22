@@ -51,6 +51,7 @@ function tabelaVenda() {
   for (let volta = 0, mudou = true; mudou && volta < 50; volta++) {
     mudou = false;
     for (const r of RECEITAS) {
+      if (r.semExtras) continue; // pão de 3 trigos: só nos mundos sem mercado de pão (moinho e forno)
       const [id, n] = r.faz, custo = r.usa.reduce((s, [i, q]) => s + preco(i) * q, 0);
       const teto = Math.floor(custo / Math.max(1, n));
       if (teto < preco(id)) { t.set(id, teto); mudou = true; }
@@ -380,6 +381,7 @@ export function aplicar(e, op, a, ctx = {}) {
     const rc = receita(a.r);
     if (!rc || !receitaNoMundo(rc, op.fome)) return falha('?');
     if (rc.extra && op.extras === false) return falha('?'); // mod "Blocos extras" desligado
+    if (rc.semExtras && op.extras !== false) return falha('?'); // com os blocos extras o pão vem do moinho e do forno
     if (faltaBancada(rc, a.bancada)) return falha('Precisa de uma Bancada perto.');
     if (!temTudo(e.itens, rc)) return falha('Faltam coisas para essa receita.');
     // n = quantas vezes (shift na grade de criar: o máximo de uma vez); cria enquanto der

@@ -21,7 +21,8 @@ if (PARTES.includes('regras')) {
   ok(!['forno', 'manivela', 'cadeira', 'mesa', 'balcao', 'prateleira-paes'].some((i) => ids(novo).includes(i)), 'mundo novo: sem receita de forno de pão, manivela, cadeira, mesa, balcão e prateleira');
   ok(['forno', 'cadeira', 'mesa'].every((i) => ids(antigo).includes(i)), 'mundo antigo: as receitas extras continuam');
   ok(ids(novo).includes('pao') && receita('pao').bancada && receita('pao').usa[0][1] === 3, 'pão como no clássico: 3 trigos na bancada');
-  ok(receita('feno').usa[0][1] === 9 && ids(novo).includes('trigo-do-feno'), 'feno = 9 trigos, e desfaz em 9 trigos');
+  ok(receita('feno').usa[0][1] === 9, 'feno = 9 trigos');
+  ok(!ids(antigo).includes('pao') && ids(novo).includes('pao'), 'com os blocos extras o pão continua saindo do moinho e do forno (sem a receita de 3 trigos)');
   const opN = opcoesEcon(novo), opA = opcoesEcon({ ...antigo, sobrevivencia: true });
   const nova = (op) => normalizar({ ...estadoNovo(op), itens: { 8: 10, 3: 6, 20: 2, 32: 3 } }, op);
   let e = nova(opN);

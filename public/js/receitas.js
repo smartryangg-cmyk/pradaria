@@ -213,8 +213,7 @@ export const RECEITAS = [
   { id: 'escada-mao', faz: [211, 3], usa: [[I.GRAVETO, 7]], bancada: true, grupo: 'construir', forma: ['G.G', 'GGG', 'G.G'] },
   { id: 'lampiao', faz: [I.LAMPIAO, 1], usa: [[I.VIDRO, 1], [I.GRAVETO, 1]], bancada: true, grupo: 'construir' },
   { id: 'feno', faz: [I.FENO, 1], usa: [[I.TRIGO, 9]], grupo: 'construir', forma: ['WWW', 'WWW', 'WWW'] }, // como no clássico: 9 trigos
-  { id: 'trigo-do-feno', faz: [I.TRIGO, 9], usa: [[I.FENO, 1]], grupo: 'basico' },
-  { id: 'pao', faz: [I.PAO, 1], usa: [[I.TRIGO, 3]], bancada: true, grupo: 'basico', forma: ['WWW'] }, // pão como no clássico: 3 trigos em fila na bancada
+  { id: 'pao', faz: [I.PAO, 1], usa: [[I.TRIGO, 3]], bancada: true, grupo: 'basico', forma: ['WWW'], semExtras: true }, // pão como no clássico: 3 trigos em fila na bancada (com os blocos extras, o pão sai do moinho e do forno)
   { id: 'porta', faz: [I.PORTA, 3], usa: [[I.TABUAS, 6]], bancada: true, grupo: 'construir', forma: ['TT', 'TT', 'TT'] },
   { id: 'forno', faz: [I.FORNO, 1], usa: [[I.PEDRA, 6], [I.PEDRISCO, 2]], bancada: true, grupo: 'construir', extra: true },
   { id: 'manivela', faz: [I.SARILHO, 1], usa: [[I.TRONCO, 1], [I.GRAVETO, 2]], bancada: true, grupo: 'construir', extra: true },
@@ -235,14 +234,14 @@ export const RECEITAS = [
   { id: 'tronco-redondo', faz: [80, 2], usa: [[I.TRONCO, 2]], grupo: 'formas', forma: ['L', 'L'] },
   { id: 'tronco-redondo-pinheiro', faz: [81, 2], usa: [[71, 2]], grupo: 'formas', forma: ['L', 'L'] },
   { id: 'tronco-redondo-betula', faz: [82, 2], usa: [[73, 2]], grupo: 'formas', forma: ['L', 'L'] },
-  { id: 'cerca', faz: [84, 3], usa: [[I.TABUAS, 2], [I.GRAVETO, 2]], grupo: 'formas', forma: ['TG', 'TG'] },
-  { id: 'meio-bloco', faz: [90, 6], usa: [[I.PEDRA, 3]], bancada: true, grupo: 'formas', forma: ['PPP'] },
+  { id: 'cerca', faz: [84, 3], usa: [[I.TABUAS, 4], [I.GRAVETO, 2]], bancada: true, grupo: 'construir', forma: ['TGT', 'TGT'] }, // cerca, laje, escada e vidro fino: quadrados, do jogo base (como no clássico)
+  { id: 'meio-bloco', faz: [90, 6], usa: [[I.PEDRA, 3]], bancada: true, grupo: 'construir', forma: ['PPP'] },
   { id: 'rampa', faz: [91, 2], usa: [[I.PEDRISCO, 3]], grupo: 'formas', forma: ['R.', 'RR'] },
-  { id: 'escada', faz: [95, 4], usa: [[I.TABUAS, 6]], bancada: true, grupo: 'formas', forma: ['T..', 'TT.', 'TTT'] },
+  { id: 'escada', faz: [95, 4], usa: [[I.TABUAS, 6]], bancada: true, grupo: 'construir', forma: ['T..', 'TT.', 'TTT'] },
   { id: 'coluna', faz: [83, 2], usa: [[I.PEDRA, 2]], bancada: true, grupo: 'formas', forma: ['P', 'P'] },
   { id: 'bola', faz: [87, 4], usa: [[I.PEDRA, 4]], bancada: true, grupo: 'formas', forma: ['.P.', 'P.P', '.P.'] },
   { id: 'cupula', faz: [88, 2], usa: [[I.TIJOLO, 3]], bancada: true, grupo: 'formas' },
-  { id: 'vidro-fino', faz: [85, 4], usa: [[I.VIDRO, 1]], bancada: true, grupo: 'formas' },
+  { id: 'vidro-fino', faz: [85, 16], usa: [[I.VIDRO, 6]], bancada: true, grupo: 'construir', forma: ['LLL', 'LLL'] },
   { id: 'cupula-vidro', faz: [89, 2], usa: [[I.VIDRO, 3]], bancada: true, grupo: 'formas' },
   { id: 'cano', faz: [86, 4], usa: [[I.PEDRA, 2], [I.PEDRISCO, 1]], bancada: true, grupo: 'formas' },
   { id: 'roda', faz: [99, 1], usa: [[I.TABUAS, 2], [I.GRAVETO, 1]], bancada: true, grupo: 'formas', forma: ['TGT'] },
@@ -280,7 +279,7 @@ export function receitasDoMundo(opcoes) {
   const fora = new Set(GRUPOS.filter((g) => g.opcao && opcoes && opcoes[g.opcao] === false).map((g) => g.id));
   const cl = mundoClassico(opcoes);
   const semExtras = !!opcoes && opcoes.extras === false; // mod "Blocos extras" desligado: só o que existe no clássico
-  return RECEITAS.filter((r) => !fora.has(r.grupo) && !(semExtras && r.extra) && receitaNoMundo(r, cl) && regras.liberada(r, opcoes));
+  return RECEITAS.filter((r) => !fora.has(r.grupo) && !(semExtras && r.extra) && !(!semExtras && r.semExtras) && receitaNoMundo(r, cl) && regras.liberada(r, opcoes));
 }
 export const receita = (id) => RECEITAS.find((r) => r.id === id) || null;
 
