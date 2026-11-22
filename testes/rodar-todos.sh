@@ -34,6 +34,9 @@ for f in testes/teste-*.mjs; do
     # os testes jogam de verdade (navegador, sala, dois jogadores): numa máquina carregada um tempo pode estourar.
     # Passou na 2ª vez: conta como ok, mas fica avisado (e a saída da 1ª vez fica guardada). Erro de verdade falha nas duas.
     echo "ok     $n ($(( $(date +%s) - ini ))s, passou na 2ª vez; 1ª vez em $n-1a-vez.log)"
+  elif mv "$SAIDA/$n.log" "$SAIDA/$n-2a-vez.log" && rodar "$f" "$SAIDA/$n.log"; then
+    # a máquina do CI às vezes fica bem mais lenta por uns minutos (o mesmo teste leva 2-4x mais): 3ª chance
+    echo "ok     $n ($(( $(date +%s) - ini ))s, passou na 3ª vez; antes em $n-1a-vez.log e $n-2a-vez.log)"
   else
     echo "FALHOU $n ($(( $(date +%s) - ini ))s)"; { grep -E 'FALHA|PAGEERROR|NÃO ENTROU|Error' "$SAIDA/$n.log" | head -n 15; echo '       --- fim do log:'; tail -n 15 "$SAIDA/$n.log"; } | sed 's/^/       /'; falhas+=("$n")
   fi
