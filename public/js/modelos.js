@@ -2,6 +2,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { PELES, CORES_CABELO, CORES_OLHOS, CORES_ROUPA, PADRAO, ALTURAS, CORPOS, corDe, normalizarSkin, skinDeCor } from './skin.js';
 import { opcoesMundo } from './opcoes-mundo.js';
+import { temRedondo, geometriasBicho, pecasCabecaRedonda, pecasCorpoRedondo, membrosRedondos } from './redondos.js';
 
 export const matModelo = new THREE.MeshLambertMaterial({ vertexColors: true });
 matModelo.defines = { RIM: '' }; // luz de borda (graficos.js)
@@ -114,7 +115,7 @@ export function juntar(geos) {
 
 // perna/braço com pivô no topo
 function membro(w, h, d, cor, x, y, z) {
-  const m = malha(caixa(w, h, d, cor, 0, -h / 2, 0, opcoesMundo.estilo === 'suave' ? Math.min(w, h, d) * 0.48 : undefined)); // Natural 3D: pata redonda
+  const m = malha(caixa(w, h, d, cor, 0, -h / 2, 0));
   m.position.set(x, y, z);
   return m;
 }
@@ -360,16 +361,33 @@ export const ESPECIES = {
 };
 
 export function montarBicho(especie, r, filhote = false) {
+  if (opcoesMundo.estilo === 'suave' && temRedondo(especie)) return montarBichoRedondo(especie, r, filhote);
   const m = ESPECIES[especie].montar(r, filhote);
   const g = new THREE.Group();
   g.add(malha(juntar(m.corpo)));
   const cab = malha(juntar(m.cabeca));
   cab.position.set(...m.cabecaPos);
-  if (opcoesMundo.estilo === 'suave') cab.scale.setScalar(1.2); // Natural 3D: cabeça de desenho, maior
   g.add(cab);
   const pernas = [];
   for (const [w, h, d, cor, posicoes] of m.pernas) for (const p of posicoes) {
     const pe = membro(w, h, d, cor, ...p);
+    g.add(pe); pernas.push(pe);
+  }
+  return { grupo: g, cabeca: cab, pernas };
+}
+
+// Natural 3D: bicho redondo de desenho (redondos.js), com as geometrias compartilhadas entre os bichos iguais
+function montarBichoRedondo(especie, r, filhote) {
+  const G = geometriasBicho(especie, r, filhote);
+  const g = new THREE.Group();
+  g.add(malha(G.corpo));
+  const cab = malha(G.cabeca);
+  cab.position.set(...G.cabecaPos);
+  g.add(cab);
+  const pernas = [];
+  for (const [geo, posicoes] of G.pernas) for (const p of posicoes) {
+    const pe = malha(geo);
+    pe.position.set(...p);
     g.add(pe); pernas.push(pe);
   }
   return { grupo: g, cabeca: cab, pernas };
@@ -384,7 +402,7 @@ export function montarBicho(especie, r, filhote = false) {
 const CENTRO = 0.9, QUADRIL = 0.75, PERNA = 0.75, OMBRO_Y = 0.65, BRACO = 0.62;
 
 // esfera / cilindro com cor (para cabelo black power, coque, pompom, saia e chapéu)
-function comCor(g, cor) {
+export function comCor(g, cor) {
   g.deleteAttribute('uv');
   const c = new THREE.Color(cor), n = g.attributes.position.count, cols = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) { cols[i * 3] = c.r; cols[i * 3 + 1] = c.g; cols[i * 3 + 2] = c.b; }
@@ -407,9 +425,7 @@ export function cilindro(rt, rb, h, cor, ox = 0, oy = 0, oz = 0, lados = 12) {
 function membroPartes(partes, x, y, z, inicio = 0) {
   let topo = inicio;
   const geos = [];
-  // Natural 3D: braço e perna em "cápsulas" (cantos com meia largura de raio), como num desenho
-  const capsula = opcoesMundo.estilo === 'suave';
-  for (const [w, h, d, cor, dz = 0] of partes) { geos.push(caixa(w, h, d, cor, 0, topo - h / 2, dz, capsula ? Math.min(w, h, d) * 0.48 : undefined)); topo -= h; }
+  for (const [w, h, d, cor, dz = 0] of partes) { geos.push(caixa(w, h, d, cor, 0, topo - h / 2, dz)); topo -= h; }
   const m = malha(juntar(geos));
   m.position.set(x, y, z);
   return m;
@@ -418,7 +434,7 @@ function membroPartes(partes, x, y, z, inicio = 0) {
 const BOCA = 0xc0605a, ESCURO = 0x222222, BRANCO = 0xffffff, ROSA = 0xf29a9a, PALHA = 0xe8c66a, OURO = 0xf5c542, LENTE = 0x9fd6f0;
 
 // cores de um personagem (paleta ou cor livre)
-function coresDe(s) {
+export function coresDe(s) {
   return {
     pele: corDe(PELES, s.pele), cab: corDe(CORES_CABELO, s.corCabelo), olho: corDe(CORES_OLHOS, s.corOlhos),
     roupa: corDe(CORES_ROUPA, s.corRoupa), det: corDe(CORES_ROUPA, s.corDetalhe), calca: corDe(CORES_ROUPA, s.corCalca),
@@ -429,14 +445,14 @@ function coresDe(s) {
 // formato da cabeça: [raio dos cantos, escala x, y, z]
 const FORMATOS = [[0, 1, 1, 1], [0.1, 1, 1, 1], [0.14, 0.93, 1.08, 0.96], [0.07, 1.1, 0.94, 1]];
 // cilindro deitado (eixo 'x' = de frente, 'z' = de lado)
-function deitado(r, h, cor, x, y, z, eixo) {
+export function deitado(r, h, cor, x, y, z, eixo) {
   const g = new THREE.CylinderGeometry(r, r, h, 12);
   if (eixo === 'z') g.rotateZ(Math.PI / 2); else g.rotateX(Math.PI / 2);
   g.translate(x, y, z);
   return comCor(g, cor);
 }
 function aro(r, tubo, cor, x, y, z) { const g = new THREE.TorusGeometry(r, tubo, 5, 14); g.translate(x, y, z); return comCor(g, cor); }
-function estrelaGeo(r, cor, x, y, z) {
+export function estrelaGeo(r, cor, x, y, z) {
   const sh = new THREE.Shape();
   for (let i = 0; i < 10; i++) { const a = Math.PI / 2 + (i * Math.PI) / 5, q = i % 2 ? r * 0.45 : r; sh[i ? 'lineTo' : 'moveTo'](Math.cos(a) * q, Math.sin(a) * q); }
   const g = new THREE.ShapeGeometry(sh); g.translate(x, y, z);
@@ -445,8 +461,7 @@ function estrelaGeo(r, cor, x, y, z) {
 
 function pecasCabeca(s) {
   const C = coresDe(s), pele = C.pele, ch = C.cab, io = C.olho, hat = C.hat;
-  // Natural 3D: cabeça mais redondinha (raio até 0,11: o meio do rosto, onde ficam olhos e boca, continua reto)
-  const g = [caixa(0.48, 0.48, 0.48, pele, 0, 0.24, 0, opcoesMundo.estilo === 'suave' ? Math.max(0.11, FORMATOS[s.formato][0]) : FORMATOS[s.formato][0])];
+  const g = [caixa(0.48, 0.48, 0.48, pele, 0, 0.24, 0, FORMATOS[s.formato][0])];
   const z = 0.245; // frente do rosto
   const pelo = s.cabelo === 0 ? 0x4a3020 : ch; // sobrancelha/bigode de quem é careca
   // olhos
@@ -643,12 +658,14 @@ export function vestirBoneco(b, skin) {
   }
   for (const m of b.pecas || []) { m.parent && m.parent.remove(m); m.traverse((x) => x.geometry && x.geometry.dispose()); }
   // corpo e saia: medidas a partir do chão; aqui o tronco começa no quadril
-  const geos = pecasCorpo(s);
+  // (Natural 3D: boneco redondo de desenho, de redondos.js)
+  const redondo = opcoesMundo.estilo === 'suave';
+  const geos = redondo ? pecasCorpoRedondo(s) : pecasCorpo(s);
   for (const g of geos) g.translate(0, -QUADRIL, 0);
   const corpo = malha(juntar(geos));
-  const cab = malha(juntar(pecasCabeca(s)));
+  const cab = malha(juntar(redondo ? pecasCabecaRedonda(s) : pecasCabeca(s)));
   cab.position.y = OMBRO_Y; cab.rotation.order = 'YXZ';
-  const [[bd, ad], [be, ae], [pd, cd], [pe, ce]] = membrosDe(s);
+  const [[bd, ad], [be, ae], [pd, cd], [pe, ce]] = redondo ? membrosRedondos(s, malha, cortar, PERNA, BRACO, OMBRO_Y) : membrosDe(s);
   b.tronco.add(corpo, cab, bd, be);
   b.quadril.add(pd, pe);
   // mantém a pose de antes
@@ -661,7 +678,7 @@ export function vestirBoneco(b, skin) {
   const A = ALTURAS[s.altura], L = CORPOS[s.corpo], F = FORMATOS[s.formato], k = Math.pow(A, 0.35);
   b.raiz.scale.set(L, A, L); b.raiz.position.y = CENTRO * A;
   // Natural 3D: proporção de desenho, cabeça um pouco maior (cresce para cima a partir do pescoço)
-  const cg = opcoesMundo.estilo === 'suave' ? 1.18 : 1;
+  const cg = opcoesMundo.estilo === 'suave' ? 1.3 : 1;
   cab.scale.set((F[1] * k * cg) / L, (F[2] * k * cg) / A, (F[3] * k * cg) / L);
   b.topo = 1.88 * A + (cg - 1) * 0.5 * k; // topo da cabeça (para o nome ficar logo acima)
   for (const c of b.grupo.children) if (c.userData.etiqueta) c.position.y = b.topo + 0.37;

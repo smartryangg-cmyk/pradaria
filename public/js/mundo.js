@@ -113,6 +113,9 @@ export class Mundo {
     this.aventura = opcoesMundo.tipo === 'aventura' ? new IlhaAventura(this) : opcoesMundo.tipo === 'guerra' ? new IlhaGuerra(this) : null;
     this.ocultos = new Map(); // "x,y,z" -> [x,y,z]: blocos sendo escavados (desenhados à parte)
     this.montagem = null; // pedaço sendo montado em fatias: { c, g (gerador), limite }
+    this.nMont = 0; // conta as montagens (cada pedaço guarda o número da última que terminou)
+    this.provisorios = []; // malhas que tapam o buraco até a montagem nova do pedaço ficar pronta
+    this.cuboProvisorio = null; // (x, y, z, b) -> malha de um bloco inteiro (main.js liga na escavação)
     this.energia = new Energia(this); // fios e máquinas
     // estilo Natural 3D: terreno e copas arredondados (só o desenho; os blocos são os mesmos). suave.js
     this.suave = opcoesMundo.estilo === 'suave';
@@ -125,6 +128,7 @@ export class Mundo {
     const k = x + ',' + y + ',' + z;
     if (sim) this.ocultos.set(k, [x, y, z]); else if (!this.ocultos.delete(k)) return;
     const cx = Math.floor(x / CX), cz = Math.floor(z / CZ), lx = x - cx * CX, lz = z - cz * CZ;
+    if (sim) this.apagarDaMalha(x, y, z); // a malha esculpida já está no lugar: some da malha velha na hora
     this.marcarSujo(cx, cz);
     if (lx === 0) this.marcarSujo(cx - 1, cz);
     if (lx === CX - 1) this.marcarSujo(cx + 1, cz);
@@ -318,6 +322,16 @@ export class Mundo {
     if (!this.edicoes.has(k)) this.edicoes.set(k, new Map());
     const natural = !this.edicoes.get(k).has(i); // ninguém tinha mexido aqui: bloco do mundo original
     this.edicoes.get(k).set(i, b);
+    // a montagem nova vem em fatias (alguns quadros): até lá o bloco tirado some da malha velha
+    // e o bloco colocado aparece num cubo provisório
+    if (c.temMalha) {
+      if (antes !== AR && !this.escondido(x, y, z)) this.apagarDaMalha(x, y, z);
+      const def = BLOCOS[b];
+      if (b !== AR && this.cuboProvisorio && def && !def.forma && !def.planta && !FORMA_NOVA[b] && !AGUA[b] && !ehLava(b)) {
+        const m = this.cuboProvisorio(x, y, z, b);
+        if (m) this.provisorio(m, x, z);
+      }
+    }
     this.marcarSujo(cx, cz);
     if (lx === 0) this.marcarSujo(cx - 1, cz);
     if (lx === CX - 1) this.marcarSujo(cx + 1, cz);
@@ -629,6 +643,48 @@ export class Mundo {
   }
 
   // ---------- malhas ----------
+  // tira da malha atual do pedaço os triângulos do bloco (x, y, z): os que ficam dentro do cubo dele e viram
+  // para fora (a face de cima do vizinho de baixo, encostada nele, vira para dentro e fica). O terreno liso
+  // do Natural 3D sai do cubo e fica até a montagem nova (alguns quadros).
+  apagarDaMalha(x, y, z) {
+    const c = this.chunks.get(chave(Math.floor(x / CX), Math.floor(z / CZ)));
+    const m = c && c.malha;
+    if (!m) return;
+    const g = m.geometry, P = g.attributes.position.array, Nn = g.attributes.normal && g.attributes.normal.array, I = g.index.array;
+    const x0 = x - c.cx * CX - 0.02, y0 = y - 0.02, z0 = z - c.cz * CZ - 0.02, x1 = x0 + 1.04, y1 = y0 + 1.04, z1 = z0 + 1.04;
+    const mx = x0 + 0.52, my = y0 + 0.52, mz = z0 + 0.52;
+    const dentro = (v) => { const px = P[v], py = P[v + 1], pz = P[v + 2]; return py >= y0 && py <= y1 && px >= x0 && px <= x1 && pz >= z0 && pz <= z1; };
+    let mudou = false;
+    for (let t = 0; t < I.length; t += 3) {
+      const a = I[t] * 3;
+      const py = P[a + 1];
+      if (py < y0 || py > y1) continue;
+      const b = I[t + 1] * 3, d = I[t + 2] * 3;
+      if (!dentro(a) || !dentro(b) || !dentro(d)) continue;
+      if (Nn) {
+        const cx = (P[a] + P[b] + P[d]) / 3 - mx, cy = (P[a + 1] + P[b + 1] + P[d + 1]) / 3 - my, cz = (P[a + 2] + P[b + 2] + P[d + 2]) / 3 - mz;
+        if (cx * Nn[a] + cy * Nn[a + 1] + cz * Nn[a + 2] < -0.05) continue;
+      }
+      I[t + 1] = I[t + 2] = I[t]; // triângulo sem área: não desenha
+      mudou = true;
+    }
+    if (mudou) g.index.needsUpdate = true;
+  }
+
+  // malha provisória (cubo colocado, bloco que se consertou) até a próxima montagem do pedaço de (x, z) terminar
+  provisorio(malha, x, z) {
+    const c = this.chunks.get(chave(Math.floor(x / CX), Math.floor(z / CZ)));
+    if (!c) { this.soltarProvisorio(malha); return; }
+    this.provisorios.push({ malha, c, n: this.nMont });
+  }
+  soltarProvisorio(malha) { if (malha.parent) malha.parent.remove(malha); malha.geometry.dispose(); }
+  limparProvisorios(c) {
+    for (let i = this.provisorios.length - 1; i >= 0; i--) {
+      const q = this.provisorios[i];
+      if (q.c === c ? c.ultMont > q.n : this.chunks.get(chave(q.c.cx, q.c.cz)) !== q.c) { this.soltarProvisorio(q.malha); this.provisorios.splice(i, 1); }
+    }
+  }
+
   // monta a malha do pedaço de uma vez (pedaço editado, entrada no mundo)
   construir(c) {
     if (this.montagem && this.montagem.c === c) this.montagem = null; // a montagem em fatias dele fica velha
@@ -669,6 +725,7 @@ export class Mundo {
   // gerador: monta a malha; com `fatia` (objeto com .limite em ms de performance.now) pausa (yield) quando passa
   // do limite e continua no próximo quadro. Sem fatia vai até o fim.
   *construirMalha(c, fatia = null) {
+    const num = ++this.nMont;
     const P = [], U = [], C = [], I = [], N = [], O = [], L = [], BD = [];
     // Natural 3D com cores lisas: índices do material liso (IS) e as duas cores de cada vértice (topo e lado)
     const IS = [], CT = [], CL = [];
@@ -1104,6 +1161,8 @@ export class Mundo {
     if (!fatia) c.sujo = false; // em fatias o sujo já foi limpo no começo (mexeram no meio: monta de novo)
     c.prioridade = false;
     c.temMalha = true;
+    c.ultMont = num;
+    if (this.provisorios.length) this.limparProvisorios(c);
   }
 
   // chamado a cada quadro: carrega/descarrega pedaços perto do jogador
@@ -1124,9 +1183,20 @@ export class Mundo {
     if (opcoesMundo.aguaCorre && ini - this.ultimoPassoLava >= TICK_LAVA) { this.ultimoPassoLava = ini; this.passoLava(); }
     if (this.fogos.size && ini - this.ultimoPassoFogo >= TICK_FOGO) { this.ultimoPassoFogo = ini; this.passoFogo(); }
     if (opcoesMundo.maquinas !== false) this.energia.atualizar(ini);
-    // primeiro os pedaços editados (resposta imediata ao colocar/quebrar)
+    // primeiro os pedaços editados. Entrando no mundo: de uma vez. Jogando: em fatias também (um pedaço do
+    // Natural 3D, ou vários com uma tocha, levava centenas de ms de uma vez no tablet); a malha velha fica
+    // até a nova ficar pronta (o bloco tirado já sumiu dela e o colocado está num cubo provisório)
+    const prio = [];
     for (const c of this.chunks.values()) {
-      if (c.prioridade && c.temMalha) this.construir(c);
+      if (!c.prioridade || !c.temMalha) continue;
+      if (orcamentoMs >= 50) this.construir(c); else prio.push(c);
+    }
+    if (prio.length) {
+      const dist = (c) => (c.cx - pcx) ** 2 + (c.cz - pcz) ** 2;
+      prio.sort((a, b) => dist(a) - dist(b));
+      // mexeram de novo no pedaço que estava sendo montado, ou ele não é editado: recomeça pelo editado
+      const j = this.montagem;
+      if (j && (j.c.prioridade || !j.prio)) { if (!j.prio) j.c.sujo = true; this.montagem = null; }
     }
     const pend = [];
     // mundo clássico: o terreno vem do worker; só monta quando a vizinhança chegou
@@ -1159,11 +1229,16 @@ export class Mundo {
       let k = 0;
       for (let resto = orcamentoMs - (performance.now() - ini); resto > 0.5; resto = orcamentoMs - (performance.now() - ini)) {
         if (!this.montagem) {
-          while (k < pend.length && !pend[k][1].sujo) k++;
-          if (k >= pend.length) break;
-          const c = pend[k++][1];
+          let c, ehPrio = false;
+          while (prio.length && !prio[0].prioridade) prio.shift();
+          if (prio.length) { c = prio.shift(); c.prioridade = false; ehPrio = true; }
+          else {
+            while (k < pend.length && !pend[k][1].sujo) k++;
+            if (k >= pend.length) break;
+            c = pend[k++][1];
+          }
           c.sujo = false;
-          const job = { c, limite: 0 };
+          const job = { c, limite: 0, prio: ehPrio };
           job.g = this.construirMalha(c, job);
           this.montagem = job;
         }
