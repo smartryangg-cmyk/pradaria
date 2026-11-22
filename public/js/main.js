@@ -1463,7 +1463,9 @@ function quadroComer(dt) {
   const r = mercado.mexer(a, false);
   if (!r) return;
   if (mercado.sala) mercado.sala.enviar(a);
+  const antes = vida.enjoado();
   vida.comer(id);
+  if (!antes && vida.enjoado()) aviso('A carne estragada deu enjoo: a fome desce mais rápido', 2400, 'coxa');
   som.tom(520, 0.08, { tipo: 'sine', vol: 0.2, ate: 760 });
   salvarCorpo();
   desenharBarra();

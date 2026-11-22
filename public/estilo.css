@@ -327,6 +327,8 @@ body.dirigindo #botoes-toque { bottom: 60px; }
 #fome .coxa .metade .ic-svg { margin-left: -100%; }
 #fome .coxa.oco > .ic-svg, #fome .coxa.meio > .ic-svg { filter: grayscale(1) brightness(.55); opacity: .7; }
 #fome .coxa.meio .metade { display: block; }
+#fome.enjoo .coxa .ic-svg { filter: hue-rotate(75deg) saturate(1.6); }
+#fome.enjoo .coxa.oco > .ic-svg, #fome.enjoo .coxa.meio > .ic-svg { filter: hue-rotate(75deg) grayscale(.6) brightness(.55); }
 #vida.dez.treme { animation: tremeEsq .35s; }
 #fome.treme { animation: tremeDir .9s infinite; }
 @keyframes tremeEsq { 0%, 100% { transform: translateX(calc(-100% - 6px)); } 25% { transform: translateX(calc(-100% - 10px)); } 75% { transform: translateX(calc(-100% - 2px)); } }

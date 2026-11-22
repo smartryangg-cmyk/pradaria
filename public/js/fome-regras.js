@@ -16,11 +16,15 @@ export const COMIDA = {
 };
 export const ehComida = (id) => Object.prototype.hasOwnProperty.call(COMIDA, id);
 export const TEMPO_COMER = 1.6; // segundos segurando para comer
+// enjoo (como no clássico): a carne estragada tem 80% de chance de dar 30 s de enjoo, que cansa 0,1 por segundo
+// (a barra fica verde e a fome desce mais rápido)
+export const ENJOO = { chance: 0.8, segundos: 30, cansa: 0.1 };
+export const DA_ENJOO = { [I.CARNE_ESTRAGADA]: ENJOO.chance };
 
 // quanto cansa cada coisa (como no clássico)
 export const CANSA = { correr: 0.1, nadar: 0.01, pular: 0.05, pularCorrendo: 0.2, bater: 0.1, quebrar: 0.005, dano: 0.1, curar: 6 };
 
-export const fomeNova = () => ({ f: FOME_MAX, s: 5, x: 0, tc: 0, tr: 0 });
+export const fomeNova = () => ({ f: FOME_MAX, s: 5, x: 0, tc: 0, tr: 0, en: 0 });
 export function normalizarFome(o) {
   const n = fomeNova();
   if (!o || typeof o !== 'object') return n;
@@ -28,6 +32,7 @@ export function normalizarFome(o) {
   n.f = Math.round(num(o.f, 0, FOME_MAX, n.f));
   n.s = num(o.s, 0, n.f, Math.min(n.s, n.f));
   n.x = num(o.x, 0, 4, 0);
+  n.en = num(o.en, 0, ENJOO.segundos, 0);
   return n;
 }
 
@@ -41,14 +46,16 @@ export function cansar(e, q) {
   }
 }
 
-// comeu: devolve false se não é comida ou se está sem fome
-export function comer(e, id) {
+// comeu: devolve false se não é comida ou se está sem fome; sorte (0 a 1) decide o enjoo
+export function comer(e, id, sorte = Math.random()) {
   const c = COMIDA[id];
   if (!c || e.f >= FOME_MAX) return false;
   e.f = Math.min(FOME_MAX, e.f + c.f);
   e.s = Math.min(e.f, e.s + c.s);
+  if (DA_ENJOO[id] && sorte < DA_ENJOO[id]) e.en = ENJOO.segundos;
   return true;
 }
+export const enjoado = (e) => e.en > 0;
 
 // fatia do bolo colocado (bolo-regras.js): enche 2 de fome e 0,4 de saturação
 export function comerFatia(e, fatia = { f: 2, s: 0.4 }) {
@@ -64,6 +71,7 @@ export const pisoFome = (dif) => (dif === 'facil' ? 10 : dif === 'dificil' ? 0 :
 
 // a cada quadro: devolve quanto a vida muda (+1 curou, -1 a fome machucou, 0 nada)
 export function tique(e, dt, vida, max, dif) {
+  if (e.en > 0) { cansar(e, ENJOO.cansa * Math.min(dt, e.en)); e.en = Math.max(0, e.en - dt); }
   // cheio e com saturação: cura rápido (meio coração a cada 0,5 s, gastando a saturação)
   if (e.f >= FOME_MAX && e.s > 0 && vida < max) {
     e.tr += dt;
