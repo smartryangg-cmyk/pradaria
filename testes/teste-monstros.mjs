@@ -160,6 +160,19 @@ if (PARTES.includes('toque')) for (const [nome, dev] of [['celular', devices['Pi
   }
   const vida1 = await J(p, () => window.__jogo.bichos.lista.find((b) => b.especie === 'barrento')?.vida ?? 0);
   ok(vida1 < vida0, `${nome}: segurando o dedo bateu no barrento com a espada (${vida0} -> ${vida1})`);
+  if (nome === 'tablet') {
+    // vários monstros em volta derrubam o jogador: na hora de morrer os bravos vão embora no meio da conta dos bichos
+    // (antes dava erro de página "reading 'x'"); depois renasce pelo botão
+    const e0 = erros.length;
+    await J(p, () => { const J_ = window.__jogo, L = J_.bichos, j = J_.jog; L.tempoSpawn = 1e9; J_.vida.protegido = 0;
+      for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; const m = L.criar(k % 2 ? 'aranha' : 'barrento', j.pos.x + Math.cos(a) * 0.9, j.pos.y, j.pos.z + Math.sin(a) * 0.9, { grupo: 900 + k }); m.estado = 'atacar'; m.alvo = 'jog'; m.cacandoGente = true; m.timer = 4; m.mordeu = 0; }
+      J_.vida.atual = 1; });
+    const morreu = await ate(p, () => !document.querySelector('#morte').hidden, null, 20000);
+    ok(morreu, 'tablet: os monstros derrubaram o jogador (tela de morte)');
+    if (morreu) { await p.tap('#bt-renascer'); await esperar(p, 1500); }
+    ok(await J(p, () => document.querySelector('#morte').hidden && window.__jogo.vida.atual > 0), 'tablet: renasceu pelo botão');
+    ok(erros.length === e0, 'tablet: morrer cercado de monstros não dá erro de página ' + JSON.stringify(erros.slice(e0)));
+  }
   await ctx.close();
 }
 

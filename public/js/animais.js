@@ -268,6 +268,8 @@ export class Bichos {
     const ctx = { p, sol, noite };
     for (let i = this.lista.length - 1; i >= 0; i--) {
       const b = this.lista[i];
+      // a vez de um bicho pode tirar outros da lista (o jogador desmaiou e os bravos foram embora): pula o que sumiu
+      if (!b) continue;
       const dx = p.x - b.x, dz = p.z - b.z;
       const dist = Math.hypot(dx, dz);
       b.distJog = dist;
