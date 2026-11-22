@@ -97,7 +97,8 @@ export default async function fisica(j) {
   if (teto) { j.passo('tem bloco em cima da cabeça; anda um pouco antes de pular'); await virarParaOAberto(j); await j.andar('frente', 1500); }
   const y0 = (await pos(j)).y;
   // mede até pousar de novo (o teste roda a poucos quadros)
-  const subida = j.p.evaluate(() => new Promise((r) => { const jg = window.__jogo.jog, y0 = jg.pos.y; let mx = y0; const t0 = performance.now(); let saiu = false; const tr = []; const f = () => { mx = Math.max(mx, jg.pos.y); if (tr.length < 40) tr.push([+jg.pos.y.toFixed(2), +jg.vel.y.toFixed(1), jg.noChao ? 1 : 0]); window.__trPulo = tr; if (!jg.noChao) saiu = true; if ((saiu && jg.noChao) || performance.now() - t0 > 30000) r(mx - y0); else requestAnimationFrame(f); }; requestAnimationFrame(f); }));
+  const subida = j.p.evaluate((y0) => new Promise((r) => { const jg = window.__jogo.jog; // y0 = antes de apertar o pulo (o evaluate pode começar já no ar)
+ let mx = y0; const t0 = performance.now(); let saiu = false; const tr = []; const f = () => { mx = Math.max(mx, jg.pos.y); if (tr.length < 40) tr.push([+jg.pos.y.toFixed(2), +jg.vel.y.toFixed(1), jg.noChao ? 1 : 0]); window.__trPulo = tr; if (!jg.noChao) saiu = true; if ((saiu && jg.noChao) || performance.now() - t0 > 30000) r(mx - y0); else requestAnimationFrame(f); }; requestAnimationFrame(f); }), y0);
   await j.pular();
   const alt = await subida;
   await j.espera(alt > 1.1 && alt < 1.45, 'o pulo sobe ~1,25 bloco (passa 1 bloco, não passa 2)', { tipo: 'clássico', esperado: '1,25', visto: alt.toFixed(2) + ' (de ' + y0 + ') ' + JSON.stringify(await j.p.evaluate(() => window.__trPulo)) });

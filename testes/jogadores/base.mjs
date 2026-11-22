@@ -71,7 +71,7 @@ export class Jogador {
     const { toque, lento, retrato, ...ctxOpc } = this.cfg;
     this.ctx = await b.newContext({ ...ctxOpc, ignoreHTTPSErrors: true });
     this.p = await this.ctx.newPage();
-    this.p.on('pageerror', (e) => { const t = 'PAGEERROR ' + e.message; this.erros.push(t); this.console.push(t); });
+    this.p.on('pageerror', (e) => { const t = 'PAGEERROR ' + e.message + ' @ ' + String(e.stack || '').split('\n').slice(1, 4).map((l) => l.trim().replace(/https?:\/\/[^/]+\//, '')).join(' < '); this.erros.push(t); this.console.push(t); });
     this.p.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') this.console.push(m.type() + ': ' + m.text()); if (this.console.length > 300) this.console.shift(); });
     this.cdp = await this.ctx.newCDPSession(this.p);
     if (lento) {
