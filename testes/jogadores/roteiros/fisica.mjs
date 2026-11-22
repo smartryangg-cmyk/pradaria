@@ -6,11 +6,20 @@ import { acharBloco, irAte, quebrarBloco, juntar, itens, mirarBloco, bloco, pos,
 
 // velocidade de cruzeiro: lê a velocidade do jogador enquanto segura a tecla/joystick
 async function velocidade(j, como) {
+  // amostra a velocidade o tempo todo enquanto anda e fica com a de cruzeiro (a segunda maior);
+  // no Chromium do teste o jogo roda a poucos quadros e demora para chegar na velocidade final
   const amostras = [];
-  const coleta = (async () => { await j.p.waitForTimeout(900); for (let k = 0; k < 6; k++) { amostras.push(await j.p.evaluate(() => { const v = window.__jogo.jog.vel; return Math.hypot(v.x, v.z); })); await j.p.waitForTimeout(120); } })();
-  await como(); await coleta;
+  let andando = true;
+  const coleta = (async () => { await j.p.waitForTimeout(400); while (andando) { amostras.push(await j.p.evaluate(() => { const v = window.__jogo.jog.vel; return Math.hypot(v.x, v.z); })); await j.p.waitForTimeout(100); } })();
+  await como(); andando = false; await coleta;
   amostras.sort((a, b) => a - b);
-  return +amostras[amostras.length - 2].toFixed(2);
+  return +(amostras[amostras.length - 2] || 0).toFixed(2);
+}
+
+// volta para o meio da pista de medição (como dar /tp no clássico), para cada medida começar no aberto
+async function meioDaPista(j) {
+  await j.p.evaluate(() => { const g = window.__jogo, c = g.__pista; if (!c) return; Object.assign(g.jog.pos, { x: c.x, y: c.y, z: c.z }); Object.assign(g.jog.vel, { x: 0, y: 0, z: 0 }); });
+  await j.p.waitForTimeout(600);
 }
 
 // vira para a direção mais aberta e plana (8 blocos sem parede nem buraco), como uma pessoa escolheria
@@ -44,59 +53,49 @@ export default async function fisica(j) {
   if (!(await j.jogarSozinho())) return;
   // semente 42: nasce longe da vila, num lugar aberto (medida igual em toda rodada)
   if (!(await j.criarMundo({ nome: 'Física', semente: process.env.SEMENTE_MUNDO || '42' }))) return;
-  // nasceu na água ou numa encosta? sai para a grama, como uma pessoa faria antes de medir
-  for (let t = 0; t < 3 && (await j.p.evaluate(() => window.__jogo.jog.naAgua || !window.__jogo.jog.noChao)); t++) {
-    const g = await acharBloco(j, [1], 20);
-    if (g) await irAte(j, g.x, g.z, { perto: 0.8, ms: 20000 });
-  }
-  // nasceu numa vila ou no meio das árvores? procura um campo aberto por perto (céu livre e 12 blocos planos)
-  const campo = await j.p.evaluate(() => {
-    const g = window.__jogo, m = g.mundo, p = g.jog.pos;
-    const chao = (x, z) => { for (let y = Math.floor(p.y) + 8; y > Math.floor(p.y) - 8; y--) if (m.bloco(x, y, z)) return y + 1; return null; };
-    const livre = (x, y, z) => !m.bloco(x, y, z) && !m.bloco(x, y + 1, z) && !m.bloco(x, y + 2, z) && !m.bloco(x, y + 3, z);
-    let melhor = null;
-    for (let r = 0; r <= 40; r += 2) for (let k = 0; k < Math.max(1, r * 2); k++) {
-      const a = k / Math.max(1, r * 2) * Math.PI * 2, x = Math.floor(p.x + Math.cos(a) * r), z = Math.floor(p.z + Math.sin(a) * r), y = chao(x, z);
-      if (y == null || !livre(x, y, z) || m.bloco(x, y - 1, z) !== 1) continue; // grama de verdade (não telhado, não água)
-      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        let ok = true;
-        for (let d = 1; d <= 12 && ok; d++) ok = chao(x + dx * d, z + dz * d) === y && m.bloco(x + dx * d, y - 1, z + dz * d) === 1 && livre(x + dx * d, y, z + dz * d);
-        if (ok) { melhor = { x, z, r }; break; }
-      }
-      if (melhor) return melhor;
+  // Pista de medição: um campo de grama plano de 41x41 sem nada em cima, como um mundo plano do clássico,
+  // para a medida não depender de onde o mundo nasceu (vila, árvore, encosta, água). Meio-dia, sem monstros.
+  await j.p.evaluate(() => {
+    const g = window.__jogo, m = g.mundo, p = g.jog.pos, x0 = Math.floor(p.x), z0 = Math.floor(p.z), y = Math.max(Math.floor(p.y), 40);
+    for (let x = -20; x <= 20; x++) for (let z = -20; z <= 20; z++) {
+      for (let d = -3; d < 0; d++) m.definir(x0 + x, y + d, z0 + z, d === -1 ? 1 : 2);
+      for (let d = 0; d <= 12; d++) if (m.bloco(x0 + x, y + d, z0 + z)) m.definir(x0 + x, y + d, z0 + z, 0);
     }
-    return null;
+    // um monte de terra (uma fileira de 9 blocos) para cavar com a mão
+    for (let x = -4; x <= 4; x++) m.definir(x0 + x, y, z0 + 8, 2);
+    g.__pista = { x: x0 + 0.5, y: y + 0.01, z: z0 + 0.5 };
+    Object.assign(g.jog.pos, g.__pista); Object.assign(g.jog.vel, { x: 0, y: 0, z: 0 }); g.dia = 0.3;
   });
-  if (!campo) j.passo('não achou campo aberto de grama por perto');
-  if (campo && campo.r > 0) { j.passo(`aqui é fechado; vai até um campo aberto a ${campo.r} blocos`); await irAte(j, campo.x, campo.z, { perto: 0.8, ms: 40000 }); }
-  // anda num lugar aberto (14 blocos planos na frente)
-  for (let t = 0; t < 4 && (await virarParaOAberto(j)) < 10; t++) await j.andar(['frente', 'direita', 'tras', 'esquerda'][t], 2500, { pular: true });
-  const anda = await velocidade(j, () => j.andar('frente', 1800));
+  j.passo('preparou a pista de medição (campo de grama plano 41x41)');
+  await j.p.waitForTimeout(5000); // o jogo remonta os pedaços mexidos
+  await meioDaPista(j); await virarParaOAberto(j);
+  const anda = await velocidade(j, () => j.andar('frente', 3000));
   await j.espera(Math.abs(anda - 4.32) < 0.35, 'andar: ~4,3 blocos por segundo como no clássico', { tipo: 'clássico', esperado: '4,3 b/s', visto: anda + ' b/s' });
   if (!j.toque) {
-    await virarParaOAberto(j);
-    const corre = await velocidade(j, async () => { await j.p.keyboard.down('ControlLeft'); await j.andar('frente', 1800); await j.p.keyboard.up('ControlLeft'); });
+    await meioDaPista(j); await virarParaOAberto(j);
+    const corre = await velocidade(j, async () => { await j.p.keyboard.down('ControlLeft'); await j.andar('frente', 3000); await j.p.keyboard.up('ControlLeft'); });
     await j.espera(Math.abs(corre - 5.61) < 0.4, 'Ctrl + W corre a ~5,6 blocos por segundo como no clássico', { tipo: 'clássico', esperado: '5,6 b/s', visto: corre + ' b/s' });
     // W duas vezes rápido também corre no clássico
-    await virarParaOAberto(j);
-    const duplo = await velocidade(j, async () => { await j.p.keyboard.press('KeyW'); await j.p.waitForTimeout(80); await j.andar('frente', 1800); });
+    await meioDaPista(j); await virarParaOAberto(j);
+    const duplo = await velocidade(j, async () => { j.passo('apertou W duas vezes rápido'); await j.p.evaluate(() => { for (const t of ['keydown', 'keyup', 'keydown']) dispatchEvent(new KeyboardEvent(t, { code: 'KeyW', key: 'w' })); }); await j.andar('frente', 3000); });
     await j.espera(duplo > 5, 'apertar W duas vezes rápido corre, como no clássico', { tipo: 'clássico', esperado: '> 5 b/s', visto: duplo + ' b/s' });
     // Shift no clássico agacha (anda devagar ~1,3 b/s)
-    await virarParaOAberto(j);
-    const shift = await velocidade(j, async () => { await j.p.keyboard.down('ShiftLeft'); await j.andar('frente', 1800); await j.p.keyboard.up('ShiftLeft'); });
+    await meioDaPista(j); await virarParaOAberto(j);
+    const shift = await velocidade(j, async () => { await j.p.keyboard.down('ShiftLeft'); await j.andar('frente', 3000); await j.p.keyboard.up('ShiftLeft'); });
     await j.espera(shift < 2, 'Shift agacha (anda devagar), como no clássico', { tipo: 'clássico', esperado: '~1,3 b/s agachado', visto: shift + ' b/s' });
   } else {
-    await virarParaOAberto(j);
-    const corre = await velocidade(j, () => j.andar('frente', 1800, { correr: true }));
+    await meioDaPista(j); await virarParaOAberto(j);
+    const corre = await velocidade(j, () => j.andar('frente', 3000, { correr: true }));
     await j.espera(Math.abs(corre - 5.61) < 0.4, 'toque duplo no joystick corre a ~5,6 b/s como no clássico', { tipo: 'clássico', esperado: '5,6 b/s', visto: corre + ' b/s' });
   }
   // pulo: altura de ~1,25 bloco
+  await meioDaPista(j);
   await j.p.waitForTimeout(500);
   // pulo só vale com o céu livre (2 blocos acima da cabeça), senão é o teto que segura, não o jogo
   const teto = await j.p.evaluate(() => { const g = window.__jogo, p = g.jog.pos; for (let d = 2; d <= 3; d++) if (g.mundo.bloco(Math.floor(p.x), Math.floor(p.y) + d, Math.floor(p.z))) return d; return 0; });
   if (teto) { j.passo('tem bloco em cima da cabeça; anda um pouco antes de pular'); await virarParaOAberto(j); await j.andar('frente', 1500); }
   const y0 = (await pos(j)).y;
-  const subida = j.p.evaluate(() => new Promise((r) => { const jg = window.__jogo.jog, y0 = jg.pos.y; let mx = y0; const t0 = performance.now(); const f = () => { mx = Math.max(mx, jg.pos.y); if (performance.now() - t0 < 2500) requestAnimationFrame(f); else r(mx - y0); }; requestAnimationFrame(f); }));
+  const subida = j.p.evaluate(() => new Promise((r) => { const jg = window.__jogo.jog, y0 = jg.pos.y; let mx = y0; const t0 = performance.now(); const f = () => { mx = Math.max(mx, jg.pos.y); if (performance.now() - t0 < 6000) requestAnimationFrame(f); else r(mx - y0); }; requestAnimationFrame(f); }));
   await j.pular();
   const alt = await subida;
   await j.espera(alt > 1.1 && alt < 1.45, 'o pulo sobe ~1,25 bloco (passa 1 bloco, não passa 2)', { tipo: 'clássico', esperado: '1,25', visto: alt.toFixed(2) + ' (de ' + y0 + ')' });
@@ -104,7 +103,7 @@ export default async function fisica(j) {
   // dano de queda: junta terra e sobe num pilar pulando e colocando bloco embaixo (como no clássico)
   let terra = 0;
   for (let n = 0; n < 12 && terra < 6; n++) {
-    const t = await acharBloco(j, [1, 2], 6);
+    const t = await acharBloco(j, [1, 2], 12);
     if (!t) break;
     await irAte(j, t.x, t.z, { perto: 2.5, ms: 10000 });
     if ((await quebrarBloco(j, t.x, t.y, t.z, { max: 6000 })) < 0) continue;

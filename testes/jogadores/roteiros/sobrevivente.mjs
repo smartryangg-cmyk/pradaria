@@ -97,7 +97,7 @@ export default async function sobrevivente(j) {
       if (tm >= 0) {
         await juntar(j, outra.x, outra.z);
         const a1 = await itens(j);
-        const ganhou = Object.keys(a1).filter((k) => (a1[k] || 0) > (a0[k] || 0)).map((k) => k + ' +' + (a1[k] - (a0[k] || 0)));
+        const ganhou = Object.keys(a1).filter((k) => +k === PEDRA && (a1[k] || 0) > (a0[k] || 0)).map((k) => k + ' +' + (a1[k] - (a0[k] || 0))); // só a pedra conta (troncos largados por perto também são juntados)
         await j.espera(!ganhou.length, 'pedra quebrada com a mão não dá nada (precisa de picareta)', { tipo: 'clássico', esperado: 'nada', visto: ganhou.join(', ') });
       }
     }

@@ -46,7 +46,7 @@ export class Controles {
       // como no clássico: W duas vezes rápido corre (até soltar o W)
       if ((k === 'KeyW' || k === 'ArrowUp') && !e.repeat) {
         const ag = performance.now();
-        if (ag - (this.ultimoW || 0) < 300) this.correndoW = true;
+        if (ag - (this.ultimoW || 0) < 350) this.correndoW = true; // 7 passos do clássico (0,35 s)
         this.ultimoW = ag;
       }
       this.teclas.add(k);

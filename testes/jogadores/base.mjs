@@ -110,7 +110,8 @@ export class Jogador {
   async dedos(tipo, pontos) {
     // o navegador guarda os dedos na tela: soltar/mexer sem ter encostado é erro do robô, não do jogo
     if (tipo !== 'touchStart' && !this.dedosNaTela) return;
-    await this.cdp.send('Input.dispatchTouchEvent', { type: tipo, touchPoints: pontos.map(([x, y, id]) => ({ x, y, id, radiusX: 8, radiusY: 8, force: 1 })) });
+    try { await this.cdp.send('Input.dispatchTouchEvent', { type: tipo, touchPoints: pontos.map(([x, y, id]) => ({ x, y, id, radiusX: 8, radiusY: 8, force: 1 })) }); }
+    catch (e) { if (!/TouchStart first/.test(e.message)) throw e; this.dedosNaTela = 0; return; } // o navegador já tinha soltado o dedo
     this.dedosNaTela = tipo === 'touchEnd' || tipo === 'touchCancel' ? 0 : pontos.length;
   }
   async tocar(sel) {
@@ -238,10 +239,10 @@ export class Jogador {
     this.passo(`andou para ${dir} por ${ms} ms${correr ? ' correndo' : ''}${pular ? ' pulando' : ''}`);
     if (!this.toque) {
       const k = { frente: 'KeyW', tras: 'KeyS', esquerda: 'KeyA', direita: 'KeyD' }[dir];
-      if (correr) await this.p.keyboard.down('ShiftLeft');
+      if (correr) await this.p.keyboard.down('ControlLeft');
       await this.p.keyboard.down(k); if (pular) await this.p.keyboard.down('Space');
       await this.p.waitForTimeout(ms);
-      await this.p.keyboard.up(k); if (pular) await this.p.keyboard.up('Space'); if (correr) await this.p.keyboard.up('ShiftLeft');
+      await this.p.keyboard.up(k); if (pular) await this.p.keyboard.up('Space'); if (correr) await this.p.keyboard.up('ControlLeft');
       return;
     }
     const { width: w, height: h } = this.p.viewportSize();

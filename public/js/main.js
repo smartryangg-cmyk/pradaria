@@ -2605,7 +2605,8 @@ function laco(agora) {
   if (!pausado && !morto) {
     const ent = ctrl.atualizar();
     if (!garagem.quadro(dt, ent, false) && !cama.quadro(dt, ent)) {
-      jog.atualizar(dt, ent);
+      // física em passos de no máximo 1/30 s (o clássico usa passos fixos): o pulo e a queda saem iguais com poucos quadros
+      for (let r = dt; r > 1e-6; r -= 1 / 30) jog.atualizar(Math.min(r, 1 / 30), ent);
       queimarNaLava(dt);
       queimarNoFogo(dt);
       if ((jog.noChao || jog.naAgua) && Math.floor(jog.passo / 1.8) !== ultimoPasso) { ultimoPasso = Math.floor(jog.passo / 1.8); som.passo(jog.naAgua ? 'agua' : chaoDe(jog.pos.x, jog.pos.y, jog.pos.z), visao.agachado ? 0.18 : visao.correndo ? 0.45 : 0.35); }
