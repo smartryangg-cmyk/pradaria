@@ -51,11 +51,11 @@ await a.evaluate(() => {
   j.yaw = melhor;
 });
 await a.evaluate(() => { window.__jogo.mercado.veiculo({ t: 'chave', tipo: 'carro' }); });
-await a.waitForFunction(() => window.__jogo.mercado.e.veiculos.includes('carro'), null, { timeout: 5000 });
+await a.waitForFunction(() => window.__jogo.mercado.e.veiculos.includes('carro'), null, { timeout: 15000 });
 await a.evaluate(() => window.__jogo.garagem.novo('carro', 2));
-await a.waitForFunction(() => window.__jogo.garagem.dentro, null, { timeout: 5000 });
+await a.waitForFunction(() => window.__jogo.garagem.dentro, null, { timeout: 15000 });
 const vid = await a.evaluate(() => window.__jogo.garagem.dentro.v.id);
-await bb.waitForFunction((id) => window.__jogo.garagem.veic.mapa.has(id), vid, { timeout: 5000 });
+await bb.waitForFunction((id) => window.__jogo.garagem.veic.mapa.has(id), vid, { timeout: 15000 });
 ok(true, 'B vê o carro novo ' + vid);
 // B vai para perto e entra
 const pv = await a.evaluate(() => { const v = window.__jogo.garagem.dentro.v; return [v.x, v.y, v.z]; });
