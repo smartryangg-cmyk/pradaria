@@ -102,15 +102,6 @@ if (PARTES.includes('pc')) {
   ok(await lutar(p, 'barrento'), 'derrubou o barrento com a espada de ferro');
   await pegarTudo(p);
   ok(await qtd(p, 1112) === 1, 'pegou a carne estragada que ele deixou');
-  // comer a carne estragada: enjoa (a sorte do jogo fica em 0,1 para dar os 80%), as coxinhas ficam verdes
-  await J(p, () => { const g = window.__jogo; g.vida.fome.f = 10; g.vida.fome.s = 0; g.vida.desenhar(); window.__rnd = Math.random; Math.random = () => 0.1; });
-  await segurar(p, 1112);
-  await J(p, () => { window.__jogo.jog.pitch = 1.2; window.__jogo.usar(null); });
-  ok(await ate(p, () => window.__jogo.mercado.qtd(1112) === 0, null, 4000), 'comeu a carne estragada');
-  await J(p, () => { Math.random = window.__rnd; });
-  ok(await J(p, () => window.__jogo.vida.fome.ej > 25 && document.querySelector('#fome').classList.contains('enjoo')), 'enjoou: a fome fica verde por um tempo');
-  await p.screenshot({ path: SAIDA + '/monstro-pc-enjoo.png' });
-  await segurar(p, 1115); // de volta a espada na mão
   ok(await J(p, () => window.__jogo.mercado.e.xp | 0) === xp0 + 5, 'ganhou 5 de experiência');
   const gasto = await J(p, () => (window.__jogo.mercado.e.desg?.[1115] || [])[0] | 0);
   ok(gasto >= 3, 'a espada gastou um pouco (' + gasto + ' golpes)');

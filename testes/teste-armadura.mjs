@@ -220,8 +220,8 @@ if (PARTES.includes('online')) {
   await a.keyboard.press('Escape');
   ok(await qtd(a, 34) === 0, 'online: colocou a bancada');
   // 2 ursos: 4 couros (a sala dá o que o bicho deixa)
-  for (let k = 0; k < 2; k++) {
-    await J(a, () => { const g = window.__jogo, j = g.jog; g.vida.atual = g.vida.max; const u = g.bichos.criar('urso', j.pos.x + 0.5, j.pos.y, j.pos.z + 3); u.calmo = 99; u.estado = 'parar'; u.timer = 99; u.I = { ...u.I, fuga: 0 }; });
+  for (let k = 0; k < 5 && await qtd(a, 1008) < 4; k++) { // um golpe errado às vezes deixa o urso fugir: caça até ter 4
+    await J(a, () => { const g = window.__jogo, j = g.jog; g.vida.atual = g.vida.max; g.bichos.limpar && g.bichos.limpar(); const u = g.bichos.criar('urso', j.pos.x + 0.5, j.pos.y, j.pos.z + 3); u.calmo = 99; u.estado = 'parar'; u.timer = 99; u.I = { ...u.I, fuga: 0 }; });
     await J(a, async () => {
       const g = window.__jogo, j = g.jog;
       for (let i = 0; i < 40; i++) {
@@ -236,7 +236,7 @@ if (PARTES.includes('online')) {
     for (let t = 0; t < 6; t++) { const d = await J(a, () => window.__jogo.drops.lista().map((d) => [d.x, d.y, d.z])); if (!d.length) break; await J(a, ([x, y, z]) => { const j = window.__jogo.jog; j.pos.x = x; j.pos.z = z; j.pos.y = Math.max(j.pos.y, y); }, d[0]); await esperar(a, 900); }
     await esperar(a, 1600); // a sala aceita um bicho a cada 1,5 s
   }
-  ok(await ate(a, () => window.__jogo.mercado.qtd(1008) >= 4, null, 6000), 'online: caçou 2 ursos e pegou 4 couros (' + await qtd(a, 1008) + ')');
+  ok(await ate(a, () => window.__jogo.mercado.qtd(1008) >= 4, null, 6000), 'online: caçou ursos e pegou 4 couros (' + await qtd(a, 1008) + ')');
   await J(a, ([x, y, z]) => { const j = window.__jogo.jog; j.pos.x = x + 0.5; j.pos.y = y + 1; j.pos.z = z + 2.5; j.vel.x = j.vel.y = j.vel.z = 0; }, [x0, y0, z0]);
   await esperar(a, 500);
   await J(a, () => window.__jogo.mercado.criar('botas-couro', true, 1)); await esperar(a, 1200);
