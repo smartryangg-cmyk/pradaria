@@ -116,6 +116,7 @@ export const FERRAMENTAS = {
   [I.PICARETA_DIAMANTE]: ['picareta', 6, 4], [I.MACHADO_DIAMANTE]: ['machado', 6, 4], [I.PA_DIAMANTE]: ['pa', 6, 4],
 };
 const TIPO_DO_BLOCO = {};
+export const tipoDoBloco = (b) => TIPO_DO_BLOCO[b];
 for (const b of [I.PEDRA, I.PEDRISCO, I.TIJOLO, I.LAMPIAO, I.VIDRO, 108, 109, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122]) TIPO_DO_BLOCO[b] = 'picareta';
 for (const b of [I.TRONCO, I.TABUAS, I.FOLHAS, I.FENO, I.BANCADA, 110, 111, 47, 48, 49, 50, 53, 54]) TIPO_DO_BLOCO[b] = 'machado';
 for (let b = 176; b <= 187; b++) TIPO_DO_BLOCO[b] = 'machado'; // móveis
