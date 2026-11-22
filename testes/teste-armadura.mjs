@@ -54,7 +54,8 @@ async function mordida(p) {
   await J(p, () => { const g = window.__jogo; g.vida.atual = g.vida.max; g.vida.protegido = 0; g.dia = 0.75; });
   await ate(p, () => { const J_ = window.__jogo, j = J_.jog; J_.bichos.tentarMonstro(j.pos.x, j.pos.y, j.pos.z, -1, 'barrento'); return J_.bichos.lista.some((b) => b.especie === 'barrento'); }, null, 20000);
   const v0 = await J(p, () => window.__jogo.vida.atual);
-  await J(p, () => { const J_ = window.__jogo, j = J_.jog, m = J_.bichos.lista.find((b) => b.especie === 'barrento'); m.x = j.pos.x + 1.2; m.z = j.pos.z; m.y = j.pos.y; });
+  // põe o barrento do lado (se ele sumiu nesse meio tempo, nasce outro)
+  await ate(p, () => { const J_ = window.__jogo, j = J_.jog; let m = J_.bichos.lista.find((b) => b.especie === 'barrento' && !b.caindo); if (!m) { J_.bichos.tentarMonstro(j.pos.x, j.pos.y, j.pos.z, -1, 'barrento'); return false; } m.x = j.pos.x + 1.2; m.z = j.pos.z; m.y = j.pos.y; return true; }, null, 20000);
   await ate(p, (v0) => window.__jogo.vida.atual < v0 || window.__jogo.vida.protegido > 0, v0, 15000);
   const v1 = await J(p, () => window.__jogo.vida.atual);
   await limpar(p);
