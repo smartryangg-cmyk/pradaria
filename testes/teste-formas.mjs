@@ -25,6 +25,7 @@ async function abrir(ctxOpts, criativo = true) {
     // mundo criativo (blocos à vontade) ou "Coletar e criar" (padrão)
     if (criativo && await p.getAttribute('[data-modo=sobrevivencia]', 'aria-pressed') === 'true') await p.click('[data-modo=criativo]');
     await p.click('#m-novo [data-opcao=formas]'); // mod Formas redondas
+    await p.click('#m-novo [data-opcao=esculpir]'); // e o mod "Quebrar esculpindo": este teste conta toques
     await p.click('#m-novo button[type=submit]');
   }
   await p.waitForTimeout(3500);
