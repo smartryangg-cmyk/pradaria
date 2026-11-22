@@ -181,7 +181,7 @@ async function rodar(nome, ctxOpc, toque) {
   });
   if (cdpT) await cdpT.send('Emulation.setCPUThrottlingRate', { rate: 1 });
 
-  await clicar('#bt-menu');
+  if (!(await p.isVisible('#pausa'))) await clicar('#bt-menu'); // no PC o Esc (soltar o mouse) já abriu o menu, como no clássico
   await p.waitForTimeout(400);
   await clicar('#bt-editar-mundo');
   await p.waitForSelector('#editar-mundo:not([hidden])');
