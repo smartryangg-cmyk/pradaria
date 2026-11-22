@@ -13,7 +13,7 @@ const conferir = (ok, msg, extra = '') => { console.log((ok ? 'OK    ' : 'FALHA 
 
 async function abrir(ctx, toque) {
   const p = await ctx.newPage();
-  p.on('pageerror', (e) => erros.push('PAGEERROR ' + e.message));
+  p.on('pageerror', (e) => erros.push('PAGEERROR ' + (e.stack || e.message)));
   p.on('console', (m) => { if (m.type() === 'error') erros.push(m.text()); });
   await p.goto(BASE + '/#teste');
   await p.evaluate(() => localStorage.clear());
