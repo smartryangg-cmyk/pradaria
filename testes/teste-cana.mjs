@@ -42,10 +42,12 @@ const tocarMeio = async (p) => { const m = await J(p, () => ({ x: innerWidth / 2
 const coluna = (p, x, y, z) => J(p, ([x, y, z]) => { const m = window.__jogo.mundo; let n = 0; while (n < 8 && m.bloco(x, y + n, z) === 224) n++; return n; }, [x, y, z]);
 async function quebrarEm(p, x, y, z) {
   return J(p, async ([x, y, z]) => {
-    const J_ = window.__jogo, j = J_.jog, cam = J_.camera, dx = x + 0.5 - cam.position.x, dz = z + 0.5 - cam.position.z;
-    j.yaw = Math.atan2(-dx, -dz); j.pitch = Math.atan2(y + 0.5 - cam.position.y, Math.hypot(dx, dz));
-    await new Promise((r) => setTimeout(r, 200));
-    for (let i = 0; i < 20 && J_.mundo.bloco(x, y, z) === 224; i++) { J_.quebrar(null); await new Promise((r) => setTimeout(r, 260)); }
+    // a câmera ainda pode estar chegando (sobe liso, aparelho lento): mira de novo antes de cada batida,
+    // senão a batida pega o pedaço de baixo e a cana inteira cai
+    const J_ = window.__jogo, j = J_.jog, cam = J_.camera;
+    const mirar = () => { const dx = x + 0.5 - cam.position.x, dz = z + 0.5 - cam.position.z; j.yaw = Math.atan2(-dx, -dz); j.pitch = Math.atan2(y + 0.5 - cam.position.y, Math.hypot(dx, dz)); };
+    for (let i = 0; i < 4; i++) { mirar(); await new Promise((r) => setTimeout(r, 150)); }
+    for (let i = 0; i < 20 && J_.mundo.bloco(x, y, z) === 224; i++) { mirar(); await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); mirar(); J_.quebrar(null); await new Promise((r) => setTimeout(r, 260)); }
     return J_.mundo.bloco(x, y, z) !== 224;
   }, [x, y, z]);
 }
@@ -87,7 +89,9 @@ async function pegarTudo(p, c) {
   await p.screenshot({ path: SAIDA + '/cana-0-plantou.png' });
   // cresce sozinha: passa os tiques (5 s cada) do relógio das plantações até a coluna parar
   const cresceu = await J(p, async ([x, y, z]) => {
-    const J_ = window.__jogo, t0 = Math.floor(Date.now() / 5000), alturas = [];
+    // conta a partir do tique em que o jogo viu a cana pela primeira vez (ela foi plantada antes desta conta começar)
+    const J_ = window.__jogo, vista = J_.plantacoes.canaVista.get(x + ',' + y + ',' + z);
+    const t0 = vista != null ? Math.floor(vista / 5000) : Math.floor(Date.now() / 5000), alturas = [];
     let n = 1;
     for (let t = t0; t < t0 + 3000; t++) {
       J_.plantacoes.tique(J_.jog.pos.x, J_.jog.pos.z, t);

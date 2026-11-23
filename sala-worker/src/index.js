@@ -8,6 +8,7 @@ import { opcoesEcon, econLigada, normalizar, aplicar, dar, liberado, temMochila,
 import { lugarVazio, gastoDe, oQueCai, MAIOR_ITEM } from '../../public/js/receitas.js';
 import { normalizarForno, avancar, conteudo, fornoPublico } from '../../public/js/fornalha-regras.js';
 import { BAU, normalizarBau, conteudoBau, vazioBau } from '../../public/js/bau-regras.js';
+import { MINERIOS, minerioPossivel } from '../../public/js/gerador.js';
 const FORNALHA = 188;
 import { Chao, publico, podePegar, pertoParaPegar, podeNoChao, MAX_LARGAR } from '../../public/js/regras-chao.js';
 import { normalizarOpcoes } from '../../public/js/opcoes-mundo.js';
@@ -316,7 +317,9 @@ export class Sala extends DurableObject {
     const opcoes = mundo.opcoes && typeof mundo.opcoes === 'object' ? mundo.opcoes : {};
     const op = opcoesEcon(opcoes);
     const cicloDia = opcoes.cicloDia !== false;
-    if (JSON.stringify(op) !== JSON.stringify(this.info.econ) || this.info.cicloDia !== cicloDia) { this.info.econ = op; this.info.cicloDia = cicloDia; await this.ctx.storage.put('info', this.info); }
+    // terreno clássico (gerador.js): o único que tem minério (fica como foi criado)
+    const no = normalizarOpcoes(opcoes), classico = no.gerador === 'classico' && no.tipo === 'normal';
+    if (JSON.stringify(op) !== JSON.stringify(this.info.econ) || this.info.cicloDia !== cicloDia || this.info.classico !== classico) { this.info.econ = op; this.info.cicloDia = cicloDia; this.info.classico = classico; await this.ctx.storage.put('info', this.info); }
     // regras que o servidor faz valer: construção (colocar/quebrar) e armas
     const regras = { construcao: opcoes.construcao !== false, armas: opcoes.armas === true || opcoes.tipo === 'guerra' };
     if (JSON.stringify(regras) !== JSON.stringify(this.info.regras)) { this.info.regras = regras; await this.ctx.storage.put('info', this.info); }
@@ -643,6 +646,8 @@ export class Sala extends DurableObject {
         if (c.min !== min) { c.min = min; c.n = 0; }
         if (Math.hypot(x + 0.5 - eu.p[0], z + 0.5 - eu.p[2]) > 10 || ++c.n > 40) { natural = false; if (op.sobrevivencia) de = 0; }
         this.coleta.set(eu.uid, c);
+        // o "estava ali" de um bloco do mundo original vem do aparelho: a sala confere o que ela sabe conferir
+        if (natural && !this.podeSerDoMundo(x, y, z, de)) de = 0;
       }
       const eraForno = ed.get(k) === FORNALHA && b !== FORNALHA;
       const eraBau = ed.get(k) === BAU && b !== BAU;
@@ -1185,6 +1190,14 @@ export class Sala extends DurableObject {
   }
 
   // moedas, coleta e objetivos de cada jogador (por conta), guardados aqui na sala
+  // bloco do mundo original que o aparelho diz ter quebrado: fornalha, baú e blocos de metal só existem feitos por alguém
+  // (aí já estão nas edições); minério só no terreno clássico e só onde passou um veio dele (gerador.js)
+  podeSerDoMundo(x, y, z, de) {
+    if ((de >= FORNALHA && de <= 192) || de === BAU) return false;
+    if (!MINERIOS.has(de)) return true;
+    return !!(this.info && this.info.classico) && minerioPossivel(this.info.semente, ALTURA_MAX + 1, x, y, z, de, (this.veios ??= new Map()));
+  }
+
   async econDe(uid) {
     if (!this.econ) this.econ = new Map();
     let e = this.econ.get(uid);
