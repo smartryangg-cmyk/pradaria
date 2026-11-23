@@ -209,7 +209,7 @@ export function iniciarTV(api) {
       clearInterval(timerQ);
       timerQ = setInterval(() => { if (!quebrando.size || !emJogo()) { clearInterval(timerQ); return; } c.cb.quebrar(null); }, 260);
     } else if (!sim && quebrando.delete(fonte)) {
-      if (!quebrando.size) { clearInterval(timerQ); if (c.cb.gatilho) c.cb.gatilho(false); }
+      if (!quebrando.size) { clearInterval(timerQ); if (c.cb.gatilho) c.cb.gatilho(false); if (c.cb.soltar) c.cb.soltar(); }
     }
   }
   let mirando = false;

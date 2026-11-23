@@ -141,11 +141,12 @@ await toque(C, '#bt-sozinho'); await C.waitForSelector('#m-novo:not([hidden])');
 await toque(C, '#m-novo button[type=submit]');
 await noJogo(C);
 // mundo novo vem com "Coletar e criar": colocar gasta da mochila, então põe uma pedra nela antes
-await C.evaluate(() => { const e = window.__jogo.mercado.e; e.itens[3] = (e.itens[3] | 0) + 1; window.__jogo.comoJogador(() => window.__jogo.mundo.definir(-6, 61, -6, 3)); });
+// põe a pedra no ar logo acima do chão (em y fixo ela podia cair dentro da pedra do terreno e não virar edição)
+const yC = await C.evaluate(() => { const m = window.__jogo.mundo; let y = 120; while (y > 1 && m.bloco(-6, y, -6) === 0) y--; y++; const e = window.__jogo.mercado.e; e.itens[3] = (e.itens[3] | 0) + 1; window.__jogo.comoJogador(() => m.definir(-6, y, -6, 3)); return y; });
 await toque(C, '#bt-menu'); await toque(C, '#bt-editar-mundo'); await toque(C, '#e-mais summary');
 conferir(await C.isVisible('#e-importar'), 'sem internet: tem "trocar por um mundo de arquivo"');
 const expC = await baixar(C, toque);
-conferir(expC.dados.edicoes.some((e) => e[0] === -6 && e[1] === 61 && e[2] === -6 && e[3] === 3), 'sem internet: exportou o bloco colocado');
+conferir(expC.dados.edicoes.some((e) => e[0] === -6 && e[1] === yC && e[2] === -6 && e[3] === 3), 'sem internet: exportou o bloco colocado (y ' + yC + ')');
 C.once('dialog', (d) => d.accept());
 await escolher(C, toque, '#e-importar', exp.caminho);
 await C.waitForFunction((s) => window.__jogo.mundo && window.__jogo.mundo.semente === s && !document.querySelector('#hud').hidden, exp.dados.semente, { timeout: 60000 });

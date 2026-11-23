@@ -75,6 +75,7 @@ if (PARTES.includes('pc')) {
   if (o) {
     await irAte(p, o); await esperar(p, 500); await segurar(p, 1001);
     ok(await quebrar(p, o), 'quebrou o minério de carvão');
+    await ate(p, () => parseFloat(document.querySelector('#xp i').style.width) > 0, null, 3000); // a barra se redesenha no quadro seguinte
     ok(await xp(p) === o[3] && (await barra(p)).w > 0, `ganhou ${o[3]} ponto(s) e a barra encheu um pouco (${(await barra(p)).w}%)`);
   }
   // fornalha: 10 minérios de ferro = 10 barras = 7 pontos (sobe para o nível 1)

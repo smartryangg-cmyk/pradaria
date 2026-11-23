@@ -49,7 +49,8 @@ async function andarAte(p, fn, arg, ms = 2500) {
   await p.keyboard.up('KeyW');
   return ok;
 }
-const bater = (p, n) => p.evaluate(async (n) => { for (let i = 0; i < n; i++) { window.__jogo.quebrar(null); await new Promise((r) => setTimeout(r, 40)); } }, n);
+// segura para quebrar (como no clássico: o bloco racha até quebrar; com o mod de esculpir, n toques)
+const bater = (p, n) => p.evaluate(async (n) => { for (let i = 0; i < n; i++) { window.__jogo.quebrar(null); await new Promise((r) => setTimeout(r, 40)); } for (let t = 0; t < 300 && window.__jogo.cq; t++) await new Promise((r) => setTimeout(r, 50)); }, n);
 
 // ================= sem internet (computador) =================
 const p = await pagina('local');

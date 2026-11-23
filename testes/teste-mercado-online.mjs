@@ -29,12 +29,14 @@ conferir((await est(a)).moedas === 10, 'servidor deu 10 moedas iniciais');
 // coloca 10 blocos e quebra 3 do chão
 await a.evaluate(() => {
   const { mundo: m0, jog, comoJogador } = window.__jogo; const mundo = { alturaEm: (...a) => m0.alturaEm(...a), bloco: (...a) => m0.bloco(...a), definir: (...a) => comoJogador(() => m0.definir(...a)), vilas: m0.vilas }; const x = Math.floor(jog.pos.x) + 3, z = Math.floor(jog.pos.z);
-  for (let i = 0; i < 10; i++) mundo.definir(x, 40 + i, z, 1);
-  // 3 blocos sólidos do chão que ninguém mexeu ainda
+  const y0 = mundo.alturaEm(x, z) + 1; // no ar, em cima do chão (em y 40 fixo caía dentro da pedra e o servidor não contava como colocado)
+  for (let i = 0; i < 10; i++) mundo.definir(x, y0 + i, z, 1);
+  // 3 blocos sólidos do chão que ninguém mexeu ainda (folhas e vidro não soltam nada, como no clássico)
   let n = 0;
-  for (let i = 0; n < 3 && i < 40; i++) { const bx = x + 2 + i, h = mundo.alturaEm(bx, z + 2); const bl = mundo.bloco(bx, h, z + 2); if (bl > 0 && bl !== 5 && bl < 23) { mundo.definir(bx, h, z + 2, 0); n++; } }
+  for (let i = 0; n < 3 && i < 40; i++) { const bx = x + 2 + i, h = mundo.alturaEm(bx, z + 2); const bl = mundo.bloco(bx, h, z + 2); if (bl > 0 && bl !== 5 && bl !== 7 && bl !== 9 && bl < 23) { mundo.definir(bx, h, z + 2, 0); n++; } }
 });
-await a.waitForTimeout(1500);
+// o servidor confirma cada bloco quebrado; num computador lento chega aos poucos
+await a.waitForFunction(() => { const e = window.__jogo.mercado.e; return e.feitos.includes('colocar10') && Object.values(e.itens).reduce((s, n) => s + n, 0) >= 3; }, null, { timeout: 15000 }).catch(() => {});
 let e = await est(a);
 conferir(e.feitos.includes('colocar10') && e.moedas === 15, 'servidor cumpriu o objetivo e pagou (' + e.moedas + ')');
 const itens = Object.values(e.itens).reduce((s, n) => s + n, 0);

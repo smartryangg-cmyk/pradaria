@@ -67,6 +67,7 @@ await p.click('#n-abas [data-ir=mods]');
 await p.click('#m-novo [data-opcao=mercado]'); // mod Mercado: a loja usa a mesma mochila
 await p.click('#m-novo button[type=submit]');
 await p.waitForFunction(() => window.__jogo && window.__jogo.jog);
+await p.evaluate(() => { window.__jogo.opcoesMundo.esculpir = true; }); // conta toques: é o mod "Quebrar esculpindo" (o base quebra segurando: teste-quebra-classica.mjs)
 await p.waitForTimeout(2500);
 conferir(await p.evaluate(() => window.__jogo.opcoesMundo.sobrevivencia === true && window.__jogo.barra.every((x) => x === 0)), 'começa de mão vazia');
 
@@ -144,6 +145,7 @@ await p.evaluate(() => { window.dispatchEvent(new Event('beforeunload')); });
 await p.reload();
 await p.click('#bt-sozinho');
 await p.waitForFunction(() => window.__jogo && window.__jogo.jog);
+await p.evaluate(() => { window.__jogo.opcoesMundo.esculpir = true; }); // conta toques: é o mod "Quebrar esculpindo" (o base quebra segurando: teste-quebra-classica.mjs)
 const depois = await p.evaluate(() => JSON.stringify(window.__jogo.mercado.e.itens));
 conferir(antes === depois, 'a mochila continua depois de recarregar (' + depois + ')');
 conferir(await p.evaluate(() => window.__jogo.barra.includes(1001)), 'a barra também');
@@ -165,6 +167,7 @@ await c.click('[data-modo=criativo]');
 await c.click('#m-novo [data-opcao=maquinas]'); // mod Máquinas: aba Engenharia
 await c.click('#m-novo button[type=submit]');
 await c.waitForFunction(() => window.__jogo && window.__jogo.jog);
+await c.evaluate(() => { window.__jogo.opcoesMundo.esculpir = true; }); // conta toques: é o mod "Quebrar esculpindo" (o base quebra segurando: teste-quebra-classica.mjs)
 await c.waitForTimeout(1500);
 conferir(await c.evaluate(() => window.__jogo.barra.every((x) => x > 0)), 'criativo: barra cheia de blocos');
 pos = await alvo(c, B.TRONCO);
@@ -187,6 +190,7 @@ await o.click('#bt-novo-mundo');
 await o.fill('#n-nome', 'Mundo de criar');
 await o.click('#m-novo button[type=submit]');
 await o.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala);
+await o.evaluate(() => { window.__jogo.opcoesMundo.esculpir = true; }); // conta toques: é o mod "Quebrar esculpindo" (o base quebra segurando: teste-quebra-classica.mjs)
 await o.waitForTimeout(2000);
 conferir(await o.evaluate(() => window.__jogo.opcoesMundo.sobrevivencia === true), 'online: mundo novo com coletar e criar');
 pos = await alvo(o, B.TRONCO);
@@ -207,6 +211,7 @@ await o.waitForSelector('#m-jogos:not([hidden]), #m-mundos:not([hidden])'); if (
 await o.waitForSelector('#m-mundos:not([hidden])');
 await o.click('#lista-mundos .mundo');
 await o.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala);
+await o.evaluate(() => { window.__jogo.opcoesMundo.esculpir = true; }); // conta toques: é o mod "Quebrar esculpindo" (o base quebra segurando: teste-quebra-classica.mjs)
 await o.waitForTimeout(1000);
 conferir(await qtd(o, B.TABUAS) === 4 && await qtd(o, B.TRONCO) === 0 && await qtd(o, B.LA_BRANCA) === 1, 'online: mochila volta igual depois de sair e entrar ' + JSON.stringify(await o.evaluate(() => window.__jogo.mercado.e.itens)));
 conferir(await o.evaluate(() => window.__jogo.barra.includes(8)), 'online: a barra também volta');
