@@ -276,6 +276,16 @@ await tv.keyboard.press('ArrowDown'); await espera(100);
 ok(await tv.evaluate(() => document.activeElement && document.activeElement.classList.contains('foco-tv')), 'setas navegam na pausa');
 await tv.keyboard.press('Escape'); await espera(300);
 ok(await tv.evaluate(() => !window.__jogo.pausado), 'Voltar fecha a pausa');
+// a TV perde o foco com seta e OK apertados (o soltar não chega): o personagem para de girar e de quebrar
+await pousar();
+await tv.keyboard.down('ArrowLeft'); await tv.keyboard.down('Enter'); await espera(900);
+await tv.evaluate(() => window.dispatchEvent(new Event('blur')));
+await espera(400);
+const fA = await tv.evaluate(() => ({ yaw: window.__jogo.jog.yaw, q: window.__conta.quebr }));
+await espera(1500);
+const fB = await tv.evaluate(() => ({ yaw: window.__jogo.jog.yaw, q: window.__conta.quebr, cq: !!window.__jogo.cq }));
+await tv.keyboard.up('Enter'); await tv.keyboard.up('ArrowLeft'); await espera(200);
+ok(Math.abs(fB.yaw - fA.yaw) < 0.05 && !fB.cq && fB.q === fA.q, 'TV perdeu o foco: para de girar e de quebrar (' + JSON.stringify([fA, fB]) + ')');
 
 // controle de videogame (Gamepad API simulado): alavanca anda, A pula, Start pausa
 await tv.evaluate(() => {

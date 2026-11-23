@@ -292,6 +292,16 @@ export function iniciarTV(api) {
     }
   }, true);
 
+  // a TV perdeu o foco com uma tecla apertada (botão Início, aviso do sistema): o soltar não chega. Solta tudo do
+  // controle remoto, senão o personagem fica girando e quebrando sozinho até apertar de novo
+  addEventListener('blur', () => {
+    remoto.esq = remoto.dir = false;
+    if (ctrl() && ctrl().fontes.remoto) ctrl().fontes.remoto.pular = false;
+    clearTimeout(remoto.timerOk);
+    if (remoto.okSegurando) segurarQuebrar('remoto', false);
+    remoto.okSegurando = false; remoto.okEm = 0;
+  });
+
   // ----- controle de videogame (Gamepad API: padrão Xbox/PlayStation) -----
   const antes = {};
   const navRep = { dir: null, prox: 0 };
