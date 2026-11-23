@@ -87,7 +87,7 @@ for (const d of DISP) {
   await p.click('#bt-sozinho');
   // mundo criativo (blocos na mão) e sem mercado (garagem livre)
   // semente fixa: com o mundo sorteado, às vezes não tinha bicho perto ou o buraco cavado não deixava colocar o bloco
-  if (await p.isVisible('#m-novo')) { await p.click('#m-novo summary'); await p.fill('#n-semente', 'som1'); await p.click('[data-modo=criativo]'); await p.click('#m-novo [data-opcao=veiculos]'); await p.click('#m-novo button[type=submit]'); }
+  if (await p.isVisible('#m-novo')) { await p.click('#m-novo summary'); await p.fill('#n-semente', 'som1'); await p.click('[data-modo=criativo]'); await p.click('#m-novo [data-opcao=veiculos]'); await p.click('#m-novo [data-opcao=esculpir]'); await p.click('#m-novo button[type=submit]'); }
   await p.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.som.ctx, null, { timeout: 20000 });
   await p.waitForTimeout(4000);
   await p.evaluate(registrar);

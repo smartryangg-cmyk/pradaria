@@ -33,6 +33,8 @@ import { ICONE_LUGAR } from './ilha-aventura.js';
 import { criarPosEfeitos } from './posefeitos.js';
 import { icone, preencherIcones, comIcone, nomeEmote, ligarThree } from './icones.js';
 import { Escavacao, toquesPara } from './escavar.js';
+import { Rachaduras } from './rachaduras.js';
+import { tempoQuebrar, estagio, ESTAGIOS } from './quebra-regras.js';
 import { Fisica } from './fisica.js';
 import { Plantacoes } from './plantacoes.js';
 import { Agua } from './agua.js';
@@ -1915,11 +1917,63 @@ function quebrar(ponto) {
   if (!h || h.y < 1) return;
   if (guerra.quebrarBloco(h)) return; // grade da cela (serrar), paredes do presídio e alvos do forte
   // cada toque arranca um pedaço; o último derruba o bloco (a ferramenta certa precisa de menos toques)
+  if (!opcoesMundo.esculpir) { segurarQuebra(h, mao, ponto); return; }
+  // mod "Quebrar esculpindo" (o jeito antigo do Pradaria)
   const p = raio.ray.at(h.t + 0.001, new THREE.Vector3());
   const total = toquesCom(toquesPara(h.b), h.b, mao);
   maoQuebrando = mao;
   if (comoJogador(() => escav.bater(h, p, total))) { vida.cansar(0.005); som.em(meioDe(h.x, h.y, h.z), () => som.quebrar(h.b)); mostrarQueCaiu(h.b, h.x, h.y, h.z); } else som.em(meioDe(h.x, h.y, h.z), () => som.bater(h.b));
 }
+
+// quebrar como no clássico: o controle chama quebrar() ao apertar e a cada 260 ms segurando; o progresso
+// anda a cada quadro (quadroQuebra) pelo tempo de quebrar-regras.js. Soltou ou mirou outro bloco: zera.
+let cq = null, ultimaRachaC = 0;
+function segurarQuebra(h, mao, ponto) {
+  const agora = performance.now(), k = h.x + ',' + h.y + ',' + h.z;
+  if (!cq || cq.k !== k || cq.b !== h.b) { pararQuebra(); cq = { k, x: h.x, y: h.y, z: h.z, b: h.b, n: h.n, p: 0, est: -1, som: 0 }; }
+  cq.ultimo = agora; cq.mao = mao; cq.ponto = ponto; cq.mira = 0;
+  // criativo: quebra na hora (segurando, um bloco a cada repetição do controle, como no clássico)
+  cq.tempo = sobrev() ? tempoQuebrar(h.b, mao, BLOCOS[h.b]) : 0; // trocou a ferramenta no meio: vale a nova
+  if (cq.tempo === 0) romperBloco();
+}
+function pararQuebra() { if (!cq) return; if (rachas) rachas.tirar('eu'); cq = null; }
+function quadroQuebra(dt) {
+  if (!cq) return;
+  // segura até soltar (o controle chama pararQuebra ao soltar o botão, o dedo ou a tecla da TV)
+  if (pausado || morto || !jogando || mundo.bloco(cq.x, cq.y, cq.z) !== cq.b) { pararQuebra(); return; }
+  // virou a câmera segurando: passa para o bloco mirado, do zero (como no clássico)
+  cq.mira -= dt;
+  if (cq.mira <= 0) {
+    cq.mira = 0.1;
+    const dir = direcaoDe(cq.ponto), h = mundo.raycast(raio.ray.origin, dir, 6);
+    if (!h || h.y < 1) { pararQuebra(); return; }
+    if (h.x !== cq.x || h.y !== cq.y || h.z !== cq.z) { const { mao, ponto } = cq; pararQuebra(); segurarQuebra(h, naMao() ?? mao, ponto); return; }
+  }
+  if (!Number.isFinite(cq.tempo)) return; // rocha-mãe
+  // tempo de verdade (até 0,25 s por quadro): no tablet fraco, com poucos quadros, quebrar não fica mais lento
+  const ag0 = performance.now(), passo = Math.min(0.25, Math.max(dt, (ag0 - (cq.quadro || ag0)) / 1000)); cq.quadro = ag0;
+  cq.p += passo / cq.tempo;
+  cq.som -= dt;
+  if (cq.som <= 0) { cq.som = 0.25; const c = cq; som.em(meioDe(c.x, c.y, c.z), () => som.bater(c.b)); }
+  if (cq.p >= 1) { romperBloco(); return; }
+  const e = estagio(cq.p);
+  if (e === cq.est) return;
+  cq.est = e; rachas.mostrar('eu', cq.x, cq.y, cq.z, e);
+  const ag = performance.now();
+  if (sala && ag - ultimaRachaC >= 150) { ultimaRachaC = ag; sala.enviar({ t: 'racha', x: cq.x, y: cq.y, z: cq.z, b: cq.b, n: e + 1, de: ESTAGIOS + 1 }); }
+}
+function romperBloco() {
+  const { x, y, z, b, n, mao } = cq;
+  pararQuebra();
+  maoQuebrando = mao;
+  comoJogador(() => mundo.definir(x, y, z, AR));
+  if (mundo.bloco(x, y, z) === b) return; // não deixou (o mundo de outro, guerra...)
+  escav.estilhacar(x, y, z, b, null, n);
+  vida.cansar(0.005);
+  som.em(meioDe(x, y, z), () => som.quebrar(b));
+  mostrarQueCaiu(b, x, y, z);
+}
+let rachas = null;
 
 // dentro da lava queima (com os corações ligados): DANO_LAVA por segundo
 let tempoLava = 0, avisouLava = 0;
@@ -2084,6 +2138,7 @@ function limparMundo() {
   }
   if (fisica) fisica.limpar();
   drops.usarMundo(null);
+  cq = null; if (rachas) { rachas.fechar(); rachas = null; }
   if (escav) { for (const k of [...escav.blocos.keys()]) escav.soltar(k, false, true); escav.atualizar(10, 0, 0); escav.fechar(); }
   if (bichos) for (let i = bichos.lista.length - 1; i >= 0; i--) bichos.remover(i);
   if (aldeoes) aldeoes.limpar();
@@ -2113,6 +2168,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   mundo.matSuave = mundo.suave ? graf.matSuave : null; // Natural 3D: chão e árvores com cor lisa de desenho (graficos.js)
   escav = new Escavacao(cena, mundo, matBlocos, atlasCanvas);
   mundo.cuboProvisorio = (x, y, z, b) => escav.cubo(x, y, z, b);
+  rachas = new Rachaduras(cena);
   // rachadura: os amigos veem o bloco rachando (no máximo 1 aviso a cada 0,15 s)
   let ultimaRacha = 0;
   escav.aoRachar = (x, y, z, b, toques, total) => {
@@ -2156,7 +2212,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   jog.yaw = yaw;
   if (!ctrl) {
     ctrl = new Controles(canvas, jog, {
-      usar, quebrar, alternarVoo, inventario: abrirInventario,
+      usar, quebrar, soltar: pararQuebra, alternarVoo, inventario: abrirInventario,
       slot: (i) => {
         // sem construção, os números escolhem as armas (1, 2) e as mãos (3)
         if (!podeConstruir()) { if (i < 2) armas.escolher(i); else if (i === 2) armas.escolher(-1); return; }
@@ -2345,7 +2401,11 @@ async function jogarOnline(m, volta = null) {
       // o amigo quebrou/colocou: ouve de onde foi (só o que alguém fez, não a água escorrendo)
       if (msg.j && antes !== msg.b) som.em(meioDe(msg.x, msg.y, msg.z), () => (msg.b ? som.colocar(msg.b) : som.quebrar(antes)));
     },
-    racha: (msg) => { if (escav) escav.remoto(msg.x, msg.y, msg.z, msg.b, msg.n, msg.de); },
+    racha: (msg) => {
+      if (!mundo || mundo.bloco(msg.x, msg.y, msg.z) !== msg.b) return;
+      if (!opcoesMundo.esculpir) { if (rachas) rachas.mostrar(msg.x + ',' + msg.y + ',' + msg.z, msg.x, msg.y, msg.z, Math.round(((msg.n - 1) / (msg.de - 1)) * ESTAGIOS)); return; }
+      if (escav) escav.remoto(msg.x, msg.y, msg.z, msg.b, msg.n, msg.de);
+    },
     blocos: (msg) => { if (Array.isArray(msg.l)) porBlocosObra(msg.l, true); },
     emote: (msg) => {
       const o = outros.get(msg.id);
@@ -2807,6 +2867,8 @@ function laco(agora) {
     if (visao.boneco) armas.armaDeOutro(visao.boneco, visao.terceira && armas.atual ? armas.atual.a : null);
     armas.segurar(visao.boneco ? [visao.boneco, ...outros.values()] : outros.values());
   }
+  // segurando para quebrar (depois de a câmera estar no lugar deste quadro: a mira confere o bloco)
+  camera.updateMatrixWorld(); quadroQuebra(dt); if (rachas) rachas.atualizar((x, y, z) => mundo.bloco(x, y, z));
   if (pos.ativo) pos.render(null, graf.U); else renderer.render(cena, camera);
   quadros++; tempoFps += dt;
   if (tempoFps > 1) {
@@ -2897,4 +2959,4 @@ if (conta.token) abrirJogos().then(() => { if (mundoPedido && conta.usuario) ent
 else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get mundoAtual() { return mundoAtual; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, get inv() { return inv; }, abrirInventario, bancadaPerto, camera, cena, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; }, get escav() { return escav; }, som, fornos, get fornoAberto() { return fornoAberto; }, baus, get bauAberto() { return bauAberto; } }; }
+if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get mundoAtual() { return mundoAtual; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, get inv() { return inv; }, abrirInventario, bancadaPerto, camera, cena, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; }, get escav() { return escav; }, get rachas() { return rachas; }, get cq() { return cq; }, som, fornos, get fornoAberto() { return fornoAberto; }, baus, get bauAberto() { return bauAberto; } }; }

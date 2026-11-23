@@ -69,13 +69,14 @@ export class Controles {
       if (e.button === 2) this.cb.usar(null);
     });
     addEventListener('mouseup', (e) => {
-      if (e.button === 0) { clearInterval(this.timerMouse); if (this.cb.gatilho) this.cb.gatilho(false); }
+      if (e.button === 0) { clearInterval(this.timerMouse); if (this.cb.gatilho) this.cb.gatilho(false); if (this.cb.soltar) this.cb.soltar(); }
       if (e.button === 2 && this.cb.mirar) this.cb.mirar(false);
     });
-    addEventListener('blur', () => { clearInterval(this.timerMouse); if (this.cb.gatilho) this.cb.gatilho(false); });
+    addEventListener('blur', () => { clearInterval(this.timerMouse); if (this.cb.gatilho) this.cb.gatilho(false); if (this.cb.soltar) this.cb.soltar(); });
     c.addEventListener('contextmenu', (e) => e.preventDefault());
     document.addEventListener('pointerlockchange', () => {
       clearInterval(this.timerMouse);
+      if (this.cb.soltar) this.cb.soltar();
       if (this.cb.gatilho) this.cb.gatilho(false);
       this.travado = document.pointerLockElement === c;
       this.cb.travaMudou && this.cb.travaMudou(this.travado);
@@ -155,6 +156,7 @@ export class Controles {
         else if (this.olhar && t.identifier === this.olhar.id) {
           const o = this.olhar;
           clearTimeout(this.timerSegurar); clearInterval(this.timerQuebra);
+          if (o.quebrando && this.cb.soltar) this.cb.soltar();
           if (!o.moveu && !o.quebrando && performance.now() - o.t0 < 380) this.cb.usar({ x: o.x, y: o.y });
           this.olhar = null;
           this.cb.mira && this.cb.mira(null);

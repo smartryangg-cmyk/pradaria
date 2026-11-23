@@ -72,6 +72,8 @@ async function eatTablet(p, nome) {
   ok(await ate(p, () => /enjoo/.test(document.querySelector('#aviso')?.textContent || document.body.innerText), null, 1500), nome + ': aviso do enjoo na tela');
   await p.screenshot({ path: SAIDA + `/carne-${nome}-enjoo.png` });
   // mede no relógio do jogo (o tempo de enjoo que passou): no aparelho lento o jogo anda menos que o relógio da parede
+  // vida cheia: com fome alta a vida se recupera gastando cansaço (como no clássico) e isso mudaria a conta
+  await J(p, () => { const v = window.__jogo.vida; v.atual = v.max; v.protegido = 1e9; });
   const c0 = await fome(p), x0 = c0.x;
   await esperar(p, 4000);
   c = await fome(p);
