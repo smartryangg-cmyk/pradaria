@@ -168,7 +168,14 @@ if (ONLINE) {
   // a câmera já chegou no jogador (no aparelho lento ela ainda vinha da árvore e a mira saía torta)
   await a.waitForFunction(() => { const J = window.__jogo, c = J.camera.position, j = J.jog.pos; return Math.hypot(c.x - j.x, c.z - j.z) < 0.3 && Math.abs(c.y - j.y - 1.55) < 0.3; }, null, { timeout: 8000 }).catch(() => {});
   await naMao(a, 34);
-  for (let k = 0; k < 4 && (await bl(a, P[0], P[1] + 1, P[2] - 2)) !== 34; k++) { await mirar(a, [P[0] + 0.5, P[1] + 1, P[2] - 1.5]); await a.evaluate(() => window.__jogo.usar(null)); await a.waitForTimeout(800); }
+  // janela do inventário fechada, e a câmera precisa de um quadro para virar para onde a mira mandou: sem esperar,
+  // o usar saía com a mira de antes e a única bancada ia parar no bloco da frente
+  if (await a.isVisible('#inventario [data-fechar]')) await a.click('#inventario [data-fechar]');
+  for (let k = 0; k < 4 && (await bl(a, P[0], P[1] + 1, P[2] - 2)) !== 34; k++) {
+    await mirar(a, [P[0] + 0.5, P[1] + 1, P[2] - 1.5]);
+    await a.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    await a.evaluate(() => window.__jogo.usar(null)); await a.waitForTimeout(800);
+  }
   ok((await bl(a, P[0], P[1] + 1, P[2] - 2)) === 34, 'online: pôs a bancada no chão ' + (await bl(a, P[0], P[1] + 1, P[2] - 2) === 34 ? '' : await a.evaluate(() => JSON.stringify({ morto: !document.querySelector('#morte').hidden, dia: window.__jogo.dia, vida: window.__jogo.vida.atual, qtd: window.__jogo.mercado.qtd(34), mao: window.__jogo.barra, pos: window.__jogo.jog.pos, telas: [...document.querySelectorAll('.janela:not([hidden])')].map((e) => e.id), cam: window.__jogo.camera.position, cq: !!window.__jogo.cq, b34: (() => { const M = window.__jogo.mundo, j = window.__jogo.jog, r = []; for (let x = -4; x <= 4; x++) for (let y = -3; y <= 3; y++) for (let z = -5; z <= 4; z++) { const X = Math.floor(j.pos.x) + x, Y = Math.floor(j.pos.y) + y, Z = Math.floor(j.pos.z) + z; if (M.bloco(X, Y, Z) === 34) r.push([X, Y, Z]); } return r; })() }))));
   await criar(a, 'picareta-madeira');
   ok((await desg(a, PIC))[0] === 1, 'online: criou a picareta de madeira na bancada');

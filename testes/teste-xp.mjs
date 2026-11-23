@@ -189,14 +189,15 @@ if (PARTES.includes('online')) {
   const o = await acharCarvao(a);
   ok(!!o, 'online: achou um minério de carvão no mundo ' + JSON.stringify(o));
   if (o) {
-    // os troncos e a bancada: em lugares novos ao lado do buraco (a sala só acredita onde ninguém mexeu)
+    // os troncos e a bancada: em lugares novos ao lado do buraco (a sala só acredita onde ninguém mexeu). Chão de pedra
+    // embaixo e nada entre o jogador e o tronco: no clássico um golpe na pedra do meio só racha, e o tronco no ar caía longe
     await irAte(a, o); await esperar(a, 600);
     const base = [o[0], o[1], o[2] + 2];
     let k = 0;
     const lugarNovo = () => { k++; return [base[0] + 3 + k, base[1] + 30, base[2]]; };
     for (let i = 0; i < 3; i++) {
       const l = lugarNovo();
-      await J(a, ([x, y, z]) => { const m = window.__jogo.mundo, j = window.__jogo.jog; m.definir(x, y - 1, z + 2, 3); m.definir(x, y, z + 2, 0); m.definir(x, y + 1, z + 2, 0); m.definir(x, y, z, 6); j.pos.x = x + 0.5; j.pos.y = y; j.pos.z = z + 2.5; j.vel.x = j.vel.y = j.vel.z = 0; j.yaw = 0; j.pitch = -0.48; }, l);
+      await J(a, ([x, y, z]) => { const m = window.__jogo.mundo, j = window.__jogo.jog; for (let dz = 0; dz <= 2; dz++) { m.definir(x, y - 1, z + dz, 3); if (dz) { m.definir(x, y, z + dz, 0); m.definir(x, y + 1, z + dz, 0); } } m.definir(x, y, z, 6); j.pos.x = x + 0.5; j.pos.y = y; j.pos.z = z + 2.5; j.vel.x = j.vel.y = j.vel.z = 0; j.yaw = 0; j.pitch = -0.48; }, l);
       await esperar(a, 400); await segurar(a, -1);
       await quebrar(a, l); await esperar(a, 700);
       for (let t = 0; t < 4; t++) { const d = await J(a, () => window.__jogo.drops.lista().map((d) => [d.x, d.y, d.z])); if (!d.length) break; await J(a, ([x, y, z]) => { const j = window.__jogo.jog; j.pos.x = x; j.pos.z = z; j.pos.y = y; }, d[0]); await esperar(a, 900); }

@@ -55,7 +55,9 @@ async function quebrarAlvo(p, c, b, mao) {
 }
 // anda até cada coisa no chão (pega de verdade, como o jogador)
 async function pegarTudo(p, c) {
+  // o que caiu pode demorar a aparecer no aparelho lento (a sala confere antes): espera até 3 s
   await esperar(p, 700);
+  for (let t = 0; t < 10 && !(await J(p, () => window.__jogo.drops.lista().length)); t++) await esperar(p, 250);
   for (let k = 0; k < 6; k++) {
     const l = await J(p, () => window.__jogo.drops.lista().map((d) => [d.x, d.y, d.z]));
     if (!l.length) break;
@@ -274,12 +276,14 @@ if (PARTES.includes('online')) {
     usados.push(v.join(','));
     const l = [v[0], v[1] - 1, v[2] + 2];
     await palco(a, l); await esperar(a, 600);
-    await quebrarAlvo(a, l, bl, 1002); await esperar(a, 500); await pegarTudo(a, l);
+    const quebrou = await quebrarAlvo(a, l, bl, 1002); await esperar(a, 500); await pegarTudo(a, l);
+    diag.push([bl, v, quebrou, await J(a, () => window.__jogo.drops.lista().length)]);
     return true;
   };
+  const diag = []; // [minério, lugar, quebrou, coisas no chão que ficaram]: aparece na falha
   ok(await minerar(67) && await minerar(67) && await minerar(66), 'online: achou veios de ferro e de carvão perto da Ana');
   await olharAlvo(a, c); await esperar(a, 800); // volta para cima
-  ok(await qtd(a, 67) === 2 && await qtd(a, 1100) === 1 && await qtd(a, 188) === 1, 'online: Ana tem 2 minérios de ferro, 1 carvão e a fornalha (' + JSON.stringify(await J(a, () => window.__jogo.mercado.e.itens)) + ')');
+  ok(await qtd(a, 67) === 2 && await qtd(a, 1100) === 1 && await qtd(a, 188) === 1, 'online: Ana tem 2 minérios de ferro, 1 carvão e a fornalha (' + JSON.stringify(await J(a, () => window.__jogo.mercado.e.itens)) + ' ' + JSON.stringify(diag) + ')');
   const cf = lugar();
   await J(a, ([x, y, z]) => window.__jogo.mundo.definir(x, y + 1, z - 2, 0), cf);
   // coloca a fornalha e abre
