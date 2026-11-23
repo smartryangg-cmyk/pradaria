@@ -115,19 +115,14 @@ async function rodar(nome, ctxOpc, toque) {
     await p.mouse.up();
   }
   await p.waitForTimeout(800);
-  // a malha do pedaço é refeita em fatias (alguns quadros): no aparelho lento espera ela ficar pronta antes de olhar
-  if (alvo) await p.waitForFunction(([x, z]) => {
-    const M = window.__jogo.mundo, c = M.chunks.get(Math.floor(x / 16) + ',' + Math.floor(z / 16));
-    return c && c.malha && !c.sujo && !c.prioridade && !(M.montagem && M.montagem.c === c);
-  }, [alvo[0], alvo[2]], { timeout: 15000 }).catch(() => {});
   if (process.env.DEPURAR) console.log('batidas', await p.evaluate(() => [window.__n, window.__jogo.jog.pitch, !!document.pointerLockElement]));
   const quebrou = alvo && await p.evaluate(([x, y, z]) => window.__jogo.mundo.bloco(x, y, z), alvo) === 0;
   ok(quebrou, `quebrou o bloco mirado ${JSON.stringify(alvo)}`);
   // a malha nova é montada em fatias: espera o pedaço terminar de remontar
   if (alvo) await p.waitForFunction(([x, z]) => {
     const { mundo } = window.__jogo; const c = mundo.chunks.get(Math.floor(x / 16) + ',' + Math.floor(z / 16));
-    return c && !c.sujo && !(mundo.montagem && mundo.montagem.c === c);
-  }, [alvo[0], alvo[2]], { timeout: 8000 }).catch(() => {});
+    return c && c.malha && !c.sujo && !c.prioridade && !(mundo.montagem && mundo.montagem.c === c);
+  }, [alvo[0], alvo[2]], { timeout: 15000 }).catch(() => {});
   const furo = await p.evaluate(([x, y, z]) => {
     // a malha do pedaço foi refeita e tem faces dentro do buraco (paredes visíveis)
     const { mundo } = window.__jogo; const c = mundo.chunks.get(Math.floor(x / 16) + ',' + Math.floor(z / 16));
