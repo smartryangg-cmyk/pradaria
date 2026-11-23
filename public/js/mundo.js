@@ -63,6 +63,8 @@ function pegarTrabalhador() {
   if (trabalhador) trabalhador.onerror = () => { trabalhadorFalhou = true; trabalhador = null; };
   return trabalhador;
 }
+// pontos em volta do jogador usados para saber se ele ainda está na superfície (raio de até 8 blocos)
+const RAIO_SUPERFICIE = [[4, 0], [-4, 0], [0, 4], [0, -4], [3, 3], [3, -3], [-3, 3], [-3, -3], [8, 0], [-8, 0], [0, 8], [0, -8], [6, 6], [6, -6], [-6, 6], [-6, -6]];
 const FUNDO_CAVERNA = 10; // paredes de caverna mais fundo que isso só aparecem com o jogador lá embaixo
 const MAX_PEDIDOS = 4; // pedaços sendo gerados ao mesmo tempo no worker
 
@@ -1169,7 +1171,16 @@ export class Mundo {
   // py (altura do jogador): quando ele desce numa caverna, as paredes fundas voltam a ser desenhadas
   atualizar(px, pz, orcamentoMs = 6, py = undefined) {
     if (this.gen && py !== undefined) {
-      const sup = this.gen.alturaEm(Math.floor(px), Math.floor(pz));
+      // terreno original mais alto num raio pequeno (não só a coluna do jogador): num vale ao pé de um
+      // morro ele já pode estar olhando para dentro de uma caverna embaixo do morro vizinho
+      const bx = Math.floor(px), bz = Math.floor(pz);
+      if (bx !== this.supX || bz !== this.supZ) {
+        this.supX = bx; this.supZ = bz;
+        let sup = this.gen.alturaEm(bx, bz);
+        for (const [dx, dz] of RAIO_SUPERFICIE) sup = Math.max(sup, this.gen.alturaEm(bx + dx, bz + dz));
+        this.supAqui = sup;
+      }
+      const sup = this.supAqui;
       const agora = this.naSuperficie ? py > sup - 6 : py > sup - 3;
       if (agora !== this.naSuperficie) {
         this.naSuperficie = agora;
