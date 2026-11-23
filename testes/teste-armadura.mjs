@@ -230,6 +230,8 @@ if (PARTES.includes('online')) {
         if (!u) return;
         g.vida.atual = g.vida.max;
         j.yaw = Math.PI; j.pitch = -Math.atan((1.6 - u.e.alt * 0.5) / 1.7); u.x = j.pos.x; u.z = j.pos.z + 1.7; u.y = j.pos.y; u.empX = u.empZ = 0; u.calmo = 99;
+        // nada entre a mira e o urso: no clássico um golpe num bloco só começa a rachar, então um morrinho no caminho segurava todos os golpes
+        for (let dz = 1; dz <= 3; dz++) for (let dy = 0; dy <= 2; dy++) { const bx = Math.floor(j.pos.x), by = Math.floor(j.pos.y) + dy, bz = Math.floor(j.pos.z) + dz; if (g.mundo.bloco(bx, by, bz)) g.mundo.definir(bx, by, bz, 0); }
         await new Promise((r) => setTimeout(r, 80)); g.quebrar(null); await new Promise((r) => setTimeout(r, 650));
       }
     });
