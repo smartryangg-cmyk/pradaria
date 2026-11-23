@@ -1,4 +1,4 @@
-// Quebrar por material, com conserto: madeira racha em lascas, pedra trinca e solta pedrinhas, terra esfarela,
+// Mod "Quebrar esculpindo" (mundos antigos). Quebrar por material, com conserto: madeira racha em lascas, pedra trinca e solta pedrinhas, terra esfarela,
 // folhas planam, vidro estilhaça no 1º toque (e só sai inteiro com picareta); parou de bater, o bloco se refaz;
 // no online o amigo vê a rachadura e ela também se conserta.
 //   python3 -m http.server 8765 -d public · SAIDA=/tmp node testes/teste-quebra.mjs
@@ -17,6 +17,7 @@ p.on('pageerror', (e) => erros.push(e.message)); p.on('console', (m) => { if (m.
 await p.goto(URL + '/#teste'); await p.evaluate(() => localStorage.clear()); await p.reload();
 await p.tap('#bt-sozinho'); await p.waitForSelector('#m-novo:not([hidden])'); await p.tap('#m-novo button[type=submit]');
 await p.waitForFunction(() => window.__jogo && window.__jogo.jog, null, { timeout: 30000 });
+await p.evaluate(() => { window.__jogo.opcoesMundo.esculpir = true; }); // este teste é do mod "Quebrar esculpindo" (o base quebra como no clássico: teste-quebra-classica.mjs)
 await espera(p, 4000);
 // parede de teste na frente do jogador: tronco, pedra, terra, folhas, vidro (lado a lado)
 const base = await p.evaluate(() => {
@@ -117,11 +118,13 @@ if (ONLINE) {
   await a.click('[data-modo=sobrevivencia]');
   await a.click('#m-novo button[type=submit]');
   await a.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 30000 });
+  await a.evaluate(() => { window.__jogo.opcoesMundo.esculpir = true; }); // este teste é do mod "Quebrar esculpindo" (o base quebra como no clássico: teste-quebra-classica.mjs)
   await a.waitForTimeout(2500);
   const codigo = await a.evaluate(() => window.__jogo.sala.codigo);
   const bb = await jogador('Beto' + sfx);
   await bb.click('#bt-codigo'); await bb.fill('#n-nome', codigo); await bb.click('#m-novo button[type=submit]');
   await bb.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.outros > 0, null, { timeout: 30000 });
+  await bb.evaluate(() => { window.__jogo.opcoesMundo.esculpir = true; }); // este teste é do mod "Quebrar esculpindo" (o base quebra como no clássico: teste-quebra-classica.mjs)
   await bb.waitForTimeout(1500);
   await bb.evaluate(() => { const s = window.__jogo.sala; const o = s.h.racha; s.h.racha = (m) => { window.__rachas = (window.__rachas || 0) + 1; o && o(m); }; });
   const pos = await a.evaluate(async () => {
