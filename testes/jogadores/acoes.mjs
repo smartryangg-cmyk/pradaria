@@ -44,11 +44,27 @@ export async function irAte(j, x, z, { perto = 2.2, ms = 40000 } = {}) {
     const naAgua = await j.p.evaluate(() => window.__jogo.jog.naAgua);
     await j.andar('frente', Math.min(900, 150 + d * 120), { pular: presos > 0 || naAgua }); // na água nada segurando o pulo
     const q = await pos(j);
-    if (Math.hypot(q.x - ultimo.x, q.z - ultimo.z) < 0.25) { presos++; if (presos > 6) { await j.andar(presos % 2 ? 'esquerda' : 'direita', 500, { pular: true }); } }
+    if (Math.hypot(q.x - ultimo.x, q.z - ultimo.z) < 0.25) {
+      presos++;
+      // parede de 2 blocos: como uma pessoa, cava o que é mole (terra, grama, areia, folhas) na frente do pé e da cabeça
+      if (presos === 3 || presos === 5) await cavarFrente(j, x + 0.5, z + 0.5);
+      else if (presos > 6) await j.andar(presos % 2 ? 'esquerda' : 'direita', 500, { pular: true });
+    }
     else presos = 0;
     ultimo = q;
   }
   return false;
+}
+
+const MOLES = [1, 2, 4, 7, 72, 74];
+// quebra os blocos moles logo à frente (na direção do alvo), na altura do pé e da cabeça
+async function cavarFrente(j, x, z) {
+  const alvos = await j.p.evaluate(([x, z, moles]) => {
+    const g = window.__jogo, m = g.mundo, p = g.jog.pos, d = Math.hypot(x - p.x, z - p.z) || 1;
+    const bx = Math.floor(p.x + (x - p.x) / d * 0.9), bz = Math.floor(p.z + (z - p.z) / d * 0.9), by = Math.floor(p.y + 0.01);
+    return [by + 1, by].map((y) => ({ x: bx, y, z: bz, b: m.bloco(bx, y, bz) })).filter((c) => moles.includes(c.b));
+  }, [x, z, MOLES]);
+  for (const c of alvos) { j.passo(`cavou o bloco ${c.b} em ${c.x},${c.y},${c.z} que travava o caminho`); await quebrarBloco(j, c.x, c.y, c.z, { max: 8000 }); }
 }
 
 // mira o centro do bloco pela câmera de verdade (posição da câmera do jogo)

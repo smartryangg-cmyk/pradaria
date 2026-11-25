@@ -21,7 +21,7 @@ export default async function sobrevivente(j) {
     const t = await acharBloco(j, TRONCOS, 48, { fora: ruins, base: true });
     if (!t) { await j.bug('não há árvore a até 48 blocos de onde o jogador nasce', { tipo: 'clássico', esperado: 'árvores perto do começo' }); break; }
     j.passo(`viu um tronco em ${t.x},${t.y},${t.z}`);
-    if (!(await irAte(j, t.x, t.z, { perto: 2.4 }))) { j.passo('não conseguiu chegar na árvore'); continue; }
+    if (!(await irAte(j, t.x, t.z, { perto: 2.4 }))) { j.passo('não conseguiu chegar na árvore'); ruins.push(t.x + ',' + t.y + ',' + t.z); continue; }
     const ms = await quebrarBloco(j, t.x, t.y, t.z, { max: 40000 });
     if (ms === -2) { ruins.push(t.x + ',' + t.y + ',' + t.z); continue; }
     if (ms < 0) { await j.bug('segurar para quebrar não quebrou o tronco em 40 s', { tipo: 'jogo', esperado: 'tronco quebra com a mão em ~3 s', visto: 'bloco ' + (await bloco(j, t.x, t.y, t.z)) + ', mira: ' + JSON.stringify(await mirando(j)) + ', jogo: ' + JSON.stringify(j.diag) }); continue; }

@@ -128,6 +128,8 @@ export default async function fisica(j) {
     else { const pr = j.pular(); await noAlto(); await j.usar(); await pr; }
     await j.p.waitForFunction(() => window.__jogo.jog.noChao, null, { timeout: 15000 }).catch(() => {});
     await j.p.waitForTimeout(300);
+    const agora = await j.p.evaluate(() => { const g = window.__jogo, p = g.jog.pos; return { y: +p.y.toFixed(2), terra: g.mercado.e.itens[2] || 0, sob: g.mundo.bloco(Math.floor(p.x), Math.floor(p.y) - 1, Math.floor(p.z)) }; });
+    j.passo(`depois: pé em y ${agora.y} (subiu ${(agora.y - yAntes).toFixed(2)}), terra na mão ${agora.terra}, bloco sob o pé ${agora.sob}`);
   }
   const topo = await pos(j);
   const subiu = Math.round(topo.y - base.y);
