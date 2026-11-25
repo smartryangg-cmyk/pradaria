@@ -179,7 +179,13 @@ public class Pacote {
     }
 
     private void atualizar() throws Exception {
-        JSONObject nova = new JSONObject(new String(baixar("/" + LISTA + "?t=" + System.currentTimeMillis()), StandardCharsets.UTF_8));
+        String txt = new String(baixar("/" + LISTA + "?t=" + System.currentTimeMillis()), StandardCharsets.UTF_8).trim();
+        // site publicado antes do app-pacote.json existir: o Cloudflare devolve a página do jogo no lugar
+        if (!txt.startsWith("{")) {
+            Log.i(TAG, "não atualizou agora: o site ainda não tem a lista do jogo para o app");
+            return;
+        }
+        JSONObject nova = new JSONObject(txt);
         int n = numero(nova);
         File ativoTxt = new File(ctx.getFilesDir(), "pacote-ativo.txt");
         int jaBaixado = -1;

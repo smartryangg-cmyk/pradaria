@@ -72,7 +72,10 @@ try {
   await p.waitForSelector('#m-conta:not([hidden])');
   await p.fill('#c-nome', nome);
   await p.fill('#c-senha', senha);
-  await toque(p, '#c-ok');
+  await espera(1500);
+  fotoApp('teclado');
+  ok(await p.evaluate(() => { const r = document.querySelector('#c-senha').getBoundingClientRect(); return r.bottom <= innerHeight && r.top >= 0; }), 'com o teclado aberto o campo de senha continua à vista (' + await p.evaluate(() => innerHeight) + ' de altura)');
+  adb('shell', 'input', 'keyevent', 'KEYCODE_ENTER'); // a tecla de enviar do teclado do Android
   await p.waitForSelector('#m-jogos:not([hidden])', { timeout: 30000 });
   ok(true, 'entrou na conta pelo app (internet)');
   fotoApp('conta');
@@ -94,7 +97,7 @@ try {
   console.log(log.split('\n').filter((l) => /PradariaPacote/.test(l)).map((l) => '     ' + l.replace(/^.*PradariaPacote\s*:?\s*/, '')).join('\n'));
   const baixou = /pronto/.test(log);
   if (baixou) ok(true, 'atualização: baixou o jogo do site e conferiu cada arquivo');
-  else if (/HTTP 404/.test(log)) info('o site ainda não tem app-pacote.json (só depois de publicar): sem atualização agora');
+  else if (/HTTP 404|ainda não tem a lista/.test(log)) info('o site ainda não tem app-pacote.json (só depois de publicar): sem atualização agora');
   else ok(false, 'atualização: o app não terminou de conferir o site');
 
   // ---------- 2. modo avião ----------

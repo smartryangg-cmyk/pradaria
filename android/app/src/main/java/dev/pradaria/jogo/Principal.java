@@ -7,6 +7,7 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
@@ -60,6 +61,7 @@ public class Principal extends Activity {
         }
         raiz = new FrameLayout(this);
         setContentView(raiz);
+        seguirTeclado();
         telaCheia();
         pacote = new Pacote(this, versaoCodigo());
         criarWeb();
@@ -225,6 +227,22 @@ public class Principal extends Activity {
         web.setFocusable(true);
         web.setFocusableInTouchMode(true);
         web.requestFocus();
+    }
+
+    /**
+     * Em tela cheia o Android não encolhe o app quando o teclado abre (o adjustResize não vale): o teclado
+     * cobriria o campo de senha e o botão Entrar. Aqui o jogo encolhe para caber em cima do teclado.
+     */
+    private void seguirTeclado() {
+        raiz.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
+            Rect r = new Rect();
+            raiz.getWindowVisibleDisplayFrame(r);
+            int total = raiz.getRootView().getHeight();
+            int teclado = total - r.bottom;
+            // menos de 15% da tela é barra do sistema, não teclado
+            int fundo = teclado > total * 0.15 ? teclado : 0;
+            if (raiz.getPaddingBottom() != fundo) raiz.setPadding(0, 0, 0, fundo);
+        });
     }
 
     /** endereço de fora do jogo (link de rede social, loja...): abre no navegador do aparelho */
