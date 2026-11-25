@@ -190,20 +190,25 @@ if (PARTES.includes('online')) {
   await esperar(bt, 2000);
   // o alvo: a terra de verdade embaixo da Ana (o mundo da sala; a Ana olha para o chão)
   const alvoA = await J(a, () => {
-    // um bloco de chão de terra, grama, areia ou pedra perto (água não se quebra: o mundo pode nascer na beira do lago)
+    // um bloco de chão de terra, grama ou areia perto (água não se quebra: o mundo pode nascer na beira do lago).
+    // Pedra não: no clássico a mão vazia não tira nada da pedra, e a sala não teria bloco para dar à Ana.
     const J_ = window.__jogo, j = J_.jog, m = J_.mundo;
     for (let d = 0; d < 40; d++) for (let dx = -d; dx <= d; dx++) for (const dz of [-d, d]) {
       const x = Math.floor(j.pos.x) + dx, z = Math.floor(j.pos.z) - 2 + dz;
       let y = 120; while (y > 1 && m.bloco(x, y, z) === 0) y--;
-      if ([1, 2, 3, 4].includes(m.bloco(x, y, z))) { window.__alvo = [x, y, z]; return [x, y, z, m.bloco(x, y, z)]; }
+      if ([1, 2, 4].includes(m.bloco(x, y, z))) { window.__alvo = [x, y, z]; return [x, y, z, m.bloco(x, y, z)]; }
     }
     return [0, 0, 0, 0];
   });
   await J(bt, (al) => { window.__alvo = al.slice(0, 3); const j = window.__jogo.jog; j.voando = true; j.pos.x = al[0] + 0.5; j.pos.y = al[1] + 4; j.pos.z = al[2] + 4; j.vel.x = j.vel.y = j.vel.z = 0; }, alvoA);
   await J(a, () => { const [x, y, z] = window.__alvo, J_ = window.__jogo, j = J_.jog; j.voando = true; j.pos.x = x + 0.5; j.pos.y = y + 2; j.pos.z = z + 2.6; j.vel.x = j.vel.y = j.vel.z = 0; });
   await esperar(a, 600);
-  await J(a, () => { const [x, y, z] = window.__alvo, J_ = window.__jogo, cam = J_.camera, j = J_.jog; const dx = x + 0.5 - cam.position.x, dz = z + 0.5 - cam.position.z; j.yaw = Math.atan2(-dx, -dz); j.pitch = Math.atan2(y + 1 - cam.position.y, Math.hypot(dx, dz)); });
-  await esperar(a, 400);
+  // mira de novo depois que a Ana assenta (no mundo de sobrevivência ela não fica voando e desce até o chão):
+  // mirar com a câmera de antes da queda pegava o bloco vizinho, e o Beto via a rachadura no lugar errado
+  for (let i = 0; i < 3; i++) {
+    await J(a, () => { const [x, y, z] = window.__alvo, J_ = window.__jogo, cam = J_.camera, j = J_.jog; const dx = x + 0.5 - cam.position.x, dz = z + 0.5 - cam.position.z; j.yaw = Math.atan2(-dx, -dz); j.pitch = Math.atan2(y + 1 - cam.position.y, Math.hypot(dx, dz)); });
+    await esperar(a, 400);
+  }
   const tipo = alvoA[3];
   ok(tipo > 0, 'online: a Ana mira num bloco do chão (' + tipo + ')');
   // segura com o dedo; o Beto vê a rachadura enquanto ela quebra
@@ -212,6 +217,8 @@ if (PARTES.includes('online')) {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: Math.round(vp.width / 2), y: Math.round(vp.height / 2), id: 4 }] });
   const viu = await ate(bt, (k) => { const r = window.__jogo.rachas; return r && r.lista.has(k); }, alvoA.slice(0, 3).join(','), 6000);
   ok(viu, 'online: o Beto viu a rachadura no bloco que a Ana está quebrando');
+  const diag = (q) => J(q, () => { const J_ = window.__jogo; return { alvo: window.__alvo, cq: J_.cq && [J_.cq.x, J_.cq.y, J_.cq.z, J_.cq.b], pausado: J_.pausado, sala: J_.sala && { ws: J_.sala.ws && J_.sala.ws.readyState }, rachas: J_.rachas && [...J_.rachas.lista.keys()], aviso: (document.querySelector('#aviso') || {}).textContent, janela: [...document.querySelectorAll('.janela')].filter((x) => !x.hidden).map((x) => x.id) }; });
+  if (!viu) console.log('FALHA (diagnóstico) Ana: ' + JSON.stringify(await diag(a)) + ' Beto: ' + JSON.stringify(await diag(bt)));
   await J(bt, () => { const [x, y, z] = window.__alvo, J_ = window.__jogo, cam = J_.camera, j = J_.jog; const dx = x + 0.5 - cam.position.x, dz = z + 0.5 - cam.position.z; j.yaw = Math.atan2(-dx, -dz); j.pitch = Math.atan2(y + 1 - cam.position.y, Math.hypot(dx, dz)); });
   await esperar(bt, 300);
   if (viu) await bt.screenshot({ path: SAIDA + '/quebra-online-beto-ve.png' });

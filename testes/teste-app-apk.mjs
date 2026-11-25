@@ -67,7 +67,8 @@ try {
   ok(await p.evaluate(() => !navigator.serviceWorker || navigator.serviceWorker.getRegistrations().then((l) => l.length === 0)), 'sem service worker (o jogo já está no app)');
   ok(await p.evaluate(() => document.querySelector('#versao-inicio').textContent.includes('App Android')), 'versão: ' + await p.textContent('#versao-inicio'));
   // os arquivos saem do aparelho, não do Cloudflare: o app tem de pôr a mesma Content-Security-Policy do site (public/_headers)
-  ok(await p.evaluate(() => { try { eval('1'); return false; } catch { return true; } }), 'proteção do site também no app (Content-Security-Policy bloqueia eval)');
+  // (o eval do DevTools passa por cima da CSP; um <script> posto na página não)
+  ok(await p.evaluate(() => new Promise((res) => { window.__cspX = 0; const s = document.createElement('script'); s.textContent = 'window.__cspX = 1'; document.head.appendChild(s); setTimeout(() => { s.remove(); res(window.__cspX === 0); }, 300); })), 'proteção do site também no app (Content-Security-Policy barra script posto na página)');
 
   // entra na conta (o online usa a internet)
   await toque(p, '#bt-entrar');

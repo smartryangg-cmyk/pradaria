@@ -164,7 +164,7 @@ if (ONLINE) {
       const perto = (l) => (l || []).filter((o) => o && Math.hypot((o.x ?? o.pos?.x) - x, (o.z ?? o.pos?.z) - z) < 5).map((o) => [o.especie || o.nome || '?', r(o.x ?? o.pos?.x), r(o.y ?? o.pos?.y), r(o.z ?? o.pos?.z)]);
       return { pausado: J.pausado, pos: [r(j.pos.x), r(j.pos.y), r(j.pos.z)], cam: [r(c.x), r(c.y), r(c.z)], yaw: r(j.yaw), pitch: r(j.pitch), voando: j.voando, mao: J.barra[0],
         blocos: [0, 1, 2, 3].map((dz) => [0, 1, 2].map((dy) => J.mundo.bloco(x, y + dy, z + dz))), chao: J.mundo.bloco(x, y - 1, z), bichos: perto(J.bichos.lista), aldeoes: perto(J.aldeoes && J.aldeoes.lista), outros: perto(J.outrosLista),
-        aviso: (document.querySelector('#aviso') || {}).textContent, janela: [...document.querySelectorAll('.janela')].filter((e) => !e.hidden).map((e) => e.id) };
+        sala: J.sala && { ws: J.sala.ws && J.sala.ws.readyState, cod: J.sala.codigo }, aviso: (document.querySelector('#aviso') || {}).textContent, janela: [...document.querySelectorAll('.janela')].filter((e) => !e.hidden).map((e) => e.id) };
     }, alvo)));
     await bb.evaluate(({ x, y, z }) => { const j = window.__jogo.jog; j.voando = true; j.pos.x = x + 4.5; j.pos.y = y + 3; j.pos.z = z + 6.5; }, alvo);
     await a.waitForTimeout(1500);
