@@ -1779,7 +1779,7 @@ function usar(ponto) {
   if (y < 1 || y >= ALT) return;
   if (!mercado.podeColocar(novo)) { aviso(`${BLOCOS[novo].nome}: compre na loja de uma vila por ${mercado.precoDe(novo)} moedas`, 2500, 'cadeado'); return; }
   const atual = mundo.bloco(x, y, z);
-  if (atual !== AR && !AGUA[atual] && !BLOCOS[atual].planta && !(ehLava(atual) && atual !== LAVA)) return; // na lava corrente dá para pôr
+  if (atual !== AR && !AGUA[atual] && !(BLOCOS[atual].planta && atual !== 245) && !(ehLava(atual) && atual !== LAVA)) return; // na lava corrente dá para pôr
   if ((novo === B.AGUA || novo === LAVA) && atual === novo) return;
   if (SOLIDO[novo] && jog.ocupa(x, y, z)) return;
   // cana-de-açúcar (cana-regras.js): na grama/terra/areia encostada na água, ou em cima de outra cana

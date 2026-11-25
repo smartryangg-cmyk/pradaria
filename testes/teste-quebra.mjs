@@ -31,9 +31,12 @@ const BL = { tronco: 6, pedra: 3, terra: 2, folhas: 7, vidro: 9 };
 // mira o bloco (x0, y0 + 1, z0 - 2) e bate n vezes pelo mesmo caminho do jogo (quebrar = segurar o dedo)
 const bater = (bloco, n, mao = 0) => p.evaluate(async ([x, y, z, bloco, n, mao]) => {
   const J = window.__jogo, m = J.mundo;
+  // cada batida espera um quadro do jogo (no CI carregado o jogo pode andar a poucos quadros por segundo:
+  // batidas mais rápidas que os quadros não pegam a mira atualizada)
+  const quadro = () => new Promise((r) => requestAnimationFrame(() => r()));
   m.definir(x, y, z, bloco); J.barra[0] = mao; J.slot = 0;
-  await new Promise((r) => setTimeout(r, 250));
-  for (let i = 0; i < n; i++) { J.quebrar(null); await new Promise((r) => setTimeout(r, 80)); }
+  await new Promise((r) => setTimeout(r, 250)); await quadro(); await quadro();
+  for (let i = 0; i < n; i++) { J.quebrar(null); await quadro(); await new Promise((r) => setTimeout(r, 80)); }
   const e = J.escav ? null : null;
   return m.bloco(x, y, z);
 }, [x0, y0 + 1, z0 - 2, bloco, n, mao]);
@@ -70,7 +73,7 @@ const pedrinhas = await p.evaluate(() => window.__escav.parts.filter((q) => q.qu
 ok(e && e.toques === 2 && pedrinhas > 0, `pedra: rachou (${e && e.toques}) e soltou pedrinhas que quicam (${pedrinhas})`);
 await p.screenshot({ path: SAIDA + '/quebra-pedra.png' });
 // continuar batendo antes do conserto termina de quebrar
-const quebrou = await bater(BL.pedra, 0) === 3 ? await p.evaluate(async ([x, y, z]) => { const J = window.__jogo; for (let i = 0; i < 10 && J.mundo.bloco(x, y, z); i++) { J.quebrar(null); await new Promise((r) => setTimeout(r, 80)); } return J.mundo.bloco(x, y, z); }, [x0, y0 + 1, z0 - 2]) : -1;
+const quebrou = await bater(BL.pedra, 0) === 3 ? await p.evaluate(async ([x, y, z]) => { const J = window.__jogo, quadro = () => new Promise((r) => requestAnimationFrame(() => r())); for (let i = 0; i < 30 && J.mundo.bloco(x, y, z); i++) { J.quebrar(null); await quadro(); await new Promise((r) => setTimeout(r, 80)); } return J.mundo.bloco(x, y, z); }, [x0, y0 + 1, z0 - 2]) : -1;
 ok(quebrou === 0, 'pedra: batendo até o fim, quebra');
 
 // terra: esfarela de cima para baixo (a 1ª batida tira cubinhos da camada de cima)
