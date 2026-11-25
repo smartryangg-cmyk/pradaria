@@ -95,6 +95,7 @@ export function oQueCai(b, x = 0, y = 0, z = 0, natural = true, mao = 0, classic
   if (b === I.VIDRO && !(FERRAMENTAS[mao] && FERRAMENTAS[mao][0] === 'picareta')) return [];
   if (b >= 215 && b <= 219) return []; // lava não se quebra: só sai com balde (lava-regras.js)
   if (b === 222) return []; // fogo (fogo-regras.js)
+  if (b === 245) return mao >= 1113 && mao <= 1116 ? [[I.TEIA, 1]] : []; // teia: só a espada tira o fio (com a mão some)
   if (b >= 225 && b <= 231) return []; // bolo colocado: quebrar não dá nada (como no clássico)
   if (b === 220 && !(FERRAMENTAS[mao] && FERRAMENTAS[mao][0] === 'picareta')) return []; // obsidiana: só com picareta
   if (b === I.MINERIO_AZUL) return [[I.PEDRA_AZUL, 4 + (sorteio(x, y, z) % 6)]]; // como no clássico: 4 a 9 pedras-azuis
@@ -126,6 +127,7 @@ for (const b of [I.PEDRA, I.PEDRISCO, I.TIJOLO, I.LAMPIAO, I.VIDRO, 108, 109, 11
 for (const b of [I.TRONCO, I.TABUAS, I.FOLHAS, I.FENO, I.BANCADA, 110, 111, 47, 48, 49, 50, 53, 54]) TIPO_DO_BLOCO[b] = 'machado';
 for (let b = 176; b <= 187; b++) TIPO_DO_BLOCO[b] = 'machado'; // móveis
 TIPO_DO_BLOCO[223] = 'machado'; // baú
+TIPO_DO_BLOCO[242] = 'machado'; // abóbora (como no clássico)
 for (const b of [51, 52, 55, 56]) TIPO_DO_BLOCO[b] = 'picareta';
 for (const b of [I.TERRA, I.GRAMA, I.AREIA, I.TERRA_ARADA]) TIPO_DO_BLOCO[b] = 'pa';
 // formas (80..99): madeira com machado, pedra/vidro com picareta
@@ -241,6 +243,17 @@ export const RECEITAS = [
   { id: 'la-azul', faz: [I.LA_AZUL, 1], usa: [[I.LA_BRANCA, 1], [I.FLOR_AZUL, 1]], grupo: 'cores' },
   { id: 'la-verde', faz: [I.LA_VERDE, 1], usa: [[I.LA_BRANCA, 1], [I.CAPIM, 1]], grupo: 'cores' },
   { id: 'la-rosa', faz: [I.LA_ROSA, 2], usa: [[I.LA_BRANCA, 1], [I.LA_VERMELHA, 1]], grupo: 'cores' },
+  // as outras 10 cores do clássico (blocos 232..241): misturando lãs, como as tintas do clássico se misturam
+  { id: 'la-laranja', faz: [232, 2], usa: [[I.LA_VERMELHA, 1], [I.LA_AMARELA, 1]], grupo: 'cores' },
+  { id: 'la-azul-clara', faz: [234, 2], usa: [[I.LA_AZUL, 1], [I.LA_BRANCA, 1]], grupo: 'cores' },
+  { id: 'la-verde-limao', faz: [235, 2], usa: [[I.LA_VERDE, 1], [I.LA_BRANCA, 1]], grupo: 'cores' },
+  { id: 'la-preta', faz: [241, 1], usa: [[I.LA_BRANCA, 1], [I.CARVAO, 1]], grupo: 'cores' },
+  { id: 'la-cinza', faz: [236, 2], usa: [[241, 1], [I.LA_BRANCA, 1]], grupo: 'cores' },
+  { id: 'la-cinza-clara', faz: [237, 2], usa: [[236, 1], [I.LA_BRANCA, 1]], grupo: 'cores' },
+  { id: 'la-ciano', faz: [238, 2], usa: [[I.LA_AZUL, 1], [I.LA_VERDE, 1]], grupo: 'cores' },
+  { id: 'la-roxa', faz: [239, 2], usa: [[I.LA_VERMELHA, 1], [I.LA_AZUL, 1]], grupo: 'cores' },
+  { id: 'la-magenta', faz: [233, 2], usa: [[239, 1], [I.LA_ROSA, 1]], grupo: 'cores' },
+  { id: 'la-marrom', faz: [240, 1], usa: [[I.LA_BRANCA, 1], [I.TERRA, 1]], grupo: 'cores' },
   // formas que não são cubos (formas-defs.js: 80..99)
   { id: 'tronco-redondo', faz: [80, 2], usa: [[I.TRONCO, 2]], grupo: 'formas', forma: ['L', 'L'] },
   { id: 'tronco-redondo-pinheiro', faz: [81, 2], usa: [[71, 2]], grupo: 'formas', forma: ['L', 'L'] },

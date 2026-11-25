@@ -34,8 +34,14 @@ const palco = (p, c = null) => p.evaluate(([c, A, W, P]) => {
 const olhar = async (p, c, dx = 0, dz = 0) => {
   await J(p, ([x, y, z]) => { const j = window.__jogo.jog; j.pos.x = x + 0.5; j.pos.y = y + 1; j.pos.z = z + 0.5; j.vel.x = j.vel.y = j.vel.z = 0; }, [c[0] + dx, c[1], c[2] + dz]);
   await esperar(p, 150);
-  // mira no meio do topo do bloco 2 à frente
-  return J(p, ([x, y, z]) => { const J_ = window.__jogo, j = J_.jog, cam = J_.camera, ddx = x + 0.5 - cam.position.x, ddz = z + 0.5 - cam.position.z; j.yaw = Math.atan2(-ddx, -ddz); j.pitch = Math.atan2(y + 1.001 - cam.position.y, Math.hypot(ddx, ddz)); }, [c[0] + dx, c[1], c[2] + dz - 2]);
+  // mira no meio do topo do bloco 2 à frente. A câmera chega lisa na posição nova (e no CI carregado os quadros
+  // demoram): mira de novo a cada quadro por um tempinho, senão o toque acerta o bloco onde a mira estava antes
+  return J(p, async ([x, y, z]) => {
+    const J_ = window.__jogo, j = J_.jog, cam = J_.camera, quadro = () => new Promise((r) => requestAnimationFrame(() => r()));
+    const mirar = () => { const ddx = x + 0.5 - cam.position.x, ddz = z + 0.5 - cam.position.z; j.yaw = Math.atan2(-ddx, -ddz); j.pitch = Math.atan2(y + 1.001 - cam.position.y, Math.hypot(ddx, ddz)); };
+    for (let i = 0; i < 6; i++) { mirar(); await quadro(); await new Promise((r) => setTimeout(r, 80)); }
+    mirar(); await quadro();
+  }, [c[0] + dx, c[1], c[2] + dz - 2]);
 };
 const segurar = (p, id) => J(p, (id) => { const J_ = window.__jogo, i = J_.barra.indexOf(id); if (i >= 0) J_.slot = i; return i; }, id);
 const tocarMeio = async (p) => { const m = await J(p, () => ({ x: innerWidth / 2, y: innerHeight / 2 })); await p.touchscreen.tap(m.x, m.y); };

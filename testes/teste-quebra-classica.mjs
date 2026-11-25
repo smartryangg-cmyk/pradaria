@@ -190,12 +190,12 @@ if (PARTES.includes('online')) {
   await esperar(bt, 2000);
   // o alvo: a terra de verdade embaixo da Ana (o mundo da sala; a Ana olha para o chão)
   const alvoA = await J(a, () => {
-    // um bloco de chão de terra, grama, areia ou pedra perto (água não se quebra: o mundo pode nascer na beira do lago)
+    // um bloco de chão de terra, grama ou areia perto (pedra com a mão leva 7,5 s) (água não se quebra: o mundo pode nascer na beira do lago)
     const J_ = window.__jogo, j = J_.jog, m = J_.mundo;
     for (let d = 0; d < 40; d++) for (let dx = -d; dx <= d; dx++) for (const dz of [-d, d]) {
       const x = Math.floor(j.pos.x) + dx, z = Math.floor(j.pos.z) - 2 + dz;
       let y = 120; while (y > 1 && m.bloco(x, y, z) === 0) y--;
-      if ([1, 2, 3, 4].includes(m.bloco(x, y, z))) { window.__alvo = [x, y, z]; return [x, y, z, m.bloco(x, y, z)]; }
+      if ([1, 2, 4].includes(m.bloco(x, y, z))) { window.__alvo = [x, y, z]; return [x, y, z, m.bloco(x, y, z)]; }
     }
     return [0, 0, 0, 0];
   });

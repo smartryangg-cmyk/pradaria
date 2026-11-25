@@ -104,7 +104,7 @@ await pegar('carro');
 const yBase = Y + 1;
 // 1) degrau de 1 bloco
 await por(X0 + 0.5, yBase, Z0 + FAIXA.degrau + 0.5);
-let r = await dirigir(5000, X0 + 40);
+let r = await dirigir(9000, X0 + 40); // para assim que passa de X0+40; o tempo é só o limite (no aparelho lento o carro acelera em menos quadros por segundo)
 console.log('      degrau:', r.x.toFixed(1), r.y.toFixed(2), 'vel max', r.reg.vmaxv.toFixed(1));
 ok(r.x > X0 + 30 && Math.abs(r.y - (yBase + 1)) < 0.05, `carro sobe o degrau de 1 bloco e segue (x ${r.x.toFixed(1)}, y ${r.y.toFixed(2)})`);
 // 2) meio bloco: sobe e fica em cima do meio bloco (y + 0,5), sem flutuar
