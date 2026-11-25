@@ -40,7 +40,7 @@ import { Plantacoes } from './plantacoes.js';
 import { Agua } from './agua.js';
 import { criarComandos } from './comandos.js';
 import { criarCama } from './cama.js';
-import { ehCama } from './dormir-regras.js';
+import { ehCama, DURACAO_DIA } from './dormir-regras.js';
 import { ESCADA_MAO, PAREDE } from './escada-mao.js';
 import { LAVA, ehLava, DANO_LAVA } from './lava-regras.js';
 import { FOGO, ISQUEIRO, DANO_FOGO, inflamavel } from './fogo-regras.js';
@@ -263,7 +263,6 @@ let slotSel = 0;
 const sobrev = () => opcoesMundo.sobrevivencia === true;
 const naMao = () => barra[slotSel] || 0;
 let tempoDia = 0.3; // 0..1 (0.25 = meio-dia)
-const DURACAO_DIA = 600;
 const outros = new Map();
 let euId = null;
 // veículos: garagem, direção e câmera de trás (código em garagem.js e veiculos.js)
@@ -2226,7 +2225,13 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
       rolar: (d) => { slotSel = (slotSel + d + barra.length) % barra.length; desenharBarra(); },
       primeiroToque: () => som.iniciar(),
       mira: (p) => { miraToque = p; },
-      travaMudou: () => {},
+      // como no clássico: Esc no meio do jogo abre o menu (o navegador usa o Esc para soltar o mouse, então o menu
+      // abre quando o mouse solta sem nenhuma janela pedindo isso)
+      travaMudou: (travado) => {
+        if (travado || !jogando || pausado || morto || personagem.aberto || !$('#chat-caixa').hidden) return;
+        if ([...document.querySelectorAll('.janela')].some((e) => !e.hidden)) return;
+        abrirPausa();
+      },
     });
   }
   ctrl.jog = jog;
@@ -2301,7 +2306,7 @@ function iniciarMundo({ semente, edicoes = [], pos = null, yaw = 0, opcoes = nul
   setTimeout(() => { $('#dica-toque').style.opacity = 0; }, 9000);
   const vazia = () => !Object.keys(mercado.e.itens).length;
   if (sobrev()) setTimeout(() => {
-    if (jogando && sobrev() && vazia()) aviso('Neste mundo você junta o que quebrar! Segure o dedo numa árvore para pegar Tronco e depois abra a Mochila para criar.', 7000, 'mochila');
+    if (jogando && sobrev() && vazia()) aviso('Neste mundo você junta o que quebrar! ' + (ehToque ? 'Segure o dedo numa árvore' : 'Segure o botão esquerdo do mouse numa árvore') + ' para pegar Tronco e depois abra a Mochila' + (ehToque ? '' : ' (tecla E)') + ' para criar.', 7000, 'mochila');
   }, 3000);
 }
 
@@ -2734,7 +2739,8 @@ function laco(agora) {
   if (!pausado && !morto) {
     const ent = ctrl.atualizar();
     if (!garagem.quadro(dt, ent, false) && !cama.quadro(dt, ent)) {
-      jog.atualizar(dt, ent);
+      // física em passos de no máximo 1/30 s (o clássico usa passos fixos): o pulo e a queda saem iguais com poucos quadros
+      for (let r = dt; r > 1e-6; r -= 1 / 30) jog.atualizar(Math.min(r, 1 / 30), ent);
       queimarNaLava(dt);
       queimarNoFogo(dt);
       if ((jog.noChao || jog.naAgua) && Math.floor(jog.passo / 1.8) !== ultimoPasso) { ultimoPasso = Math.floor(jog.passo / 1.8); som.passo(jog.naAgua ? 'agua' : chaoDe(jog.pos.x, jog.pos.y, jog.pos.z), visao.agachado ? 0.18 : visao.correndo ? 0.45 : 0.35); }

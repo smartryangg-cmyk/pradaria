@@ -85,9 +85,9 @@ ok(r.v > 0.5 && r.perna > Math.min(0.5, r.v * 0.2) * 0.7 && !(r.acao & 48), `Bet
 await voltar(); await a.waitForTimeout(1200);
 // corre
 await gravar();
-await a.keyboard.down('ShiftLeft'); await a.keyboard.down('KeyW'); await a.waitForTimeout(1400);
+await a.keyboard.down('ControlLeft'); await a.keyboard.down('KeyW'); await a.waitForTimeout(1400);
 await bb.screenshot({ path: `${SAIDA}/online-ana-correndo.png` });
-await a.keyboard.up('KeyW'); await a.keyboard.up('ShiftLeft');
+await a.keyboard.up('KeyW'); await a.keyboard.up('ControlLeft');
 r = await lido();
 ok(r.acao & 16 && r.tronco > 0.2 && r.antebraco < -1 && r.perna > Math.min(0.85, r.v * 0.2) * 0.7, `Beto vê a Ana correndo (flag 16 chegou pela sala): ${fmt(r)}`);
 await voltar(); await a.waitForTimeout(1200);
