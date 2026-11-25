@@ -12,6 +12,7 @@ export const COMIDA = {
   [I.PAO]: { f: 5, s: 6 },
   [I.CARNE]: { f: 3, s: 1.8 },
   [I.CARNE_ASSADA]: { f: 8, s: 12.8 }, // assada na fornalha (fornalha-regras.js) enche bem mais
+  [I.FATIA_MELANCIA]: { f: 2, s: 1.2 }, // fatia de melancia: pouquinho, mas come rápido de muitas
   [I.CARNE_ESTRAGADA]: { f: 4, s: 0.8 }, // cai do barrento (monstro): mata pouco a fome
 };
 export const ehComida = (id) => Object.prototype.hasOwnProperty.call(COMIDA, id);

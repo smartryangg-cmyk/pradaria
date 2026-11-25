@@ -683,6 +683,43 @@ PINT[228] = (t) => {
     fio(cx + Math.cos(a0) * r0, cy + Math.sin(a0) * r0, cx + Math.cos(a1) * r1, cy + Math.sin(a1) * r1, 0.34);
   }
 };
+// tijolo de pedra (bloco 246): 4 tijolos grandes em 2 fileiras desencontradas, junta funda e cantinho lascado
+PINT[229] = (t) => {
+  const r = rngSemente(2291), tons = Array.from({ length: 8 }, () => 0.9 + r() * 0.14);
+  const nf = fbm(2292, 16, 16, 2);
+  t.cada((u, v, i) => {
+    const lin = Math.floor(v / 8), uu = (u + (lin ? 4 : 0)) % 16, col = Math.floor(uu / 8);
+    const lu = uu - col * 8, lv = v - lin * 8, b = Math.min(lu, lv, 8 - lu, 8 - lv);
+    if (b < 0.7) { t.H[i] = 0; return esc(hex(0x5c6068), 0.95 + nf(u, v) * 0.1); }
+    t.H[i] = 0.7 + Math.min(1, b / 2) * 0.5 + nf(u, v) * 0.15;
+    const base = lv < 1.6 || lu < 1.6 ? hex(0xb3b8bf) : lv > 6.2 || lu > 6.2 ? hex(0x7e838b) : hex(0x9ea3aa);
+    return esc(base, tons[lin * 2 + col] + (nf(u, v) - 0.5) * 0.12);
+  });
+  t.traco(3, 10.5, 5.2, 12.4, 0.2, 0.16, (i) => t.set(i, hex(0x6a6e76))); // rachadinha
+  t.relevo(0.6, 0.9, 0.8); t.grao(0.05);
+};
+// melancia (bloco 247): verde com listras escuras em pé nos lados; no topo as listras saem do cabinho
+const MEL_C = hex(0x5c9a2e), MEL_E = hex(0x2f5e1a);
+PINT[230] = (t) => {
+  const nf = fbm(2301, 8, 8, 2);
+  t.cada((u, v, i) => {
+    const du = u - 8, dv = v - 8, ang = Math.atan2(dv, du), rad = Math.hypot(du, dv);
+    const g = Math.abs(fr(ang / TAU * 10 + nf(u, v) * 0.3) - 0.5) * 2;
+    t.H[i] = 0.5 + nf(u, v) * 0.3;
+    return g < 0.35 && rad > 1.8 ? esc(MEL_E, 0.95 + nf(u, v) * 0.1) : esc(MEL_C, 0.95 + nf(u, v) * 0.12);
+  });
+  t.elipse(8, 8, 1.4, 1.4, 0, (i, du, dv, d) => { t.H[i] = 1.1 - d * 0.4; t.set(i, esc(hex(0x8a7a3a), 1.05 - d * 0.3)); });
+  t.relevo(0.6, 0.5, 1); t.grao(0.04);
+};
+PINT[231] = (t) => {
+  const nf = fbm(2311, 4, 8, 2);
+  t.cada((u, v, i) => {
+    const g = Math.abs(fr(u / 16 * 5 + (nf(u, v) - 0.5) * 0.35) - 0.5) * 2;
+    t.H[i] = 0.5 + nf(u, v) * 0.3;
+    return g < 0.38 ? esc(MEL_E, 0.95 + nf(u, v) * 0.1) : esc(MEL_C, 0.93 + nf(u, v) * 0.14);
+  });
+  t.relevo(0.6, 0.5, 1); t.grao(0.04);
+};
 // pedrisco: pedras arredondadas com argamassa
 PINT[21] = (t) => {
   const pc = voronoi(2101, 4, 4, 0.75), n = fbm(2102, 4, 4, 3), nf = fbm(2103, 16, 16, 2), arg = fbm(2104, 10, 10, 2);
