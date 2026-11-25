@@ -145,7 +145,7 @@ if (PARTES.includes('pc')) {
 }
 
 // ================= celular e tablet (toque), sem internet =================
-for (const [nome, dev] of PARTES.includes('toque') ? [['celular', devices['Pixel 7']], ['tablet', devices['Galaxy Tab S4']]] : []) {
+for (const [nome, dev] of PARTES.includes('toque') ? [['celular', devices['Pixel 7']], ['tablet', devices['Galaxy Tab S4']], ['tablet deitado', devices['Galaxy Tab S4 landscape']]] : []) {
   const ctx = await b.newContext({ ...dev });
   const p = await mundo(ctx, true);
   const c = await palco(p); await esperar(p, 600);
@@ -160,10 +160,15 @@ for (const [nome, dev] of PARTES.includes('toque') ? [['celular', devices['Pixel
   ok(of.filter(([d]) => !d).length >= 1, `${nome}: tocou na espada e as ofertas apareceram ` + JSON.stringify(of));
   const caixa = await J(p, () => { const r = document.querySelector('#inventario .caixa').getBoundingClientRect(), m = document.querySelector('#mesa-painel').getBoundingClientRect(); return [r.width <= innerWidth, m.right <= innerWidth + 1, m.bottom <= innerHeight + 1]; });
   ok(caixa.every(Boolean), `${nome}: a janela e a mesa cabem na tela (${caixa})`);
-  await p.screenshot({ path: SAIDA + `/encantar-${nome}.png` });
+  await p.screenshot({ path: SAIDA + `/encantar-${nome.replace(' ', '-')}.png` });
   await p.tap('.mesa-oferta[data-op="0"]'); await esperar(p, 400);
   const v = await desg(p, ESPADA);
   ok(mesmos(await encsDe(p, v), esperado[0].encs) && await qtd(p, AZUL) === 2 && await nivel(p) === 9, `${nome}: tocou na primeira oferta e a espada ficou encantada (${JSON.stringify(await encsDe(p, v))})`);
+  // a bancada inteira aparece sem rolar (a grade 3x3 não fica cortada em cima)
+  await p.keyboard.press('Escape').catch(() => {}); await J(p, () => { const J_ = window.__jogo; J_.inv.mudarGrade(3); J_.abrirInventario('mochila'); }); await esperar(p, 500);
+  const g = await J(p, () => { const gr = document.querySelector('#grade'), r = gr.getBoundingClientRect(), c = document.querySelector('.inv-cima').getBoundingClientRect(); return [gr.scrollTop, gr.scrollHeight - gr.clientHeight, Math.round(c.top - r.top), Math.round(r.bottom - innerHeight)]; });
+  ok(g[0] === 0 && g[1] <= 1 && g[2] >= 0 && g[3] <= 1, `${nome}: a bancada cabe inteira, sem rolar (${g})`);
+  await p.screenshot({ path: SAIDA + `/encantar-${nome.replace(' ', '-')}-bancada.png` });
   await ctx.close();
 }
 
