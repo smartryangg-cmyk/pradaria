@@ -20,7 +20,8 @@ import { blocosDaObra, PLANTAS, ESTILOS_OBRA } from '../../public/js/casas.js';
 import { mudancaSemMao } from '../../public/js/blocos-rede.js';
 import { FOGO, ISQUEIRO, ALCANCE_FOGO, inflamavel } from '../../public/js/fogo-regras.js';
 import { podeCrescer } from '../../public/js/plantacoes-regras.js';
-import { ehCama, podeDormir, ACORDA, PERTO_DA_CAMA } from '../../public/js/dormir-regras.js';
+import { ehCama, podeDormir, ACORDA, PERTO_DA_CAMA, DURACAO_DIA } from '../../public/js/dormir-regras.js';
+const DIA_MS = DURACAO_DIA * 1000;
 import { CANA, ALTURA_CANA, CANA_MIN, podeCrescerCana } from '../../public/js/cana-regras.js';
 import { MUDAS, MUDA_MIN, TRONCO_DA_MUDA, BLOCOS_ARVORE, podeCrescerMuda, naCaixa } from '../../public/js/arvores-regras.js';
 export { Controle } from './controle.js';
@@ -466,7 +467,7 @@ export class Sala extends DurableObject {
     }
   }
 
-  diaAgora() { return ((((Date.now() - this.info.inicio) / 600000) + 0.3) % 1 + 1) % 1; }
+  diaAgora() { return ((((Date.now() - this.info.inicio) / DIA_MS) + 0.3) % 1 + 1) % 1; }
 
   conexaoDe(id) {
     for (const ws of this.ctx.getWebSockets()) { const j = ws.deserializeAttachment(); if (j && j.id === id) return [ws, j]; }
@@ -837,7 +838,7 @@ export class Sala extends DurableObject {
       if (eu.diaEm && agoraDia - eu.diaEm < 3000) return;
       eu.diaEm = agoraDia; ws.serializeAttachment(eu);
       const v = ((m.v % 1) + 1) % 1;
-      this.info.inicio = Date.now() - (v - 0.3) * 600000;
+      this.info.inicio = Date.now() - (v - 0.3) * DIA_MS;
       await this.ctx.storage.put('info', this.info);
       this.enviarTodos({ t: 'dia', v, nome: eu.nome });
     } else if (m.t === 'dormir' && Array.isArray(m.b) && m.b.length === 3 && m.b.every(Number.isFinite)) {
@@ -1260,7 +1261,7 @@ export class Sala extends DurableObject {
     if (n < total) { this.enviarTodos({ t: 'sono', n, total, nome, deitou: !!nome }); return; }
     if (!podeDormir(this.diaAgora())) return;
     for (const w of ws) { const j = w.deserializeAttachment(); j.dorme = false; w.serializeAttachment(j); }
-    this.info.inicio = Date.now() - (ACORDA - 0.3) * 600000;
+    this.info.inicio = Date.now() - (ACORDA - 0.3) * DIA_MS;
     await this.ctx.storage.put('info', this.info);
     this.enviarTodos({ t: 'dia', v: ACORDA, dormiu: true });
   }

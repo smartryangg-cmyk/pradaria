@@ -86,7 +86,6 @@ body.com-vida #dica-toque { margin-bottom: 28px; }
   #barra .slot { width: 42px; height: 42px; border-radius: 10px; }
   #barra .slot canvas { width: 30px; height: 30px; }
   #barra .slot.mais { font-size: 22px; }
-  #barra .slot:nth-child(n+8):not(.mais) { display: none; }
   #emotes button { width: 38px; height: 38px; font-size: 26px; }
   #status { font-size: 13px; }
   #botoes-toque { bottom: 92px; }
@@ -353,8 +352,8 @@ body.com-xp #vida, body.com-xp #fome { bottom: calc(max(10px, env(safe-area-inse
 body.com-xp #armadura { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 120px); }
 body.com-armadura #folego { transform: translateX(6px); flex-direction: row-reverse; }
 @media (max-width: 640px) { #armadura { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 82px); gap: 1px; } body.com-xp #armadura { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 90px); } #armadura .peca, #armadura .peca .ic-svg { width: 14px; height: 14px; } }
-/* armadura vestida: 2x2 (cabeça, peito / pernas, pés), da altura da grade de criar */
-.inv-armadura { display: grid; grid-template-columns: repeat(2, auto); gap: 4px; }
+/* armadura vestida: a coluna de 4 à esquerda do boneco (cabeça, peito, pernas, pés), como no clássico */
+.inv-armadura { display: flex; flex-direction: column; gap: 4px; }
 .inv-armadura .slot-inv { width: 48px; }
 @media (max-width: 480px), (max-height: 520px) { .inv-armadura .slot-inv { width: 40px; } }
 .slot-inv img.fantasma { opacity: .22; filter: grayscale(1); }
@@ -773,7 +772,12 @@ body.guerra #bt-voar { display: none; }
   #barra .slot canvas { width: 28px; height: 28px; }
   #barra .slot .qtd { font-size: 12px; }
 }
-@media (max-width: 350px) { #barra .slot:nth-child(n+7):not(.mais) { display: none; } }
+/* como no clássico: os 9 espaços da barra sempre à vista (no celular estreito eles encolhem para caber) */
+@media (max-width: 480px) {
+  #barra .slot { width: min(42px, calc((100vw - 24px - 8px - 27px) / 10)); height: min(42px, calc((100vw - 24px - 8px - 27px) / 10)); border-width: 2px; }
+  #barra .slot canvas { width: 74%; height: auto; }
+  #barra .slot .qtd { font-size: 11px; }
+}
 
 /* chat aberto: a caixa de escrever fica embaixo, então somem pular/voar/armas e a dica */
 body.chat-aberto #botoes-toque, body.chat-aberto #dica-toque, body.chat-aberto #botoes-armas { display: none; }
@@ -968,8 +972,6 @@ body.modo-tv .marca-dagua { font-size: 14px; }
 .grade-criar.w3 { grid-template-columns: repeat(3, 48px); }
 .seta-criar .ic-svg { width: 30px; height: 30px; }
 .inv-lado { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.inv-mao2 { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; font-weight: 800; }
-.inv-mao2 .slot-inv { width: 48px; }
 .inv-mochila, .inv-barra, .inv-extra { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 4px; }
 .inv-barra { padding-top: 8px; border-top: 3px dashed #c9b48e; }
 .inv-extra { background: #ffe9c9; border-radius: 10px; padding: 6px; }
@@ -1001,13 +1003,40 @@ body.modo-tv .marca-dagua { font-size: 14px; }
 .forno-seta { position: relative; }
 .forno-seta i { position: absolute; left: 2px; bottom: -4px; height: 4px; width: 0; background: var(--verde-borda, #4a9a2a); border-radius: 2px; }
 @media (max-width: 480px) { .forno-col .slot-inv, .inv-criar.forno .slot-inv { width: 40px; } #grade .slot-inv.forno-s { width: 48px; } }
+/* janela do clássico (sobrevivência): sem título grande, abas e texto de ajuda; o nome do que está aberto
+   em cima à esquerda, livro de receitas e mover rápido (toque) à direita, Fechar vira um X no canto */
+#inventario.classico .caixa { position: relative; width: auto; max-width: 100%; padding: 14px 14px 16px; gap: 0; max-height: calc(100dvh - 24px); overflow-y: auto; }
+#inventario.classico #inv-titulo, #inventario.classico #abas-inv, #inventario.classico #inv-sub, #inventario.classico #dica-maquinas, #inventario.classico #bancada-status { display: none; }
+#inventario.classico [data-fechar] { position: absolute; top: 10px; right: 10px; width: 38px; height: 38px; min-height: 0; padding: 0; margin: 0; border-radius: 12px; display: grid; place-items: center; z-index: 2; }
+#inventario.classico [data-fechar] .ic-svg { width: 20px; height: 20px; }
+#inventario.classico #grade { max-height: none; overflow: visible; padding: 10px; }
+.inv-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; margin-right: 44px; }
+.inv-nome { font-weight: 800; font-size: 15px; color: #6b5a44; }
+.inv-nome-moch { display: block; margin: 2px 0 -4px; }
+.inv-bts { display: flex; gap: 6px; }
+#grade .bt-ic { width: 36px; height: 36px; padding: 0; border-radius: 10px; border-width: 2px; box-shadow: 0 2px 0 var(--txt); }
+#grade .bt-ic .ic-svg { width: 20px; height: 20px; }
+#grade .bt-ic.ligado { background: #fff2b8; box-shadow: inset 0 2px 0 rgba(0, 0, 0, .15); }
+.inv-cima.c-mochila { flex-wrap: nowrap; justify-content: flex-start; align-items: stretch; }
+.inv-cima.c-bancada, .inv-cima.c-forno { justify-content: center; padding: 4px 0; }
+.inv-boneco { position: relative; flex: 0 0 auto; width: 104px; min-height: 196px; border-radius: 10px; background: #3b2e22; box-shadow: inset 0 3px 0 rgba(0, 0, 0, .35); overflow: hidden; }
+.inv-boneco img.retrato { position: absolute; left: 50%; top: 6px; height: calc(100% - 12px); transform: translateX(-50%); pointer-events: none; image-rendering: auto; }
+#grade .inv-boneco .slot-inv.mao2 { position: absolute; right: 4px; bottom: 4px; width: 40px; }
+.inv-criar-col { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+@media (max-width: 480px) {
+  .inv-boneco { width: 78px; min-height: 176px; }
+  #grade .inv-boneco .slot-inv.mao2 { width: 36px; }
+  .inv-cima.c-mochila { gap: 6px; }
+  .inv-criar { gap: 4px; }
+  #inventario.classico .janela, #inventario.classico .caixa { padding: 10px; }
+}
 #inv-cursor { position: fixed; left: 0; top: 0; width: 48px; height: 48px; display: grid; place-items: center; pointer-events: none; z-index: 60; filter: drop-shadow(0 3px 2px rgba(0, 0, 0, .35)); }
 #inv-cursor img { width: 40px; height: 40px; image-rendering: pixelated; }
 #inv-cursor .qtd { position: absolute; right: 0; bottom: 0; font-weight: 900; color: #fff; text-shadow: 0 0 3px #000, 0 0 2px #000; }
 @media (max-width: 480px) {
   .grade-criar.w2, .grade-criar.w3 { grid-template-columns: repeat(var(--n, 3), 40px); }
   .grade-criar.w2 { --n: 2; }
-  .grade-criar .slot-inv, .inv-mao2 .slot-inv { width: 40px; }
+  .grade-criar .slot-inv { width: 40px; }
   #grade .slot-inv .qtd { font-size: 11px; }
 }
 #grade .bt-mini { aspect-ratio: auto; display: inline-flex; place-items: initial; border-width: 2px; box-shadow: 0 2px 0 var(--txt); padding: 6px 10px; }
