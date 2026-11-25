@@ -25,6 +25,7 @@ export const OPCOES_MUNDO = [
   { id: 'mercado', icone: 'moeda', nome: 'Mercado e trabalho', desc: 'Moedas, lojinha com os moradores e trabalhadores', padrao: false, antigos: false, aba: 'mods', cat: 'vila' },
   { id: 'objetivos', icone: 'alvo', nome: 'Missões', desc: 'Desafios com prêmios', padrao: false, antigos: false, aba: 'mods', cat: 'vila' },
   { id: 'maquinas', icone: 'engrenagem', nome: 'Máquinas', desc: 'Fios, alavancas, esteiras e engenhocas', padrao: false, antigos: true, aba: 'mods', cat: 'construir' },
+  { id: 'extras', icone: 'vila', nome: 'Blocos extras', desc: 'Moinho de vento, forno de pão, farinha, padaria, loja, cadeira, mesa e balcão (não existem no clássico)', padrao: false, antigos: true, terreno: true, aba: 'mods', cat: 'construir' },
   { id: 'esculpir', icone: 'martelo', nome: 'Quebrar esculpindo', desc: 'Cada toque arranca um pedaço do bloco, que se refaz sozinho (o jeito antigo do Pradaria)', padrao: false, antigos: true, aba: 'mods', cat: 'construir' },
   { id: 'formas', icone: 'bloco', nome: 'Formas redondas', desc: 'Rampas, bolas, cúpulas, cercas e troncos redondos', padrao: false, antigos: true, aba: 'mods', cat: 'construir' },
   { id: 'selvagens', icone: 'pata', nome: 'Bichos com instintos', desc: 'Lobos, raposas, ursos, onças, cobras e veados que caçam e fogem como na natureza', padrao: true, antigos: false, aba: 'mods', cat: 'natureza' },

@@ -5,7 +5,7 @@ import { F } from './formas.js';
 import { FOLHAGEM } from './blocos.js';
 import { CANA, cabeCana } from './cana-regras.js';
 import { BOLO_ITEM, BOLO_B, ehBolo, depoisDaFatia } from './bolo-regras.js';
-import { criarAtlas, iconeBloco, INVENTARIO, INVENTARIO_MAQUINAS, INVENTARIO_FORMAS, B, E, AR, BLOCOS, SOLIDO, AGUA, PRECISA_CHAO, ITEM, ehItem, nomeDe, FORNALHA } from './blocos.js';
+import { criarAtlas, iconeBloco, INVENTARIO, INVENTARIO_MAQUINAS, INVENTARIO_FORMAS, B, E, AR, BLOCOS, SOLIDO, AGUA, PRECISA_CHAO, ITEM, ehItem, nomeDe, FORNALHA, BLOCOS_EXTRAS } from './blocos.js';
 import { toquesCom, receitasDoMundo, GRUPOS, podeCriar, faltaBancada, gastoDe, receitaDaGrade, arrumar, cabeNaGrade, pilhaDe, cabe, nivelFalta, NOME_NIVEL, baseDe, DURA } from './receitas.js';
 import { Inventario, MAO2, ARMA } from './inventario.js';
 import { reduzir, defesa, parteDe, PROTEGE, NOME_PARTE } from './armadura-regras.js';
@@ -531,7 +531,7 @@ function abrirInventario(aba) {
   if (abaInv === 'criar') desenharReceitas(g);
   else if (abaInv === 'mochila') desenharMochila(g);
   else {
-    const lista = abaInv === 'maquinas' ? INVENTARIO_MAQUINAS : abaInv === 'formas' ? INVENTARIO_FORMAS : [...INVENTARIO, ...FERRAMENTAS_CRIATIVO];
+    const lista = abaInv === 'maquinas' ? INVENTARIO_MAQUINAS : abaInv === 'formas' ? INVENTARIO_FORMAS : [...INVENTARIO.filter((b) => opcoesMundo.extras !== false || !BLOCOS_EXTRAS.has(b)), ...FERRAMENTAS_CRIATIVO];
     for (const id of lista) {
       const b = document.createElement('button');
       b.title = nomeDe(id);

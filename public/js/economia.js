@@ -8,7 +8,7 @@ import { CAI_MONSTRO, ehMonstro } from './monstros-regras.js';
 import { avancar, caberNoForno, porNoForno, tirarDoForno, PILHA_FORNO } from './fornalha-regras.js';
 import { aplicarTrabalho, normalizarTrabalho, negocioNovo, livreDe, marcarCompra, ajustarCompra, converter } from './trabalho.js';
 import { parteDe } from './armadura-regras.js';
-import { RECEITAS, guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm, cabe, cabeQuanto, pilhaDe, DURA, ajustarDesg, desgastar, tirarDesg, porDesg, desgLista, receitaNoMundo } from './receitas.js';
+import { RECEITAS, guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm, cabe, cabeQuanto, pilhaDe, DURA, ajustarDesg, desgastar, tirarDesg, porDesg, desgLista, receitaNoMundo, semExtras } from './receitas.js';
 import { ehComida } from './fome-regras.js';
 
 // ids dos blocos (iguais aos de blocos.js)
@@ -51,6 +51,7 @@ function tabelaVenda() {
   for (let volta = 0, mudou = true; mudou && volta < 50; volta++) {
     mudou = false;
     for (const r of RECEITAS) {
+      if (r.semExtras) continue; // pão de 3 trigos: só nos mundos sem mercado de pão (moinho e forno)
       const [id, n] = r.faz, custo = r.usa.reduce((s, [i, q]) => s + preco(i) * q, 0);
       const teto = Math.floor(custo / Math.max(1, n));
       if (teto < preco(id)) { t.set(id, teto); mudou = true; }
@@ -166,7 +167,7 @@ export function opcoesEcon(op) {
   // morte (o que estava na mochila cai no chão) e cama para renascer
   const dif = typeof op.dificuldade === 'string' ? op.dificuldade : op.selvagensMachucam ? 'normal' : 'pacifico';
   const fome = !!op.sobrevivencia && !op.armas && op.tipo !== 'guerra' && dif !== 'pacifico';
-  return { mercado: !!op.mercado, objetivos: !!op.objetivos, sobrevivencia: !!op.sobrevivencia, construcao: op.construcao !== false, voo: !op.armas, fome };
+  return { mercado: !!op.mercado, objetivos: !!op.objetivos, sobrevivencia: !!op.sobrevivencia, construcao: op.construcao !== false, voo: !op.armas, fome, extras: op.extras !== false };
 }
 // tem mochila (dá para pegar e largar coisas no chão)
 export const temMochila = (op) => !!(op && (op.mercado || op.sobrevivencia));
@@ -379,6 +380,8 @@ export function aplicar(e, op, a, ctx = {}) {
     if (!op.sobrevivencia) return falha('?');
     const rc = receita(a.r);
     if (!rc || !receitaNoMundo(rc, op.fome)) return falha('?');
+    if (rc.extra && semExtras(op)) return falha('?'); // mod "Blocos extras" desligado (e sem o Mercado)
+    if (rc.semExtras && !semExtras(op)) return falha('?'); // com os blocos extras (ou o Mercado) o pão vem do moinho e do forno
     if (faltaBancada(rc, a.bancada)) return falha('Precisa de uma Bancada perto.');
     if (!temTudo(e.itens, rc)) return falha('Faltam coisas para essa receita.');
     // n = quantas vezes (shift na grade de criar: o máximo de uma vez); cria enquanto der

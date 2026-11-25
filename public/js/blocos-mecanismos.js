@@ -28,7 +28,7 @@ export const DEFS_MEC = [
   [M.FORNO, 'Forno', [3, 3, T.FORNO], {}],
   [M.FORNO_ACESO, 'Forno', [3, 3, T.FORNO_ACESO], { brilho: 0.9 }],
   [M.FARINHA, 'Saco de farinha', T.FARINHA, {}],
-  [M.PAO, 'Cesta de pão', [T.PAO, 9, 9], {}],
+  [M.PAO, 'Pão', [T.PAO, 9, 9], {}],
   [M.SARILHO, 'Manivela do poço', [9, 9, 7], { solido: false, opaco: false, forma: 'sarilho', chao: false }],
 ];
 
