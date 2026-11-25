@@ -230,6 +230,17 @@ export const RECEITAS = [
   { id: 'la-azul', faz: [I.LA_AZUL, 1], usa: [[I.LA_BRANCA, 1], [I.FLOR_AZUL, 1]], grupo: 'cores' },
   { id: 'la-verde', faz: [I.LA_VERDE, 1], usa: [[I.LA_BRANCA, 1], [I.CAPIM, 1]], grupo: 'cores' },
   { id: 'la-rosa', faz: [I.LA_ROSA, 2], usa: [[I.LA_BRANCA, 1], [I.LA_VERMELHA, 1]], grupo: 'cores' },
+  // as outras 10 cores do clássico (blocos 232..241): misturando lãs, como as tintas do clássico se misturam
+  { id: 'la-laranja', faz: [232, 2], usa: [[I.LA_VERMELHA, 1], [I.LA_AMARELA, 1]], grupo: 'cores' },
+  { id: 'la-azul-clara', faz: [234, 2], usa: [[I.LA_AZUL, 1], [I.LA_BRANCA, 1]], grupo: 'cores' },
+  { id: 'la-verde-limao', faz: [235, 2], usa: [[I.LA_VERDE, 1], [I.LA_BRANCA, 1]], grupo: 'cores' },
+  { id: 'la-preta', faz: [241, 1], usa: [[I.LA_BRANCA, 1], [I.CARVAO, 1]], grupo: 'cores' },
+  { id: 'la-cinza', faz: [236, 2], usa: [[241, 1], [I.LA_BRANCA, 1]], grupo: 'cores' },
+  { id: 'la-cinza-clara', faz: [237, 2], usa: [[236, 1], [I.LA_BRANCA, 1]], grupo: 'cores' },
+  { id: 'la-ciano', faz: [238, 2], usa: [[I.LA_AZUL, 1], [I.LA_VERDE, 1]], grupo: 'cores' },
+  { id: 'la-roxa', faz: [239, 2], usa: [[I.LA_VERMELHA, 1], [I.LA_AZUL, 1]], grupo: 'cores' },
+  { id: 'la-magenta', faz: [233, 2], usa: [[239, 1], [I.LA_ROSA, 1]], grupo: 'cores' },
+  { id: 'la-marrom', faz: [240, 1], usa: [[I.LA_BRANCA, 1], [I.TERRA, 1]], grupo: 'cores' },
   // formas que não são cubos (formas-defs.js: 80..99)
   { id: 'tronco-redondo', faz: [80, 2], usa: [[I.TRONCO, 2]], grupo: 'formas', forma: ['L', 'L'] },
   { id: 'tronco-redondo-pinheiro', faz: [81, 2], usa: [[71, 2]], grupo: 'formas', forma: ['L', 'L'] },

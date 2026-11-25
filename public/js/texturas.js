@@ -622,6 +622,17 @@ PINT[17] = (t) => la(t, 0x3d5c98);
 PINT[18] = (t) => la(t, 0xd2a634);
 PINT[19] = (t) => la(t, 0x5a8638);
 PINT[20] = (t) => la(t, 0xd38ca6);
+// lã nas outras 10 cores do clássico (blocos 232..241)
+PINT[214] = (t) => la(t, 0xd0702a);
+PINT[215] = (t) => la(t, 0xb04aa8);
+PINT[216] = (t) => la(t, 0x6a9ed4);
+PINT[217] = (t) => la(t, 0x86c23a);
+PINT[218] = (t) => la(t, 0x4a4a4e);
+PINT[219] = (t) => la(t, 0x9a9a96);
+PINT[220] = (t) => la(t, 0x2a8a96);
+PINT[221] = (t) => la(t, 0x7438a4);
+PINT[222] = (t) => la(t, 0x6e4a2c);
+PINT[223] = (t) => la(t, 0x1e1c22);
 // pedrisco: pedras arredondadas com argamassa
 PINT[21] = (t) => {
   const pc = voronoi(2101, 4, 4, 0.75), n = fbm(2102, 4, 4, 3), nf = fbm(2103, 16, 16, 2), arg = fbm(2104, 10, 10, 2);
