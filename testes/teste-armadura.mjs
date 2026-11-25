@@ -255,8 +255,13 @@ if (PARTES.includes('online')) {
   // online a sala confere a troca antes da barra mudar: no aparelho lento espera um pouco
   const vestiuBotas = await ate(a, () => { const v = window.__jogo.inv.s[40], e = document.querySelector('#armadura'); return v && v.id === 1120 && e.getAttribute('aria-label') === 'Armadura: 1 de 20'; }, null, 6000);
   ok(vestiuBotas, 'online: vestiu as botas, barra com 1 ponto (' + JSON.stringify([await vestido(a), (await hud(a)).txt]) + ')');
-  await mordida(a); await mordida(a);
+  const mordidas = [await mordida(a), await mordida(a)];
+  // a sala confirma o desgaste um pouco depois (no CI carregado pode passar de 1 s); depois volta o dia e a proteção,
+  // senão a Ana pode morrer esperando (e morrer larga as botas no chão)
+  await ate(a, () => ((window.__jogo.mercado.e.desg?.[1120] || [])[0] | 0) >= 2, null, 8000);
+  await J(a, () => { const g = window.__jogo; g.dia = 0.3; g.vida.atual = g.vida.max; g.vida.protegido = 1e9; });
   const d0 = await J(a, () => (window.__jogo.mercado.e.desg?.[1120] || [])[0] | 0);
+  if (d0 < 2) console.log('       mordidas (vida perdida):', JSON.stringify(mordidas));
   ok(d0 >= 2, 'online: as botas gastaram com as mordidas (' + d0 + ')');
   await esperar(a, 1500);
   await a.screenshot({ path: SAIDA + '/armadura-online-ana.png' });
