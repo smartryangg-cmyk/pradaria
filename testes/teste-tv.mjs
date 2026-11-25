@@ -173,6 +173,13 @@ let c1, c2;
 for (let tenta = 0; tenta < 4; tenta++) {
   await tv.evaluate((t) => { const j = window.__jogo.jog; j.pitch = -0.8; j.yaw += t ? Math.PI / 2 : 0; }, tenta);
   await espera(300);
+  // quebrar leva o tempo do material (como no clássico): pedra na mão não sai em 4 s. Se a mira caiu em
+  // pedra ou outra coisa dura do terreno sorteado, troca por terra, que a mão quebra
+  await tv.evaluate(() => {
+    const g = window.__jogo, h = g.mundo.raycast(g.camera.position, new g.camera.position.constructor(0, 0, -1).applyQuaternion(g.camera.quaternion), 6);
+    if (h && ![1, 2, 4].includes(h.b)) g.mundo.definir(h.x, h.y, h.z, 2);
+  });
+  await espera(300);
   const antes = await tv.evaluate(() => ({ ...window.__conta }));
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: ox, y: oy, id: 3 }] });
   await espera(4000);
@@ -219,10 +226,29 @@ const zB = await tv.evaluate(() => ({ ...window.__jogo.jog.pos }));
 ok(Math.hypot(zB.x - zA.x, zB.z - zA.z) > 1, 'seta para cima anda');
 // segurar OK quebra (e junta); apertar OK coloca
 await pousar();
+// precisa de chão seco ao alcance da mão: nadando no mar, o fundo fica longe demais para quebrar (o teste caía
+// assim); um morador ou bicho passando na frente da mira faz o OK conversar ou bater; e quebrar leva o tempo do
+// material (como no clássico): pedra ou pedregulho na mão não saem em 4 s. Se o lugar sorteado não serve, vai
+// para outro (mudar o bloco com definir não vale: no clássico a sala desfaz o que o jogador não tem)
+const lugarRuim = () => tv.evaluate(() => {
+  const g = window.__jogo, j = g.jog, p = j.pos;
+  if (j.naAgua) return 'água';
+  if ((g.aldeoes ? g.aldeoes.lista : []).some((a) => Math.hypot(a.grupo.position.x - p.x, a.grupo.position.z - p.z) < 16)) return 'vila';
+  if (g.bichos && g.bichos.lista && g.bichos.lista.some((b) => Math.hypot(b.x - p.x, b.z - p.z) < 8)) return 'bicho';
+  const h = g.mundo.raycast(g.camera.position, new g.camera.position.constructor(0, 0, -1).applyQuaternion(g.camera.quaternion), 5);
+  if (!h || ![1, 2, 4].includes(h.b)) return 'bloco ' + (h ? h.b : 'longe');
+  return '';
+});
 let r0, r1, colocou = false, quebrouR = false;
 for (let tenta = 0; tenta < 4 && !colocou; tenta++) {
-  await tv.evaluate((t) => { const j = window.__jogo.jog; j.pitch = -0.8; j.yaw += t ? Math.PI / 2 : 0; }, tenta);
-  await espera(300);
+  await pousar();
+  for (let k = 0; k < 8; k++) {
+    await tv.evaluate(() => { window.__jogo.jog.pitch = -0.8; });
+    await espera(300);
+    if (!(await lugarRuim())) break;
+    await tv.evaluate(() => { const j = window.__jogo.jog; j.voando = true; j.pos.x += 40; j.pos.z += 13; j.pos.y = 80; j.vel.x = j.vel.y = j.vel.z = 0; });
+    await espera(1500); await pousar();
+  }
   r0 = await tv.evaluate(() => ({ ...window.__conta }));
   await tv.keyboard.down('Enter'); await espera(4000); await tv.keyboard.up('Enter');
   await espera(2000);
@@ -250,6 +276,16 @@ await tv.keyboard.press('ArrowDown'); await espera(100);
 ok(await tv.evaluate(() => document.activeElement && document.activeElement.classList.contains('foco-tv')), 'setas navegam na pausa');
 await tv.keyboard.press('Escape'); await espera(300);
 ok(await tv.evaluate(() => !window.__jogo.pausado), 'Voltar fecha a pausa');
+// a TV perde o foco com seta e OK apertados (o soltar não chega): o personagem para de girar e de quebrar
+await pousar();
+await tv.keyboard.down('ArrowLeft'); await tv.keyboard.down('Enter'); await espera(900);
+await tv.evaluate(() => window.dispatchEvent(new Event('blur')));
+await espera(400);
+const fA = await tv.evaluate(() => ({ yaw: window.__jogo.jog.yaw, q: window.__conta.quebr }));
+await espera(1500);
+const fB = await tv.evaluate(() => ({ yaw: window.__jogo.jog.yaw, q: window.__conta.quebr, cq: !!window.__jogo.cq }));
+await tv.keyboard.up('Enter'); await tv.keyboard.up('ArrowLeft'); await espera(200);
+ok(Math.abs(fB.yaw - fA.yaw) < 0.05 && !fB.cq && fB.q === fA.q, 'TV perdeu o foco: para de girar e de quebrar (' + JSON.stringify([fA, fB]) + ')');
 
 // controle de videogame (Gamepad API simulado): alavanca anda, A pula, Start pausa
 await tv.evaluate(() => {

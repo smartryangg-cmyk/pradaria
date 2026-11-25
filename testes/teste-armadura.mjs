@@ -248,7 +248,9 @@ if (PARTES.includes('online')) {
   await J(a, () => window.__jogo.abrirInventario('mochila')); await esperar(a, 400);
   await a.click(slot('s', await espacoDe(a, 1120)), { modifiers: ['Shift'] });
   await a.keyboard.press('Escape'); await esperar(a, 300);
-  ok((await vestido(a))[3] === 1120 && (await hud(a)).txt === 'Armadura: 1 de 20', 'online: vestiu as botas, barra com 1 ponto');
+  // online a sala confere a troca antes da barra mudar: no aparelho lento espera um pouco
+  const vestiuBotas = await ate(a, () => { const v = window.__jogo.inv.s[40], e = document.querySelector('#armadura'); return v && v.id === 1120 && e.getAttribute('aria-label') === 'Armadura: 1 de 20'; }, null, 6000);
+  ok(vestiuBotas, 'online: vestiu as botas, barra com 1 ponto (' + JSON.stringify([await vestido(a), (await hud(a)).txt]) + ')');
   await mordida(a); await mordida(a);
   const d0 = await J(a, () => (window.__jogo.mercado.e.desg?.[1120] || [])[0] | 0);
   ok(d0 >= 2, 'online: as botas gastaram com as mordidas (' + d0 + ')');
