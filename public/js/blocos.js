@@ -40,7 +40,7 @@ function def(id, nome, tiles, o = {}) {
   BLOCOS[id] = {
     id, nome, tiles: Array.isArray(tiles) ? tiles : [tiles, tiles, tiles],
     solido: o.solido ?? true, opaco: o.opaco ?? true, planta: !!o.planta, agua: !!o.agua,
-    forma: o.forma || null, chao: !!o.chao, brilho: o.brilho || 0, icone: o.icone ?? null,
+    forma: o.forma || null, chao: o.chao === undefined ? null : !!o.chao, brilho: o.brilho || 0, icone: o.icone ?? null,
   };
 }
 def(AR, 'Ar', 0, { solido: false, opaco: false });
@@ -76,7 +76,7 @@ def(B.LA_PRETA, 'Lã preta', 223);
 def(B.ABOBORA, 'Abóbora', [224, 224, 225]);
 def(B.COGUMELO_MARROM, 'Cogumelo marrom', 226, { solido: false, opaco: false, planta: true });
 def(B.COGUMELO_VERMELHO, 'Cogumelo vermelho', 227, { solido: false, opaco: false, planta: true });
-def(B.TEIA_BLOCO, 'Teia', 228, { solido: false, opaco: false, planta: true }); // prende quem passa (jogador.js); com espada sai fio
+def(B.TEIA_BLOCO, 'Teia', 228, { solido: false, opaco: false, planta: true, chao: false }); // prende quem passa (jogador.js); com espada sai fio; fica no ar (pendurada no teto)
 def(B.PEDRISCO, 'Pedrisco', 21);
 def(B.LAMPIAO, 'Lampião', 22);
 def(B.FLOR_AZUL, 'Flor azul', 23, { solido: false, opaco: false, planta: true });
@@ -272,7 +272,7 @@ export const PRECISA_CHAO = new Uint8Array(256); // some se tirar o bloco de bai
 for (const b of BLOCOS) {
   if (!b) continue;
   SOLIDO[b.id] = b.solido ? 1 : 0; OPACO[b.id] = b.opaco ? 1 : 0; PLANTA[b.id] = b.planta ? 1 : 0; AGUA[b.id] = b.agua ? 1 : 0;
-  BRILHO[b.id] = b.brilho; PRECISA_CHAO[b.id] = b.planta || b.chao ? 1 : 0;
+  BRILHO[b.id] = b.brilho; PRECISA_CHAO[b.id] = (b.planta && b.chao !== false) || b.chao ? 1 : 0;
 }
 BRILHO[B.LAMPIAO] = 1;
 for (let n = 1; n <= 7; n++) NIVEL[AGUA_CORRENTE[n]] = n;

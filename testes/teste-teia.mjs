@@ -4,7 +4,8 @@
 // Uso: (cd public && python3 -m http.server 8765), `npm run dev:sala` e `npm run dev` (8788), e
 //   node testes/teste-teia.mjs        (PARTES=regras,tablet,pc,online)
 import { createRequire } from 'module'; const { chromium, devices } = createRequire(import.meta.url)('playwright');
-import { BLOCOS, INVENTARIO } from '../public/js/blocos.js';
+import { BLOCOS, INVENTARIO, PRECISA_CHAO } from '../public/js/blocos.js';
+import { PRECISA_CHAO as CHAO_REDE } from '../public/js/blocos-rede.js';
 import { tempoQuebrar } from '../public/js/quebra-regras.js';
 import { oQueCai } from '../public/js/receitas.js';
 import { criarGerador } from '../public/js/gerador.js';
@@ -17,6 +18,7 @@ const TEIA = 245, FIO = 1111, ESPADA_PEDRA = 1114;
 if (PARTES.includes('regras')) {
   ok(BLOCOS[TEIA] && BLOCOS[TEIA].nome === 'Teia' && !BLOCOS[TEIA].solido, 'a teia existe e dá para entrar nela');
   ok(INVENTARIO.includes(TEIA), 'a teia está no inventário do criativo');
+  ok(!PRECISA_CHAO[TEIA] && !CHAO_REDE.has(TEIA) && PRECISA_CHAO[243] && CHAO_REDE.has(244), 'a teia fica pendurada no teto (não cai quando tiram o de baixo); cogumelo precisa de chão');
   const mao = tempoQuebrar(TEIA, 0, BLOCOS[TEIA]), esp = tempoQuebrar(TEIA, ESPADA_PEDRA, BLOCOS[TEIA]), pic = tempoQuebrar(TEIA, 1002, BLOCOS[TEIA]);
   ok(mao === 20 && Math.abs(esp - 0.4) < 0.01 && pic === 20, `teia: mão ${mao} s, espada ${esp} s, picareta ${pic} s (clássico: 20 / 0,4 / 20)`);
   ok(JSON.stringify(oQueCai(TEIA, 1, 2, 3, true, 0, true)) === '[]', 'teia com a mão: some sem dar nada');
