@@ -3,7 +3,7 @@
 // machuca menos e a armadura gasta. Peça na mão + usar veste. Morreu: a armadura cai junto.
 // Celular e tablet: vestir tocando (mover rápido) e com toque na tela; a janela cabe na tela.
 // Online: o couro vem da caça, a bota sai da bancada (a sala confere) e o desgaste fica guardado na sala.
-// Uso: (cd public && python3 -m http.server 8772), `npm run dev:sala` e `npm run dev` (8788), e
+// Uso: (cd public && python3 -m http.server 8765), `npm run dev:sala` e `npm run dev` (8788), e
 //   node testes/teste-armadura.mjs        (PARTES=pc,toque,online)
 import { createRequire } from 'module'; const { chromium, devices } = createRequire(import.meta.url)('playwright');
 const URL = process.env.URL || 'http://localhost:8765', ONLINE = process.env.ONLINE || 'http://localhost:8788', SAIDA = process.env.SAIDA || '/tmp';
@@ -78,13 +78,17 @@ if (PARTES.includes('pc')) {
   await esperar(p, 400);
   await J(p, () => window.__jogo.usar(null)); await esperar(p, 600);
   ok(await J(p, () => !document.querySelector('#inventario').hidden && window.__jogo.inv.w === 3), 'usar a bancada abriu a grade 3x3');
-  ok(await p.isVisible('.inv-armadura') && (await p.$$('.inv-armadura .slot-inv')).length === 4, 'a janela mostra os 4 espaços de vestir');
   // pega os 5 couros e larga 1 em cada espaço do arco (clique direito)
   await p.click(slot('s', await espacoDe(p, 1008)));
   for (const i of [0, 1, 2, 3, 5]) await p.click(slot('g', i), { button: 'right' });
   ok(await p.isVisible('#inv-saida.pronta') && await J(p, () => document.querySelector('#inv-saida').getAttribute('aria-label')) === 'Criar Capacete de couro', 'o arco de couro na grade faz o capacete');
   await p.click('#inv-saida');
   ok(await J(p, () => window.__jogo.inv.cursor && window.__jogo.inv.cursor.id === 1117), 'pegou o capacete criado');
+  // como no clássico, a bancada não mostra a armadura: fecha e abre a mochila (E)
+  await p.click('#inventario [data-fechar]'); await esperar(p, 300);
+  await J(p, () => window.__jogo.abrirInventario('mochila')); await esperar(p, 300);
+  ok(await p.isVisible('.inv-armadura') && (await p.$$('.inv-armadura .slot-inv')).length === 4 && await p.isVisible('.inv-boneco img.retrato'), 'a mochila mostra os 4 espaços de vestir e o boneco');
+  await p.click(slot('s', await espacoDe(p, 1117)));
   await p.click(slot('s', 38)); // espaço do peito: não entra
   ok(await J(p, () => !window.__jogo.inv.s[38] && window.__jogo.inv.cursor?.id === 1117), 'capacete não entra no espaço do peito');
   await p.click(slot('s', 37));

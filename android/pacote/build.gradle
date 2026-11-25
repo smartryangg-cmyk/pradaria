@@ -1,0 +1,23 @@
+plugins { id "com.android.library" }
+
+// O jogo inteiro (a pasta public/ do site) vai dentro dos apps Android, em assets/jogo/.
+// O app abre o jogo daqui mesmo, sem internet; só /api/ (contas, mundos online) usa a rede.
+// O pacote.json (lista dos arquivos com sha256 e o número da versão) é gerado por scripts/pacote-app.mjs.
+android {
+    namespace "dev.pradaria.pacote"
+    compileSdk 35
+    defaultConfig { minSdk 21 }
+    sourceSets { main { assets.srcDirs += ["$buildDir/jogo-assets"] } }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+def copiarJogo = tasks.register("copiarJogo", Sync) {
+    from(rootProject.file("../public")) {
+        exclude ".well-known/**", "_headers", "_redirects", "sw.js"
+    }
+    into "$buildDir/jogo-assets/jogo"
+}
+preBuild.dependsOn copiarJogo

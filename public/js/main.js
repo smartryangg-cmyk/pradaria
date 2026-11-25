@@ -5,7 +5,7 @@ import { F } from './formas.js';
 import { FOLHAGEM } from './blocos.js';
 import { CANA, cabeCana } from './cana-regras.js';
 import { BOLO_ITEM, BOLO_B, ehBolo, depoisDaFatia } from './bolo-regras.js';
-import { criarAtlas, iconeBloco, INVENTARIO, INVENTARIO_MAQUINAS, INVENTARIO_FORMAS, B, E, AR, BLOCOS, SOLIDO, AGUA, PRECISA_CHAO, ITEM, ehItem, nomeDe, FORNALHA } from './blocos.js';
+import { criarAtlas, iconeBloco, INVENTARIO, INVENTARIO_MAQUINAS, INVENTARIO_FORMAS, B, E, AR, BLOCOS, SOLIDO, AGUA, PRECISA_CHAO, ITEM, ehItem, nomeDe, FORNALHA, BLOCOS_EXTRAS } from './blocos.js';
 import { toquesCom, receitasDoMundo, GRUPOS, podeCriar, faltaBancada, gastoDe, receitaDaGrade, arrumar, cabeNaGrade, pilhaDe, cabe, nivelFalta, NOME_NIVEL, baseDe, DURA } from './receitas.js';
 import { Inventario, MAO2, ARMA } from './inventario.js';
 import { reduzir, defesa, parteDe, PROTEGE, NOME_PARTE } from './armadura-regras.js';
@@ -67,7 +67,7 @@ import { Mecanismos } from './mecanismos.js';
 import { Guerra } from './guerra.js';
 import { confirmarIdade16, seletorData } from './idade.js';
 import { ligarHub, abrirJogos } from './hub.js';
-import { modoTV, iniciarTV } from './tv.js';
+import { modoTV, iniciarTV, focaveis } from './tv.js';
 import { Lobby } from './lobby.js';
 import { criarAmigos } from './amigos.js';
 import { jogo as dadosJogo } from './jogos.js';
@@ -525,10 +525,13 @@ function abrirInventario(aba) {
   g.innerHTML = ''; g.dataset.aba = abaInv;
   g.classList.toggle('receitas', abaInv === 'criar');
   g.classList.toggle('inv-classico', abaInv === 'mochila');
+  const cl = abaInv === 'mochila' && sobrev(), fe = $('#inventario [data-fechar]');
+  $('#inventario').classList.toggle('classico', cl); // a janela do clássico: sem título, abas nem botão grande
+  fe.innerHTML = cl ? icone('fechar') : 'Fechar'; fe.setAttribute('aria-label', 'Fechar'); fe.title = 'Fechar';
   if (abaInv === 'criar') desenharReceitas(g);
   else if (abaInv === 'mochila') desenharMochila(g);
   else {
-    const lista = abaInv === 'maquinas' ? INVENTARIO_MAQUINAS : abaInv === 'formas' ? INVENTARIO_FORMAS : [...INVENTARIO, ...FERRAMENTAS_CRIATIVO];
+    const lista = abaInv === 'maquinas' ? INVENTARIO_MAQUINAS : abaInv === 'formas' ? INVENTARIO_FORMAS : [...INVENTARIO.filter((b) => opcoesMundo.extras !== false || !BLOCOS_EXTRAS.has(b)), ...FERRAMENTAS_CRIATIVO];
     for (const id of lista) {
       const b = document.createElement('button');
       b.title = nomeDe(id);
@@ -634,10 +637,60 @@ function slotInv(l, i, p, cls = '') {
   return b;
 }
 function receitaNaGrade() { return receitaDaGrade(inv.gradeIds(), inv.w, receitasDoMundo(opcoesMundo)); }
+// o boneco do jogador na mochila (como no clássico): uma foto tirada com o próprio renderizador do jogo
+// (sem abrir outro WebGL: o tablet fraco agradece), refeita só quando a roupa muda
+let retrato = null;
+function retratoJogador() {
+  const sk = meuSkin(), chave = JSON.stringify(sk);
+  if (retrato && retrato.chave === chave) return retrato.url;
+  try {
+    const W = 120, H = 180;
+    if (!retrato) {
+      const cena = new THREE.Scene();
+      cena.add(new THREE.HemisphereLight(0xfff6e0, 0x6a7a55, 1.6));
+      const sol = new THREE.DirectionalLight(0xffffff, 1.8); sol.position.set(2, 4, 3); cena.add(sol);
+      const cam = new THREE.PerspectiveCamera(30, W / H, 0.1, 50);
+      cam.position.set(0, 1.05, 5.4); cam.lookAt(0, 0.95, 0);
+      const rt = new THREE.WebGLRenderTarget(W, H); rt.texture.colorSpace = THREE.SRGBColorSpace;
+      retrato = { cena, cam, rt, boneco: null, chave: '', url: null };
+    }
+    if (retrato.boneco) vestirBoneco(retrato.boneco, sk);
+    else { retrato.boneco = montarBoneco(sk); retrato.cena.add(retrato.boneco.grupo); }
+    poseNeutra(retrato.boneco);
+    retrato.boneco.grupo.rotation.y = 0.45;
+    const antes = renderer.getRenderTarget(), cor = renderer.getClearColor(new THREE.Color()), alfa = renderer.getClearAlpha();
+    renderer.setRenderTarget(retrato.rt); renderer.setClearColor(0x000000, 0); renderer.clear();
+    renderer.render(retrato.cena, retrato.cam);
+    const px = new Uint8Array(W * H * 4);
+    renderer.readRenderTargetPixels(retrato.rt, 0, 0, W, H, px);
+    renderer.setRenderTarget(antes); renderer.setClearColor(cor, alfa);
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const c2 = cv.getContext('2d'), img = c2.createImageData(W, H);
+    for (let y = 0; y < H; y++) img.data.set(px.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4); // a foto vem de ponta-cabeça
+    c2.putImageData(img, 0, 0);
+    retrato.url = cv.toDataURL(); retrato.chave = chave;
+    return retrato.url;
+  } catch { return null; }
+}
 function desenharMochila(g) {
   arrumarMochila();
   g.innerHTML = '';
-  const cima = document.createElement('div'); cima.className = 'inv-cima';
+  // topo, como no clássico: o nome do que está aberto à esquerda; livro de receitas e mover rápido (toque) à direita
+  // (o Fechar vira um X no canto: #inventario.classico)
+  const topo = document.createElement('div'); topo.className = 'inv-topo';
+  const nome = document.createElement('span'); nome.className = 'inv-nome';
+  nome.textContent = fornoAberto ? 'Fornalha' : bauAberto ? 'Baú' : inv.w === 3 ? 'Bancada' : ''; // na mochila o "Criação" fica em cima da grade 2x2
+  const bts = document.createElement('span'); bts.className = 'inv-bts';
+  const bt = (id, ic, rotulo, fn, ligado) => {
+    const b = document.createElement('button'); b.type = 'button'; b.id = id; b.className = 'bt-ic' + (ligado ? ' ligado' : '');
+    b.innerHTML = icone(ic); b.title = rotulo; b.setAttribute('aria-label', rotulo);
+    if (ligado !== undefined) b.setAttribute('aria-pressed', !!ligado);
+    b.addEventListener('click', fn); bts.appendChild(b);
+  };
+  if (!bauAberto) bt('inv-livro', 'livro', 'Livro de receitas', () => { som.clique(); abrirInventario('criar'); });
+  if (toqueInv) bt('inv-rapido', 'raio', 'Mover rápido', () => { moverRapido = !moverRapido; som.clique(); desenharMochila(g); }, moverRapido);
+  topo.append(nome, bts);
+  const cima = document.createElement('div'); cima.className = 'inv-cima' + (fornoAberto ? ' c-forno' : bauAberto ? ' c-bau' : inv.w === 3 ? ' c-bancada' : ' c-mochila');
   // grade de criar e o resultado
   const criar = document.createElement('div'); criar.className = 'inv-criar';
   const gr = document.createElement('div'); gr.className = 'grade-criar w' + inv.w;
@@ -648,27 +701,32 @@ function desenharMochila(g) {
   saida.id = 'inv-saida';
   if (r) saida.setAttribute('aria-label', `Criar ${nomeDe(r.faz[0])}`);
   criar.append(gr, seta, saida);
-  const forno = fornoAberto ? painelForno() : bauAberto ? painelBau() : null;
-  const lado = document.createElement('div'); lado.className = 'inv-lado';
-  const m2 = document.createElement('label'); m2.className = 'inv-mao2';
-  m2.append(slotInv('s', MAO2, inv.s[MAO2], 'mao2'), Object.assign(document.createElement('small'), { textContent: 'Segunda mão' }));
-  const rap = document.createElement('button'); rap.type = 'button'; rap.id = 'inv-rapido'; rap.className = 'bt-mini' + (moverRapido ? ' ligado' : '');
-  rap.setAttribute('aria-pressed', moverRapido); rap.innerHTML = icone('raio'); rap.append(' Mover rápido');
-  rap.addEventListener('click', () => { moverRapido = !moverRapido; som.clique(); desenharMochila(g); });
-  // armadura vestida (só no jogo clássico, onde ela protege): cabeça, peito, pernas e pés
-  let arm = null;
-  if (mercado.op.fome || inv.vestido().length) {
-    arm = document.createElement('div'); arm.className = 'inv-armadura'; arm.setAttribute('aria-label', 'Armadura vestida');
-    for (let k = 0; k < 4; k++) arm.appendChild(slotInv('s', ARMA + k, inv.s[ARMA + k], 'arm'));
+  if (fornoAberto) cima.append(painelForno());
+  else if (bauAberto) cima.append(painelBau());
+  else if (inv.w === 3) cima.append(criar); // bancada: só a grade 3x3 (como no clássico)
+  else {
+    // mochila: armadura vestida, o boneco com a segunda mão e a grade 2x2
+    if (mercado.op.fome || inv.vestido().length) {
+      const arm = document.createElement('div'); arm.className = 'inv-armadura'; arm.setAttribute('aria-label', 'Armadura vestida');
+      for (let k = 0; k < 4; k++) arm.appendChild(slotInv('s', ARMA + k, inv.s[ARMA + k], 'arm'));
+      cima.append(arm);
+    }
+    const bon = document.createElement('div'); bon.className = 'inv-boneco';
+    const foto = retratoJogador();
+    if (foto) { const im = new Image(); im.src = foto; im.alt = 'Você'; im.draggable = false; im.className = 'retrato'; bon.append(im); }
+    const m2 = slotInv('s', MAO2, inv.s[MAO2], 'mao2'); m2.title = 'Segunda mão';
+    bon.append(m2);
+    const cr = document.createElement('div'); cr.className = 'inv-criar-col';
+    const rc = document.createElement('span'); rc.className = 'inv-nome'; rc.textContent = 'Criação';
+    cr.append(rc, criar);
+    cima.append(bon, cr);
   }
-  lado.append(m2, rap);
-  if (arm) cima.append(arm);
-  cima.append(forno || criar, lado);
   const moch = document.createElement('div'); moch.className = 'inv-mochila';
   for (let i = 9; i < 36; i++) moch.appendChild(slotInv('s', i, inv.s[i]));
   const bar = document.createElement('div'); bar.className = 'inv-barra';
   for (let i = 0; i < 9; i++) bar.appendChild(slotInv('s', i, inv.s[i], i === slotSel ? 'sel' : ''));
-  g.append(cima, moch, bar);
+  const rot = document.createElement('span'); rot.className = 'inv-nome inv-nome-moch'; rot.textContent = 'Mochila';
+  g.append(topo, cima, rot, moch, bar);
   if (fornoAberto) desenharForno();
   if (inv.extra.length) {
     const ex = document.createElement('div'); ex.className = 'inv-extra';
@@ -1322,7 +1380,9 @@ function verLugar() {
 const el = document.documentElement;
 const pedirTela = el.requestFullscreen || el.webkitRequestFullscreen;
 const emTelaCheia = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
-const ehApp = matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone || new URLSearchParams(location.search).get('app') === 'android' || new URLSearchParams(location.search).has('appv');
+// app Android: o jogo vem de dentro do app (android/pacote) e o app se apresenta no user agent como PradariaApp/1.0.N
+const appAndroid = (navigator.userAgent.match(/PradariaApp\/([\w.]{1,20})/) || [])[1] || null;
+const ehApp = !!appAndroid || matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone || new URLSearchParams(location.search).get('app') === 'android' || new URLSearchParams(location.search).has('appv');
 function alternarTela() {
   som.iniciar();
   if (emTelaCheia()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
@@ -1348,7 +1408,7 @@ document.addEventListener('fullscreenchange', atualizarBotaoTela);
 document.addEventListener('webkitfullscreenchange', atualizarBotaoTela);
 
 // ---------- instalar o app ----------
-if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('/sw.js').catch(() => {});
+if (!appAndroid && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('/sw.js').catch(() => {});
 let pedidoInstalar = null;
 const ehIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 function mostrarInstalar(sim) { document.querySelectorAll('.instalar').forEach((b) => { b.hidden = !sim || !!ehApp; }); }
@@ -1356,7 +1416,7 @@ addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); pedidoInsta
 addEventListener('appinstalled', () => { pedidoInstalar = null; mostrarInstalar(false); aviso('Pronto! O Pradaria está na sua tela de início!', 3500, 'estrela'); });
 // ---------- versão (tela inicial e pausa) ----------
 // o app Android abre o site com ?appv=1.0.N (o jogo navega só pelo #, então o endereço continua com ela)
-const versaoApp = /^[\w.]{1,20}$/.test(new URLSearchParams(location.search).get('appv') || '') ? new URLSearchParams(location.search).get('appv') : null;
+const versaoApp = appAndroid || (/^[\w.]{1,20}$/.test(new URLSearchParams(location.search).get('appv') || '') ? new URLSearchParams(location.search).get('appv') : null);
 function textoVersao() {
   const jogo = VERSAO.numero === 'teste' ? 'Versão de teste' : `Versão ${VERSAO.numero}` + (VERSAO.data ? ` · ${VERSAO.data}` : '') + (VERSAO.hash ? ` · ${VERSAO.hash}` : '');
   const app = versaoApp ? ` · App Android ${versaoApp}` : (new URLSearchParams(location.search).get('app') === 'android' ? ' · App Android' : '');
@@ -2514,7 +2574,7 @@ $('#m-conta').addEventListener('submit', async (e) => {
     levarSkinLocal(); levarModelosLocal();
     $('#c-senha').value = '';
     abrirJogos();
-  } catch (err) { $('#c-erro').textContent = err.message; }
+  } catch (err) { $('#c-erro').textContent = err instanceof TypeError || !navigator.onLine ? 'Sem internet agora. Para entrar na conta precisa de internet; sem ela, dá para jogar em "Jogar sem conta".' : err.message; }
   $('#c-ok').disabled = false;
 });
 const sairDaConta = () => { conta.salvar(null); conta.usuario = null; lobby.fechar(); mostrarMenu('m-inicio'); };
@@ -2556,7 +2616,7 @@ $('#bt-chamar-amigos').addEventListener('click', () => {
   som.clique(); $('#pausa').hidden = true;
   amigos.abrir({ jogo: 'pradaria', sala: mundoAtual.codigo, titulo: mundoAtual.nome }, () => { if (jogando) abrirPausa(); });
 });
-ligarHub({ lobby, amigos, mostrarMenu, abrirMundos, som: () => { som.iniciar(); som.clique(); }, abrirConta: (m, msg) => { abrirConta(m); if (msg) $('#c-erro').textContent = msg; } });
+ligarHub({ lobby, amigos, mostrarMenu, abrirMundos, semRede, som: () => { som.iniciar(); som.clique(); }, abrirConta: (m, msg) => { abrirConta(m); if (msg) $('#c-erro').textContent = msg; } });
 ligarApagarConta(() => mostrarMenu('m-inicio'));
 $('#bt-personagem').addEventListener('click', () => abrirPersonagem());
 $('#bt-personagem2').addEventListener('click', () => abrirPersonagem());
@@ -2596,9 +2656,23 @@ async function abrirMundos() {
     mostrarMenu('m-mundos');
   } catch (err) {
     if (/sess|entrar|401/i.test(err.message)) { conta.salvar(null); conta.usuario = null; abrirConta('entrar'); $('#c-erro').textContent = 'Entre de novo, por favor.'; }
+    else if (semRede(err)) mostrarMenu('m-inicio');
     else { mostrarMenu('m-inicio'); alert('Não consegui falar com o servidor agora. Você pode jogar sem internet.\n\n' + err.message); }
   }
 }
+// ---------- sem internet: avisa na tela inicial (sem janela de alerta) e abre a conta sozinho quando a internet voltar ----------
+// o fetch sem rede dá TypeError ("Failed to fetch"); o app Android e o celular em modo avião caem aqui
+function semRede(err) {
+  if (navigator.onLine && !(err instanceof TypeError)) return false;
+  $('#inicio-sem-rede').hidden = false;
+  return true;
+}
+addEventListener('online', () => {
+  $('#inicio-sem-rede').hidden = true;
+  if (conta.token && !jogando && !$('#menu').hidden && !$('#m-inicio').hidden) abrirJogos();
+});
+if (!navigator.onLine) $('#inicio-sem-rede').hidden = false;
+addEventListener('offline', () => { if (!jogando && !$('#menu').hidden && !$('#m-inicio').hidden) $('#inicio-sem-rede').hidden = false; });
 
 // ---------- criar mundo: nome + opções (o que vai ter no mundo) + semente ----------
 const iconesOpcoes = (o) => { const n = normalizarOpcoes(o); return (n.tipo !== 'normal' ? icone(TIPOS[n.tipo].icone, 'ic-svg ic-mini') : '') + (n.estilo !== 'blocos' ? icone(ESTILOS[n.estilo].icone, 'ic-svg ic-mini') : '') + (TIPOS[n.tipo].limite ? '' : icone(TAMANHOS[n.tamanho].icone, 'ic-svg ic-mini')) + OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => icone(x.icone, 'ic-svg ic-mini')).join(''); };
@@ -2760,6 +2834,7 @@ function laco(agora) {
   if (jog.quicou) { jog.quicou = false; som.boing(); }
   bichos.trigoNaMao = naMao() === B.TRIGO && (!sobrev() || qtd(B.TRIGO) > 0);
   bichos.atualizar(pausado ? 0 : dt, jog, tempoTotal, tempoDia);
+  if (mundo.matSuave) graf.pisar(bichos.pequenosPerto(jog.pos.x, jog.pos.z, 6));
   aldeoes.atualizar(dt, jog, Math.sin(tempoDia * Math.PI * 2));
   mecanismos.atualizar(pausado ? 0 : dt, jog, graf.U.uVento.value === 0);
   negocios.atualizar(dt, jog, tempoDia);
@@ -2951,6 +3026,17 @@ const tv = iniciarTV({
     try { if (jogando) sairDoMundo({ semMenu: true }); await entrarPorCodigo(codigo); } catch (err) { aviso(err.message, 3000, 'relogio'); abrirMundos(); }
   },
 });
+// botão Voltar do Android (app): pausa o jogo, fecha a janela aberta ou volta de tela.
+// false = já está na tela inicial (o app pergunta se quer sair)
+window.pradariaVoltar = () => {
+  if (personagem.aberto) { personagem.fechar(); return true; }
+  if (jogando) { if (pausado) fecharJanelas(); else abrirPausa(); return true; }
+  const bt = focaveis().find((b) => b.matches('[data-voltar], [data-voltar-mundos], #e-cancelar, #bt-voltar-jogos, #pers-cancelar'));
+  if (bt) { bt.click(); return true; }
+  return false;
+};
+// avisos que vêm do app (arquivo do mundo guardado etc.)
+window.pradariaAviso = (t) => aviso(String(t).slice(0, 120), 3000);
 requestAnimationFrame(laco);
 addEventListener('beforeunload', () => salvarLocal());
 document.addEventListener('visibilitychange', () => { som.pausarTudo(document.hidden); if (document.hidden) { salvarLocal(); if (jogando) enviarBarra(); } });

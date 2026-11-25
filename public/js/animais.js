@@ -28,6 +28,7 @@ const TAU = Math.PI * 2;
 // cresce sozinho. Quem segura trigo é seguido pelos bichos que comem trigo.
 export const COMEM_TRIGO = new Set(['vaca', 'ovelha', 'porquinho', 'galinha', 'capivara', 'coelho']);
 export const AMOR = 30;          // segundos apaixonado
+const PEQUENOS = { cobra: 1, coelho: 1, galinha: 1 }; // somem no capim alto (o capim deita em volta)
 export const ESPERA_CRIA = 300;  // pais descansam 5 min antes de ter outro filhote
 export const CRESCER = 600;      // filhote vira adulto em 10 min
 const MAX_COM_CRIAS = MAX + 6;   // filhotes nascidos podem passar um pouco do limite de bichos perto
@@ -119,6 +120,21 @@ export class Bichos {
     this.cena.add(b.grupo);
     this.lista.push(b);
     return b;
+  }
+
+  // Natural 3D: os bichos pequenos (filhotes, cobra, coelho, pintinho e galinha) mais perto de (px, pz), até n,
+  // como [x, y, z, raio] para o capim em volta deitar (graficos.pisar). A cobra conta pelo meio do corpo.
+  pequenosPerto(px, pz, n) {
+    const r = [];
+    for (const b of this.lista) {
+      if (b.caindo || !(b.filhote || PEQUENOS[b.especie])) continue;
+      const d2 = (b.x - px) ** 2 + (b.z - pz) ** 2;
+      if (d2 > 30 * 30) continue;
+      const ry = b.grupo.rotation.y, atras = b.especie === 'cobra' ? 0.55 : 0;
+      r.push([d2, b.x - Math.sin(ry) * atras, b.y, b.z - Math.cos(ry) * atras, b.especie === 'cobra' ? 1.15 : 0.85]);
+    }
+    r.sort((a, b) => a[0] - b[0]);
+    return r.slice(0, n).map((e) => e.slice(1));
   }
 
   // que lugar é este? (no mundo clássico vem do bioma; perto d'água vira "beira")

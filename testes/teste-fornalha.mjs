@@ -106,7 +106,7 @@ if (PARTES.includes('pc')) {
   await olharAlvo(p, c); await esperar(p, 400); await segurar(p, 1100);
   await J(p, () => window.__jogo.usar(null)); await esperar(p, 500);
   ok(await p.isVisible('#inventario') && (await p.textContent('#inv-titulo')) === 'Bancada', 'tocou na bancada: abriu a bancada');
-  await p.click('#abas-inv button[data-aba=criar]'); await esperar(p, 300);
+  await p.click('#inv-livro:visible, #abas-inv [data-aba=criar]:visible'); await esperar(p, 300);
   await p.click('.receita[data-receita=fornalha]'); await esperar(p, 400);
   await p.click('#inv-saida'); await esperar(p, 400);
   await p.keyboard.press('Escape'); await esperar(p, 300);
