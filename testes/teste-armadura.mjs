@@ -171,6 +171,7 @@ if (PARTES.includes('toque')) for (const [nome, dev] of [['celular', devices['Pi
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await esperar(p, 400);
   ok((await vestido(p))[0] === 1125 && (await hud(p)).txt === 'Armadura: 16 de 20', `${nome}: toque na tela com o capacete de diamante na mão vestiu`);
+  if ((await vestido(p))[0] !== 1125) console.log(`FALHA (diagnóstico) ${nome}: ` + JSON.stringify(await J(p, ({ w, h }) => { const J = window.__jogo, e = document.elementFromPoint(w / 2, h / 2); return { pausado: J.pausado, pitch: J.jog.pitch, mao: J.barra && J.barra[J.slot ?? 0], vestido: J.inv && J.inv.s && J.inv.s.slice(36, 41), noMeio: e && (e.id || e.className || e.tagName), aviso: (document.querySelector('#aviso') || {}).textContent, janela: [...document.querySelectorAll('.janela')].filter((x) => !x.hidden).map((x) => x.id) }; }, { w: vp.width, h: vp.height })));
   await p.screenshot({ path: SAIDA + `/armadura-${nome}-hud.png` });
   await ctx.close();
 }

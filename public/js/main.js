@@ -1533,6 +1533,8 @@ addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' && e.code !== 'Escape') return; // digitando (nome do mundo etc.)
   if (personagem.aberto) { if (e.code === 'Escape') personagem.fechar(); return; }
   if (e.code === 'Escape' && pausado) fecharJanelas();
+  // E de novo fecha a mochila (bancada, forno, baú), como no clássico. Sem parar aqui o controle abria de novo na hora.
+  else if (e.code === 'KeyE' && !e.repeat && e.target.tagName !== 'INPUT' && !$('#inventario').hidden) { fecharJanelas(); e.stopImmediatePropagation(); }
   else if (e.target.tagName === 'INPUT') return; // escrevendo no chat (ou num campo): as letras não são atalhos
   else if (e.code === 'KeyP') abrirPausa();
   else if (e.code === 'KeyC' && !pausado && e.target.tagName !== 'INPUT') cmd.abrir();
