@@ -39,6 +39,15 @@ async function abrirApp(como) {
   info(`tela inicial em ${((Date.now() - t0) / 1000).toFixed(1)} s`);
   return p;
 }
+// toque de verdade no tablet (adb input tap) no meio do botão
+async function toque(p, sel) {
+  const el = p.locator(sel).first();
+  await el.waitFor({ state: 'visible', timeout: 30000 });
+  await el.scrollIntoViewIfNeeded();
+  const c = await el.evaluate((e) => { const r = e.getBoundingClientRect(); return [(r.left + r.width / 2) * devicePixelRatio, (r.top + r.height / 2) * devicePixelRatio]; });
+  adb('shell', 'input', 'tap', String(Math.round(c[0])), String(Math.round(c[1])));
+  await espera(600);
+}
 const internet = () => /bytes from/.test(adb('shell', 'ping', '-c', '1', '-W', '3', '8.8.8.8'));
 
 try {
@@ -59,15 +68,15 @@ try {
   ok(await p.evaluate(() => document.querySelector('#versao-inicio').textContent.includes('App Android')), 'versão: ' + await p.textContent('#versao-inicio'));
 
   // entra na conta (o online usa a internet)
-  await p.tap('#bt-entrar');
+  await toque(p, '#bt-entrar');
   await p.waitForSelector('#m-conta:not([hidden])');
   await p.fill('#c-nome', nome);
   await p.fill('#c-senha', senha);
-  await p.tap('#c-ok');
+  await toque(p, '#c-ok');
   await p.waitForSelector('#m-jogos:not([hidden])', { timeout: 30000 });
   ok(true, 'entrou na conta pelo app (internet)');
   fotoApp('conta');
-  await p.tap('#lista-jogos .jogo[data-jogo=pradaria]');
+  await toque(p, '#lista-jogos .jogo[data-jogo=pradaria]');
   await p.waitForSelector('#m-mundos:not([hidden])', { timeout: 30000 });
   ok(true, 'lista de mundos online abriu');
   adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
@@ -104,10 +113,10 @@ try {
   ok(await p.evaluate(() => [...document.images].every((i) => i.complete && i.naturalWidth > 0)), 'imagens do jogo carregadas sem internet');
 
   // novo mundo sem conta
-  await p.tap('#bt-sozinho');
+  await toque(p, '#bt-sozinho');
   await p.waitForSelector('#m-novo:not([hidden])', { timeout: 15000 });
   fotoApp('novo-mundo');
-  await p.tap('#m-novo button[type=submit]');
+  await toque(p, '#m-novo button[type=submit]');
   await p.waitForFunction(() => document.querySelector('#menu').hidden && !document.querySelector('#hud').hidden, null, { timeout: 120000 });
   await espera(8000);
   ok(await p.evaluate(() => { const c = document.querySelector('canvas'); return !!c && c.width > 300; }), 'o mundo 3D aparece sem internet');
@@ -143,7 +152,7 @@ try {
   const depois = await p.evaluate(() => { try { return JSON.parse(localStorage.getItem('pradaria.local')).semente; } catch { return null; } });
   ok(antes != null && antes === depois, `mundo salvo no aparelho depois de fechar o app (semente ${antes})`);
   ok(await p.evaluate(() => !!localStorage.getItem('pradaria.token')), 'continua com a conta guardada (abre sozinha quando a internet voltar)');
-  await p.tap('#bt-sozinho');
+  await toque(p, '#bt-sozinho');
   await p.waitForFunction(() => document.querySelector('#menu').hidden && !document.querySelector('#hud').hidden, null, { timeout: 120000 });
   ok(true, '"Jogar sem conta" continua o mesmo mundo');
   await espera(5000);
@@ -151,7 +160,7 @@ try {
   // volta para a tela inicial pela pausa
   adb('shell', 'input', 'keyevent', 'KEYCODE_BACK');
   await espera(1000);
-  await p.tap('#bt-sair-mundo');
+  await toque(p, '#bt-sair-mundo');
   await espera(2500);
   ok(await p.evaluate(() => !document.querySelector('#m-inicio').hidden), 'saiu do mundo para a tela inicial');
 
