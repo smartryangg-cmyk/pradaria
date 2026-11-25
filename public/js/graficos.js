@@ -18,6 +18,7 @@ export const PESSOAIS = { fov: 72, brilho: 1, fpsMax: 0 };
 
 // distância do "sol" até o centro da sombra e altura mínima da luz que faz sombra (seno do ângulo)
 const DIST_SOL = 90, ELEV_MIN = 0.5;
+const PISA_N = 6; // quantos bichos pequenos deitam o capim ao mesmo tempo
 const tmp = new THREE.Color(), tmp2 = new THREE.Color();
 const C = (h) => new THREE.Color(h);
 // cores do céu ao longo do dia: [zênite, horizonte]
@@ -116,6 +117,8 @@ export function criarGraficos(renderer, cena, camera, atlas) {
     uPor: { value: 0 },
     uVento: { value: 1 },
     uOndas: { value: 1 },
+    // bichos pequenos perto (x, y, z, raio): o capim em volta deita (Natural 3D). Vaga sem bicho = bem longe.
+    uPisa: { value: Array.from({ length: PISA_N }, () => new THREE.Vector4(1e5, -1e5, 1e5, 1)) },
   };
   let brilhoUsuario = 1;
 
@@ -192,6 +195,7 @@ vec3 gDirBorda = vec3(0.0);`)
     sh.uniforms.uTempo = U.uTempo;
     sh.uniforms.uNoite = U.uNoite;
     sh.uniforms.uVento = U.uVento;
+    sh.uniforms.uPisa = U.uPisa;
     Object.assign(sh.uniforms, UF);
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>
@@ -201,24 +205,44 @@ attribute vec3 corTopo;
 attribute vec3 corLado;
 uniform float uTempo;
 uniform float uVento;
+uniform vec4 uPisa[${PISA_N}];
 varying float vBrilho;
+varying float vTronco;
 varying vec3 vTopo;
 varying vec3 vLado;
 varying vec3 vMundoL;
 varying vec3 vNMundo;`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         vBrilho = brilho; vTopo = corTopo; vLado = corLado; vNMundo = objectNormal;
+        vTronco = step(onda, -0.5); // tronco de árvore (mundo.js marca com onda = -1)
         vec4 wpO = modelMatrix * vec4(transformed, 1.0);
-        if (onda * uVento > 0.0) {
+        float ond = onda;
+        // ponta de folhinha de capim (onda = 1 + altura): deita para longe de bicho pequeno, que não some no capim
+        if (ond > 1.05) {
+          float hF = ond - 1.0, kP = 0.0;
+          vec2 dirP = vec2(0.0);
+          ond = 1.0;
+          for (int i = 0; i < ${PISA_N}; i++) {
+            vec2 dd = wpO.xz - uPisa[i].xz;
+            float dist = length(dd);
+            float k = (1.0 - smoothstep(uPisa[i].w * 0.4, uPisa[i].w, dist)) * step(abs(wpO.y - uPisa[i].y), 1.3);
+            if (k > kP) { kP = k; dirP = dd / max(dist, 0.05); }
+          }
+          transformed.y -= hF * 0.72 * kP;
+          transformed.xz += dirP * hF * 0.6 * kP;
+          ond *= 1.0 - kP;
+        }
+        if (ond * uVento > 0.0) {
           float fase = uTempo * 1.6 + wpO.x * 0.55 + wpO.z * 0.4;
-          transformed.x += sin(fase) * 0.07 * onda;
-          transformed.z += cos(fase * 0.8 + wpO.y) * 0.05 * onda;
+          transformed.x += sin(fase) * 0.07 * ond;
+          transformed.z += cos(fase * 0.8 + wpO.y) * 0.05 * ond;
         }
         vMundoL = wpO.xyz;`);
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
 uniform float uNoite;
 varying float vBrilho;
+varying float vTronco;
 varying vec3 vTopo;
 varying vec3 vLado;
 varying vec3 vMundoL;
@@ -237,7 +261,12 @@ float ruidoLiso(vec2 p) {
   alb *= mix(vec3(0.84, 0.9, 1.0), vec3(1.12, 1.08, 0.88), rG);
   alb *= 0.93 + 0.14 * rP;
   diffuseColor.rgb *= alb * vColor;`)
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += diffuseColor.rgb * vBrilho * (0.6 + uNoite * 1.6);');
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += diffuseColor.rgb * vBrilho * (0.6 + uNoite * 1.6);')
+      // tronco embaixo da copa: só a luz do céu chegava e ele ficava quase preto. Ganha um pouco mais de luz
+      // do céu e uma borda clara (rim) com a cor dele; o lado do sol e as faixas da sombra continuam iguais.
+      .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+  float rimT = 1.0 - saturate(dot(geometryNormal, geometryViewDir));
+  reflectedLight.indirectDiffuse *= 1.0 + vTronco * (1.5 + smoothstep(0.45, 0.9, rimT) * 1.0);`);
   };
 
   // cor da névoa "como aparece na tela", aplicada logo antes de desenhar (já com a exposição final)
@@ -600,5 +629,13 @@ float ruidoLiso(vec2 p) {
     if (cor) matAgua.uniforms.uNevoaCor.value.copy(cor);
   }
 
-  return { matBlocos, matSuave, matAgua, atualizar, aplicar, ajustarNevoa, submerso, U, get q() { return q; }, get embaixoDagua() { return sub.ativo; } };
+  // pontos: [[x, y, z, raio], ...] dos bichos pequenos mais perto (no máximo PISA_N)
+  function pisar(pontos) {
+    for (let i = 0; i < PISA_N; i++) {
+      const p = pontos[i];
+      if (p) U.uPisa.value[i].set(p[0], p[1], p[2], p[3]); else U.uPisa.value[i].set(1e5, -1e5, 1e5, 1);
+    }
+  }
+
+  return { matBlocos, matSuave, matAgua, atualizar, aplicar, ajustarNevoa, submerso, pisar, U, get q() { return q; }, get embaixoDagua() { return sub.ativo; } };
 }

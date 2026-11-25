@@ -122,7 +122,7 @@ async function passear(p, rotulo) {
     await ir('quina olhando de lado', X + 4.5, Y + 1, Z + 2.5, -PI / 4, 0.8, ['KeyW', 'KeyD'], 700);
     // túnel: pulando e andando, olhando para cima
     for (const pitch of [0, 0.8, 1.5]) await ir('túnel pulando', X + 11.5, Y + 1, Z + 0.6, PI, pitch, ['KeyW', 'Space'], 900);
-    await ir('túnel correndo', X + 11.5, Y + 1, Z + 0.6, PI, 0.5, ['KeyW', 'Space', 'ShiftLeft'], 900);
+    await ir('túnel correndo', X + 11.5, Y + 1, Z + 0.6, PI, 0.5, ['KeyW', 'Space', 'ControlLeft'], 900);
     // vão baixo: agacha e já entra andando; dentro, solta o agachar e tenta pular
     for (const pitch of [0, 1.0, 1.5]) {
       await ir('vão baixo agachando', X + 17.5, Y + 1.5, Z + 1.5, PI, pitch, ['KeyZ', 'KeyW'], 1400);

@@ -67,7 +67,7 @@ const segurarMao = (p, id) => J(p, (id) => { const J_ = window.__jogo, i = J_.ba
   await J(p, () => { const v = window.__jogo.vida; v.fome.f = 19; v.fome.s = 0; v.fome.x = 0; v.atual = 20; v.desenhar(); });
   await J(p, ([x, y, z]) => { const j = window.__jogo.jog; j.pos.x = x + 0.5; j.pos.z = z + 7.5; j.pos.y = y + 1; j.yaw = 0; j.pitch = 0; }, [x0, y0, z0]);
   await p.click('#tela'); await esperar(p, 300);
-  await p.keyboard.down('ShiftLeft'); await p.keyboard.down('KeyW'); await esperar(p, 2000); await p.keyboard.up('KeyW'); await p.keyboard.up('ShiftLeft');
+  await p.keyboard.down('ControlLeft'); await p.keyboard.down('KeyW'); await esperar(p, 2000); await p.keyboard.up('KeyW'); await p.keyboard.up('ControlLeft');
   c = await corpo(p);
   const corria = await J(p, () => window.__jogo.jog.correndo);
   ok(c.x > 0.3 || c.f < 19, `correr cansou (cansaço ${c.x.toFixed(2)}, fome ${c.f})`);
@@ -81,9 +81,9 @@ const segurarMao = (p, id) => J(p, (id) => { const J_ = window.__jogo, i = J_.ba
   // com fome em 6 não corre
   await J(p, () => { const v = window.__jogo.vida; v.fome.f = 6; v.desenhar(); });
   await J(p, ([x, y, z]) => { const j = window.__jogo.jog; j.pos.x = x + 0.5; j.pos.z = z + 7.5; j.pos.y = y + 1; j.yaw = 0; }, [x0, y0, z0]);
-  await p.keyboard.down('ShiftLeft'); await p.keyboard.down('KeyW'); await esperar(p, 700);
+  await p.keyboard.down('ControlLeft'); await p.keyboard.down('KeyW'); await esperar(p, 700);
   const correu6 = await J(p, () => window.__jogo.jog.correndo);
-  await p.keyboard.up('KeyW'); await p.keyboard.up('ShiftLeft');
+  await p.keyboard.up('KeyW'); await p.keyboard.up('ControlLeft');
   ok(!correu6, 'com a fome em 3 coxinhas não dá para correr');
   ok(await J(p, () => document.querySelector('#fome').classList.contains('treme')), 'fome baixa: as coxinhas tremem');
   await p.screenshot({ path: SAIDA + '/fome-pc-fraco.png' });

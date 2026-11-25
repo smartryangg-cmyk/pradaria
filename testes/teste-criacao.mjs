@@ -10,7 +10,7 @@ async function criarReceita(q, r) {
   await q.click(`[data-receita=${r}]`);
   if (await q.isVisible('#inv-saida.pronta')) await q.click('#inv-saida');
   await q.waitForTimeout(150);
-  if (await q.isVisible('#abas-inv [data-aba=criar]')) await q.click('#abas-inv [data-aba=criar]');
+  if (await q.isVisible('#inv-livro:visible, #abas-inv [data-aba=criar]:visible')) await q.click('#inv-livro:visible, #abas-inv [data-aba=criar]:visible');
 }
 const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const erros = [];

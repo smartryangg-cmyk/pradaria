@@ -1,4 +1,4 @@
-// Movimentos do boneco, jogando de verdade: parado (respira), andando, correndo (Shift), agachado (Z),
+// Movimentos do boneco, jogando de verdade: parado (respira), andando, correndo (Ctrl ou W duas vezes, como no clássico), agachado (Shift ou Z),
 // pulando, aterrissando, caindo de alto, nadando, voando; cabeça seguindo a câmera; olhos e balanço
 // na 1ª pessoa; flags para os amigos; e no tablet o toque duplo no joystick (correr) e o botão de agachar.
 // Também simula um amigo (mensagens 'pos') para ver ele andar/correr/agachar.
@@ -117,11 +117,11 @@ const voltar = (p, extra = '') => p.evaluate((extra) => {
   ok(Math.max(...and.map((e) => Math.max(...e.canelas))) > 0.2, 'andando: joelho dobra na perna que vai para a frente');
   await voltar(p); await p.waitForTimeout(600);
 
-  // correndo: Shift + W
-  await p.keyboard.down('ShiftLeft'); await p.keyboard.down('KeyW'); await p.waitForTimeout(600);
+  // correndo: Ctrl + W (como no clássico; Shift agacha)
+  await p.keyboard.down('ControlLeft'); await p.keyboard.down('KeyW'); await p.waitForTimeout(600);
   const cor = await amostrar(p, 1500);
   await p.screenshot({ path: D('03-correndo') });
-  await p.keyboard.up('KeyW'); await p.keyboard.up('ShiftLeft');
+  await p.keyboard.up('KeyW'); await p.keyboard.up('ControlLeft');
   const vCorre = velocidade(cor), ampCorre = amplitude(cor, 'membros', 2), faseCorre = (cor.at(-1).fase - cor[0].fase) / (cor.at(-1).t - cor[0].t);
   const meio = cor[Math.floor(cor.length / 2)];
   ok(velFisica(cor) > velFisica(and) * 1.25, `correndo mais rápido: ${f2(velFisica(cor))} x ${f2(velFisica(and))} blocos/s na física (na tela: ${f2(vCorre)} x ${f2(vAnda)})`);

@@ -1,7 +1,7 @@
 // Jogo clássico: monstros da noite (Barrento e Aranha) e as espadas. De noite eles nascem no escuro, longe de
 // tocha, vêm atrás do jogador e machucam; com a espada caem e deixam o que têm (e experiência). De dia o
 // barrento queima no sol e a aranha fica quieta. No Pacífico não tem monstro.
-// Uso: (cd public && python3 -m http.server 8772), `npm run dev:sala` e `npm run dev` (8788), e
+// Uso: (cd public && python3 -m http.server 8765), `npm run dev:sala` e `npm run dev` (8788), e
 //   node testes/teste-monstros.mjs        (PARTES=pc,toque,online)
 import { createRequire } from 'module'; const { chromium, devices } = createRequire(import.meta.url)('playwright');
 const URL = process.env.URL || 'http://localhost:8765', ONLINE = process.env.ONLINE || 'http://localhost:8788', SAIDA = process.env.SAIDA || '/tmp';

@@ -80,6 +80,39 @@ function grudar(g, P, fora = 0, giro = 0) {
 }
 // disco (elipsoide achatada) de raios a, b
 const disco = (a, b, esp, cor, q = 'p') => ovo(a, b, esp, cor, 0, 0, 0, null, q);
+// mancha de desenho: um pedaço chato da própria pele (elipsoide E), de contorno irregular, colado na superfície.
+// Sem espessura e com a normal da pele: recebe a mesma luz e não ganha contorno escuro (não parece botão).
+// (u, v) = centro, a/b = raios no plano do lado, sem = semente do contorno (cada mancha sai diferente)
+function mancha(E, u, v, a, b, cor, lado = 'z', sx = 1, sem = 0) {
+  const K = 14, pos = [], nor = [], idx = [];
+  const ponto = (du, dv) => {
+    const P = pontoNa(E, u + du, v + dv, lado, sx), f = 0.005; // um fio para fora da pele (os gomos ficam por dentro)
+    pos.push(P[0] + P[3] * f, P[1] + P[4] * f, P[2] + P[5] * f); nor.push(P[3], P[4], P[5]);
+  };
+  ponto(0, 0);
+  for (const anel of [0.55, 1]) for (let i = 0; i < K; i++) {
+    const t = (i / K) * Math.PI * 2;
+    const r = anel * (1 + 0.22 * Math.sin(2 * t + sem * 1.7) + 0.14 * Math.sin(3 * t + sem * 2.9) + 0.07 * Math.cos(5 * t + sem));
+    ponto(Math.cos(t) * a * r, Math.sin(t) * b * r);
+  }
+  for (let i = 0; i < K; i++) {
+    const j = (i + 1) % K;
+    idx.push(0, 1 + i, 1 + j, 1 + i, 1 + K + i, 1 + K + j, 1 + i, 1 + K + j, 1 + j);
+  }
+  // vira os triângulos para fora (a frente de cada um olha para onde a pele olha)
+  for (let k = 0; k < idx.length; k += 3) {
+    const [i0, i1, i2] = [idx[k] * 3, idx[k + 1] * 3, idx[k + 2] * 3];
+    const ax = pos[i1] - pos[i0], ay = pos[i1 + 1] - pos[i0 + 1], az = pos[i1 + 2] - pos[i0 + 2];
+    const bx = pos[i2] - pos[i0], by = pos[i2 + 1] - pos[i0 + 1], bz = pos[i2 + 2] - pos[i0 + 2];
+    const cx = ay * bz - az * by, cy = az * bx - ax * bz, cz = ax * by - ay * bx;
+    if (cx * nor[i0] + cy * nor[i0 + 1] + cz * nor[i0 + 2] < 0) { const t = idx[k + 1]; idx[k + 1] = idx[k + 2]; idx[k + 2] = t; }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setIndex(idx);
+  return comCor(g, cor);
+}
 
 // olho de bicho: bolinha preta brilhante com um pontinho de luz
 function olhoBicho(E, u, v, r, cor = 0x1c1a1e, lado = 'z', sx = 1) {
@@ -155,15 +188,17 @@ const REDONDOS = {
     const c = 0xb5763a, branco = 0xf3ece0, E = [0, 0.02, 0.1, 0.27, 0.27, 0.25];
     const C = [0, 1.05, 0, 0.5, 0.42, 0.74];
     const corpo = [ovo(C[3], C[4], C[5], c, C[0], C[1], C[2], null, 'g'), ovo(0.17, 0.09, 0.15, 0xf2b5c0, 0, 0.66, -0.25, null, 'p')];
-    for (const [u, v, a, b, lado, sx] of [[-0.25, 1.12, 0.22, 0.17, 'x', 1], [0.25, 0.98, 0.18, 0.14, 'x', -1], [-0.05, 1.0, 0.16, 0.2, 'x', -1], [0.35, 1.1, 0.13, 0.11, 'x', 1]])
-      corpo.push(grudar(disco(a * 1.15, b * 1.15, 0.022, branco, "m"), pontoNa(C, u, v, lado, sx), -0.016));
+    // manchas brancas chatas, de contorno irregular, coladas na pele (as de um lado não repetem as do outro)
+    for (const [u, v, a, b, sx, sem] of [[-0.3, 1.1, 0.24, 0.18, 1, 1], [0.32, 1.0, 0.15, 0.13, 1, 2], [0.05, 0.86, 0.1, 0.07, 1, 3],
+      [0.22, 1.08, 0.22, 0.17, -1, 4], [-0.24, 0.92, 0.17, 0.14, -1, 5], [-0.48, 1.12, 0.09, 0.08, -1, 6]])
+      corpo.push(mancha(C, u, v, a, b, branco, 'x', sx, sem));
     corpo.push(capsula(0.035, 0.42, c, 0, 1.0, -0.76, [0.35, 0, 0]), ovo(0.06, 0.08, 0.06, 0x3a2a1a, 0, 0.8, -0.83, null, 'pp'));
     const fp = pontoNa(E, 0, -0.1);
     const cab = [ovo(E[3], E[4], E[5], c, E[0], E[1], E[2], null, 'g'), grudar(ovo(0.2, 0.13, 0.12, 0xf3d6c4), fp, -0.04),
       grudar(disco(0.025, 0.035, 0.012, 0x7a4a3a, 'pp'), fp, 0.08).translate(-0.07, 0, 0), grudar(disco(0.025, 0.035, 0.012, 0x7a4a3a, 'pp'), fp, 0.08).translate(0.07, 0, 0),
       cone(0.04, 0.16, branco, -0.17, 0.26, 0.04, [0, 0, 0.6], 6), cone(0.04, 0.16, branco, 0.17, 0.26, 0.04, [0, 0, -0.6], 6),
       ovo(0.14, 0.05, 0.08, c, -0.3, 0.1, 0.02, [0, 0.2, -0.35], 'p'), ovo(0.14, 0.05, 0.08, c, 0.3, 0.1, 0.02, [0, -0.2, 0.35], 'p'),
-      grudar(disco(0.09, 0.08, 0.02, branco), pontoNa(E, -0.13, 0.12), -0.004),
+      mancha(E, -0.12, 0.11, 0.085, 0.075, branco, 'z', 1, 7),
       ...olhoBicho(E, -0.12, 0.07, 0.045), ...olhoBicho(E, 0.12, 0.07, 0.045)];
     return { corpo, cabeca: cab, cabecaPos: [0, 1.4, 0.78], pernas: [[0.1, 0.65, 0x8e5a2b, 0x3a2a1a, [[-0.28, 0.65, 0.46], [0.28, 0.65, 0.46], [-0.28, 0.65, -0.46], [0.28, 0.65, -0.46]]]] };
   },
