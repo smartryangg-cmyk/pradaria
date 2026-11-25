@@ -218,22 +218,23 @@ export const RECEITAS = [
   { id: 'bau', faz: [223, 1], usa: [[I.TABUAS, 8]], bancada: true, grupo: 'construir', forma: ['TTT', 'T.T', 'TTT'] },
   { id: 'escada-mao', faz: [211, 3], usa: [[I.GRAVETO, 7]], bancada: true, grupo: 'construir', forma: ['G.G', 'GGG', 'G.G'] },
   { id: 'lampiao', faz: [I.LAMPIAO, 1], usa: [[I.VIDRO, 1], [I.GRAVETO, 1]], bancada: true, grupo: 'construir' },
-  { id: 'feno', faz: [I.FENO, 1], usa: [[I.TRIGO, 3]], grupo: 'construir', forma: ['WWW'] },
+  { id: 'feno', faz: [I.FENO, 1], usa: [[I.TRIGO, 9]], grupo: 'construir', forma: ['WWW', 'WWW', 'WWW'] }, // como no clássico: 9 trigos
+  { id: 'pao', faz: [I.PAO, 1], usa: [[I.TRIGO, 3]], bancada: true, grupo: 'basico', forma: ['WWW'], semExtras: true }, // pão como no clássico: 3 trigos em fila na bancada (com os blocos extras, o pão sai do moinho e do forno)
   { id: 'porta', faz: [I.PORTA, 3], usa: [[I.TABUAS, 6]], bancada: true, grupo: 'construir', forma: ['TT', 'TT', 'TT'] },
-  { id: 'forno', faz: [I.FORNO, 1], usa: [[I.PEDRA, 6], [I.PEDRISCO, 2]], bancada: true, grupo: 'construir' },
-  { id: 'manivela', faz: [I.SARILHO, 1], usa: [[I.TRONCO, 1], [I.GRAVETO, 2]], bancada: true, grupo: 'construir' },
+  { id: 'forno', faz: [I.FORNO, 1], usa: [[I.PEDRA, 6], [I.PEDRISCO, 2]], bancada: true, grupo: 'construir', extra: true },
+  { id: 'manivela', faz: [I.SARILHO, 1], usa: [[I.TRONCO, 1], [I.GRAVETO, 2]], bancada: true, grupo: 'construir', extra: true },
   // móveis (moveis.js); o pedreiro gasta o mesmo material quando faz os móveis da casa (casas.js BRUTO)
   { id: 'cama', faz: [176, 1], usa: [[I.TABUAS, 2], [I.LA_BRANCA, 1], [I.LA_VERMELHA, 1]], bancada: true, grupo: 'construir' },
-  { id: 'cadeira', faz: [180, 1], usa: [[I.TABUAS, 2]], bancada: true, grupo: 'construir', forma: ['TT'] },
-  { id: 'mesa', faz: [184, 1], usa: [[I.TABUAS, 3]], bancada: true, grupo: 'construir', forma: ['TTT'] },
-  { id: 'balcao', faz: [185, 1], usa: [[I.TABUAS, 3]], bancada: true, grupo: 'construir', forma: ['TT', 'T.'] },
+  { id: 'cadeira', faz: [180, 1], usa: [[I.TABUAS, 2]], bancada: true, grupo: 'construir', forma: ['TT'], extra: true },
+  { id: 'mesa', faz: [184, 1], usa: [[I.TABUAS, 3]], bancada: true, grupo: 'construir', forma: ['TTT'], extra: true },
+  { id: 'balcao', faz: [185, 1], usa: [[I.TABUAS, 3]], bancada: true, grupo: 'construir', forma: ['TT', 'T.'], extra: true },
   { id: 'estante', faz: [186, 1], usa: [[I.TABUAS, 4]], bancada: true, grupo: 'construir', forma: ['T.T', 'T.T'], classico: false },
   // encantar (só no clássico): papel da cana, livro, estante de livros e a mesa de encantar
   { id: 'papel', faz: [I.PAPEL, 3], usa: [[I.CANA, 3]], bancada: true, grupo: 'encantar', soClassico: true, forma: ['KKK'] },
   { id: 'livro', faz: [I.LIVRO, 1], usa: [[I.PAPEL, 3], [I.COURO, 1]], grupo: 'encantar', soClassico: true },
   { id: 'estante-livros', faz: [I.ESTANTE, 1], usa: [[I.TABUAS, 6], [I.LIVRO, 3]], bancada: true, grupo: 'encantar', soClassico: true, forma: ['TTT', 'BBB', 'TTT'] },
   { id: 'mesa-encantar', faz: [I.MESA_ENCANTAR, 1], usa: [[I.LIVRO, 1], [I.DIAMANTE, 2], [I.OBSIDIANA, 4]], bancada: true, grupo: 'encantar', soClassico: true, forma: ['.B.', 'DXD', 'XXX'] },
-  { id: 'prateleira-paes', faz: [187, 1], usa: [[I.TABUAS, 4]], bancada: true, grupo: 'construir', forma: ['TTT', '.T.'] },
+  { id: 'prateleira-paes', faz: [187, 1], usa: [[I.TABUAS, 4]], bancada: true, grupo: 'construir', forma: ['TTT', '.T.'], extra: true },
   // cores
   { id: 'la-vermelha', faz: [I.LA_VERMELHA, 1], usa: [[I.LA_BRANCA, 1], [I.FLOR_VERMELHA, 1]], grupo: 'cores' },
   { id: 'la-amarela', faz: [I.LA_AMARELA, 1], usa: [[I.LA_BRANCA, 1], [I.FLOR_AMARELA, 1]], grupo: 'cores' },
@@ -244,14 +245,14 @@ export const RECEITAS = [
   { id: 'tronco-redondo', faz: [80, 2], usa: [[I.TRONCO, 2]], grupo: 'formas', forma: ['L', 'L'] },
   { id: 'tronco-redondo-pinheiro', faz: [81, 2], usa: [[71, 2]], grupo: 'formas', forma: ['L', 'L'] },
   { id: 'tronco-redondo-betula', faz: [82, 2], usa: [[73, 2]], grupo: 'formas', forma: ['L', 'L'] },
-  { id: 'cerca', faz: [84, 3], usa: [[I.TABUAS, 2], [I.GRAVETO, 2]], grupo: 'formas', forma: ['TG', 'TG'] },
-  { id: 'meio-bloco', faz: [90, 6], usa: [[I.PEDRA, 3]], bancada: true, grupo: 'formas', forma: ['PPP'] },
+  { id: 'cerca', faz: [84, 3], usa: [[I.TABUAS, 4], [I.GRAVETO, 2]], bancada: true, grupo: 'construir', forma: ['TGT', 'TGT'] }, // cerca, laje, escada e vidro fino: quadrados, do jogo base (como no clássico)
+  { id: 'meio-bloco', faz: [90, 6], usa: [[I.PEDRA, 3]], bancada: true, grupo: 'construir', forma: ['PPP'] },
   { id: 'rampa', faz: [91, 2], usa: [[I.PEDRISCO, 3]], grupo: 'formas', forma: ['R.', 'RR'] },
-  { id: 'escada', faz: [95, 4], usa: [[I.TABUAS, 6]], bancada: true, grupo: 'formas', forma: ['T..', 'TT.', 'TTT'] },
+  { id: 'escada', faz: [95, 4], usa: [[I.TABUAS, 6]], bancada: true, grupo: 'construir', forma: ['T..', 'TT.', 'TTT'] },
   { id: 'coluna', faz: [83, 2], usa: [[I.PEDRA, 2]], bancada: true, grupo: 'formas', forma: ['P', 'P'] },
   { id: 'bola', faz: [87, 4], usa: [[I.PEDRA, 4]], bancada: true, grupo: 'formas', forma: ['.P.', 'P.P', '.P.'] },
   { id: 'cupula', faz: [88, 2], usa: [[I.TIJOLO, 3]], bancada: true, grupo: 'formas' },
-  { id: 'vidro-fino', faz: [85, 4], usa: [[I.VIDRO, 1]], bancada: true, grupo: 'formas' },
+  { id: 'vidro-fino', faz: [85, 16], usa: [[I.VIDRO, 6]], bancada: true, grupo: 'construir', forma: ['LLL', 'LLL'] },
   { id: 'cupula-vidro', faz: [89, 2], usa: [[I.VIDRO, 3]], bancada: true, grupo: 'formas' },
   { id: 'cano', faz: [86, 4], usa: [[I.PEDRA, 2], [I.PEDRISCO, 1]], bancada: true, grupo: 'formas' },
   { id: 'roda', faz: [99, 1], usa: [[I.TABUAS, 2], [I.GRAVETO, 1]], bancada: true, grupo: 'formas', forma: ['TGT'] },
@@ -285,10 +286,14 @@ export const mundoClassico = (o) => {
 };
 // receita com `classico: false` = só nos mundos com mods; `soClassico` = só no jogo clássico (a armadura) (no clássico há a receita certa, com barra/carvão)
 export const receitaNoMundo = (r, classico) => !(classico && r.classico === false) && !(!classico && r.soClassico);
+// mod "Blocos extras" desligado: só o que existe no clássico (o Mercado traz padaria e forno de pão junto, como a vila).
+// O aparelho e a sala usam esta mesma conta.
+export const semExtras = (op) => !!op && op.extras === false && !op.mercado;
 export function receitasDoMundo(opcoes) {
   const fora = new Set(GRUPOS.filter((g) => g.opcao && opcoes && opcoes[g.opcao] === false).map((g) => g.id));
   const cl = mundoClassico(opcoes);
-  return RECEITAS.filter((r) => !fora.has(r.grupo) && receitaNoMundo(r, cl) && regras.liberada(r, opcoes));
+  const sem = semExtras(opcoes);
+  return RECEITAS.filter((r) => !fora.has(r.grupo) && !(sem && r.extra) && !(!sem && r.semExtras) && receitaNoMundo(r, cl) && regras.liberada(r, opcoes));
 }
 export const receita = (id) => RECEITAS.find((r) => r.id === id) || null;
 

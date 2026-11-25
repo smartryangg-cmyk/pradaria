@@ -56,14 +56,14 @@ for (const { b, preco } of LOJA) {
 // formas (cerca, vidro fino, meio bloco...): uma receita faz várias, então ninguém compra (nem vila, nem vitrine)
 {
   const e = mundoRico();
-  e.itens[9] = 5; e.itens[3] = 5; // vidro e pedra feitos/colhidos (não comprados)
+  e.itens[9] = 6; e.itens[3] = 5; // vidro e pedra feitos/colhidos (não comprados)
   const r1 = aplicar(e, op, { t: 'criar', r: 'vidro-fino', bancada: true });
   const r2 = aplicar(e, op, { t: 'criar', r: 'meio-bloco', bancada: true });
-  conferir(r1.ok && r2.ok && e.itens[85] === 4 && e.itens[90] === 6, 'fez 4 vidros finos com 1 vidro e 6 meios blocos com 3 pedras');
+  conferir(r1.ok && r2.ok && e.itens[85] === 16 && e.itens[90] === 6, 'fez 16 vidros finos com 6 vidros e 6 lajes com 3 pedras (como no clássico) ' + [e.itens[85], e.itens[90]]);
   const m = e.moedas;
   const v1 = aplicar(e, op, { t: 'vender', b: 85, n: 4 }), v2 = aplicar(e, op, { t: 'vender', b: 90, n: 2 });
   const d = aplicar(e, op, { t: 'depositar', onde: 'loja', b: 85, n: 4 }, { pos: pos(LOJ) });
-  conferir(!v1.ok && !v2.ok && !d.ok && e.moedas === m && e.itens[85] === 4, `formas não são vendidas nem vão para a vitrine (${v1.erro || ''} / ${d.erro || ''})`);
+  conferir(!v1.ok && !v2.ok && !d.ok && e.moedas === m && e.itens[85] === 16, `formas não são vendidas nem vão para a vitrine (${v1.erro || ''} / ${d.erro || ''})`);
 }
 // o que se colhe dá lucro de verdade: trigo colhido vira pão e o lojista vende pelo dobro
 {

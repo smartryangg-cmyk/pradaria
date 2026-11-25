@@ -21,6 +21,7 @@ d(0.1, [137]); // camada de neve
 d(0.3, [9, 21, 85, 89, 156]); // vidro, lampião
 d(0.8, [14, 15, 16, 17, 18, 19, 146, 147]); // lã, arenito
 d(1.5, [3, 186]); // pedra, estante
+d(2, [90]); // laje de pedra
 d(2, [6, 8, 10, 20, 71, 73, 131, 80, 81, 82, 84, 95, 96, 97, 98, 157, 153]); // madeira, tijolo, pedrisco
 d(2.5, [34, 223]); // bancada, baú
 d(3, [47, 48, 66, 67, 68, 69, 191, 193]); // porta, minérios, bloco de ouro

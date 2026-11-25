@@ -853,6 +853,7 @@ export class Mundo {
       const raio = cacto ? (h) => 0.4 * Math.sqrt(Math.max(0.04, 1 - Math.max(0, h - tot + 0.6) ** 2 / 0.36))
         : (h) => fino * (0.2 + 0.14 * (1 - h / tot) + 0.2 * Math.max(0, 1 - h * 1.6));
       const r0 = raio(kb), r1 = raio(kb + 1), p = PALETA[b];
+      const marcaTronco = cacto ? 0 : -1; // onda = -1: o shader clareia o tronco na sombra da copa (graficos.js)
       const lb = luzB ? luzB(x, y, z) : 0;
       const luz = 1 - escuroCeu(x, y, z) * (1 - lb) * 0.25, br = Math.max(BRILHO[b], lb * 0.3);
       const fase = hash3(ox + x, 0, oz + z, 7) * 6.283, nl = Math.hypot(1, r0 - r1), S = 8;
@@ -862,13 +863,13 @@ export class Mundo {
         const r = anel ? r1 : r0, yy = y + anel - (anel || kb ? 0 : 0.25) - (cacto && anel && !ka ? 0.02 : 0); // a raiz entra no chão (o chão liso pode descer)
         for (let i = 0; i < S; i++) {
           const a = fase + (i / S) * 6.283, ca = Math.cos(a), sa = Math.sin(a);
-          vLiso(x + 0.5 + ca * r, yy, z + 0.5 + sa * r, ca / nl, (r0 - r1) / nl, sa / nl, p.t, p.l, luz * (anel ? 1 : 0.86), 0, br);
+          vLiso(x + 0.5 + ca * r, yy, z + 0.5 + sa * r, ca / nl, (r0 - r1) / nl, sa / nl, p.t, p.l, luz * (anel ? 1 : 0.86), marcaTronco, br);
         }
       }
       for (let i = 0; i < S; i++) { const j = (i + 1) % S; IS.push(k + i, k + S + i, k + S + j, k + i, k + S + j, k + j); }
       if (!ehCopa(get(x, y + 1, z)) && get(x, y + 1, z) !== b) { // tampa (tronco cortado, ponta do cacto)
         const c0 = P.length / 3;
-        vLiso(x + 0.5, y + 1, z + 0.5, 0, 1, 0, p.t, p.t, luz, 0, br);
+        vLiso(x + 0.5, y + 1, z + 0.5, 0, 1, 0, p.t, p.t, luz, marcaTronco, br);
         for (let i = 0; i < S; i++) IS.push(c0, k + S + (i + 1) % S, k + S + i);
       }
     };
@@ -926,17 +927,18 @@ export class Mundo {
     const desenharPlantaLisa = (x, py, z, b, luz, br) => {
       completar();
       const h = hash3(ox + x, Math.floor(py), oz + z, 3);
-      const folha = (a, dd, alt, larg, cBase, cPonta, curva) => {
+      // capim = true: a ponta leva a altura (onda = 1 + alt) para deitar perto de bicho pequeno (graficos.js)
+      const folha = (a, dd, alt, larg, cBase, cPonta, curva, capim = false) => {
         const cx = x + 0.5 + Math.cos(a) * dd, cz = z + 0.5 + Math.sin(a) * dd;
         const lx = -Math.sin(a) * larg, lz = Math.cos(a) * larg;
         const k = P.length / 3;
         vLiso(cx - lx, py, cz - lz, 0, 1, 0, cBase, cBase, luz * 0.85, 0, br);
         vLiso(cx + lx, py, cz + lz, 0, 1, 0, cBase, cBase, luz * 0.85, 0, br);
-        vLiso(cx + Math.cos(a) * curva, py + alt, cz + Math.sin(a) * curva, 0, 1, 0, cPonta, cPonta, luz * 1.05, 1, br);
+        vLiso(cx + Math.cos(a) * curva, py + alt, cz + Math.sin(a) * curva, 0, 1, 0, cPonta, cPonta, luz * 1.05, capim ? 1 + alt : 1, br);
         IS.push(k, k + 1, k + 2, k, k + 2, k + 1);
       };
       if (b === B.CAPIM) {
-        for (let i = 0; i < 6; i++) folha(h * 6.283 + i * 2.4, 0.05 + 0.2 * ((h * 3.7 + i * 0.37) % 1), 0.4 + 0.4 * ((h * 7.3 + i * 0.61) % 1), 0.075, COR_CAPIM_BASE, COR_CAPIM, 0.2);
+        for (let i = 0; i < 6; i++) folha(h * 6.283 + i * 2.4, 0.05 + 0.2 * ((h * 3.7 + i * 0.37) % 1), 0.4 + 0.4 * ((h * 7.3 + i * 0.61) % 1), 0.075, COR_CAPIM_BASE, COR_CAPIM, 0.2, true);
         return;
       }
       // flor: cabinho + duas folhinhas + estrela de 5 pétalas virada para cima
