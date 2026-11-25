@@ -2818,6 +2818,7 @@ function laco(agora) {
   if (jog.quicou) { jog.quicou = false; som.boing(); }
   bichos.trigoNaMao = naMao() === B.TRIGO && (!sobrev() || qtd(B.TRIGO) > 0);
   bichos.atualizar(pausado ? 0 : dt, jog, tempoTotal, tempoDia);
+  if (mundo.matSuave) graf.pisar(bichos.pequenosPerto(jog.pos.x, jog.pos.z, 6));
   aldeoes.atualizar(dt, jog, Math.sin(tempoDia * Math.PI * 2));
   mecanismos.atualizar(pausado ? 0 : dt, jog, graf.U.uVento.value === 0);
   negocios.atualizar(dt, jog, tempoDia);
