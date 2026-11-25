@@ -3,6 +3,7 @@ import { SOLIDO, AGUA, B, E, ESTEIRA_DIRS } from './blocos.js';
 import { FORMA_NOVA, colideForma } from './formas.js';
 import { ehEscadaMao, SOBE, DESCE } from './escada-mao.js';
 import { ehLava } from './lava-regras.js';
+const TEIA = 245; // bloco de teia (blocos.js)
 import { vida } from './vida.js';
 import { superficieAgua } from './agua.js';
 
@@ -108,8 +109,11 @@ export class Jogador {
     else if (this.agachado) { this.altura = ALTURA; if (this.colide(p.x, p.y, p.z)) this.altura = ALTURA_AGACHADO; else this.agachado = false; }
     // dentro da lava: anda bem devagar e afunda devagar (queimar quem conta é main.js)
     this.naLava = !this.voando && (ehLava(this.mundo.bloco(bx, Math.floor(p.y + 0.1), bz)) || ehLava(this.mundo.bloco(bx, Math.floor(p.y + 0.9), bz)));
+    // na teia: anda a um quarto e quase não cai nem pula (como no clássico)
+    this.naTeia = !this.voando && (this.mundo.bloco(bx, Math.floor(p.y + 0.1), bz) === TEIA || this.mundo.bloco(bx, Math.floor(p.y + 0.9), bz) === TEIA);
     let vel = this.voando ? 9 : this.naAgua ? 2.6 : 4.4;
     if (this.naLava) vel *= 0.4;
+    if (this.naTeia) vel *= 0.25;
     if (this.agachado) vel *= 0.3; // como no clássico: agachado anda a 30%, correndo a 130%
     else if (ent.correr && !this.naAgua && vida.podeCorrer()) vel *= 1.3; // com fome (6 ou menos) não corre
     this.correndo = !!ent.correr && vida.podeCorrer() && !this.agachado && !this.naAgua && !this.voando && this.noChao && len > 0.1;
@@ -148,6 +152,7 @@ export class Jogador {
       // escada de mão: andando para a frente ou pulando, sobe; agachado, fica parado; solto, escorrega devagar
       this.naEscada = ehEscadaMao(this.mundo.bloco(bx, Math.floor(p.y + 0.1), bz)) || ehEscadaMao(this.mundo.bloco(bx, Math.floor(p.y + 0.9), bz));
       if (this.naLava) { v.y = ent.pular ? 2.2 : Math.max(v.y, -1.2); this.pulou = true; }
+      if (this.naTeia) { v.y = Math.max(-0.9, Math.min(v.y, 0.9)); this.pulou = true; }
       if (this.naEscada) {
         if (ent.pular || ent.frente > 0.3) { v.y = SOBE; this.pulou = true; this.bufPulo = 0; }
         else if (this.agachado) v.y = 0;
@@ -201,7 +206,7 @@ export class Jogador {
     // coyote time e altura da queda
     if (this.noChao) { this.tempoNoAr = 0; this.pulou = false; } else this.tempoNoAr += dt;
     if (this.naAgua || this.voando) this.tempoNoAr = Math.max(this.tempoNoAr, COYOTE);
-    if (this.noChao || this.voando || this.naAgua || this.planando || this.noVento || this.naEscada || this.naLava) this.pico = p.y; // na escada não machuca
+    if (this.noChao || this.voando || this.naAgua || this.planando || this.noVento || this.naEscada || this.naLava || this.naTeia) this.pico = p.y; // na escada não machuca
     else if (p.y > this.pico) this.pico = p.y;
   }
 

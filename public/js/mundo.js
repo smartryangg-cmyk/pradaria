@@ -224,7 +224,7 @@ export class Mundo {
     else t = this.gen.terreno(cx, cz); // não chegou do worker: gera aqui mesmo
     const d = t.dados;
     this.ultAlturas = t.alturas;
-    this.gen.decorar(d, cx, cz, t.alturas, t.biomas, (x, z) => this.vilas.semArvore(x, z));
+    this.gen.decorar(d, cx, cz, t.alturas, t.biomas, (x, z) => this.vilas.semArvore(x, z), opcoesMundo.natureza === true);
     this.vilas.carimbar(d, cx, cz, CX, CZ);
     const ed = this.edicoes.get(k);
     if (ed) for (const [i, b] of ed) d[i] = b;

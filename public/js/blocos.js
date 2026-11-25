@@ -28,6 +28,10 @@ export const B = {
   TRIGO_BROTO: 76, TRIGO_VERDE: 77,
   // muda que vira árvore (arvores-regras.js): cai das folhas
   MUDA: 78, MUDA_PINHEIRO: 79,
+  // lã nas 16 cores do clássico (as 6 primeiras são 14..19): 232..241, tiles 214..223
+  LA_LARANJA: 232, LA_MAGENTA: 233, LA_AZUL_CLARO: 234, LA_LIMAO: 235, LA_CINZA: 236, LA_CINZA_CLARO: 237, LA_CIANO: 238, LA_ROXA: 239, LA_MARROM: 240, LA_PRETA: 241,
+  // natureza do clássico: abóbora e cogumelos (nascem no mundo novo; gerador.js), tiles 224..227
+  ABOBORA: 242, COGUMELO_MARROM: 243, COGUMELO_VERMELHO: 244, TEIA_BLOCO: 245,
 };
 
 // tiles: [cima, baixo, lados]
@@ -36,7 +40,7 @@ function def(id, nome, tiles, o = {}) {
   BLOCOS[id] = {
     id, nome, tiles: Array.isArray(tiles) ? tiles : [tiles, tiles, tiles],
     solido: o.solido ?? true, opaco: o.opaco ?? true, planta: !!o.planta, agua: !!o.agua,
-    forma: o.forma || null, chao: !!o.chao, brilho: o.brilho || 0, icone: o.icone ?? null,
+    forma: o.forma || null, chao: o.chao === undefined ? null : !!o.chao, brilho: o.brilho || 0, icone: o.icone ?? null,
   };
 }
 def(AR, 'Ar', 0, { solido: false, opaco: false });
@@ -59,6 +63,20 @@ def(B.LA_AZUL, 'Lã azul', 17);
 def(B.LA_AMARELA, 'Lã amarela', 18);
 def(B.LA_VERDE, 'Lã verde', 19);
 def(B.LA_ROSA, 'Lã rosa', 20);
+def(B.LA_LARANJA, 'Lã laranja', 214);
+def(B.LA_MAGENTA, 'Lã magenta', 215);
+def(B.LA_AZUL_CLARO, 'Lã azul-clara', 216);
+def(B.LA_LIMAO, 'Lã verde-limão', 217);
+def(B.LA_CINZA, 'Lã cinza', 218);
+def(B.LA_CINZA_CLARO, 'Lã cinza-clara', 219);
+def(B.LA_CIANO, 'Lã ciano', 220);
+def(B.LA_ROXA, 'Lã roxa', 221);
+def(B.LA_MARROM, 'Lã marrom', 222);
+def(B.LA_PRETA, 'Lã preta', 223);
+def(B.ABOBORA, 'Abóbora', [224, 224, 225]);
+def(B.COGUMELO_MARROM, 'Cogumelo marrom', 226, { solido: false, opaco: false, planta: true });
+def(B.COGUMELO_VERMELHO, 'Cogumelo vermelho', 227, { solido: false, opaco: false, planta: true });
+def(B.TEIA_BLOCO, 'Teia', 228, { solido: false, opaco: false, planta: true, chao: false }); // prende quem passa (jogador.js); com espada sai fio; fica no ar (pendurada no teto)
 def(B.PEDRISCO, 'Pedrisco', 21);
 def(B.LAMPIAO, 'Lampião', 22);
 def(B.FLOR_AZUL, 'Flor azul', 23, { solido: false, opaco: false, planta: true });
@@ -254,7 +272,7 @@ export const PRECISA_CHAO = new Uint8Array(256); // some se tirar o bloco de bai
 for (const b of BLOCOS) {
   if (!b) continue;
   SOLIDO[b.id] = b.solido ? 1 : 0; OPACO[b.id] = b.opaco ? 1 : 0; PLANTA[b.id] = b.planta ? 1 : 0; AGUA[b.id] = b.agua ? 1 : 0;
-  BRILHO[b.id] = b.brilho; PRECISA_CHAO[b.id] = b.planta || b.chao ? 1 : 0;
+  BRILHO[b.id] = b.brilho; PRECISA_CHAO[b.id] = (b.planta && b.chao !== false) || b.chao ? 1 : 0;
 }
 BRILHO[B.LAMPIAO] = 1;
 for (let n = 1; n <= 7; n++) NIVEL[AGUA_CORRENTE[n]] = n;
@@ -264,7 +282,8 @@ NIVEL[AGUA_CAINDO] = 8;
 export const INVENTARIO = [
   B.GRAMA, B.TERRA, B.PEDRA, B.PEDRISCO, B.AREIA, B.TRONCO, B.TABUAS, B.FOLHAS, B.VIDRO, B.TIJOLO,
   B.LAMPIAO, TOCHA, ESCADA_MAO, B.FENO, B.BANCADA, B.TERRA_ARADA, B.LA_BRANCA, B.LA_VERMELHA, B.LA_AZUL, B.LA_AMARELA, B.LA_VERDE, B.LA_ROSA,
-  B.FLOR_VERMELHA, B.FLOR_AMARELA, B.FLOR_AZUL, B.CAPIM, B.TRIGO, B.MUDA, B.MUDA_PINHEIRO, B.AGUA, LAVA, OBSIDIANA,
+  B.LA_LARANJA, B.LA_MAGENTA, B.LA_AZUL_CLARO, B.LA_LIMAO, B.LA_CINZA, B.LA_CINZA_CLARO, B.LA_CIANO, B.LA_ROXA, B.LA_MARROM, B.LA_PRETA,
+  B.FLOR_VERMELHA, B.FLOR_AMARELA, B.FLOR_AZUL, B.COGUMELO_MARROM, B.COGUMELO_VERMELHO, B.ABOBORA, B.TEIA_BLOCO, B.CAPIM, B.TRIGO, B.MUDA, B.MUDA_PINHEIRO, B.AGUA, LAVA, OBSIDIANA,
   B.CACTO, B.CASCALHO, B.CARVAO, B.FERRO, B.OURO, B.DIAMANTE,
   B.TRONCO_PINHEIRO, B.FOLHAS_PINHEIRO, B.TRONCO_BETULA, B.FOLHAS_SELVA, B.ARBUSTO_SECO,
   M.PORTA, 84, 85, 90, 95, M.FORNO, M.FARINHA, M.PAO,
