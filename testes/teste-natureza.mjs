@@ -120,7 +120,7 @@ async function local(nome, toque, ctx) {
   await recolher(p);
   ok(await J(p, () => window.__jogo.mercado.qtd(242) === 1), `${nome}: a abóbora voltou para a mochila`);
   // cogumelo vermelho no chão de pedra (como na caverna): sai na hora e vai para a mochila
-  await J(p, (c) => window.__jogo.mundo.definir(c.x + 2, c.y + 1, c.z, 244), c); await esperar(p, 600);
+  await J(p, (c) => { const J_ = window.__jogo, j = J_.jog; J_.mundo.definir(c.x + 2, c.y + 1, c.z, 244); j.voando = false; j.pos.x = c.x + 0.5; j.pos.y = c.y + 1.05; j.pos.z = c.z + 0.5; j.vel.x = j.vel.y = j.vel.z = 0; j.yaw = -Math.PI / 2; }, c); await esperar(p, 800); // volta para o lugar (recolher andou até a abóbora)
   await J(p, () => { window.__jogo.barra[0] = 0; });
   const s2 = await quebrarSegurando(p, c, 1.2);
   ok(s2 !== null && s2 < 0.5, `${nome}: o cogumelo saiu na hora (${s2 && s2.toFixed(2)} s)`);
