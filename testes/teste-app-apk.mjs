@@ -68,7 +68,9 @@ try {
   ok(await p.evaluate(() => document.querySelector('#versao-inicio').textContent.includes('App Android')), 'versão: ' + await p.textContent('#versao-inicio'));
   // os arquivos saem do aparelho, não do Cloudflare: o app tem de pôr a mesma Content-Security-Policy do site (public/_headers)
   // (o eval do DevTools passa por cima da CSP; um <script> posto na página não)
+  const errosAntes = erros.length;
   ok(await p.evaluate(() => new Promise((res) => { window.__cspX = 0; const s = document.createElement('script'); s.textContent = 'window.__cspX = 1'; document.head.appendChild(s); setTimeout(() => { s.remove(); res(window.__cspX === 0); }, 300); })), 'proteção do site também no app (Content-Security-Policy barra script posto na página)');
+  await espera(500); erros.push(...erros.splice(errosAntes).filter((e) => !/Content Security Policy/.test(e))); // o aviso da CSP que o próprio teste provocou
 
   // entra na conta (o online usa a internet)
   await toque(p, '#bt-entrar');
