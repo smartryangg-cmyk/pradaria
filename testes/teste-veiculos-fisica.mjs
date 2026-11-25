@@ -91,7 +91,8 @@ async function dirigir(ms, xFim) {
     await p.waitForTimeout(150);
     const d = await dentro();
     if (xFim && d.x > xFim) break;
-    if (Date.now() - t0 > ms) break;
+    // com ponto de chegada, o tempo é só um limite: no CI lento o carro sobe igual, mas leva mais tempo de relógio
+    if (Date.now() - t0 > (xFim ? ms * 3 : ms)) break;
   }
   if (toque) await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   else await p.keyboard.up('KeyW');
