@@ -8,7 +8,7 @@ import { idade16, confirmarIdade16, garantirNascimento } from './idade.js';
 const $ = (s) => document.querySelector(s);
 let cb = {};
 
-// cb: { lobby, amigos, mostrarMenu(id), abrirMundos(), abrirConta(modo, erro), som() }
+// cb: { lobby, amigos, mostrarMenu(id), abrirMundos(), abrirConta(modo, erro), som(), semRede(err) → true se o erro foi falta de internet }
 export function ligarHub(callbacks) {
   cb = callbacks;
   $('#bt-voltar-jogos').addEventListener('click', () => { cb.som && cb.som(); abrirJogos(); });
@@ -52,6 +52,7 @@ export async function abrirJogos() {
     }
   } catch (err) {
     if (/sess|entrar|401/i.test(err.message)) { conta.salvar(null); conta.usuario = null; cb.abrirConta('entrar', 'Entre de novo, por favor.'); }
+    else if (cb.semRede && cb.semRede(err)) cb.mostrarMenu('m-inicio');
     else { cb.mostrarMenu('m-inicio'); alert('Não consegui falar com o servidor agora. Você pode jogar sem internet.\n\n' + err.message); }
     return;
   }
