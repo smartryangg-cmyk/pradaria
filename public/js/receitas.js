@@ -275,11 +275,14 @@ export const mundoClassico = (o) => {
 };
 // receita com `classico: false` = só nos mundos com mods; `soClassico` = só no jogo clássico (a armadura) (no clássico há a receita certa, com barra/carvão)
 export const receitaNoMundo = (r, classico) => !(classico && r.classico === false) && !(!classico && r.soClassico);
+// mod "Blocos extras" desligado: só o que existe no clássico (o Mercado traz padaria e forno de pão junto, como a vila).
+// O aparelho e a sala usam esta mesma conta.
+export const semExtras = (op) => !!op && op.extras === false && !op.mercado;
 export function receitasDoMundo(opcoes) {
   const fora = new Set(GRUPOS.filter((g) => g.opcao && opcoes && opcoes[g.opcao] === false).map((g) => g.id));
   const cl = mundoClassico(opcoes);
-  const semExtras = !!opcoes && opcoes.extras === false && !opcoes.mercado; // mod "Blocos extras" desligado: só o que existe no clássico (o Mercado traz padaria e forno de pão junto, como a vila)
-  return RECEITAS.filter((r) => !fora.has(r.grupo) && !(semExtras && r.extra) && !(!semExtras && r.semExtras) && receitaNoMundo(r, cl) && regras.liberada(r, opcoes));
+  const sem = semExtras(opcoes);
+  return RECEITAS.filter((r) => !fora.has(r.grupo) && !(sem && r.extra) && !(!sem && r.semExtras) && receitaNoMundo(r, cl) && regras.liberada(r, opcoes));
 }
 export const receita = (id) => RECEITAS.find((r) => r.id === id) || null;
 

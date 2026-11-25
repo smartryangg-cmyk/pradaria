@@ -158,6 +158,21 @@ if (PARTES.includes('online')) {
   ok(vb.extras === 0 && vb.blocos === va.blocos, `online: o Beto vê a mesma vila, sem blocos extras (${vb.blocos} = ${va.blocos} blocos)`);
   await bt.screenshot({ path: SAIDA + '/extras-online-beto.png' });
   await a.context().close(); await bt.context().close();
+  // mundo com o Mercado ligado e os extras desligados: a vila tem padaria, então o forno de pão vale (aparelho e sala juntos)
+  const resposta = (p, r) => J(p, (r) => new Promise((res) => { const m = window.__jogo.mercado, antes = m.erro.bind(m); let msg = null; m.erro = (t, x) => { msg = t; antes(t, x); }; m.sala.enviar({ t: 'criar', r, bancada: true }); setTimeout(() => { m.erro = antes; res(msg); }, 2500); }), r);
+  const c = await pagina('Caio', false);
+  await conta(c, 'Caio' + sfx);
+  await c.click('#bt-novo-mundo'); await c.fill('#n-nome', 'Feira');
+  await c.click('#m-novo [data-opcao=mercado]');
+  await c.click('#m-novo button[type=submit]');
+  await c.waitForFunction(() => window.__jogo && window.__jogo.jog && window.__jogo.sala, null, { timeout: 30000 });
+  await esperar(c, 2500);
+  ok(await J(c, () => window.__jogo.opcoesMundo.extras === false && !!window.__jogo.opcoesMundo.mercado), 'online: mundo do Caio com Mercado e sem os blocos extras');
+  const naTela = await J(c, () => { const ids = window.__jogo.receitasDoMundo ? window.__jogo.receitasDoMundo().map((r) => r.id) : null; return ids; });
+  const rForno = await resposta(c, 'forno'), rPao = await resposta(c, 'pao');
+  ok(rForno && rForno !== '?', 'online: com o Mercado a sala aceita a receita do forno de pão (só faltam as coisas: ' + rForno + ')' + (naTela ? ' e ela aparece na tela: ' + naTela.includes('forno') : ''));
+  ok(rPao === '?', 'online: com o Mercado o pão sai do forno, a sala recusa o de 3 trigos (' + rPao + ')' + (naTela ? ' e ele não aparece: ' + !naTela.includes('pao') : ''));
+  await c.context().close();
 }
 
 console.log(erros.length ? 'ERROS NO CONSOLE: ' + erros.join(' | ') : 'sem erros no console');
