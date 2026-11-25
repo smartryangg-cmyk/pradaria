@@ -8,7 +8,7 @@ import { criarRuido, hash3, rngSemente } from './ruido.js';
 export const G = {
   AR: 0, GRAMA: 1, TERRA: 2, PEDRA: 3, AREIA: 4, AGUA: 5, TRONCO: 6, FOLHAS: 7,
   FLOR_VERMELHA: 11, FLOR_AMARELA: 12, CAPIM: 13, FLOR_AZUL: 22,
-  ABOBORA: 242, COGUMELO_MARROM: 243, COGUMELO_VERMELHO: 244, TEIA: 245, // natureza do clássico (blocos.js)
+  ABOBORA: 242, COGUMELO_MARROM: 243, COGUMELO_VERMELHO: 244, TEIA: 245, MELANCIA: 247, // natureza do clássico (blocos.js)
   // neve, grama com neve, gelo e arenito: blocos das eras (blocos-eras.js)
   NEVE: 140, GRAMA_NEVE: 137, GELO: 138, ARENITO: 146, CACTO: 63, CASCALHO: 65,
   CANA: 224, // cana-regras.js
@@ -275,7 +275,9 @@ export function criarGerador(semente, alt, limite = null) {
       }
       if (chao !== G.GRAMA && chao !== G.GRAMA_NEVE) continue;
       // abóboras: canteirinho raro na grama (como no clássico, umas 6 juntas)
-      if (natureza && chao === G.GRAMA && bio !== BIOMA.SELVA && hash3(wx, 31, wz, semente) < 0.00025 && cabe(2) && abobora(d, x, h, z, wx, wz)) continue;
+      if (natureza && chao === G.GRAMA && bio !== BIOMA.SELVA && hash3(wx, 31, wz, semente) < 0.00025 && cabe(2) && abobora(d, x, h, z, wx, wz, G.ABOBORA)) continue;
+      // melancias: canteirinho na selva (como no clássico)
+      if (natureza && chao === G.GRAMA && bio === BIOMA.SELVA && hash3(wx, 33, wz, semente) < 0.0012 && cabe(2) && abobora(d, x, h, z, wx, wz, G.MELANCIA)) continue;
       // árvores conforme o bioma
       let arv = null, chance = 0;
       switch (bio) {
@@ -306,14 +308,14 @@ export function criarGerador(semente, alt, limite = null) {
     }
   }
 
-  // canteiro de abóboras em volta de (x, h+1, z): só em grama com ar em cima. Devolve se pôs alguma
-  function abobora(d, x, h, z, wx, wz) {
+  // canteiro de abóboras (ou melancias) em volta de (x, h+1, z): só em grama com ar em cima. Devolve se pôs alguma
+  function abobora(d, x, h, z, wx, wz, bloco) {
     let n = 0;
     for (let k = 0; k < 10 && n < 6; k++) {
       const dx = Math.floor(hash3(wx + k, 43, wz, semente) * 5) - 2, dz = Math.floor(hash3(wx, 47, wz + k, semente) * 5) - 2;
       const xx = x + dx, zz = z + dz;
       for (let y = h + 1; y >= h - 1; y--) {
-        if (d[idx(xx, y, zz)] === G.GRAMA && d[idx(xx, y + 1, zz)] === G.AR) { d[idx(xx, y + 1, zz)] = G.ABOBORA; n++; break; }
+        if (d[idx(xx, y, zz)] === G.GRAMA && d[idx(xx, y + 1, zz)] === G.AR) { d[idx(xx, y + 1, zz)] = bloco; n++; break; }
       }
     }
     return n > 0;

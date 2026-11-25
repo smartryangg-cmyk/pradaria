@@ -52,11 +52,16 @@ const slot = (l, i) => `#grade .slot-inv[data-l="${l}"][data-i="${i}"]`;
 async function mordida(p) {
   await limpar(p);
   await J(p, () => { const g = window.__jogo; g.vida.atual = g.vida.max; g.vida.protegido = 0; g.dia = 0.75; });
-  await ate(p, () => { const J_ = window.__jogo, j = J_.jog; J_.bichos.tentarMonstro(j.pos.x, j.pos.y, j.pos.z, -1, 'barrento'); return J_.bichos.lista.some((b) => b.especie === 'barrento'); }, null, 20000);
   const v0 = await J(p, () => window.__jogo.vida.atual);
-  // põe o barrento do lado (se ele sumiu nesse meio tempo, nasce outro)
-  await ate(p, () => { const J_ = window.__jogo, j = J_.jog; let m = J_.bichos.lista.find((b) => b.especie === 'barrento' && !b.caindo); if (!m) { J_.bichos.tentarMonstro(j.pos.x, j.pos.y, j.pos.z, -1, 'barrento'); return false; } m.x = j.pos.x + 1.2; m.z = j.pos.z; m.y = j.pos.y; return true; }, null, 20000);
-  await ate(p, (v0) => window.__jogo.vida.atual < v0 || window.__jogo.vida.protegido > 0, v0, 15000);
+  // põe um barrento colado no jogador (criado direto: o nascer sozinho é sorteado longe e pode cair na água) e espera a
+  // mordida; se ele sumiu (online o relógio da sala pode mudar a hora e o sol o queima), cria outro do lado
+  await ate(p, (v0) => {
+    const J_ = window.__jogo, j = J_.jog, L = J_.bichos;
+    if (J_.vida.atual < v0 || J_.vida.protegido > 0) return true;
+    J_.dia = 0.75;
+    if (!L.lista.some((b) => b.especie === 'barrento' && !b.caindo)) L.criar('barrento', j.pos.x + 1.2, j.pos.y, j.pos.z, { grupo: L.proxGrupo++ });
+    return false;
+  }, v0, 15000);
   const v1 = await J(p, () => window.__jogo.vida.atual);
   await limpar(p);
   return v0 - v1;
@@ -255,7 +260,13 @@ if (PARTES.includes('online')) {
   // online a sala confere a troca antes da barra mudar: no aparelho lento espera um pouco
   const vestiuBotas = await ate(a, () => { const v = window.__jogo.inv.s[40], e = document.querySelector('#armadura'); return v && v.id === 1120 && e.getAttribute('aria-label') === 'Armadura: 1 de 20'; }, null, 6000);
   ok(vestiuBotas, 'online: vestiu as botas, barra com 1 ponto (' + JSON.stringify([await vestido(a), (await hud(a)).txt]) + ')');
-  const mordidas = [await mordida(a), await mordida(a)];
+  // online o palco de pedra é só do aparelho: a sala devolve o terreno de verdade e a Ana pode ficar enterrada (morre
+  // sufocada antes das mordidas). Antes de chamar o barrento, fica em cima do chão de verdade e com a vida cheia.
+  await J(a, () => { const g = window.__jogo, j = g.jog, x = Math.floor(j.pos.x), z = Math.floor(j.pos.z); let y = 200; while (y > 0 && !g.mundo.bloco(x, y, z)) y--; j.pos.y = y + 1; j.vel.x = j.vel.y = j.vel.z = 0; g.vida.atual = g.vida.max; });
+  await esperar(a, 600);
+  // fora do palco o chão de verdade pode ter um morrinho onde o barrento é posto: se ele não alcançou, chama outro
+  const mordidas = [];
+  for (let k = 0; k < 2; k++) { let d = 0; for (let t = 0; t < 3 && !d; t++) d = await mordida(a); mordidas.push(d); }
   // a sala confirma o desgaste um pouco depois (no CI carregado pode passar de 1 s); depois volta o dia e a proteção,
   // senão a Ana pode morrer esperando (e morrer larga as botas no chão)
   await ate(a, () => ((window.__jogo.mercado.e.desg?.[1120] || [])[0] | 0) >= 2, null, 8000);

@@ -38,7 +38,7 @@ if (PARTES.includes('regras')) {
       if (b !== b2) { const k = b2 + '>' + b; dif[k] = (dif[k] || 0) + 1; }
     }
   }
-  const outras = Object.keys(dif).filter((k) => !/^(0|13)>24[2345]$/.test(k));
+  const outras = Object.keys(dif).filter((k) => !/^(0|13)>24[23457]$/.test(k));
   ok(conta[ABOBORA] > 0 && conta[MARROM] > 0 && conta[VERMELHO] > 0, `256 pedaços com natureza: ${conta[ABOBORA]} abóboras, ${conta[MARROM]} cogumelos marrons, ${conta[VERMELHO]} vermelhos`);
   ok(conta[ABOBORA] < 200, 'abóbora é rara (canteirinhos aqui e ali)');
   ok(!outras.length, `sem a natureza não nasce nenhum, e com ela só troca ar ou capim (${JSON.stringify(dif)})`);

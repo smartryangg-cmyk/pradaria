@@ -30,6 +30,8 @@ export const IDS = {
   PICARETA_FERRO: 1105, MACHADO_FERRO: 1106, PA_FERRO: 1107, PICARETA_DIAMANTE: 1108, MACHADO_DIAMANTE: 1109, PA_DIAMANTE: 1110,
   // monstros da noite (monstros-regras.js): o que eles deixam e as espadas
   TEIA: 1111, CARNE_ESTRAGADA: 1112, ESPADA_MADEIRA: 1113, ESPADA_PEDRA: 1114, ESPADA_FERRO: 1115, ESPADA_DIAMANTE: 1116,
+  // blocos do clássico (blocos.js): tijolo de pedra e melancia; a fatia é item
+  TIJOLO_PEDRA: 246, MELANCIA: 247, FATIA_MELANCIA: 1013,
   // armadura (armadura-regras.js): capacete, peitoral, calça e botas de couro, ferro e diamante
   CAPACETE_COURO: 1117, PEITORAL_COURO: 1118, CALCA_COURO: 1119, BOTAS_COURO: 1120,
   CAPACETE_FERRO: 1121, PEITORAL_FERRO: 1122, CALCA_FERRO: 1123, BOTAS_FERRO: 1124,
@@ -39,7 +41,7 @@ export const IDS = {
   PEDRA_AZUL: 1129, PAPEL: 1130, LIVRO: 1131,
 };
 const I = IDS;
-export const ULTIMO_ITEM = 1012; // 1010 isqueiro (fogo-regras.js); 1011 açúcar, 1012 bolo (cana-regras.js)
+export const ULTIMO_ITEM = 1013; // 1010 isqueiro (fogo-regras.js); 1011 açúcar, 1012 bolo (cana-regras.js); 1013 fatia de melancia
 export const PRIMEIRO_CLASSICO = 1100, ULTIMO_CLASSICO = 1131; // itens do jogo clássico (minérios, fornalha, monstros, espadas, armadura, encantar)
 export const MAIOR_ITEM = ULTIMO_CLASSICO;
 export const MAX_BLOCO = 255;
@@ -70,7 +72,7 @@ const VIRA = { [I.GRAMA]: I.TERRA, [I.TERRA_ARADA]: I.TERRA, 80: I.TRONCO, 81: 7
 // jogo clássico: pedra e minério só caem com a picareta certa (1 madeira, 2 pedra, 3 ferro, 4 diamante);
 // com a mão ou picareta fraca o bloco quebra (devagar) e não dá nada, como no clássico
 export const PRECISA_PICARETA = {
-  [I.PEDRA]: 1, [I.PEDRISCO]: 1, [I.TIJOLO]: 1, [I.CARVAO_MINERIO]: 1, [I.FERRO_MINERIO]: 2, [I.OURO_MINERIO]: 3,
+  [I.PEDRA]: 1, [I.PEDRISCO]: 1, [I.TIJOLO]: 1, [I.TIJOLO_PEDRA]: 1, [I.CARVAO_MINERIO]: 1, [I.FERRO_MINERIO]: 2, [I.OURO_MINERIO]: 3,
   [I.DIAMANTE_MINERIO]: 3, [I.MINERIO_AZUL]: 2, [I.MESA_ENCANTAR]: 1, [I.FORNALHA]: 1, 189: 1, [I.BLOCO_FERRO]: 2, [I.BLOCO_OURO]: 3, [I.BLOCO_DIAMANTE]: 3,
   83: 1, 86: 1, 87: 1, 88: 1, 90: 1, 91: 1, 92: 1, 93: 1, 94: 1, // formas de pedra e tijolo
 };
@@ -96,6 +98,7 @@ export function oQueCai(b, x = 0, y = 0, z = 0, natural = true, mao = 0, classic
   if (b >= 215 && b <= 219) return []; // lava não se quebra: só sai com balde (lava-regras.js)
   if (b === 222) return []; // fogo (fogo-regras.js)
   if (b === 245) return mao >= 1113 && mao <= 1116 ? [[I.TEIA, 1]] : []; // teia: só a espada tira o fio (com a mão some)
+  if (b === I.MELANCIA) return [[I.FATIA_MELANCIA, 3 + (sorteio(x, y, z) % 5)]]; // melancia: 3 a 7 fatias (como no clássico)
   if (b >= 225 && b <= 231) return []; // bolo colocado: quebrar não dá nada (como no clássico)
   if (b === 220 && !(FERRAMENTAS[mao] && FERRAMENTAS[mao][0] === 'picareta')) return []; // obsidiana: só com picareta
   if (b === I.MINERIO_AZUL) return [[I.PEDRA_AZUL, 4 + (sorteio(x, y, z) % 6)]]; // como no clássico: 4 a 9 pedras-azuis
@@ -128,6 +131,8 @@ for (const b of [I.TRONCO, I.TABUAS, I.FOLHAS, I.FENO, I.BANCADA, 110, 111, 47, 
 for (let b = 176; b <= 187; b++) TIPO_DO_BLOCO[b] = 'machado'; // móveis
 TIPO_DO_BLOCO[223] = 'machado'; // baú
 TIPO_DO_BLOCO[242] = 'machado'; // abóbora (como no clássico)
+TIPO_DO_BLOCO[247] = 'machado'; // melancia
+TIPO_DO_BLOCO[246] = 'picareta'; // tijolo de pedra
 for (const b of [51, 52, 55, 56]) TIPO_DO_BLOCO[b] = 'picareta';
 for (const b of [I.TERRA, I.GRAMA, I.AREIA, I.TERRA_ARADA]) TIPO_DO_BLOCO[b] = 'pa';
 // formas (80..99): madeira com machado, pedra/vidro com picareta
@@ -199,6 +204,8 @@ export const RECEITAS = [
   { id: 'la-de-fio', faz: [14, 1], usa: [[I.TEIA, 4]], grupo: 'construir', forma: ['II', 'II'] }, // 4 fios de teia de aranha = 1 lã
   { id: 'balde', faz: [I.BALDE, 1], usa: [[I.TABUAS, 3]], bancada: true, grupo: 'ferramentas', forma: ['T.T', '.T.'] },
   // construção
+  { id: 'tijolo-pedra', faz: [I.TIJOLO_PEDRA, 4], usa: [[I.PEDRA, 4]], grupo: 'construir', forma: ['LL', 'LL'] }, // como no clássico: 4 pedras = 4 tijolos
+  { id: 'melancia', faz: [I.MELANCIA, 1], usa: [[I.FATIA_MELANCIA, 9]], bancada: true, grupo: 'construir', forma: ['LLL', 'LLL', 'LLL'] }, // 9 fatias = 1 melancia
   { id: 'pedrisco', faz: [I.PEDRISCO, 2], usa: [[I.PEDRA, 2]], grupo: 'construir', forma: ['P.', '.P'] },
   { id: 'terra-arada', faz: [I.TERRA_ARADA, 1], usa: [[I.TERRA, 1]], grupo: 'construir' },
   { id: 'tijolo', faz: [I.TIJOLO, 2], usa: [[I.TERRA, 1], [I.AREIA, 1]], bancada: true, grupo: 'construir' },

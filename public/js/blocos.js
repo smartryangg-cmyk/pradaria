@@ -32,6 +32,8 @@ export const B = {
   LA_LARANJA: 232, LA_MAGENTA: 233, LA_AZUL_CLARO: 234, LA_LIMAO: 235, LA_CINZA: 236, LA_CINZA_CLARO: 237, LA_CIANO: 238, LA_ROXA: 239, LA_MARROM: 240, LA_PRETA: 241,
   // natureza do clássico: abóbora e cogumelos (nascem no mundo novo; gerador.js), tiles 224..227
   ABOBORA: 242, COGUMELO_MARROM: 243, COGUMELO_VERMELHO: 244, TEIA_BLOCO: 245,
+  // tijolo de pedra (4 pedras) e melancia (nasce na selva, dá fatias), tiles 229..231
+  TIJOLO_PEDRA: 246, MELANCIA: 247,
 };
 
 // tiles: [cima, baixo, lados]
@@ -77,6 +79,8 @@ def(B.ABOBORA, 'Abóbora', [224, 224, 225]);
 def(B.COGUMELO_MARROM, 'Cogumelo marrom', 226, { solido: false, opaco: false, planta: true });
 def(B.COGUMELO_VERMELHO, 'Cogumelo vermelho', 227, { solido: false, opaco: false, planta: true });
 def(B.TEIA_BLOCO, 'Teia', 228, { solido: false, opaco: false, planta: true, chao: false }); // prende quem passa (jogador.js); com espada sai fio; fica no ar (pendurada no teto)
+def(B.TIJOLO_PEDRA, 'Tijolo de pedra', 229);
+def(B.MELANCIA, 'Melancia', [230, 230, 231]);
 def(B.PEDRISCO, 'Pedrisco', 21);
 def(B.LAMPIAO, 'Lampião', 22);
 def(B.FLOR_AZUL, 'Flor azul', 23, { solido: false, opaco: false, planta: true });
@@ -121,6 +125,7 @@ export const ITEM = {
   CARNE: 1007, COURO: 1008, // caem dos bichos (animais.js -> economia.js CAI_BICHO)
   ISQUEIRO, // 1010: acende fogo (fogo-regras.js)
   ACUCAR: 1011, BOLO: 1012, // cana-regras.js
+  FATIA_MELANCIA: 1013, // cai da melancia (receitas.js); 9 fatias fazem a melancia de volta
   BALDE: 1009, // balde vazio: pega a água parada (fonte). Cheio, é a Água na mão; colocar a água devolve o balde
   // jogo clássico (receitas.js IDS): minérios, fornalha, ferramentas de ferro e diamante
   CARVAO: 1100, BARRA_FERRO: 1101, BARRA_OURO: 1102, DIAMANTE: 1103, CARNE_ASSADA: 1104,
@@ -148,6 +153,7 @@ export const ITENS = {
   [ISQUEIRO]: { nome: 'Isqueiro', tile: 153 },
   [1011]: { nome: 'Açúcar', tile: 157 },
   [1012]: { nome: 'Bolo', tile: 158 },
+  [1013]: { nome: 'Fatia de melancia', tile: 232 },
   [ITEM.CARVAO]: { nome: 'Carvão', tile: 173 },
   [ITEM.BARRA_FERRO]: { nome: 'Barra de ferro', tile: 174 },
   [ITEM.BARRA_OURO]: { nome: 'Barra de ouro', tile: 175 },
@@ -289,10 +295,10 @@ NIVEL[AGUA_CAINDO] = 8;
 
 // Ordem dos blocos no inventário (modo criativo)
 export const INVENTARIO = [
-  B.GRAMA, B.TERRA, B.PEDRA, B.PEDRISCO, B.AREIA, B.TRONCO, B.TABUAS, B.FOLHAS, B.VIDRO, B.TIJOLO,
+  B.GRAMA, B.TERRA, B.PEDRA, B.PEDRISCO, B.TIJOLO_PEDRA, B.AREIA, B.TRONCO, B.TABUAS, B.FOLHAS, B.VIDRO, B.TIJOLO,
   B.LAMPIAO, TOCHA, ESCADA_MAO, B.FENO, B.BANCADA, B.TERRA_ARADA, B.LA_BRANCA, B.LA_VERMELHA, B.LA_AZUL, B.LA_AMARELA, B.LA_VERDE, B.LA_ROSA,
   B.LA_LARANJA, B.LA_MAGENTA, B.LA_AZUL_CLARO, B.LA_LIMAO, B.LA_CINZA, B.LA_CINZA_CLARO, B.LA_CIANO, B.LA_ROXA, B.LA_MARROM, B.LA_PRETA,
-  B.FLOR_VERMELHA, B.FLOR_AMARELA, B.FLOR_AZUL, B.COGUMELO_MARROM, B.COGUMELO_VERMELHO, B.ABOBORA, B.TEIA_BLOCO, B.CAPIM, B.TRIGO, B.MUDA, B.MUDA_PINHEIRO, B.AGUA, LAVA, OBSIDIANA,
+  B.FLOR_VERMELHA, B.FLOR_AMARELA, B.FLOR_AZUL, B.COGUMELO_MARROM, B.COGUMELO_VERMELHO, B.ABOBORA, B.MELANCIA, B.TEIA_BLOCO, B.CAPIM, B.TRIGO, B.MUDA, B.MUDA_PINHEIRO, B.AGUA, LAVA, OBSIDIANA,
   B.CACTO, B.CASCALHO, B.CARVAO, B.FERRO, B.OURO, B.DIAMANTE,
   B.TRONCO_PINHEIRO, B.FOLHAS_PINHEIRO, B.TRONCO_BETULA, B.FOLHAS_SELVA, B.ARBUSTO_SECO,
   M.PORTA, 84, 85, 90, 95, M.FORNO, M.FARINHA, M.PAO,
@@ -522,6 +528,16 @@ function pintarCriacao(img) {
     const d = Math.hypot((x - 7.5) / 6, (y - 11) / 4);
     if (y > 13 || d > 1 || y < 6) return [0, 0, 0, 0];
     return var_((x * 7 + y * 3) % 5 ? hex(0xf4f4f0) : hex(0xd8dbe0), r, 0.04);
+  });
+  // 232 fatia de melancia: meia-lua vermelha com casca verde e sementes escuras
+  pintarTile(img, 232, (x, y, r) => {
+    const d = Math.hypot(x - 7.5, y - 4);
+    if (y < 4 || d > 9.5) return [0, 0, 0, 0];
+    if (d > 8.3) return var_(hex(0x2f6b22), r, 0.06); // casca
+    if (d > 7.4) return var_(hex(0xd8e8a8), r, 0.05); // parte branca
+    if (y === 4) return var_(hex(0xf0605a), r, 0.04);
+    if ((x * 5 + y * 3) % 13 === 0 && d < 6.5) return var_(hex(0x2a1a14), r, 0.04); // semente
+    return var_(hex(0xe03a3a), r, 0.07);
   });
   // 158 bolo: massa com cobertura branca e pontinhos vermelhos
   pintarTile(img, 158, (x, y, r) => {
