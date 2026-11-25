@@ -63,12 +63,21 @@ Precisa dos segredos do repositório `CLOUDFLARE_API_TOKEN` (permissões: Pages,
 
 ## App Android (APK)
 
-A pasta `android/` é um app pequeno (Trusted Web Activity) que abre https://pradaria.pages.dev em tela cheia, sem barra de endereço. Se o tablet não tiver Chrome, ele abre o jogo num WebView. O jogo em si continua vindo do site, então atualizações do jogo chegam sem baixar APK novo.
+A pasta `android/` tem dois apps, os dois com o **jogo inteiro dentro** (módulo `android/pacote`, que leva a pasta `public/` para o APK):
 
-O `.github/workflows/apk.yml` gera o APK quando `android/` muda no `main` (ou rodando à mão em Actions) e publica em Releases:
+- `app/` (pacote `dev.pradaria.jogo`, tablet e celular): abre em tela cheia num WebView, **funciona sem internet** (mundo sem conta salvo no aparelho) e, com internet, entra na conta e joga online como no site. Segurar o dedo não abre menu de copiar, o Voltar do Android pausa o jogo ou volta de tela (`window.pradariaVoltar` no `main.js`), o microfone do chat de voz pede a permissão do Android e "Baixar arquivo do mundo" pergunta onde guardar.
+- `tv/` (pacote `dev.pradaria.tv`, Android TV / TV Box): a versão da TV (`/tv`), também com o jogo dentro.
+
+Como funciona: o WebView continua no endereço `https://pradaria.pages.dev` (login, mundo salvo e online iguais ao navegador), mas cada arquivo do jogo sai de dentro do app (`Pacote.java`); só `/api/` (contas, mundos, salas) vai para a internet. O app se apresenta como `PradariaApp/1.0.N` no user agent e não usa o service worker.
+
+Atualização sozinha: a cada publicação o `publicar.yml` gera `public/app-pacote.json` (número da versão e sha256 de cada arquivo, `scripts/pacote-app.mjs`). Com internet, o app compara com o jogo que tem; se o do site for mais novo, baixa só o que mudou, confere cada arquivo e passa a usar na próxima vez que abrir. Se algo falhar, continua com o que tinha.
+
+O `.github/workflows/apk.yml` gera os APKs quando `android/` muda no `main` (ou rodando à mão em Actions) e publica em Releases:
 https://github.com/smartryangg-cmyk/pradaria/releases/latest/download/pradaria.apk
 
-Precisa dos segredos `ANDROID_KEYSTORE_B64` (a chave .jks em base64) e `ANDROID_KEYSTORE_SENHA`. A impressão digital dessa chave está em `public/.well-known/assetlinks.json`; se trocar a chave, troque lá também, senão o app mostra a barra de endereço. Guarde a chave: sem ela o tablet não aceita atualizar o app por cima.
+Testes de verdade no mesmo workflow: `teste-app` (emulador de tablet: abre, entra na conta, se atualiza, liga o modo avião e joga sem internet; `testes/teste-app-apk.mjs`) e `teste-tv` (emulador de Android TV).
+
+Precisa dos segredos `ANDROID_KEYSTORE_B64` (a chave .jks em base64) e `ANDROID_KEYSTORE_SENHA`. Guarde a chave: sem ela o tablet não aceita atualizar o app por cima. A impressão digital dela está em `public/.well-known/assetlinks.json` (links do Pradaria abrem direto no app).
 
 ## Rodar no computador
 
