@@ -168,6 +168,8 @@ export function atualizarAbas(nav, escolha) {
 
 // ---------- arquivo do mundo ----------
 export function baixarArquivo(arquivo) {
+  // no app Android o WebView não baixa arquivos: o app pergunta onde guardar
+  if (window.PradariaApp && window.PradariaApp.salvarArquivo) { window.PradariaApp.salvarArquivo(nomeArquivo(arquivo.nome), JSON.stringify(arquivo)); return; }
   const blob = new Blob([JSON.stringify(arquivo)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = nomeArquivo(arquivo.nome);

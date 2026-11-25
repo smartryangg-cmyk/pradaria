@@ -5,7 +5,7 @@ import { F } from './formas.js';
 import { FOLHAGEM } from './blocos.js';
 import { CANA, cabeCana } from './cana-regras.js';
 import { BOLO_ITEM, BOLO_B, ehBolo, depoisDaFatia } from './bolo-regras.js';
-import { criarAtlas, iconeBloco, INVENTARIO, INVENTARIO_MAQUINAS, INVENTARIO_FORMAS, B, E, AR, BLOCOS, SOLIDO, AGUA, PRECISA_CHAO, ITEM, ehItem, nomeDe, FORNALHA } from './blocos.js';
+import { criarAtlas, iconeBloco, INVENTARIO, INVENTARIO_MAQUINAS, INVENTARIO_FORMAS, B, E, AR, BLOCOS, SOLIDO, AGUA, PRECISA_CHAO, ITEM, ehItem, nomeDe, FORNALHA, BLOCOS_EXTRAS } from './blocos.js';
 import { toquesCom, receitasDoMundo, GRUPOS, podeCriar, faltaBancada, gastoDe, receitaDaGrade, arrumar, cabeNaGrade, pilhaDe, cabe, nivelFalta, NOME_NIVEL, baseDe, DURA } from './receitas.js';
 import { Inventario, MAO2, ARMA } from './inventario.js';
 import { reduzir, defesa, parteDe, PROTEGE, NOME_PARTE } from './armadura-regras.js';
@@ -67,7 +67,7 @@ import { Mecanismos } from './mecanismos.js';
 import { Guerra } from './guerra.js';
 import { confirmarIdade16, seletorData } from './idade.js';
 import { ligarHub, abrirJogos } from './hub.js';
-import { modoTV, iniciarTV } from './tv.js';
+import { modoTV, iniciarTV, focaveis } from './tv.js';
 import { Lobby } from './lobby.js';
 import { criarAmigos } from './amigos.js';
 import { jogo as dadosJogo } from './jogos.js';
@@ -531,7 +531,7 @@ function abrirInventario(aba) {
   if (abaInv === 'criar') desenharReceitas(g);
   else if (abaInv === 'mochila') desenharMochila(g);
   else {
-    const lista = abaInv === 'maquinas' ? INVENTARIO_MAQUINAS : abaInv === 'formas' ? INVENTARIO_FORMAS : [...INVENTARIO, ...FERRAMENTAS_CRIATIVO];
+    const lista = abaInv === 'maquinas' ? INVENTARIO_MAQUINAS : abaInv === 'formas' ? INVENTARIO_FORMAS : [...INVENTARIO.filter((b) => opcoesMundo.extras !== false || !BLOCOS_EXTRAS.has(b)), ...FERRAMENTAS_CRIATIVO];
     for (const id of lista) {
       const b = document.createElement('button');
       b.title = nomeDe(id);
@@ -1380,7 +1380,9 @@ function verLugar() {
 const el = document.documentElement;
 const pedirTela = el.requestFullscreen || el.webkitRequestFullscreen;
 const emTelaCheia = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
-const ehApp = matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone || new URLSearchParams(location.search).get('app') === 'android' || new URLSearchParams(location.search).has('appv');
+// app Android: o jogo vem de dentro do app (android/pacote) e o app se apresenta no user agent como PradariaApp/1.0.N
+const appAndroid = (navigator.userAgent.match(/PradariaApp\/([\w.]{1,20})/) || [])[1] || null;
+const ehApp = !!appAndroid || matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone || new URLSearchParams(location.search).get('app') === 'android' || new URLSearchParams(location.search).has('appv');
 function alternarTela() {
   som.iniciar();
   if (emTelaCheia()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
@@ -1406,7 +1408,7 @@ document.addEventListener('fullscreenchange', atualizarBotaoTela);
 document.addEventListener('webkitfullscreenchange', atualizarBotaoTela);
 
 // ---------- instalar o app ----------
-if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('/sw.js').catch(() => {});
+if (!appAndroid && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('/sw.js').catch(() => {});
 let pedidoInstalar = null;
 const ehIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 function mostrarInstalar(sim) { document.querySelectorAll('.instalar').forEach((b) => { b.hidden = !sim || !!ehApp; }); }
@@ -1414,7 +1416,7 @@ addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); pedidoInsta
 addEventListener('appinstalled', () => { pedidoInstalar = null; mostrarInstalar(false); aviso('Pronto! O Pradaria está na sua tela de início!', 3500, 'estrela'); });
 // ---------- versão (tela inicial e pausa) ----------
 // o app Android abre o site com ?appv=1.0.N (o jogo navega só pelo #, então o endereço continua com ela)
-const versaoApp = /^[\w.]{1,20}$/.test(new URLSearchParams(location.search).get('appv') || '') ? new URLSearchParams(location.search).get('appv') : null;
+const versaoApp = appAndroid || (/^[\w.]{1,20}$/.test(new URLSearchParams(location.search).get('appv') || '') ? new URLSearchParams(location.search).get('appv') : null);
 function textoVersao() {
   const jogo = VERSAO.numero === 'teste' ? 'Versão de teste' : `Versão ${VERSAO.numero}` + (VERSAO.data ? ` · ${VERSAO.data}` : '') + (VERSAO.hash ? ` · ${VERSAO.hash}` : '');
   const app = versaoApp ? ` · App Android ${versaoApp}` : (new URLSearchParams(location.search).get('app') === 'android' ? ' · App Android' : '');
@@ -2572,7 +2574,7 @@ $('#m-conta').addEventListener('submit', async (e) => {
     levarSkinLocal(); levarModelosLocal();
     $('#c-senha').value = '';
     abrirJogos();
-  } catch (err) { $('#c-erro').textContent = err.message; }
+  } catch (err) { $('#c-erro').textContent = err instanceof TypeError || !navigator.onLine ? 'Sem internet agora. Para entrar na conta precisa de internet; sem ela, dá para jogar em "Jogar sem conta".' : err.message; }
   $('#c-ok').disabled = false;
 });
 const sairDaConta = () => { conta.salvar(null); conta.usuario = null; lobby.fechar(); mostrarMenu('m-inicio'); };
@@ -2614,7 +2616,7 @@ $('#bt-chamar-amigos').addEventListener('click', () => {
   som.clique(); $('#pausa').hidden = true;
   amigos.abrir({ jogo: 'pradaria', sala: mundoAtual.codigo, titulo: mundoAtual.nome }, () => { if (jogando) abrirPausa(); });
 });
-ligarHub({ lobby, amigos, mostrarMenu, abrirMundos, som: () => { som.iniciar(); som.clique(); }, abrirConta: (m, msg) => { abrirConta(m); if (msg) $('#c-erro').textContent = msg; } });
+ligarHub({ lobby, amigos, mostrarMenu, abrirMundos, semRede, som: () => { som.iniciar(); som.clique(); }, abrirConta: (m, msg) => { abrirConta(m); if (msg) $('#c-erro').textContent = msg; } });
 ligarApagarConta(() => mostrarMenu('m-inicio'));
 $('#bt-personagem').addEventListener('click', () => abrirPersonagem());
 $('#bt-personagem2').addEventListener('click', () => abrirPersonagem());
@@ -2654,9 +2656,23 @@ async function abrirMundos() {
     mostrarMenu('m-mundos');
   } catch (err) {
     if (/sess|entrar|401/i.test(err.message)) { conta.salvar(null); conta.usuario = null; abrirConta('entrar'); $('#c-erro').textContent = 'Entre de novo, por favor.'; }
+    else if (semRede(err)) mostrarMenu('m-inicio');
     else { mostrarMenu('m-inicio'); alert('Não consegui falar com o servidor agora. Você pode jogar sem internet.\n\n' + err.message); }
   }
 }
+// ---------- sem internet: avisa na tela inicial (sem janela de alerta) e abre a conta sozinho quando a internet voltar ----------
+// o fetch sem rede dá TypeError ("Failed to fetch"); o app Android e o celular em modo avião caem aqui
+function semRede(err) {
+  if (navigator.onLine && !(err instanceof TypeError)) return false;
+  $('#inicio-sem-rede').hidden = false;
+  return true;
+}
+addEventListener('online', () => {
+  $('#inicio-sem-rede').hidden = true;
+  if (conta.token && !jogando && !$('#menu').hidden && !$('#m-inicio').hidden) abrirJogos();
+});
+if (!navigator.onLine) $('#inicio-sem-rede').hidden = false;
+addEventListener('offline', () => { if (!jogando && !$('#menu').hidden && !$('#m-inicio').hidden) $('#inicio-sem-rede').hidden = false; });
 
 // ---------- criar mundo: nome + opções (o que vai ter no mundo) + semente ----------
 const iconesOpcoes = (o) => { const n = normalizarOpcoes(o); return (n.tipo !== 'normal' ? icone(TIPOS[n.tipo].icone, 'ic-svg ic-mini') : '') + (n.estilo !== 'blocos' ? icone(ESTILOS[n.estilo].icone, 'ic-svg ic-mini') : '') + (TIPOS[n.tipo].limite ? '' : icone(TAMANHOS[n.tamanho].icone, 'ic-svg ic-mini')) + OPCOES_MUNDO.filter((x) => n[x.id]).map((x) => icone(x.icone, 'ic-svg ic-mini')).join(''); };
@@ -3010,6 +3026,17 @@ const tv = iniciarTV({
     try { if (jogando) sairDoMundo({ semMenu: true }); await entrarPorCodigo(codigo); } catch (err) { aviso(err.message, 3000, 'relogio'); abrirMundos(); }
   },
 });
+// botão Voltar do Android (app): pausa o jogo, fecha a janela aberta ou volta de tela.
+// false = já está na tela inicial (o app pergunta se quer sair)
+window.pradariaVoltar = () => {
+  if (personagem.aberto) { personagem.fechar(); return true; }
+  if (jogando) { if (pausado) fecharJanelas(); else abrirPausa(); return true; }
+  const bt = focaveis().find((b) => b.matches('[data-voltar], [data-voltar-mundos], #e-cancelar, #bt-voltar-jogos, #pers-cancelar'));
+  if (bt) { bt.click(); return true; }
+  return false;
+};
+// avisos que vêm do app (arquivo do mundo guardado etc.)
+window.pradariaAviso = (t) => aviso(String(t).slice(0, 120), 3000);
 requestAnimationFrame(laco);
 addEventListener('beforeunload', () => salvarLocal());
 document.addEventListener('visibilitychange', () => { som.pausarTudo(document.hidden); if (document.hidden) { salvarLocal(); if (jogando) enviarBarra(); } });
