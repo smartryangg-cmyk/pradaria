@@ -31,11 +31,22 @@ async function abrirApp(como) {
   if (como === 'icone') adb('shell', 'monkey', '-p', PKG, '-c', 'android.intent.category.LAUNCHER', '1');
   else adb('shell', 'am', 'start', '-n', PKG + '/.Principal');
   const t0 = Date.now();
-  const wv = await dev.webView({ pkg: PKG }, { timeout: 60000 });
-  const p = await wv.page();
+  // no emulador do CI a página do WebView às vezes é trocada logo ao abrir ("Target page... closed"): pega a nova (até 3 vezes)
+  let p;
+  for (let vez = 1; ; vez++) {
+    const wv = await dev.webView({ pkg: PKG }, { timeout: 60000 });
+    p = await wv.page();
+    try {
+      await p.waitForSelector('#m-inicio:not([hidden]), #m-jogos:not([hidden])', { timeout: 60000 });
+      break;
+    } catch (e) {
+      if (vez >= 3 || !/closed/i.test(String(e && e.message))) throw e;
+      info(`a página do app foi trocada ao abrir (${vez}ª vez); pegando a nova`);
+      await espera(1500);
+    }
+  }
   p.on('pageerror', (e) => erros.push(e.message));
   p.on('console', (m) => { if (m.type() === 'error') erros.push('console: ' + m.text()); });
-  await p.waitForSelector('#m-inicio:not([hidden]), #m-jogos:not([hidden])', { timeout: 60000 });
   info(`tela inicial em ${((Date.now() - t0) / 1000).toFixed(1)} s`);
   return p;
 }

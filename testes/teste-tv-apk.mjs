@@ -95,12 +95,14 @@ try {
   fotoTV('jogos');
   // OK do controle remoto abre o Pradaria
   ok(await irAte('#lista-jogos .jogo[data-jogo=pradaria]'), 'escolhido o Pradaria');
-  await tecla('KEYCODE_DPAD_CENTER', 1500);
-  ok(await tv.evaluate(() => !document.querySelector('#m-mundos').hidden), 'OK do controle remoto abre a lista de mundos');
+  await tecla('KEYCODE_DPAD_CENTER', 300);
+  // o emulador no CI às vezes leva mais de 1,5 s para trocar de tela: espera a lista (até 10 s) em vez de olhar uma vez só
+  const abriu = (sel) => tv.waitForFunction((s) => !document.querySelector(s).hidden, sel, { timeout: 10000 }).then(() => true, () => false);
+  ok(await abriu('#m-mundos'), 'OK do controle remoto abre a lista de mundos');
   fotoTV('mundos');
   // Voltar do controle remoto volta para os jogos (o app manda "GoBack" para o site)
-  await tecla('KEYCODE_BACK', 1500);
-  ok(await tv.evaluate(() => !document.querySelector('#m-jogos').hidden && document.querySelector('#m-mundos').hidden), 'Voltar do controle remoto volta uma tela (e não fecha o app)');
+  await tecla('KEYCODE_BACK', 300);
+  ok(await tv.waitForFunction(() => !document.querySelector('#m-jogos').hidden && document.querySelector('#m-mundos').hidden, null, { timeout: 10000 }).then(() => true, () => false), 'Voltar do controle remoto volta uma tela (e não fecha o app)');
   ok(adb('shell', 'dumpsys', 'activity', 'activities').includes('dev.pradaria.tv/.Principal'), 'o app continua aberto');
   if (await tv.evaluate(() => document.querySelector('#m-mundos').hidden)) {
     ok(await irAte('#lista-jogos .jogo[data-jogo=pradaria]'), 'escolhido o Pradaria de novo');
