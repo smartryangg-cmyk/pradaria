@@ -15,7 +15,7 @@ export function nivelDe(xp) {
 }
 
 // minério natural tirado com a picareta certa: [mínimo, máximo] (sorteio pela posição: o jogo e a sala tiram igual)
-export const XP_MINERIO = { 66: [0, 2], 69: [3, 7] };
+export const XP_MINERIO = { 66: [0, 2], 69: [3, 7], 193: [2, 5] }; // 193 pedra-azul
 // o que sai pronto da fornalha: pontos por coisa
 export const XP_FORNO = { 1101: 0.7, 1102: 1, 9: 0.1, 3: 0.1, 1104: 0.35, 1100: 0.15, 58: 0.35 };
 export const XP_CACA = 2;

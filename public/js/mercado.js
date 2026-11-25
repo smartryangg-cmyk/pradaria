@@ -122,6 +122,14 @@ export class Mercado {
     else if (this.otimista(a, true)) this.sala.enviar(a);
     ids.forEach((id, k) => { if (antes[k] > (this.e.itens[id] | 0)) this.ui.aviso(`${nomeDe(id)} quebrou! Crie outra peça na bancada`, 2600, 'escudo'); });
   }
+  // mesa de encantar (jogo clássico, encantos-regras.js): a coisa número k daquele id recebe a oferta op
+  encantar(x, y, z, id, k, op, est) {
+    if (!this.ligado || !this.op.fome) return false;
+    const a = { t: 'encantar', id, k, op, est };
+    const r = this.sala ? this.otimista(a) : this.mexer(a);
+    if (r && this.sala) this.sala.enviar({ ...a, x, y, z });
+    return r;
+  }
   // a ferramenta gastou até o fim (como no clássico)
   avisarQuebrou(id, antes) {
     if (DURA[id] && antes > (this.e.itens[id] | 0)) this.ui.aviso(`${nomeDe(id)} quebrou de tanto usar! Crie outro na bancada`, 2600, 'martelo');

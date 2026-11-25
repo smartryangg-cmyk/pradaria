@@ -9,6 +9,7 @@
 //   - liberar receitas aos poucos (ex.: eras da Linha do Tempo): ponha `era: 'x'` na receita e troque
 //     `regras.liberada = (receita, opcoes) => true` por uma função sua
 import { DURA_ARMADURA, parteDe } from './armadura-regras.js';
+import { BASE, usosDe, mascaraDe, duraDe, limparMascara } from './encantos-regras.js';
 
 // ids (iguais aos de blocos.js)
 export const IDS = {
@@ -33,10 +34,13 @@ export const IDS = {
   CAPACETE_COURO: 1117, PEITORAL_COURO: 1118, CALCA_COURO: 1119, BOTAS_COURO: 1120,
   CAPACETE_FERRO: 1121, PEITORAL_FERRO: 1122, CALCA_FERRO: 1123, BOTAS_FERRO: 1124,
   CAPACETE_DIAMANTE: 1125, PEITORAL_DIAMANTE: 1126, CALCA_DIAMANTE: 1127, BOTAS_DIAMANTE: 1128,
+  // encantar (encantos-regras.js): minério e pedra-azul, papel, livro e a mesa de encantar
+  MINERIO_AZUL: 193, MESA_ENCANTAR: 194, OBSIDIANA: 220, CANA: 224, ESTANTE: 186,
+  PEDRA_AZUL: 1129, PAPEL: 1130, LIVRO: 1131,
 };
 const I = IDS;
 export const ULTIMO_ITEM = 1012; // 1010 isqueiro (fogo-regras.js); 1011 açúcar, 1012 bolo (cana-regras.js)
-export const PRIMEIRO_CLASSICO = 1100, ULTIMO_CLASSICO = 1128; // itens do jogo clássico (minérios, fornalha, monstros, espadas, armadura)
+export const PRIMEIRO_CLASSICO = 1100, ULTIMO_CLASSICO = 1131; // itens do jogo clássico (minérios, fornalha, monstros, espadas, armadura, encantar)
 export const MAIOR_ITEM = ULTIMO_CLASSICO;
 export const MAX_BLOCO = 255;
 
@@ -67,7 +71,7 @@ const VIRA = { [I.GRAMA]: I.TERRA, [I.TERRA_ARADA]: I.TERRA, 80: I.TRONCO, 81: 7
 // com a mão ou picareta fraca o bloco quebra (devagar) e não dá nada, como no clássico
 export const PRECISA_PICARETA = {
   [I.PEDRA]: 1, [I.PEDRISCO]: 1, [I.TIJOLO]: 1, [I.CARVAO_MINERIO]: 1, [I.FERRO_MINERIO]: 2, [I.OURO_MINERIO]: 3,
-  [I.DIAMANTE_MINERIO]: 3, [I.FORNALHA]: 1, 189: 1, [I.BLOCO_FERRO]: 2, [I.BLOCO_OURO]: 3, [I.BLOCO_DIAMANTE]: 3,
+  [I.DIAMANTE_MINERIO]: 3, [I.MINERIO_AZUL]: 2, [I.MESA_ENCANTAR]: 1, [I.FORNALHA]: 1, 189: 1, [I.BLOCO_FERRO]: 2, [I.BLOCO_OURO]: 3, [I.BLOCO_DIAMANTE]: 3,
   83: 1, 86: 1, 87: 1, 88: 1, 90: 1, 91: 1, 92: 1, 93: 1, 94: 1, // formas de pedra e tijolo
 };
 export const NOME_NIVEL = ['', 'de madeira', 'de pedra', 'de ferro', 'de diamante'];
@@ -93,6 +97,7 @@ export function oQueCai(b, x = 0, y = 0, z = 0, natural = true, mao = 0, classic
   if (b === 222) return []; // fogo (fogo-regras.js)
   if (b >= 225 && b <= 231) return []; // bolo colocado: quebrar não dá nada (como no clássico)
   if (b === 220 && !(FERRAMENTAS[mao] && FERRAMENTAS[mao][0] === 'picareta')) return []; // obsidiana: só com picareta
+  if (b === I.MINERIO_AZUL) return [[I.PEDRA_AZUL, 4 + (sorteio(x, y, z) % 6)]]; // como no clássico: 4 a 9 pedras-azuis
   const r = [[VIRA[b] ?? baseDe(b), 1]];
   // o extra só vem de bloco do mundo (colocar e quebrar não multiplica nada), menos o trigo maduro e as folhas:
   // eles também nascem crescendo (trigo plantado, muda que virou árvore; a sala confere), e render é o motivo de plantar
@@ -128,7 +133,7 @@ for (const b of [80, 81, 82, 84, 95, 96, 97, 98, 99]) TIPO_DO_BLOCO[b] = 'machad
 for (const b of [83, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94]) TIPO_DO_BLOCO[b] = 'picareta';
 // troncos das outras árvores, folhas, minérios e cascalho do mundo clássico
 for (const b of [71, 72, 73, 74, 131, 132]) TIPO_DO_BLOCO[b] = 'machado';
-for (const b of [66, 67, 68, 69, 220, 188, 189, 190, 191, 192]) TIPO_DO_BLOCO[b] = 'picareta'; // 220 obsidiana, 188 fornalha
+for (const b of [66, 67, 68, 69, 220, 188, 189, 190, 191, 192, 193, 194]) TIPO_DO_BLOCO[b] = 'picareta'; // 220 obsidiana, 188 fornalha
 TIPO_DO_BLOCO[65] = 'pa';
 
 // quantos toques o bloco b precisa com `naMao` na mão (base = toques sem ferramenta)
@@ -148,6 +153,7 @@ export const GRUPOS = [
   { id: 'formas', nome: 'Formas redondas', icone: 'bloco', opcao: 'formas' },
   { id: 'maquinas', nome: 'Engenharia', icone: 'engrenagem', opcao: 'maquinas' },
   { id: 'armadura', nome: 'Armadura', icone: 'escudo' },
+  { id: 'encantar', nome: 'Encantar', icone: 'livro' },
 ];
 export const RECEITAS = [
   // na mão
@@ -221,7 +227,12 @@ export const RECEITAS = [
   { id: 'cadeira', faz: [180, 1], usa: [[I.TABUAS, 2]], bancada: true, grupo: 'construir', forma: ['TT'] },
   { id: 'mesa', faz: [184, 1], usa: [[I.TABUAS, 3]], bancada: true, grupo: 'construir', forma: ['TTT'] },
   { id: 'balcao', faz: [185, 1], usa: [[I.TABUAS, 3]], bancada: true, grupo: 'construir', forma: ['TT', 'T.'] },
-  { id: 'estante', faz: [186, 1], usa: [[I.TABUAS, 4]], bancada: true, grupo: 'construir', forma: ['T.T', 'T.T'] },
+  { id: 'estante', faz: [186, 1], usa: [[I.TABUAS, 4]], bancada: true, grupo: 'construir', forma: ['T.T', 'T.T'], classico: false },
+  // encantar (só no clássico): papel da cana, livro, estante de livros e a mesa de encantar
+  { id: 'papel', faz: [I.PAPEL, 3], usa: [[I.CANA, 3]], bancada: true, grupo: 'encantar', soClassico: true, forma: ['KKK'] },
+  { id: 'livro', faz: [I.LIVRO, 1], usa: [[I.PAPEL, 3], [I.COURO, 1]], grupo: 'encantar', soClassico: true },
+  { id: 'estante-livros', faz: [I.ESTANTE, 1], usa: [[I.TABUAS, 6], [I.LIVRO, 3]], bancada: true, grupo: 'encantar', soClassico: true, forma: ['TTT', 'BBB', 'TTT'] },
+  { id: 'mesa-encantar', faz: [I.MESA_ENCANTAR, 1], usa: [[I.LIVRO, 1], [I.DIAMANTE, 2], [I.OBSIDIANA, 4]], bancada: true, grupo: 'encantar', soClassico: true, forma: ['.B.', 'DXD', 'XXX'] },
   { id: 'prateleira-paes', faz: [187, 1], usa: [[I.TABUAS, 4]], bancada: true, grupo: 'construir', forma: ['TTT', '.T.'] },
   // cores
   { id: 'la-vermelha', faz: [I.LA_VERMELHA, 1], usa: [[I.LA_BRANCA, 1], [I.FLOR_VERMELHA, 1]], grupo: 'cores' },
@@ -328,7 +339,7 @@ function cabeDepois(itens, r) {
 // sem `forma`: as coisas podem estar em qualquer lugar (uma por espaço). Cada espaço gasta 1.
 // Letras: T tábuas, G graveto, P pedra, R pedrisco, W trigo, F barra de ferro, D diamante, O barra de ouro,
 // C carvão, L = o único ingrediente da receita.
-const LETRAS = { T: I.TABUAS, G: I.GRAVETO, P: I.PEDRA, R: I.PEDRISCO, W: I.TRIGO, F: I.BARRA_FERRO, D: I.DIAMANTE, O: I.BARRA_OURO, C: I.CARVAO, I: I.TEIA };
+const LETRAS = { T: I.TABUAS, G: I.GRAVETO, P: I.PEDRA, R: I.PEDRISCO, W: I.TRIGO, F: I.BARRA_FERRO, D: I.DIAMANTE, O: I.BARRA_OURO, C: I.CARVAO, I: I.TEIA, K: I.CANA, B: I.LIVRO, X: I.OBSIDIANA };
 const letra = (r, c) => (c === '.' ? 0 : c === 'L' ? r.usa[0][0] : LETRAS[c]);
 export function desenhoDe(r) {
   if (r.forma) return r.forma.map((l) => [...l].map((c) => letra(r, c)));
@@ -400,7 +411,8 @@ export function criarEm(itens, r, temBancada, limite = false) {
 // Quebrar um bloco com a ferramenta gasta 1 (plantas e coisas de um toque não); acender com o isqueiro gasta 1.
 // Quando chega no máximo, a ferramenta quebra. Largar no chão leva o desgaste junto (pegar de volta não conserta).
 export const DURA = { 1001: 59, 1003: 59, 1005: 59, 1002: 131, 1004: 131, 1006: 131, 1010: 64, 1105: 250, 1106: 250, 1107: 250, 1108: 1561, 1109: 1561, 1110: 1561, 1113: 59, 1114: 131, 1115: 250, 1116: 1561, ...DURA_ARMADURA };
-const lim = (id, v) => Math.max(0, Math.min(DURA[id] - 1, v | 0));
+// o número guarda os usos e o encanto (encantos-regras.js): os usos não passam do que a coisa aguenta
+const lim = (id, v) => { const w = limparMascara(id, v); return BASE * mascaraDe(w) + Math.max(0, Math.min(duraDe(id, w) - 1, usosDe(w))); };
 // desgaste válido para n ferramentas id (lista de números; o que faltar é ferramenta nova)
 export const desgLista = (id, l, n) => (DURA[id] && Array.isArray(l) ? l.slice(0, Math.max(0, n | 0)).map((v) => lim(id, v)) : []);
 // a lista de cada ferramenta nunca passa de quantas a mochila tem
@@ -418,7 +430,7 @@ export function desgastar(e, id) {
   if (!DURA[id] || !((e.itens[id] | 0) > 0)) return null;
   const l = ((e.desg ??= {})[id] ??= []);
   l[0] = (l[0] | 0) + 1;
-  if (l[0] < DURA[id]) return 'gastou';
+  if (usosDe(l[0]) < duraDe(id, l[0])) return 'gastou';
   l.shift();
   tirar(e.itens, id, 1);
   ajustarDesg(e);

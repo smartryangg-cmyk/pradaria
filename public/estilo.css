@@ -1045,3 +1045,27 @@ body.modo-tv .marca-dagua { font-size: 14px; }
 .data-nasc select { font: inherit; font-size: 17px; font-weight: 700; padding: 10px 6px; border-radius: 14px; border: 3px solid var(--borda); background: #fff; color: var(--txt); min-width: 0; }
 #idade-data { margin: 4px 0 2px; }
 body.morto #aviso, body.morto #dica-toque { display: none !important; }
+
+/* mesa de encantar (encantos-regras.js): a coisa e a pedra-azul à esquerda, as 3 ofertas à direita */
+.inv-cima.c-mesa { justify-content: center; padding: 4px 0; }
+.inv-mesa { flex: 1 1 100%; display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; }
+.mesa-lado { display: flex; flex-direction: column; gap: 6px; }
+#grade .mesa-lado .slot-inv { width: 48px; }
+.mesa-ofertas { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+#grade .mesa-oferta { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 10px; border: 2px solid #5b4a7a; border-radius: 8px; background: #3a2f52; color: #b9aedb; font: inherit; font-size: 13px; text-align: left; cursor: default; aspect-ratio: auto; box-shadow: none; place-items: initial; width: 100%; }
+#grade .mesa-oferta:disabled { background: #2a2338; border-color: #3a2f52; }
+#grade .mesa-oferta.pode { background: #6b4fa8; border-color: #c9b6ff; color: #fff; cursor: pointer; box-shadow: 0 2px 0 #2a2338; }
+#grade .mesa-oferta.pode:hover { background: #7d5fc4; }
+.mesa-enc { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.mesa-nivel { flex: 0 0 auto; color: #8cf06a; font-weight: 800; }
+#grade .mesa-oferta:not(.pode) .mesa-nivel { color: #6f8f62; }
+.mesa-custo { display: flex; gap: 2px; flex: 0 0 auto; }
+.mesa-custo i { width: 8px; height: 8px; border-radius: 2px; background: #3d6ee0; transform: rotate(45deg); box-shadow: 0 0 0 1px #14306e; }
+.mesa-dica { grid-column: 1 / -1; margin: 0; font-size: 12px; color: #6b5a40; text-align: center; }
+#grade .slot-inv.na-mesa { outline: 3px solid #8b6be0; outline-offset: -3px; }
+/* coisa encantada: brilho roxo andando por cima (como no clássico) */
+.slot-inv.encantado, #barra .slot.encantado { position: relative; overflow: hidden; }
+.slot-inv.encantado::after, #barra .slot.encantado::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(115deg, transparent 30%, rgba(180, 120, 255, .45) 45%, rgba(220, 190, 255, .55) 50%, transparent 65%); background-size: 250% 100%; animation: brilhoEnc 2.4s linear infinite; mix-blend-mode: screen; }
+@keyframes brilhoEnc { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+@media (prefers-reduced-motion: reduce) { .slot-inv.encantado::after { animation: none; background-position: 50% 0; } }
+@media (max-width: 480px) { #grade .mesa-oferta { font-size: 12px; padding: 4px 8px; gap: 6px; } #grade .mesa-lado .slot-inv { width: 40px; } }

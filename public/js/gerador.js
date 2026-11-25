@@ -11,7 +11,7 @@ export const G = {
   // neve, grama com neve, gelo e arenito: blocos das eras (blocos-eras.js)
   NEVE: 140, GRAMA_NEVE: 137, GELO: 138, ARENITO: 146, CACTO: 63, CASCALHO: 65,
   CANA: 224, // cana-regras.js
-  CARVAO: 66, FERRO: 67, OURO: 68, DIAMANTE: 69, ROCHA_MAE: 70,
+  CARVAO: 66, FERRO: 67, OURO: 68, DIAMANTE: 69, ROCHA_MAE: 70, AZUL: 193,
   TRONCO_PINHEIRO: 71, FOLHAS_PINHEIRO: 72, TRONCO_BETULA: 73, FOLHAS_SELVA: 74, ARBUSTO_SECO: 75,
   // troncos redondos das árvores (formas-defs.js)
   TRONCO_R: 80, TRONCO_R_PINHEIRO: 81, TRONCO_R_BETULA: 82,
@@ -67,11 +67,12 @@ function veios(semente, cx, cz, ALT, cada) {
   veio(G.FERRO, 10, 4, S + 10, 4, 8);
   veio(G.OURO, 3, 3, 26, 3, 7);
   veio(G.DIAMANTE, rnd() < 0.6 ? 1 : 2, 2, 14, 2, 6);
+  veio(G.AZUL, 1, 2, 30, 3, 7); // pedra-azul (encantar); por último, para não mexer onde os outros caem
 }
 
 // a sala confere o "estava ali" que o aparelho manda ao quebrar um bloco do mundo original: minério só pode
 // estar onde passou um veio daquele minério (senão um aparelho modificado tirava diamante de qualquer pedra)
-export const MINERIOS = new Set([G.CARVAO, G.FERRO, G.OURO, G.DIAMANTE]);
+export const MINERIOS = new Set([G.CARVAO, G.FERRO, G.OURO, G.DIAMANTE, G.AZUL]);
 export function minerioPossivel(semente, alt, x, y, z, bloco, cache = null) {
   if (!MINERIOS.has(bloco) || ![x, y, z].every(Number.isInteger)) return false;
   const cx = Math.floor(x / CX), cz = Math.floor(z / CZ), ck = cx + ',' + cz;

@@ -811,6 +811,7 @@ PINT[31] = (t) => minerio(t, 3101, [0x2c2c34, 0x45444c, 0x6a6872], { tam: 1.5 })
 PINT[32] = (t) => minerio(t, 3201, [0xa0684a, 0xd4a07a, 0xf0ccaa]);
 PINT[33] = (t) => minerio(t, 3301, [0xb07e22, 0xe8bc44, 0xfff0b0], { tam: 1.2 });
 PINT[34] = (t) => minerio(t, 3401, [0x2a9aa8, 0x6ae0e4, 0xe0ffff], { tam: 1.1, grupos: 4 });
+PINT[202] = (t) => minerio(t, 20201, [0x1f3f9c, 0x3a64d8, 0x9cc0ff], { tam: 1.2, grupos: 5 }); // pedra-azul (encantar)
 // rocha-mãe: escura, caótica e bem funda
 PINT[35] = (t) => {
   const pc = voronoi(3501, 5, 5, 1), n = fbm(3502, 4, 4, 4), nf = fbm(3503, 12, 12, 2);

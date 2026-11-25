@@ -20,7 +20,7 @@ ok(oQueCai(69, 0, 0, 0, true, I.PICARETA_PEDRA, true).length === 0 && ids(oQueCa
 ok(nivelFalta(69, I.PICARETA_PEDRA) === 3 && nivelFalta(69, I.PICARETA_DIAMANTE) === 0 && nivelFalta(I.TERRA, 0) === 0, 'nivelFalta diz que picareta precisa');
 ok(ids(oQueCai(I.FORNALHA, 0, 0, 0, false, I.PICARETA_MADEIRA, true)) === String(I.FORNALHA) && ids(oQueCai(189, 0, 0, 0, false, I.PICARETA_MADEIRA, true)) === String(I.FORNALHA), 'fornalha (acesa ou não) volta fornalha');
 ok(toquesCom(30, 69, I.PICARETA_DIAMANTE) < toquesCom(30, 69, I.PICARETA_FERRO) && toquesCom(30, 69, I.PICARETA_FERRO) < toquesCom(30, 69, I.PICARETA_PEDRA), 'diamante quebra mais rápido que ferro, ferro mais que pedra');
-ok([1100, 1101, 1102, 1103, 1104, 1105, 1110, 1111, 1116, 1117, 1128].every(guardavel) && !guardavel(1129) && !guardavel(1050) && podeNoChao(1103, 1), 'itens novos guardam na mochila e caem no chão');
+ok([1100, 1101, 1102, 1103, 1104, 1105, 1110, 1111, 1116, 1117, 1128].every(guardavel) && guardavel(1129) && guardavel(1131) && !guardavel(1136) && !guardavel(1050) && podeNoChao(1103, 1), 'itens novos guardam na mochila e caem no chão');
 ok(DURA[I.PICARETA_FERRO] === 250 && DURA[I.PICARETA_DIAMANTE] === 1561, 'ferro dura 250 usos, diamante 1561');
 
 // ---------- receitas ----------
