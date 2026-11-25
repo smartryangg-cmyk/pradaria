@@ -1093,7 +1093,13 @@ function ordemDesg(id) {
   return ordem;
 }
 const encantavel = (i) => { const p = inv.s[i]; return !!(p && DURA[p.id] && tipoEnc(p.id) && !encantado(desgDoEspaco(i, p.id))); };
-function estantesDaMesa() { return mesaAberta ? contarEstantes((x, y, z) => mundo.bloco(x, y, z), mesaAberta.x, mesaAberta.y, mesaAberta.z) : 0; }
+// online a sala só conhece as estantes que alguém colocou (as das casas das vilas vêm da semente e ela não conta):
+// o aparelho conta igual, senão mostraria uma oferta e a sala aplicaria outra
+function estantesDaMesa() {
+  if (!mesaAberta) return 0;
+  const veja = mercado.sala ? (x, y, z) => (mundo.editado(x, y, z) ? mundo.bloco(x, y, z) : 0) : (x, y, z) => mundo.bloco(x, y, z);
+  return contarEstantes(veja, mesaAberta.x, mesaAberta.y, mesaAberta.z);
+}
 function ofertasDaMesa() {
   const i = mesaAberta && mesaAberta.sel, p = i >= 0 && inv.s[i];
   if (!p || !encantavel(i)) return [];

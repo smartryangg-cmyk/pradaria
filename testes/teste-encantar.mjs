@@ -228,6 +228,12 @@ if (PARTES.includes('online')) {
   ok(await a.isVisible('#mesa-painel'), 'online: Ana abriu a mesa');
   await a.click(`.slot-inv[data-l=s][data-i="${await espaco(a, PIC)}"]`); await esperar(a, 300);
   ok(/4 de 15/.test(await a.textContent('.mesa-dica')), 'online: a mesa conta as 4 estantes (' + await a.textContent('.mesa-dica') + ')');
+  // estante de casa de vila: vem da semente, não das edições; a sala não a vê, então o aparelho também não conta
+  const vila = await J(a, (M) => { const g = window.__jogo, m = g.mundo, x = M[0] - 2, y = M[1], z = M[2] - 2;
+    m.definir(x, y, z, 186); const CX = 16, cx = Math.floor(x / CX), cz = Math.floor(z / CX);
+    const ed = m.edicoes.get(cx + ',' + cz); if (ed) ed.delete(x - cx * CX + (z - cz * CX) * CX + y * CX * CX);
+    return [m.bloco(x, y, z), m.editado(x, y, z), g.estantesDaMesa()]; }, M);
+  ok(vila[0] === 186 && !vila[1] && vila[2] === 4, 'online: a estante que não foi colocada por ninguém (como a das vilas) não conta, igual na sala (' + JSON.stringify(vila) + ')');
   const esperado = await J(a, () => window.__jogo.ofertasDaMesa());
   await a.click('.mesa-oferta[data-op="2"]'); await esperar(a, 1500);
   const v = await desg(a, PIC);
