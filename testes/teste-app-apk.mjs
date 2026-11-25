@@ -66,6 +66,8 @@ try {
   ok(await p.evaluate(() => document.querySelector('#bt-tela').hidden), 'sem botão de tela cheia (o app já é tela cheia)');
   ok(await p.evaluate(() => !navigator.serviceWorker || navigator.serviceWorker.getRegistrations().then((l) => l.length === 0)), 'sem service worker (o jogo já está no app)');
   ok(await p.evaluate(() => document.querySelector('#versao-inicio').textContent.includes('App Android')), 'versão: ' + await p.textContent('#versao-inicio'));
+  // os arquivos saem do aparelho, não do Cloudflare: o app tem de pôr a mesma Content-Security-Policy do site (public/_headers)
+  ok(await p.evaluate(() => { try { eval('1'); return false; } catch { return true; } }), 'proteção do site também no app (Content-Security-Policy bloqueia eval)');
 
   // entra na conta (o online usa a internet)
   await toque(p, '#bt-entrar');
