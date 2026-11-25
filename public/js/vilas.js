@@ -6,11 +6,12 @@ import { AR, B, E, M, PLANTA } from './blocos.js';
 import { BE } from './blocos-eras.js';
 import { BIOMA } from './gerador.js';
 import { opcoesMundo } from './opcoes-mundo.js';
-import { BLOCOS_EXTRAS, FORNALHA } from './blocos.js';
+import { BLOCOS_EXTRAS } from './blocos.js';
 // mod "Blocos extras" (moinho, padaria, loja, forno de pão, móveis): desligado, a vila só tem o que existe no clássico
 // (o mercado precisa da padaria e da loja, então com ele a vila também tem)
 const comExtras = () => opcoesMundo.extras !== false || !!opcoesMundo.mercado;
-const classico = (b) => (comExtras() || !BLOCOS_EXTRAS.has(b) ? b : b === 55 || b === 56 ? FORNALHA : 0);
+// sem o mod, o forno de pão da casa some (não vira fornalha: a sala não aceita fornalha como bloco do mundo, quebrar não daria nada)
+const classico = (b) => (comExtras() || !BLOCOS_EXTRAS.has(b) ? b : 0);
 import { PLANTAS, desenhar, noMundo, girar, DIRS as DIRS4 } from './casas.js';
 
 export const REGIAO = 96; // cada região de 96x96 blocos pode ter uma vila (pedaços de 16 cabem certinho)
@@ -437,7 +438,7 @@ export class Vilas {
     } else if (ddz) {
       const fz = ddz > 0 ? z1 - 1 : z0 + 1;
       put(x0 + 1, y + 1, fz, e.cama); put(x0 + 2, y + 1, fz, B.LA_BRANCA);
-      put(x1 - 1, y + 1, fz, classico(M.FORNO_ACESO)); // fogão a lenha aceso (ilumina a casa); no clássico, fornalha
+      put(x1 - 1, y + 1, fz, classico(M.FORNO_ACESO)); // fogão a lenha aceso (ilumina a casa); sem os blocos extras, não tem
     } else {
       const fx = ddx > 0 ? x1 - 1 : x0 + 1;
       put(fx, y + 1, z0 + 1, e.cama); put(fx, y + 1, z0 + 2, B.LA_BRANCA);

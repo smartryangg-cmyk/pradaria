@@ -87,6 +87,7 @@ if (PARTES.includes('tablet')) {
   const v = await vila(p, 'tablet');
   ok(v && !v.tipos.some((t) => t === 'moinho' || t === 'padaria' || t === 'loja'), 'tablet: a vila não tem moinho, padaria nem loja ' + JSON.stringify(v && v.tipos));
   ok(v && v.blocos > 200 && v.extras === 0 && v.portas > 0, `tablet: a vila construída não tem nenhum bloco extra (${v && v.extras}) e tem casas com porta (${v && v.portas})`);
+  ok(v && v.fornalha === 0, `tablet: a vila sem os blocos extras não ganha fornalha pronta (${v && v.fornalha}): quebrar não daria nada online`);
   // receita de pão de verdade: bancada colocada, 3 trigos, toque na receita
   await J(p, () => { const J_ = window.__jogo, j = J_.jog, m = J_.mundo; const x = Math.floor(j.pos.x), z = Math.floor(j.pos.z); let y = 120; while (y > 1 && !m.bloco(x + 2, y, z)) y--; m.definir(x + 2, y + 1, z, 34); j.voando = false; j.pos.x = x + 0.5; j.pos.z = z + 0.5; j.pos.y = y + 1.2; const me = J_.mercado; me.e.itens[32] = 3; me.recebeu(me.e); });
   await esperar(p, 1200);

@@ -278,7 +278,7 @@ export const receitaNoMundo = (r, classico) => !(classico && r.classico === fals
 export function receitasDoMundo(opcoes) {
   const fora = new Set(GRUPOS.filter((g) => g.opcao && opcoes && opcoes[g.opcao] === false).map((g) => g.id));
   const cl = mundoClassico(opcoes);
-  const semExtras = !!opcoes && opcoes.extras === false; // mod "Blocos extras" desligado: só o que existe no clássico
+  const semExtras = !!opcoes && opcoes.extras === false && !opcoes.mercado; // mod "Blocos extras" desligado: só o que existe no clássico (o Mercado traz padaria e forno de pão junto, como a vila)
   return RECEITAS.filter((r) => !fora.has(r.grupo) && !(semExtras && r.extra) && !(!semExtras && r.semExtras) && receitaNoMundo(r, cl) && regras.liberada(r, opcoes));
 }
 export const receita = (id) => RECEITAS.find((r) => r.id === id) || null;
