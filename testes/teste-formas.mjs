@@ -335,8 +335,8 @@ await sp.evaluate(() => window.__jogo.abrirInventario('criar'));
 await sp.waitForSelector('#inventario:not([hidden]) [data-receita=rampa]');
 await sp.locator('[data-receita=rampa]').scrollIntoViewIfNeeded();
 await sp.screenshot({ path: SAIDA + '/formas-receitas.png' });
-for (const r of ['tronco-redondo', 'rampa']) { await sp.click('#abas-inv [data-aba=criar]'); await sp.click(`[data-receita=${r}]`); await sp.click('#inv-saida'); await sp.waitForTimeout(150); }
-await sp.click('#abas-inv [data-aba=criar]');
+for (const r of ['tronco-redondo', 'rampa']) { await sp.click('#inv-livro:visible, #abas-inv [data-aba=criar]:visible'); await sp.click(`[data-receita=${r}]`); await sp.click('#inv-saida'); await sp.waitForTimeout(150); }
+await sp.click('#inv-livro:visible, #abas-inv [data-aba=criar]:visible');
 ok(await qtd(80) === 2 && await qtd(91) === 2 && await qtd(20) === 0, 'grade de criar: 2 troncos em pé = 2 troncos redondos, 3 pedriscos = 2 rampas');
 ok(await sp.getAttribute('[data-receita=bola]', 'class') === 'receita falta', 'bola precisa de bancada e pedra (fica apagada)');
 await sp.click('#inventario [data-fechar]');
