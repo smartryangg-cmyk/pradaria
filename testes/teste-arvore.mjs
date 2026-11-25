@@ -136,6 +136,9 @@ if (ONLINE) {
       let t = -1; for (let k = T + 14; k <= T + 19; k++) if (R.cresceMuda(x, y, z, k)) { t = k; break; }
       if (t < 0) continue;
       if (R.formaArvore(78, x, y, z).some(([a2, b2, c2]) => (a2 || b2 || c2) && M.bloco(x + a2, y + b2, z + c2) !== 0)) continue;
+      // a Ana fica 2 blocos ao sul olhando para a muda: o caminho da mira tem de estar livre (capim, flor ou morro no meio pegam o clique)
+      let livre = true; for (let dz2 = 1; dz2 <= 3 && livre; dz2++) for (let dy2 = 0; dy2 <= 3; dy2++) if (M.bloco(x, y + dy2, z + dz2) !== 0) { livre = false; break; }
+      if (!livre) continue;
       return { x, y, z, espera: (t + 1) * TIQUE_MS - Date.now() };
     }
     return null;
