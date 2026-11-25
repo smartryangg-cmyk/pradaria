@@ -8,7 +8,7 @@ import { criarRuido, hash3, rngSemente } from './ruido.js';
 export const G = {
   AR: 0, GRAMA: 1, TERRA: 2, PEDRA: 3, AREIA: 4, AGUA: 5, TRONCO: 6, FOLHAS: 7,
   FLOR_VERMELHA: 11, FLOR_AMARELA: 12, CAPIM: 13, FLOR_AZUL: 22,
-  ABOBORA: 242, COGUMELO_MARROM: 243, COGUMELO_VERMELHO: 244, // natureza do clássico (blocos.js)
+  ABOBORA: 242, COGUMELO_MARROM: 243, COGUMELO_VERMELHO: 244, TEIA: 245, // natureza do clássico (blocos.js)
   // neve, grama com neve, gelo e arenito: blocos das eras (blocos-eras.js)
   NEVE: 140, GRAMA_NEVE: 137, GELO: 138, ARENITO: 146, CACTO: 63, CASCALHO: 65,
   CANA: 224, // cana-regras.js
@@ -326,6 +326,12 @@ export function criarGerador(semente, alt, limite = null) {
         if (d[i] !== G.AR || d[idx(x, y - 1, z)] !== G.PEDRA) continue;
         const r = hash3(ox + x, y * 3 + 53, oz + z, semente);
         if (r < 0.006) d[i] = r < 0.003 ? G.COGUMELO_MARROM : G.COGUMELO_VERMELHO;
+      }
+      // teia de aranha no canto do teto da caverna (rara, em cachinho)
+      for (let y = 6; y < topo; y++) {
+        const i = idx(x, y, z);
+        if (d[i] !== G.AR || d[idx(x, y + 1, z)] !== G.PEDRA) continue;
+        if (hash3(ox + x, y * 5 + 71, oz + z, semente) < 0.0025) d[i] = G.TEIA;
       }
     }
   }

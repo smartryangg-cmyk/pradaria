@@ -91,6 +91,7 @@ export function oQueCai(b, x = 0, y = 0, z = 0, natural = true, mao = 0, classic
   if (b === I.VIDRO && !(FERRAMENTAS[mao] && FERRAMENTAS[mao][0] === 'picareta')) return [];
   if (b >= 215 && b <= 219) return []; // lava não se quebra: só sai com balde (lava-regras.js)
   if (b === 222) return []; // fogo (fogo-regras.js)
+  if (b === 245) return mao >= 1113 && mao <= 1116 ? [[I.TEIA, 1]] : []; // teia: só a espada tira o fio (com a mão some)
   if (b >= 225 && b <= 231) return []; // bolo colocado: quebrar não dá nada (como no clássico)
   if (b === 220 && !(FERRAMENTAS[mao] && FERRAMENTAS[mao][0] === 'picareta')) return []; // obsidiana: só com picareta
   const r = [[VIRA[b] ?? baseDe(b), 1]];

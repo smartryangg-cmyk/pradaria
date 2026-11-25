@@ -31,7 +31,7 @@ export const B = {
   // lã nas 16 cores do clássico (as 6 primeiras são 14..19): 232..241, tiles 214..223
   LA_LARANJA: 232, LA_MAGENTA: 233, LA_AZUL_CLARO: 234, LA_LIMAO: 235, LA_CINZA: 236, LA_CINZA_CLARO: 237, LA_CIANO: 238, LA_ROXA: 239, LA_MARROM: 240, LA_PRETA: 241,
   // natureza do clássico: abóbora e cogumelos (nascem no mundo novo; gerador.js), tiles 224..227
-  ABOBORA: 242, COGUMELO_MARROM: 243, COGUMELO_VERMELHO: 244,
+  ABOBORA: 242, COGUMELO_MARROM: 243, COGUMELO_VERMELHO: 244, TEIA_BLOCO: 245,
 };
 
 // tiles: [cima, baixo, lados]
@@ -76,6 +76,7 @@ def(B.LA_PRETA, 'Lã preta', 223);
 def(B.ABOBORA, 'Abóbora', [224, 224, 225]);
 def(B.COGUMELO_MARROM, 'Cogumelo marrom', 226, { solido: false, opaco: false, planta: true });
 def(B.COGUMELO_VERMELHO, 'Cogumelo vermelho', 227, { solido: false, opaco: false, planta: true });
+def(B.TEIA_BLOCO, 'Teia', 228, { solido: false, opaco: false, planta: true }); // prende quem passa (jogador.js); com espada sai fio
 def(B.PEDRISCO, 'Pedrisco', 21);
 def(B.LAMPIAO, 'Lampião', 22);
 def(B.FLOR_AZUL, 'Flor azul', 23, { solido: false, opaco: false, planta: true });
@@ -282,7 +283,7 @@ export const INVENTARIO = [
   B.GRAMA, B.TERRA, B.PEDRA, B.PEDRISCO, B.AREIA, B.TRONCO, B.TABUAS, B.FOLHAS, B.VIDRO, B.TIJOLO,
   B.LAMPIAO, TOCHA, ESCADA_MAO, B.FENO, B.BANCADA, B.TERRA_ARADA, B.LA_BRANCA, B.LA_VERMELHA, B.LA_AZUL, B.LA_AMARELA, B.LA_VERDE, B.LA_ROSA,
   B.LA_LARANJA, B.LA_MAGENTA, B.LA_AZUL_CLARO, B.LA_LIMAO, B.LA_CINZA, B.LA_CINZA_CLARO, B.LA_CIANO, B.LA_ROXA, B.LA_MARROM, B.LA_PRETA,
-  B.FLOR_VERMELHA, B.FLOR_AMARELA, B.FLOR_AZUL, B.COGUMELO_MARROM, B.COGUMELO_VERMELHO, B.ABOBORA, B.CAPIM, B.TRIGO, B.MUDA, B.MUDA_PINHEIRO, B.AGUA, LAVA, OBSIDIANA,
+  B.FLOR_VERMELHA, B.FLOR_AMARELA, B.FLOR_AZUL, B.COGUMELO_MARROM, B.COGUMELO_VERMELHO, B.ABOBORA, B.TEIA_BLOCO, B.CAPIM, B.TRIGO, B.MUDA, B.MUDA_PINHEIRO, B.AGUA, LAVA, OBSIDIANA,
   B.CACTO, B.CASCALHO, B.CARVAO, B.FERRO, B.OURO, B.DIAMANTE,
   B.TRONCO_PINHEIRO, B.FOLHAS_PINHEIRO, B.TRONCO_BETULA, B.FOLHAS_SELVA, B.ARBUSTO_SECO,
   M.PORTA, 84, 85, 90, 95, M.FORNO, M.FARINHA, M.PAO,

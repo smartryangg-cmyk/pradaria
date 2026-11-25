@@ -671,6 +671,18 @@ function cogumelo(t, chapeu, pintas) {
 }
 PINT[226] = (t) => cogumelo(t, 0x8a6040, false);
 PINT[227] = (t) => cogumelo(t, 0xb02a22, true);
+// teia: fios saindo do meio até as bordas e voltas tortinhas ligando os fios
+PINT[228] = (t) => {
+  planta(t);
+  const fio = (u0, v0, u1, v1, w) => t.traco(u0, v0, u1, v1, w, w, (i, s, d) => { t.H[i] = 0.6; t.set(i, esc(hex(0xe8e8ec), 1.05 - d * 0.25), 0.9); });
+  const cx = 8.3, cy = 7.6, N = 8, raio = [], ang = [];
+  for (let k = 0; k < N; k++) { ang.push(k / N * TAU + 0.2 + (k % 3) * 0.07); raio.push(11.5); }
+  ang.forEach((a) => fio(cx, cy, cx + Math.cos(a) * 11.5, cy + Math.sin(a) * 11.5, 0.42));
+  for (const r of [2.2, 4.4, 6.6]) for (let k = 0; k < N; k++) {
+    const a0 = ang[k], a1 = ang[(k + 1) % N], r0 = r * (1 + ((k * 7) % 5) * 0.04), r1 = r * (1 + (((k + 1) * 7) % 5) * 0.04);
+    fio(cx + Math.cos(a0) * r0, cy + Math.sin(a0) * r0, cx + Math.cos(a1) * r1, cy + Math.sin(a1) * r1, 0.34);
+  }
+};
 // pedrisco: pedras arredondadas com argamassa
 PINT[21] = (t) => {
   const pc = voronoi(2101, 4, 4, 0.75), n = fbm(2102, 4, 4, 3), nf = fbm(2103, 16, 16, 2), arg = fbm(2104, 10, 10, 2);
