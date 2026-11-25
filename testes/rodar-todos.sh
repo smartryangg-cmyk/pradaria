@@ -26,6 +26,8 @@ for f in testes/teste-*.mjs; do
   n=$(basename "$f" .mjs)
   # o app da TV precisa do emulador de Android TV: roda no apk.yml (testes/teste-tv-apk.sh), não aqui
   [ "$n" = teste-tv-apk ] && continue
+  # o app do tablet precisa do emulador de Android: roda no apk.yml (testes/teste-app-apk.sh), não aqui
+  [ "$n" = teste-app-apk ] && continue
   idx=$((idx + 1))
   if [ -n "$PARTE" ]; then [ $(( (idx - 1) % ${PARTE#*/} + 1 )) = "${PARTE%/*}" ] || continue; fi
   if [ $# -gt 0 ]; then ok=0; for p in "$@"; do [[ "$n" == *"$p"* ]] && ok=1; done; [ $ok = 1 ] || continue; fi

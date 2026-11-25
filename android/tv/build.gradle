@@ -40,3 +40,8 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 }
+
+dependencies {
+    // o jogo inteiro dentro do app (abre sem esperar a internet; o online usa a rede)
+    implementation project(":pacote")
+}

@@ -1,6 +1,8 @@
 plugins { id "com.android.application" }
 
+// App do tablet/celular: o jogo inteiro vai dentro do APK (módulo :pacote) e abre sem internet.
 // A chave de assinatura vem do GitHub Actions (segredos ANDROID_KEYSTORE_B64 / ANDROID_KEYSTORE_SENHA).
+// É a mesma chave e o mesmo pacote (dev.pradaria.jogo) do app antigo: instala por cima.
 def chave = System.getenv("ANDROID_KEYSTORE_ARQUIVO")
 def senha = System.getenv("ANDROID_KEYSTORE_SENHA")
 
@@ -13,8 +15,8 @@ android {
         targetSdk 35
         versionCode Integer.parseInt(System.getenv("VERSAO_CODIGO") ?: "1")
         versionName System.getenv("VERSAO_NOME") ?: "1.0"
-        // o site mostra a versão do app (tela inicial e pausa): vai no endereço que o app abre
-        resValue "string", "endereco", "https://pradaria.pages.dev/?appv=" + (System.getenv("VERSAO_NOME") ?: "1.0")
+        // só no teste automático (emulador): deixa o teste controlar o WebView
+        resValue "bool", "depurar", System.getenv("DEPURAR_WEB") == "1" ? "true" : "false"
     }
     signingConfigs {
         release {
@@ -39,5 +41,5 @@ android {
 }
 
 dependencies {
-    implementation "com.google.androidbrowserhelper:androidbrowserhelper:2.5.0"
+    implementation project(":pacote")
 }

@@ -15,11 +15,14 @@ import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+
+import dev.pradaria.pacote.Pacote;
 
 /**
  * Pradaria TV: o jogo do site (versão da TV, /tv) num WebView em tela cheia.
@@ -32,6 +35,7 @@ public class Principal extends Activity {
 
     private FrameLayout raiz;
     private WebView web;
+    private Pacote pacote;
     private boolean semInternet = false;
     private boolean perguntouSair = false;
 
@@ -43,6 +47,7 @@ public class Principal extends Activity {
         raiz.setBackgroundColor(Color.parseColor("#8FD3FF"));
         setContentView(raiz);
         telaCheia();
+        pacote = new Pacote(this, versaoCodigo());
         criarWeb();
         if (web == null) return;
         if (salvo == null || web.restoreState(salvo) == null) web.loadUrl(getString(R.string.endereco));
@@ -84,6 +89,18 @@ public class Principal extends Activity {
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
 
         web.setWebViewClient(new WebViewClient() {
+            // os arquivos do jogo vêm de dentro do app; só /api/ (contas, salas) usa a internet
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView v, WebResourceRequest pedido) {
+                return pacote.responder(pedido.getUrl(), pedido.getMethod());
+            }
+
+            @Override
+            @SuppressWarnings("deprecation")
+            public WebResourceResponse shouldInterceptRequest(WebView v, String url) {
+                return pacote.responder(Uri.parse(url), "GET");
+            }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest pedido) {
                 return !permitido(pedido.getUrl());
@@ -153,6 +170,14 @@ public class Principal extends Activity {
     void tentarDeNovo() {
         semInternet = false;
         if (web != null) web.loadUrl(getString(R.string.endereco));
+    }
+
+    private int versaoCodigo() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
+        } catch (Exception e) {
+            return 1;
+        }
     }
 
     private String versao() {
@@ -240,6 +265,7 @@ public class Principal extends Activity {
     protected void onResume() {
         super.onResume();
         if (web != null) web.onResume();
+        if (pacote != null) pacote.conferirAtualizacao();
     }
 
     @Override
