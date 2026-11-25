@@ -18,6 +18,7 @@ d(0.5, [2, 4, 33, 138, 225, 226, 227, 228, 229, 230, 231]); // terra, areia, fen
 d(0.2, [7, 72, 74, 132, 139, 140, 176, 177, 178, 179]); // folhas, bloco de neve, cama
 d(0.1, [137]); // camada de neve
 d(0.3, [9, 21, 85, 89, 156]); // vidro, lampião
+d(1, [242]); // abóbora
 d(0.8, [14, 15, 16, 17, 18, 19, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 146, 147]); // lã (16 cores), arenito
 d(1.5, [3, 186]); // pedra, estante
 d(2, [90]); // laje de pedra
@@ -29,7 +30,7 @@ d(5, [190, 192]); // blocos de ferro e de diamante
 d(50, [220]); // obsidiana
 d(0.4, [63, 211, 212, 213, 214]); // cacto, escada de mão
 d(Infinity, [70]); // rocha-mãe
-d(0, [11, 12, 13, 22, 32, 75, 76, 77, 78, 79, 129, 130, 221, 222, 224]); // flores, capim, trigo, mudas, tocha, fogo, cana
+d(0, [11, 12, 13, 22, 32, 75, 76, 77, 78, 79, 129, 130, 221, 222, 224, 243, 244]); // flores, capim, trigo, mudas, tocha, fogo, cana, cogumelos
 
 export const durezaDe = (b, def = null) => (b in DUREZA ? DUREZA[b] : def && (def.planta || (def.forma && def.forma !== 'esteira' && def.forma !== 'bolo')) && !def.solido ? 0 : 1);
 // velocidade do que está na mão para este bloco

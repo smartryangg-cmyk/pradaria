@@ -633,6 +633,44 @@ PINT[220] = (t) => la(t, 0x2a8a96);
 PINT[221] = (t) => la(t, 0x7438a4);
 PINT[222] = (t) => la(t, 0x6e4a2c);
 PINT[223] = (t) => la(t, 0x1e1c22);
+// abóbora (bloco 242): gomos em pé nos lados, cabinho no meio do topo
+function gomos(t, sem, n) {
+  const r = rngSemente(sem), c0 = hex(0xc8701c), c1 = hex(0xe08a2a), sulco = hex(0x8a4612);
+  t.cada((u, v, i) => {
+    const g = fr(u / 16 * n + 0.5), d = Math.abs(g - 0.5) * 2; // 0 no meio do gomo, 1 no sulco
+    t.H[i] = (1 - d * d) * 0.6;
+    const k = 0.94 + r() * 0.08;
+    return esc(d > 0.86 ? mix(c0, sulco, (d - 0.86) / 0.14) : mix(c1, c0, d), k);
+  });
+}
+PINT[224] = (t) => {
+  const c0 = hex(0xc8701c), c1 = hex(0xe08a2a), sulco = hex(0x8a4612);
+  t.cada((u, v, i) => {
+    const du = u - 8, dv = v - 8, ang = Math.atan2(dv, du), rad = Math.hypot(du, dv);
+    const g = fr(ang / TAU * 8 + 0.5), d = Math.abs(g - 0.5) * 2;
+    t.H[i] = (1 - d * d) * 0.5 * Math.min(1, rad / 3);
+    return d > 0.86 && rad > 2 ? mix(c0, sulco, 0.6) : mix(c1, c0, d * 0.8);
+  });
+  t.elipse(8, 8, 1.5, 1.5, 0, (i, du, dv, d) => { t.H[i] = 1.2 - d * 0.4; t.set(i, esc(hex(0x5a6a2a), 1.05 - d * 0.3)); });
+  t.relevo(0.7, 0.6, 1); t.grao(0.04);
+};
+PINT[225] = (t) => { gomos(t, 2251, 4); t.relevo(0.8, 0.7, 1); t.grao(0.04); };
+// cogumelos (blocos 243, 244): plantinha com pé e chapéu
+function cogumelo(t, chapeu, pintas) {
+  planta(t);
+  caule(t, 8, 16, 8, 10, 0.9, 0xd8ccb0);
+  t.elipse(8, 9.2, 4.6, 2.6, 0, (i, du, dv, d) => {
+    if (dv > 0.55) return;
+    t.H[i] = 1.6 + (1 - d) * 0.6;
+    t.set(i, esc(hex(chapeu), 1.12 - d * 0.35 - Math.max(0, dv) * 0.2), 1);
+  });
+  if (pintas) for (const [u, v, rr] of [[6, 8, 0.7], [9.6, 7.6, 0.8], [8, 10, 0.55], [11.4, 9.4, 0.5], [4.6, 9.6, 0.5]]) {
+    t.elipse(u, v, rr, rr * 0.8, 0, (i) => { if (t.A[i] > 0) t.set(i, hex(0xf0ece0)); });
+  }
+  t.relevo(0.7, 0.5, 0.8);
+}
+PINT[226] = (t) => cogumelo(t, 0x8a6040, false);
+PINT[227] = (t) => cogumelo(t, 0xb02a22, true);
 // pedrisco: pedras arredondadas com argamassa
 PINT[21] = (t) => {
   const pc = voronoi(2101, 4, 4, 0.75), n = fbm(2102, 4, 4, 3), nf = fbm(2103, 16, 16, 2), arg = fbm(2104, 10, 10, 2);

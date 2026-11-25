@@ -121,6 +121,7 @@ for (const b of [I.PEDRA, I.PEDRISCO, I.TIJOLO, I.LAMPIAO, I.VIDRO, 108, 109, 11
 for (const b of [I.TRONCO, I.TABUAS, I.FOLHAS, I.FENO, I.BANCADA, 110, 111, 47, 48, 49, 50, 53, 54]) TIPO_DO_BLOCO[b] = 'machado';
 for (let b = 176; b <= 187; b++) TIPO_DO_BLOCO[b] = 'machado'; // móveis
 TIPO_DO_BLOCO[223] = 'machado'; // baú
+TIPO_DO_BLOCO[242] = 'machado'; // abóbora (como no clássico)
 for (const b of [51, 52, 55, 56]) TIPO_DO_BLOCO[b] = 'picareta';
 for (const b of [I.TERRA, I.GRAMA, I.AREIA, I.TERRA_ARADA]) TIPO_DO_BLOCO[b] = 'pa';
 // formas (80..99): madeira com machado, pedra/vidro com picareta

@@ -20,6 +20,7 @@ export const OPCOES_MUNDO = [
   { id: 'chatTexto', icone: 'balao', nome: 'Chat de texto', desc: 'Mensagens escritas, com filtro de palavrões e contatos', padrao: true, antigos: false, semRecarregar: true, aba: 'regras' },
   { id: 'chatVoz', icone: 'microfone', nome: 'Chat de voz', desc: 'Falar segurando o botão do microfone (funciona entre aparelhos da mesma casa)', padrao: false, antigos: false, semRecarregar: true, aba: 'regras' },
   { id: 'selvagensMachucam', icone: 'coracao', nome: 'Animais podem machucar', desc: 'Corações de vida. Bicho provocado morde', padrao: true, antigos: false, aba: 'regras', oculta: true }, // vem da dificuldade
+  { id: 'natureza', icone: 'arvore', nome: 'Natureza do clássico', desc: 'Abóboras e cogumelos nascem no mundo', padrao: true, antigos: false, terreno: true, aba: 'regras', oculta: true }, // mundos antigos: o terreno continua igual (não brota abóbora dentro de casa)
   { id: 'veiculos', icone: 'carro', nome: 'Veículos', desc: 'Carros, barcos e submarinos com chave de verdade', padrao: false, antigos: true, aba: 'mods', cat: 'acao' },
   { id: 'armas', icone: 'arma', nome: 'Armas', desc: 'Armas de brinquedo, munição e batalha entre amigos', padrao: false, antigos: false, mais16: true, aba: 'mods', cat: 'acao' },
   { id: 'mercado', icone: 'moeda', nome: 'Mercado e trabalho', desc: 'Moedas, lojinha com os moradores e trabalhadores', padrao: false, antigos: false, aba: 'mods', cat: 'vila' },
