@@ -15,9 +15,12 @@ android {
 }
 
 def copiarJogo = tasks.register("copiarJogo", Sync) {
+    into "$buildDir/jogo-assets"
     from(rootProject.file("../public")) {
         exclude ".well-known/**", "_headers", "_redirects", "sw.js"
+        into "jogo"
     }
-    into "$buildDir/jogo-assets/jogo"
+    // os cabeçalhos de segurança do site (Content-Security-Policy...): o app põe os mesmos em cada arquivo (Pacote.java)
+    from(rootProject.file("../public/_headers")) { into "cabecalhos" }
 }
 preBuild.dependsOn copiarJogo

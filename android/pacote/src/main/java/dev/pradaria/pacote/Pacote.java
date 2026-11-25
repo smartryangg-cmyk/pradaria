@@ -48,6 +48,8 @@ public class Pacote {
     private final File pasta;
     private final JSONObject lista;
     private volatile boolean conferindo = false;
+    /** os mesmos cabeçalhos de segurança que o Cloudflare põe no site (public/_headers, bloco /*) */
+    private final Map<String, String> cabecalhos;
 
     public Pacote(Context c, int versaoApp) {
         ctx = c.getApplicationContext();
@@ -70,6 +72,7 @@ public class Pacote {
         }
         pasta = escolhida;
         lista = listaEscolhida;
+        cabecalhos = lerCabecalhos(assets);
         Log.i(TAG, "jogo: versão " + numero(lista) + (pasta != null ? " (baixada)" : " (do app)"));
     }
 
@@ -91,7 +94,8 @@ public class Pacote {
         if (arq == null) return naoAchou();
         InputStream in = abrir(arq);
         if (in == null) return naoAchou();
-        Map<String, String> cab = new HashMap<>();
+        // sem isto o jogo no app ficaria sem a Content-Security-Policy do site (script de fora, eval...)
+        Map<String, String> cab = new HashMap<>(cabecalhos);
         cab.put("Cache-Control", "no-cache");
         cab.put("Access-Control-Allow-Origin", "https://" + SITE);
         return new WebResourceResponse(tipo(arq), tipo(arq).startsWith("text/") || tipo(arq).endsWith("json") || tipo(arq).endsWith("javascript") ? "utf-8" : null,
@@ -134,6 +138,23 @@ public class Pacote {
         } catch (IOException e) {
             return null;
         }
+    }
+
+    /** lê o bloco "/*" do public/_headers (copiado para assets/cabecalhos pelo build.gradle) */
+    static Map<String, String> lerCabecalhos(AssetManager assets) {
+        Map<String, String> m = new HashMap<>();
+        try (InputStream in = assets.open("cabecalhos/_headers")) {
+            boolean noBloco = false;
+            for (String linha : new String(lerTudo(in), StandardCharsets.UTF_8).replace("\r", "").split("\n")) {
+                if (linha.trim().isEmpty() || linha.trim().startsWith("#")) continue;
+                if (!Character.isWhitespace(linha.charAt(0))) { noBloco = linha.trim().equals("/*"); continue; }
+                int dp = linha.indexOf(':');
+                if (noBloco && dp > 0) m.put(linha.substring(0, dp).trim(), linha.substring(dp + 1).trim());
+            }
+        } catch (IOException e) {
+            Log.w(TAG, "sem os cabeçalhos de segurança do site: " + e);
+        }
+        return m;
     }
 
     private static WebResourceResponse naoAchou() {

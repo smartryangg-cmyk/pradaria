@@ -33,6 +33,10 @@ const bate = (e) => JSON.stringify(Object.fromEntries(Object.entries(e.itens).fi
   ok(e.s[0] && e.s[0][0] === 2 && e.s[0][1] === 64 && e.s[1][1] === 6 && e.s[2][0] === 6, 'pilhas de 64: 70 terras = 64 + 6, na barra ' + JSON.stringify(e.s.slice(0, 3)));
   await p.keyboard.press('KeyE'); await p.waitForSelector('#inventario:not([hidden]) .inv-mochila');
   ok(await p.locator('.inv-mochila .slot-inv').count() === 27 && await p.locator('.inv-barra .slot-inv').count() === 9 && await p.locator('.grade-criar .slot-inv').count() === 4 && await p.isVisible(S(36)), 'E abre a mochila: 27 + barra 9 + segunda mão + grade 2x2');
+  // como no clássico: E de novo fecha (e não pausa), E outra vez abre
+  await p.keyboard.press('KeyE'); await p.waitForTimeout(300);
+  ok(await p.evaluate(() => document.querySelector('#inventario').hidden && document.querySelector('#pausa').hidden && !window.__jogo.pausado), 'E de novo fecha a mochila e volta ao jogo');
+  await p.keyboard.press('KeyE'); await p.waitForSelector('#inventario:not([hidden]) .inv-mochila');
   // arrastar com o mouse: troncos da barra para a mochila
   const [ax, ay] = await meio(p, S(2)), [bx, by] = await meio(p, S(12));
   await p.mouse.move(ax, ay); await p.mouse.down(); await p.mouse.move(bx, by, { steps: 8 }); await p.mouse.up();
