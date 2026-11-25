@@ -9,6 +9,8 @@ import { lugarVazio, gastoDe, oQueCai, MAIOR_ITEM } from '../../public/js/receit
 import { normalizarForno, avancar, conteudo, fornoPublico } from '../../public/js/fornalha-regras.js';
 import { BAU, normalizarBau, conteudoBau, vazioBau } from '../../public/js/bau-regras.js';
 import { MINERIOS, minerioPossivel } from '../../public/js/gerador.js';
+import { contarEstantes } from '../../public/js/encantos-regras.js';
+const MESA_ENCANTAR = 194;
 const FORNALHA = 188;
 import { Chao, publico, podePegar, pertoParaPegar, podeNoChao, MAX_LARGAR } from '../../public/js/regras-chao.js';
 import { normalizarOpcoes } from '../../public/js/opcoes-mundo.js';
@@ -957,6 +959,25 @@ export class Sala extends DurableObject {
       ws.send(JSON.stringify({ t: 'econ', s: econ }));
       const [x, y, z] = eu.p;
       await this.soltarNoChao(r.cai.map(([id, n, c, dg]) => [id, n, x, y + 0.6, z, [(Math.random() - 0.5) * 4, 3 + Math.random() * 2, (Math.random() - 0.5) * 4], c, dg, String(eu.uid)]), '', eu.uid);
+    } else if (m.t === 'teste-dar' && this.env.TESTE) {
+      // só no servidor de teste (npm run dev:sala liga TESTE): começa a pessoa com coisas e experiência, como um jogo
+      // salvo, para o teste chegar logo na parte que interessa. No site de verdade isto não existe.
+      const econ = await this.econDe(eu.uid);
+      for (const [id, n] of Object.entries(m.itens || {})) if (Number.isInteger(+id) && Number.isInteger(n) && n >= 0) econ.itens[id] = n;
+      if (Number.isInteger(m.xp)) econ.xp = m.xp;
+      await this.ctx.storage.put('e:' + eu.uid, econ);
+      ws.send(JSON.stringify({ t: 'econ', s: econ }));
+    } else if (m.t === 'encantar') {
+      // mesa de encantar (encantos-regras.js): a mesa tem que estar ali (colocada por alguém) e a pessoa perto;
+      // as estantes contam só as que a sala vê em volta (o aparelho não ganha oferta mais forte dizendo que tem mais)
+      const op = this.op();
+      if (!op.fome || ![m.x, m.y, m.z].every(Number.isInteger)) return;
+      const ed = await this.carregarEdicoes(), econ = await this.econDe(eu.uid);
+      if (ed.get(m.x + ',' + m.y + ',' + m.z) !== MESA_ENCANTAR || !eu.p || Math.hypot(eu.p[0] - m.x - 0.5, eu.p[1] - m.y, eu.p[2] - m.z - 0.5) > 9 || !this.balde(ws, eu, 'en', 4, 1000)) {
+        ws.send(JSON.stringify({ t: 'econ', s: econ })); return;
+      }
+      const est = Math.min(Math.max(0, m.est | 0), contarEstantes((x, y, z) => ed.get(x + ',' + y + ',' + z) || 0, m.x, m.y, m.z));
+      await this.econAplicar(ws, eu, econ, { t: 'encantar', id: m.id | 0, k: m.k | 0, op: m.op | 0, est }, true);
     } else if (m.t === 'forno-ver' || m.t === 'forno-por' || m.t === 'forno-tirar') {
       // fornalha (fornalha-regras.js): o estado é do mundo (todos usam a mesma) e fica na sala
       const op = this.op();
@@ -1190,10 +1211,10 @@ export class Sala extends DurableObject {
   }
 
   // moedas, coleta e objetivos de cada jogador (por conta), guardados aqui na sala
-  // bloco do mundo original que o aparelho diz ter quebrado: fornalha, baú e blocos de metal só existem feitos por alguém
+  // bloco do mundo original que o aparelho diz ter quebrado: fornalha, baú, mesa de encantar e blocos de metal só existem feitos por alguém
   // (aí já estão nas edições); minério só no terreno clássico e só onde passou um veio dele (gerador.js)
   podeSerDoMundo(x, y, z, de) {
-    if ((de >= FORNALHA && de <= 192) || de === BAU) return false;
+    if ((de >= FORNALHA && de <= 192) || de === BAU || de === MESA_ENCANTAR) return false;
     if (!MINERIOS.has(de)) return true;
     return !!(this.info && this.info.classico) && minerioPossivel(this.info.semente, ALTURA_MAX + 1, x, y, z, de, (this.veios ??= new Map()));
   }

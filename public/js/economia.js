@@ -8,6 +8,8 @@ import { CAI_MONSTRO, ehMonstro } from './monstros-regras.js';
 import { avancar, caberNoForno, porNoForno, tirarDoForno, PILHA_FORNO } from './fornalha-regras.js';
 import { aplicarTrabalho, normalizarTrabalho, negocioNovo, livreDe, marcarCompra, ajustarCompra, converter } from './trabalho.js';
 import { parteDe } from './armadura-regras.js';
+import { ofertas, comEncantos, gastarNiveis, PEDRA_AZUL } from './encantos-regras.js';
+import { nivelDe } from './xp-regras.js';
 import { RECEITAS, guardavel, oQueCai, lugarVazio, gastoDe, receita, criarEm, faltaBancada, temTudo, por, tirar, qtdEm, cabe, cabeQuanto, pilhaDe, DURA, ajustarDesg, desgastar, tirarDesg, porDesg, desgLista, receitaNoMundo, semExtras } from './receitas.js';
 import { ehComida } from './fome-regras.js';
 
@@ -194,6 +196,7 @@ export function normalizar(e, op) {
   for (const [t, x] of Object.entries(e.garagem && typeof e.garagem === 'object' ? e.garagem : {})) { const q = estadoVeic(x); if (t in PRECO_VEICULO && q) n.garagem[t] = q; }
   n.desg = e.desg; ajustarDesg(n); // desgaste das ferramentas (receitas.js)
   normalizarXp(n, e); // experiência (xp-regras.js)
+  n.semEnc = (e.semEnc | 0) >>> 0; // sorteio da mesa de encantar (encantos-regras.js)
   normalizarTrabalho(n, e);
   return n;
 }
@@ -442,6 +445,25 @@ export function aplicar(e, op, a, ctx = {}) {
     }
     for (const v of a.ids) for (let k = 0; k < n; k++) if (desgastar(e, v | 0) === 'quebrou') { quebrou.push(v | 0); break; }
     if (quebrou.length) r.quebrou = quebrou;
+    r.mudou = true;
+  } else if (a.t === 'encantar') {
+    // mesa de encantar (jogo clássico, encantos-regras.js): a coisa número k da lista daquele id (a ordem do desgaste)
+    // recebe a oferta escolhida; paga com pedra-azul e níveis. A sala confere a mesa e as estantes antes.
+    if (!op.fome) return falha('?');
+    const id = a.id | 0, k = a.k | 0, o = a.op | 0, tem = e.itens[id] | 0;
+    if (!DURA[id] || k < 0 || k >= tem || o < 0 || o > 2) return falha('?');
+    const l = ((e.desg ??= {})[id] ??= []);
+    while (l.length < tem) l.push(0);
+    const of = ofertas(id, l[k] | 0, a.est | 0, e.semEnc | 0)[o];
+    if (!of) return falha('Não dá para encantar isso.');
+    const nivel = nivelDe(e.xp | 0).nivel;
+    if (nivel < of.nivel || nivel < of.custo) return falha('Falta experiência.');
+    if ((e.itens[PEDRA_AZUL] | 0) < of.custo) return falha('Falta pedra-azul.');
+    tirar(e.itens, PEDRA_AZUL, of.custo);
+    gastarNiveis(e, of.custo);
+    l[k] = comEncantos(l[k] | 0, of.encs);
+    e.semEnc = (Math.imul((e.semEnc | 0) ^ 0x9e3779b9, 2654435761) + id * 31 + o) >>> 0; // novas ofertas na próxima vez
+    r.encs = of.encs;
     r.mudou = true;
   } else if (a.t === 'morrer') {
     // morreu (sem corações): tudo o que dá para pôr no chão cai, em pilhas, onde a pessoa estava

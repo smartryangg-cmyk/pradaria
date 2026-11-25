@@ -31,11 +31,12 @@ export function defesa(ids) {
 
 // dano depois da armadura (conta do clássico). Devolve o dano (inteiro, em meios corações) e quanto cada peça gasta.
 // sorte(): 0..1 para arredondar sem perder a média (o clássico guarda meio de meio coração; aqui não)
-export function reduzir(dano, ids, sorte = Math.random) {
+// fator: o que sobra depois da Proteção dos encantos (encantos-regras.js fatorProtecao; 1 = sem encanto)
+export function reduzir(dano, ids, sorte = Math.random, fator = 1) {
   const { d, t } = defesa(ids);
   if (!(dano > 0) || !d) return { dano, gasto: 0 };
   const efetiva = Math.min(20, Math.max(d / 5, d - dano / (2 + t / 4)));
-  const bruto = dano * (1 - efetiva / 25);
+  const bruto = dano * (1 - efetiva / 25) * fator;
   const inteiro = Math.floor(bruto);
   return { dano: inteiro + (sorte() < bruto - inteiro ? 1 : 0), gasto: Math.max(1, Math.floor(dano / 4)) };
 }

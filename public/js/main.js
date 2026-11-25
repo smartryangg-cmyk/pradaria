@@ -5,10 +5,11 @@ import { F } from './formas.js';
 import { FOLHAGEM } from './blocos.js';
 import { CANA, cabeCana } from './cana-regras.js';
 import { BOLO_ITEM, BOLO_B, ehBolo, depoisDaFatia } from './bolo-regras.js';
-import { criarAtlas, iconeBloco, INVENTARIO, INVENTARIO_MAQUINAS, INVENTARIO_FORMAS, B, E, AR, BLOCOS, SOLIDO, AGUA, PRECISA_CHAO, ITEM, ehItem, nomeDe, FORNALHA, BLOCOS_EXTRAS } from './blocos.js';
+import { criarAtlas, iconeBloco, INVENTARIO, INVENTARIO_MAQUINAS, INVENTARIO_FORMAS, B, E, AR, BLOCOS, SOLIDO, AGUA, PRECISA_CHAO, ITEM, ehItem, nomeDe, FORNALHA, BLOCOS_EXTRAS, MESA_ENCANTAR } from './blocos.js';
 import { toquesCom, receitasDoMundo, GRUPOS, podeCriar, faltaBancada, gastoDe, receitaDaGrade, arrumar, cabeNaGrade, pilhaDe, cabe, nivelFalta, NOME_NIVEL, baseDe, DURA } from './receitas.js';
 import { Inventario, MAO2, ARMA } from './inventario.js';
 import { reduzir, defesa, parteDe, PROTEGE, NOME_PARTE } from './armadura-regras.js';
+import { nivelEnc, bonusAfiada, fatorProtecao, usosDe, duraDe, listaEnc, nomeEnc, encantado, ofertas, contarEstantes, tipoEnc, PEDRA_AZUL } from './encantos-regras.js';
 import { BASE, PRECISA_ENERGIA, ELETRICO } from './energia.js';
 import { Mundo, ALT, NIVEL_AGUA } from './mundo.js';
 import { vento as forcaVento } from './energia.js';
@@ -518,7 +519,7 @@ function abrirInventario(aba) {
   }
   $('#dica-maquinas').hidden = abaInv !== 'maquinas';
   $('#bancada-status').hidden = abaInv !== 'criar';
-  $('#inv-titulo').textContent = { maquinas: 'Engenharia', mochila: fornoAberto ? 'Fornalha' : bauAberto ? 'Baú' : inv.w === 3 ? 'Bancada' : 'Mochila', criar: 'Receitas', formas: 'Formas' }[abaInv] || 'Blocos';
+  $('#inv-titulo').textContent = { maquinas: 'Engenharia', mochila: mesaAberta ? 'Mesa de encantar' : fornoAberto ? 'Fornalha' : bauAberto ? 'Baú' : inv.w === 3 ? 'Bancada' : 'Mochila', criar: 'Receitas', formas: 'Formas' }[abaInv] || 'Blocos';
   $('#inv-sub').textContent = abaInv === 'criar' ? 'Toque numa receita: ela vai para a grade de criar' : abaInv === 'mochila' ? (toqueInv ? 'Toque para pegar e soltar. Segure o dedo para dividir. Arraste para mover' : 'Clique para pegar e soltar, botão direito divide, Shift move rápido, 1 a 9 troca com a barra') : 'Escolha um bloco para a mão';
   const g = $('#grade');
   const rolagem = g.dataset.aba === abaInv ? g.scrollTop : 0;
@@ -613,17 +614,20 @@ function desgDoEspaco(i, id) {
 }
 // barrinha de uso embaixo da ferramenta (verde -> vermelho), como no clássico
 function barraDesg(el, i, id) {
-  const d = desgDoEspaco(i, id);
+  const v = desgDoEspaco(i, id);
+  if (encantado(v)) { el.classList.add('encantado'); el.title = nomeDe(id) + ': ' + listaEnc(v).map(([k, l]) => nomeEnc(k, l)).join(', '); }
+  const d = usosDe(v), max = duraDe(id, v);
   if (!d) return;
-  const resta = Math.max(0, 1 - d / DURA[id]);
+  const resta = Math.max(0, 1 - d / max);
   const b = document.createElement('span'); b.className = 'desg';
   b.innerHTML = `<i style="width:${Math.max(4, Math.round(resta * 100))}%;background:hsl(${Math.round(resta * 120)},80%,45%)"></i>`;
-  b.title = `Ainda aguenta ${DURA[id] - d} usos`;
+  b.title = `Ainda aguenta ${max - d} usos`;
   el.appendChild(b);
 }
 function slotInv(l, i, p, cls = '') {
   const b = document.createElement('button');
   b.type = 'button'; b.className = 'slot-inv ' + cls; b.dataset.l = l; b.dataset.i = i;
+  if (mesaAberta && l === 's' && i === mesaAberta.sel) b.classList.add('na-mesa');
   if (p) {
     b.appendChild(imgIcone(p.id)); b.title = nomeDe(p.id);
     if (p.n > 1) { const q = document.createElement('b'); q.className = 'qtd'; q.textContent = p.n; b.appendChild(q); }
@@ -679,7 +683,7 @@ function desenharMochila(g) {
   // (o Fechar vira um X no canto: #inventario.classico)
   const topo = document.createElement('div'); topo.className = 'inv-topo';
   const nome = document.createElement('span'); nome.className = 'inv-nome';
-  nome.textContent = fornoAberto ? 'Fornalha' : bauAberto ? 'Baú' : inv.w === 3 ? 'Bancada' : ''; // na mochila o "Criação" fica em cima da grade 2x2
+  nome.textContent = mesaAberta ? 'Mesa de encantar' : fornoAberto ? 'Fornalha' : bauAberto ? 'Baú' : inv.w === 3 ? 'Bancada' : ''; // na mochila o "Criação" fica em cima da grade 2x2
   const bts = document.createElement('span'); bts.className = 'inv-bts';
   const bt = (id, ic, rotulo, fn, ligado) => {
     const b = document.createElement('button'); b.type = 'button'; b.id = id; b.className = 'bt-ic' + (ligado ? ' ligado' : '');
@@ -687,10 +691,10 @@ function desenharMochila(g) {
     if (ligado !== undefined) b.setAttribute('aria-pressed', !!ligado);
     b.addEventListener('click', fn); bts.appendChild(b);
   };
-  if (!bauAberto) bt('inv-livro', 'livro', 'Livro de receitas', () => { som.clique(); abrirInventario('criar'); });
+  if (!bauAberto && !mesaAberta) bt('inv-livro', 'livro', 'Livro de receitas', () => { som.clique(); abrirInventario('criar'); });
   if (toqueInv) bt('inv-rapido', 'raio', 'Mover rápido', () => { moverRapido = !moverRapido; som.clique(); desenharMochila(g); }, moverRapido);
   topo.append(nome, bts);
-  const cima = document.createElement('div'); cima.className = 'inv-cima' + (fornoAberto ? ' c-forno' : bauAberto ? ' c-bau' : inv.w === 3 ? ' c-bancada' : ' c-mochila');
+  const cima = document.createElement('div'); cima.className = 'inv-cima' + (mesaAberta ? ' c-mesa' : fornoAberto ? ' c-forno' : bauAberto ? ' c-bau' : inv.w === 3 ? ' c-bancada' : ' c-mochila');
   // grade de criar e o resultado
   const criar = document.createElement('div'); criar.className = 'inv-criar';
   const gr = document.createElement('div'); gr.className = 'grade-criar w' + inv.w;
@@ -701,7 +705,8 @@ function desenharMochila(g) {
   saida.id = 'inv-saida';
   if (r) saida.setAttribute('aria-label', `Criar ${nomeDe(r.faz[0])}`);
   criar.append(gr, seta, saida);
-  if (fornoAberto) cima.append(painelForno());
+  if (mesaAberta) cima.append(painelMesa());
+  else if (fornoAberto) cima.append(painelForno());
   else if (bauAberto) cima.append(painelBau());
   else if (inv.w === 3) cima.append(criar); // bancada: só a grade 3x3 (como no clássico)
   else {
@@ -785,6 +790,8 @@ function acaoSlot(l, i, direito, shift) {
   if (l === 'o') { pegarResultado(shift || moverRapido); return; }
   if (l === 'f') { acaoForno(i, direito); return; }
   if (l === 'b') { acaoBau(i, direito); return; }
+  if (l === 'm') { if (i === 0 && mesaAberta && mesaAberta.sel >= 0) { mesaAberta.sel = -1; som.clique(); desenharMochila($('#grade')); } return; }
+  if (mesaAberta && l === 's' && !inv.cursor && !direito && inv.s[i] && tipoEnc(inv.s[i].id)) { escolherNaMesa(i); return; }
   if (bauAberto && (shift || moverRapido) && !inv.cursor && !direito && l === 's') { moverParaBau(i); return; }
   if (fornoAberto && (shift || moverRapido) && !inv.cursor && !direito && moverParaForno(l, i)) { invMudou(); return; }
   if (direito) inv.clicarDireito(l, i);
@@ -832,9 +839,9 @@ function largarCursor(um) {
     if (!ap.arrastando && Math.hypot(e.clientX - ap.x, e.clientY - ap.y) > 10) {
       ap.arrastando = true; clearTimeout(ap.timer);
       // começou a arrastar uma pilha (sem nada preso): pega ela para soltar onde largar o dedo
-      if (!ap.tinha && ap.l !== 'o' && ap.l !== 'f' && ap.l !== 'b') { if (ap.direito) inv.clicarDireito(ap.l, ap.i); else inv.clicar(ap.l, ap.i); invMudou(); }
+      if (!ap.tinha && ap.l !== 'o' && ap.l !== 'f' && ap.l !== 'b' && ap.l !== 'm') { if (ap.direito) inv.clicarDireito(ap.l, ap.i); else inv.clicar(ap.l, ap.i); invMudou(); }
     }
-    if (ap.arrastando && ap.tinha) { const t = alvo(e.clientX, e.clientY); if (t && t[0] !== 'o' && t[0] !== 'f' && t[0] !== 'b' && !ap.passou.some(([a, b]) => a === t[0] && b === t[1])) ap.passou.push(t); }
+    if (ap.arrastando && ap.tinha) { const t = alvo(e.clientX, e.clientY); if (t && t[0] !== 'o' && t[0] !== 'f' && t[0] !== 'b' && t[0] !== 'm' && !ap.passou.some(([a, b]) => a === t[0] && b === t[1])) ap.passou.push(t); }
   });
   addEventListener('pointerup', (e) => {
     if (!ap) return;
@@ -849,6 +856,8 @@ function largarCursor(um) {
       return;
     }
     // arrastar e soltar uma pilha
+    if (a.l === 'm') { acaoSlot('m', a.i, false, false); return; } // a mesa não arrasta
+    if (t && t[0] === 'm') { if (inv.cursor) { inv.clicar(a.l, a.i); invMudou(); } return; } // soltou na mesa: volta (escolhe tocando)
     if (a.l === 'f') { acaoSlot('f', a.i, false, false); return; } // arrastou da fornalha: tira para a mochila
     if (a.l === 'b') { acaoSlot('b', a.i, false, false); return; } // arrastou do baú: tira para a mochila
     if (t && t[0] === 'b') { if (inv.cursor) acaoBau(t[1], false); if (inv.cursor) { inv.clicar(a.l, a.i); invMudou(); } return; } // soltou no baú
@@ -868,14 +877,14 @@ function largarCursor(um) {
   addEventListener('keydown', (e) => {
     if ($('#inventario').hidden || !g.classList.contains('inv-classico') || !/^Digit[1-9]$/.test(e.code)) return;
     const t = alvo(cursorXY[0], cursorXY[1]);
-    if (!t || t[0] === 'o' || t[0] === 'f' || t[0] === 'b') return;
+    if (!t || t[0] === 'o' || t[0] === 'f' || t[0] === 'b' || t[0] === 'm') return;
     e.preventDefault(); e.stopImmediatePropagation();
     inv.trocarComBarra(t[0], t[1], +e.code.slice(5) - 1); som.clique(); invMudou();
   }, true);
 })();
 // fechou o inventário: grade e cursor voltam para a mochila
 function guardarGrade() {
-  fecharFornalha(); fecharBau();
+  fecharFornalha(); fecharBau(); fecharMesa();
   if (!invPronto) return;
   if (inv.cursor || inv.g.some(Boolean)) { inv.devolver(); sincronizarBarra(); salvarInvDepois(); }
   inv.mudarGrade(2);
@@ -901,6 +910,7 @@ function salvarFornos() {
 }
 const fornoK = (x, y, z) => x + ',' + y + ',' + z;
 function abrirFornalha(x, y, z) {
+  fecharMesa();
   fornoAberto = { x, y, z, k: fornoK(x, y, z) };
   if (sala) sala.enviar({ t: 'forno-ver', x, y, z });
   inv.mudarGrade(2);
@@ -1019,7 +1029,7 @@ function salvarBaus() {
   try { localStorage.setItem(chaveBaus(), JSON.stringify(o)); } catch {}
 }
 function abrirBau(x, y, z) {
-  fecharFornalha();
+  fecharFornalha(); fecharMesa();
   bauAberto = { x, y, z, k: fornoK(x, y, z) };
   if (sala) sala.enviar({ t: 'bau-ver', x, y, z });
   inv.mudarGrade(2);
@@ -1063,13 +1073,93 @@ function moverParaBau(i) {
   if (mexerBau({ t: 'bau-por', k: -1, id: p.id, n: p.n })) som.clique();
   invMudou();
 }
+// ---------- mesa de encantar (regras em encantos-regras.js) ----------
+// Escolhe na mochila uma ferramenta, espada ou peça de armadura (tocar nela) e uma das 3 ofertas. Paga com
+// pedra-azul e níveis de experiência; estantes em volta (a 2 blocos, com o meio vazio) deixam as ofertas mais fortes.
+let mesaAberta = null;
+function abrirMesa(x, y, z) {
+  fecharFornalha(); fecharBau();
+  mesaAberta = { x, y, z, sel: -1 };
+  inv.mudarGrade(2);
+  abrirInventario('mochila');
+}
+function fecharMesa() { mesaAberta = null; }
+// a ordem do desgaste (receitas.js e.desg[id]): a vestida ou a da mão primeiro, depois na ordem dos espaços
+function ordemDesg(id) {
+  const ordem = [], pa = parteDe(id);
+  if (pa >= 0 && inv.s[ARMA + pa] && inv.s[ARMA + pa].id === id) ordem.push(ARMA + pa);
+  else if (inv.s[slotSel] && inv.s[slotSel].id === id) ordem.push(slotSel);
+  inv.s.forEach((p, k) => { if (p && p.id === id && !ordem.includes(k)) ordem.push(k); });
+  return ordem;
+}
+const encantavel = (i) => { const p = inv.s[i]; return !!(p && DURA[p.id] && tipoEnc(p.id) && !encantado(desgDoEspaco(i, p.id))); };
+function estantesDaMesa() { return mesaAberta ? contarEstantes((x, y, z) => mundo.bloco(x, y, z), mesaAberta.x, mesaAberta.y, mesaAberta.z) : 0; }
+function ofertasDaMesa() {
+  const i = mesaAberta && mesaAberta.sel, p = i >= 0 && inv.s[i];
+  if (!p || !encantavel(i)) return [];
+  return ofertas(p.id, desgDoEspaco(i, p.id), estantesDaMesa(), mercado.e.semEnc | 0);
+}
+function escolherNaMesa(i) {
+  if (!encantavel(i)) { aviso(inv.s[i] && tipoEnc(inv.s[i].id) ? 'Já está encantado' : 'Só dá para encantar ferramenta, espada ou armadura', 1800, 'livro'); return; }
+  mesaAberta.sel = mesaAberta.sel === i ? -1 : i;
+  som.clique();
+  desenharMochila($('#grade'));
+}
+function encantarCom(op) {
+  const i = mesaAberta.sel, p = inv.s[i], of = ofertasDaMesa()[op];
+  if (!p || !of) return;
+  const nivel = nivelDe(mercado.e.xp | 0).nivel;
+  if (nivel < of.nivel) { aviso(`Precisa do nível ${of.nivel}`, 1800, 'estrela'); return; }
+  if ((mercado.e.itens[PEDRA_AZUL] | 0) < of.custo) { aviso(`Precisa de ${of.custo} pedra-azul`, 1800, 'livro'); return; }
+  const k = ordemDesg(p.id).indexOf(i);
+  const r = mercado.encantar(mesaAberta.x, mesaAberta.y, mesaAberta.z, p.id, k, op, estantesDaMesa());
+  if (!r) return;
+  som.criar();
+  aviso(`${nomeDe(p.id)}: ${(r.encs || of.encs).map(([e, l]) => nomeEnc(e, l)).join(', ')}`, 2600, 'livro');
+  mesaAberta.sel = -1;
+  invMudou();
+}
+function painelMesa() {
+  const el = document.createElement('div'); el.className = 'inv-mesa'; el.id = 'mesa-painel';
+  const i = mesaAberta.sel, p = i >= 0 ? inv.s[i] : null;
+  const lado = document.createElement('div'); lado.className = 'mesa-lado';
+  const s1 = slotInv('m', 0, p, 'mesa-item');
+  if (p && DURA[p.id]) { const v = desgDoEspaco(i, p.id); if (usosDe(v)) barraDesg(s1, i, p.id); }
+  if (!p) s1.setAttribute('aria-label', 'Toque numa ferramenta, espada ou armadura da mochila');
+  const az = mercado.e.itens[PEDRA_AZUL] | 0;
+  const s2 = slotInv('m', 1, az ? { id: PEDRA_AZUL, n: az } : null, 'mesa-azul');
+  if (!az) { const f = imgIcone(PEDRA_AZUL); f.classList.add('fantasma'); s2.appendChild(f); s2.setAttribute('aria-label', 'Sem pedra-azul'); }
+  lado.append(s1, s2);
+  const lista = document.createElement('div'); lista.className = 'mesa-ofertas';
+  const nivel = nivelDe(mercado.e.xp | 0).nivel, ofs = p ? ofertasDaMesa() : [];
+  for (let k = 0; k < 3; k++) {
+    const o = ofs[k], b = document.createElement('button'); b.type = 'button'; b.className = 'mesa-oferta'; b.dataset.op = k;
+    if (!o) { b.disabled = true; b.innerHTML = '<span class="runas"></span>'; }
+    else {
+      const pode = nivel >= o.nivel && az >= o.custo;
+      b.classList.toggle('pode', pode);
+      const [ek, el2] = o.encs[0];
+      b.innerHTML = `<span class="mesa-custo">${'<i></i>'.repeat(o.custo)}</span><span class="mesa-enc">${nomeEnc(ek, el2)}${o.encs.length > 1 ? ' . . . ?' : ''}</span><b class="mesa-nivel">${o.nivel}</b>`;
+      b.setAttribute('aria-label', `${nomeEnc(ek, el2)}: nível ${o.nivel}, custa ${o.custo} ${o.custo > 1 ? 'níveis' : 'nível'} e ${o.custo} pedra-azul`);
+      b.addEventListener('click', () => encantarCom(k));
+    }
+    lista.appendChild(b);
+  }
+  el.append(lado, lista);
+  const est = estantesDaMesa();
+  const dica = document.createElement('p'); dica.className = 'mesa-dica';
+  dica.textContent = p ? `Estantes em volta: ${est} de 15` : 'Toque numa ferramenta, espada ou armadura da mochila';
+  el.append(dica);
+  return el;
+}
 function painelBau() {
   const el = document.createElement('div'); el.className = 'inv-bau'; el.id = 'bau-painel';
   const b = baus.get(bauAberto.k) || bauNovo();
   for (let i = 0; i < ESPACOS_BAU; i++) {
     const p = b[i], s = slotInv('b', i, p ? { id: p[0], n: p[1] } : null);
-    if (p && p[3] && DURA[p[0]]) { // a ferramenta guardada mostra o desgaste dela
-      const resta = Math.max(0, 1 - p[3] / DURA[p[0]]), d = document.createElement('span'); d.className = 'desg';
+    if (p && p[3] && DURA[p[0]] && encantado(p[3])) { s.classList.add('encantado'); s.title = nomeDe(p[0]) + ': ' + listaEnc(p[3]).map(([k, l]) => nomeEnc(k, l)).join(', '); }
+    if (p && usosDe(p[3]) && DURA[p[0]]) { // a ferramenta guardada mostra o desgaste dela
+      const resta = Math.max(0, 1 - usosDe(p[3]) / duraDe(p[0], p[3])), d = document.createElement('span'); d.className = 'desg';
       d.innerHTML = `<i style="width:${Math.max(4, Math.round(resta * 100))}%;background:hsl(${Math.round(resta * 120)},80%,45%)"></i>`;
       s.appendChild(d);
     }
@@ -1235,12 +1325,14 @@ function mostrarColeta(id, n) {
 // ---------- experiência (xp-regras.js): barra verde em cima da barra de itens, com o nível no meio ----------
 let xpVisto = -1, nivelVisto = -1;
 // armadura (jogo clássico): o dano de fora (bicho, monstro, fogo, lava) passa por ela e ela gasta
+// encanto (encantos-regras.js) da coisa daquele id que está em uso: a da mão, ou a peça vestida (a primeira da lista)
+function encDe(id, k) { const l = invPronto && mercado.e && mercado.e.desg && mercado.e.desg[id]; return l ? nivelEnc(l[0] | 0, k) : 0; }
 function armaduraLigada() { return invPronto && sobrev() && !!mercado.op.fome && vida.classico(); }
 function danoDeFora(n, motivo) {
   vida.motivo = motivo;
   const ids = armaduraLigada() && PROTEGE.has(motivo) ? inv.vestido() : [];
   if (!ids.length) return vida.dano(n);
-  const r = reduzir(n, ids);
+  const r = reduzir(n, ids, Math.random, fatorProtecao(ids.map((id) => encDe(id, 'protecao'))));
   // mesmo quando a armadura segurou tudo, o golpe pegou nela (gasta); protegido (acabou de levar) não gasta
   if (vida.protegido > 0 || vida.atual <= 0 || !vida.ligada()) return false;
   mercado.armadura(ids, r.gasto);
@@ -1740,6 +1832,8 @@ function usar(ponto) {
   // tocar na fornalha abre a fornalha (com a mochila embaixo)
   if (h.b === FORNALHA && sobrev() && invPronto) { som.clique(); abrirFornalha(h.x, h.y, h.z); return; }
   // tocar no baú abre o baú (27 espaços em cima, a mochila embaixo)
+  // tocar na mesa de encantar (jogo clássico) abre a mesa com a mochila embaixo
+  if (h.b === MESA_ENCANTAR && sobrev() && invPronto) { som.clique(); if (mercado.op.fome) abrirMesa(h.x, h.y, h.z); else aviso('A mesa de encantar só funciona no jogo clássico', 2200, 'livro'); return; }
   if (h.b === BAU && sobrev() && invPronto) { som.abrirBau ? som.abrirBau() : som.clique(); abrirBau(h.x, h.y, h.z); return; }
   // tocar no bolo colocado (bolo-regras.js): com fome, come uma fatia (não é a mão colocando nem quebrando)
   if (ehBolo(h.b) && vida.classico() && !armas.empunhando) {
@@ -1920,7 +2014,7 @@ function baterNoBicho(b) {
   const segurando = agora - tentouEm < 330; // segurar repete a cada 260 ms: espera a recarga encher
   tentouEm = agora;
   if (segurando && carga < 0.95) return;
-  const [dano] = golpeDe(naMao());
+  const dano = golpeDe(naMao())[0] + bonusAfiada(encDe(naMao(), 'afiada'));
   const critico = carga > 0.9 && !jog.noChao && !jog.naAgua && !jog.voando && jog.vel.y < 0;
   const r = bichos.bater(b, dano * (0.2 + 0.8 * carga * carga), { critico, empurrao: carga > 0.9 ? 1 : 0.6 });
   vida.cansar(0.1); // fome (clássico): bater cansa
@@ -1994,7 +2088,7 @@ function segurarQuebra(h, mao, ponto) {
   if (!cq || cq.k !== k || cq.b !== h.b) { pararQuebra(); cq = { k, x: h.x, y: h.y, z: h.z, b: h.b, n: h.n, p: 0, est: -1, som: 0 }; }
   cq.ultimo = agora; cq.mao = mao; cq.ponto = ponto; cq.mira = 0;
   // criativo: quebra na hora (segurando, um bloco a cada repetição do controle, como no clássico)
-  cq.tempo = sobrev() ? tempoQuebrar(h.b, mao, BLOCOS[h.b]) : 0; // trocou a ferramenta no meio: vale a nova
+  cq.tempo = sobrev() ? tempoQuebrar(h.b, mao, BLOCOS[h.b], encDe(mao, 'eficiencia')) : 0; // trocou a ferramenta no meio: vale a nova
   if (cq.tempo === 0) romperBloco();
 }
 function pararQuebra() { if (!cq) return; if (rachas) rachas.tirar('eu'); cq = null; }
@@ -3053,4 +3147,4 @@ if (conta.token) abrirJogos().then(() => { if (mundoPedido && conta.usuario) ent
 else mostrarMenu('m-inicio');
 
 // modo de teste automatizado
-if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get mundoAtual() { return mundoAtual; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, get inv() { return inv; }, abrirInventario, bancadaPerto, camera, cena, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; }, get escav() { return escav; }, get rachas() { return rachas; }, get cq() { return cq; }, som, fornos, get fornoAberto() { return fornoAberto; }, baus, get bauAberto() { return bauAberto; } }; }
+if (location.hash === '#teste') { window.__jogo = { get ctrl() { return ctrl; }, amigo: { entrou: (j) => adicionarOutro(j), pos: recebeuPos }, get outros() { return outros.size; }, get outrosLista() { return [...outros.values()]; }, get sala() { return sala; }, get mundoAtual() { return mundoAtual; }, get jog() { return jog; }, get mundo() { return mundo; }, get bichos() { return bichos; }, agua, get aldeoes() { return aldeoes; }, garagem, visao, chat, personagem, get meuSkin() { return meuSkin(); }, mercado, conversarCom, comoJogador, vida, opcoesMundo, get tempoDia() { return tempoDia; }, set dia(v) { tempoDia = v; }, get dia() { return tempoDia; }, get barra() { return barra; }, set slot(v) { slotSel = v; }, get inv() { return inv; }, abrirInventario, bancadaPerto, camera, cena, graf, pos, renderer, ajustes, calib, vigiarDesempenho, palpiteGrafico, opcoesGraficas, jogarLocal, usar, quebrar, cmd, mapa, mecanismos, armas, get pausado() { return pausado; }, guerra, drops, largarDaMao, tv, get plantacoes() { return plantacoes; }, get escav() { return escav; }, get rachas() { return rachas; }, get cq() { return cq; }, som, fornos, get fornoAberto() { return fornoAberto; }, baus, get bauAberto() { return bauAberto; }, get mesaAberta() { return mesaAberta; }, ofertasDaMesa, estantesDaMesa }; }

@@ -110,6 +110,10 @@ def(FORNALHA, 'Fornalha', [169, 169, 168]);
 def(BLOCO_FERRO, 'Bloco de ferro', 170);
 def(BLOCO_OURO, 'Bloco de ouro', 171);
 def(BLOCO_DIAMANTE, 'Bloco de diamante', 172);
+// encantar (encantos-regras.js): minério de pedra-azul e a mesa de encantar (topo, lado, baixo de obsidiana)
+export const MINERIO_AZUL = 193, MESA_ENCANTAR = 194;
+def(MINERIO_AZUL, 'Minério de pedra-azul', 202);
+def(MESA_ENCANTAR, 'Mesa de encantar', [203, 151, 204]);
 
 // ---------- itens (não são blocos: não vão para o mundo) ----------
 // Números a partir de 1000, longe de todos os blocos (0..255). Receitas e força das ferramentas: receitas.js.
@@ -132,6 +136,8 @@ export const ITEM = {
   CAPACETE_COURO: 1117, PEITORAL_COURO: 1118, CALCA_COURO: 1119, BOTAS_COURO: 1120,
   CAPACETE_FERRO: 1121, PEITORAL_FERRO: 1122, CALCA_FERRO: 1123, BOTAS_FERRO: 1124,
   CAPACETE_DIAMANTE: 1125, PEITORAL_DIAMANTE: 1126, CALCA_DIAMANTE: 1127, BOTAS_DIAMANTE: 1128,
+  // encantar (encantos-regras.js)
+  PEDRA_AZUL: 1129, PAPEL: 1130, LIVRO: 1131,
 };
 export const ITENS = {
   [ITEM.GRAVETO]: { nome: 'Graveto', tile: 130 },
@@ -177,6 +183,9 @@ export const ITENS = {
   [ITEM.PEITORAL_DIAMANTE]: { nome: 'Peitoral de diamante', tile: 199 },
   [ITEM.CALCA_DIAMANTE]: { nome: 'Calça de diamante', tile: 200 },
   [ITEM.BOTAS_DIAMANTE]: { nome: 'Botas de diamante', tile: 201 },
+  [ITEM.PEDRA_AZUL]: { nome: 'Pedra-azul', tile: 206 },
+  [ITEM.PAPEL]: { nome: 'Papel', tile: 207 },
+  [ITEM.LIVRO]: { nome: 'Livro', tile: 208 },
 };
 export const ehItem = (id) => id >= 1000;
 // nome de qualquer coisa que cabe na mão (bloco ou item)
@@ -675,6 +684,47 @@ function pintarCriacao(img) {
   pintarTile(img, 170, placa(hex(0xc9ced4), hex(0xeef1f4), hex(0x7d848c)));
   pintarTile(img, 171, placa(hex(0xf0bd2a), hex(0xffe67a), hex(0xa8790f)));
   pintarTile(img, 172, placa(hex(0x4cd6cc), hex(0xb8fff8), hex(0x1f8f8a)));
+  // encantar: 203 topo da mesa (pano vermelho com livro aberto), 204 lado (obsidiana com faixa e brilho azul)
+  pintarTile(img, 203, (x, y, r) => {
+    if (x === 0 || y === 0 || x === 15 || y === 15) return var_(hex(0x2a1a3a), r, 0.05);
+    const livro = x >= 4 && x <= 11 && y >= 5 && y <= 10;
+    if (livro) {
+      if (x === 7 || x === 8) return var_(hex(0x7a5230), r, 0.04); // lombada
+      return var_(y % 2 === 0 && x !== 4 && x !== 11 ? hex(0xb9ad94) : hex(0xf1e9d4), r, 0.03);
+    }
+    if (x === 1 || y === 1 || x === 14 || y === 14) return var_(hex(0xd8b84a), r, 0.05); // borda dourada
+    return var_((x + y) % 5 === 0 ? hex(0x8c1e28) : hex(0xb02a34), r, 0.08);
+  });
+  pintarTile(img, 204, (x, y, r) => {
+    if (y <= 3) {
+      if (y === 3) return var_(hex(0xd8b84a), r, 0.05);
+      return var_((x + y) % 5 === 0 ? hex(0x8c1e28) : hex(0xb02a34), r, 0.08);
+    }
+    if ((x === 4 || x === 11) && y >= 7 && y <= 12) return var_(hex(0x5fa8ff), r, 0.1); // runas azuis
+    if (y === 9 && x >= 6 && x <= 9) return var_(hex(0x5fa8ff), r, 0.1);
+    return var_(((x * 5 + y * 3) % 7 === 0) ? hex(0x3a2550) : hex(0x1a1222), r, 0.12);
+  });
+  // 206 pedra-azul: pedrinha azul lapidada
+  pintarTile(img, 206, (x, y, r) => {
+    const d = Math.abs(x - 7.5) * 1.1 + Math.abs(y - 8);
+    if (d > 6.2) return [0, 0, 0, 0];
+    if (d > 5.3) return var_(hex(0x14306e), r, 0.05);
+    return var_((x + y) % 5 === 0 ? hex(0x9cc0ff) : x < y ? hex(0x2a55c0) : hex(0x3d6ee0), r, 0.08);
+  });
+  // 207 papel: folha clara com as linhas
+  pintarTile(img, 207, (x, y, r) => {
+    if (x < 3 || x > 12 || y < 2 || y > 13) return [0, 0, 0, 0];
+    if (x === 3 || x === 12 || y === 2 || y === 13) return var_(hex(0xb9ad94), r, 0.04);
+    return var_(y % 3 === 0 && x > 4 && x < 11 ? hex(0xc9c0aa) : hex(0xf6f0de), r, 0.03);
+  });
+  // 208 livro: capa de couro com as folhas aparecendo
+  pintarTile(img, 208, (x, y, r) => {
+    if (x < 3 || x > 12 || y < 2 || y > 13) return [0, 0, 0, 0];
+    if (x === 12 && y > 2 && y < 13) return var_(hex(0xf1e9d4), r, 0.03); // folhas
+    if (x === 3 || y === 2 || y === 13 || x === 11) return var_(hex(0x5e3519), r, 0.05);
+    if (y === 5 && x > 5 && x < 10) return var_(hex(0xd8b84a), r, 0.05); // título
+    return var_(hex(0xa0652f), r, 0.07);
+  });
   // 137 carne: coxa de desenho animado (osso branco saindo do pedaço)
   pintarTile(img, 137, (x, y, r) => {
     const dx = x - 6, dy = y - 6, d = Math.hypot(dx, dy);

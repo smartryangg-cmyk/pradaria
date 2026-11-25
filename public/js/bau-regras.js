@@ -4,7 +4,7 @@
 //   d = desgaste da ferramenta (ferramenta não empilha; tirar do baú não conserta)
 // Quem é dono do estado é a sala (online) ou o aparelho (sem internet); economia.js mexe na mochila e no baú
 // juntos (ações bau-por e bau-tirar).
-import { guardavel, pilhaDe, DURA } from './receitas.js';
+import { guardavel, pilhaDe, DURA, desgLista } from './receitas.js';
 
 export const BAU = 223;
 export const ESPACOS_BAU = 27;
@@ -19,7 +19,7 @@ export function normalizarBau(o) {
     const p = o[i];
     if (!Array.isArray(p) || !guardavel(p[0]) || !int(p[1], 1, pilhaDe(p[0]))) continue;
     const c = int(p[2], 0, p[1]) ? p[2] : 0;
-    const d = DURA[p[0]] && int(p[3], 0, DURA[p[0]] - 1) ? p[3] : 0;
+    const d = DURA[p[0]] && Number.isInteger(p[3]) && p[3] > 0 ? desgLista(p[0], [p[3]], 1)[0] : 0; // usos e encanto (encantos-regras.js)
     b[i] = [p[0], p[1], c, d];
   }
   return b;
